@@ -74,8 +74,14 @@ function adaFilter(filter: FilterAktif) {
   return filter.toko.length + filter.kategoriProduk.length + filter.produk.length > 0;
 }
 
-const kelasTautan =
-  "inline-flex min-h-11 items-center rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+const kelasDasarTautan =
+  "inline-flex min-h-11 items-center rounded-full px-4 font-semibold transition-colors duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+const kelasTautan = `${kelasDasarTautan} text-primary hover:bg-primary/10`;
+/**
+ * Tautan di baris terpilih (latar accent): primary di atas accent hanya ±3,97 : 1, jadi memakai accent-foreground
+ * (6,6 : 1; ±5,7 : 1 saat hover di atas accent-foreground/10) sesuai DESIGN §2.
+ */
+const kelasTautanBarisTerpilih = `${kelasDasarTautan} text-accent-foreground hover:bg-accent-foreground/10`;
 
 /** Keadaan kosong (DESIGN §1: zona suasana). */
 function KeadaanKosong({ judul, keterangan }: { judul: string; keterangan: string }) {
@@ -95,6 +101,19 @@ function kelasTeksSekunder(terpilih: boolean) {
   return terpilih ? "text-accent-foreground" : "text-muted-foreground";
 }
 
+/** Sel tanpa nilai: ikon CircleDashed muted-foreground + "—", bukan 0 (DESIGN §7); teksnya ikut §2. */
+function SelTidakTersedia({ kategori, keterangan, terpilih }: { kategori: KategoriDasar; keterangan: string; terpilih: boolean }) {
+  return (
+    <TableCell angka data-kategori={kategori} data-tersedia="tidak" title={keterangan}>
+      <span className={`inline-flex items-center gap-1.5 ${kelasTeksSekunder(terpilih)}`} data-status="tidakTersedia">
+        <CircleDashed aria-hidden strokeWidth={2} className="size-5 text-muted-foreground" />
+        <span aria-hidden>—</span>
+        <span className="sr-only">Tidak tersedia</span>
+      </span>
+    </TableCell>
+  );
+}
+
 /** Rata-rata Ringkasan satu kategori: nilai, penanda parsial, dan jumlah ÷ pembaginya (DESIGN §7, §8). */
 function SelRataRata({
   kategori,
@@ -107,14 +126,11 @@ function SelRataRata({
 }) {
   if (nilai === null) {
     return (
-      <TableCell angka data-kategori={kategori} data-tersedia="tidak" title="Tidak tersedia: tidak ada bulan pilihan yang punya pengamatan.">
-        {/* DESIGN §7: tidak tersedia = ikon CircleDashed muted-foreground, tampil "—" (bukan 0); teksnya ikut §2. */}
-        <span className={`inline-flex items-center gap-1.5 ${kelasTeksSekunder(terpilih)}`} data-status="tidakTersedia">
-          <CircleDashed aria-hidden strokeWidth={2} className="size-5 text-muted-foreground" />
-          <span aria-hidden>—</span>
-          <span className="sr-only">Tidak tersedia</span>
-        </span>
-      </TableCell>
+      <SelTidakTersedia
+        kategori={kategori}
+        keterangan="Tidak tersedia: tidak ada bulan pilihan yang punya pengamatan."
+        terpilih={terpilih}
+      />
     );
   }
   return (
@@ -198,7 +214,7 @@ function TabelRingkasan({ hasil }: { hasil: Extract<HasilRingkasan, { keadaan: "
                   <Link
                     href={`${urlHalaman(hasil.bulanPilihan, filter, hasil.halaman, pasangan)}#${ID_MINGGU_SAMA}`}
                     aria-current={terpilih ? "true" : undefined}
-                    className={kelasTautan}
+                    className={terpilih ? kelasTautanBarisTerpilih : kelasTautan}
                     data-tautan-minggu-sama={pasangan}
                   >
                     Minggu sama
@@ -240,18 +256,11 @@ type Perbandingan = Extract<MingguSamaTerpilih, { keadaan: "siap" }>["perbanding
 function SelMingguSama({ kategori, nilai }: { kategori: KategoriDasar; nilai: Perbandingan | undefined }) {
   if (nilai === undefined) {
     return (
-      <TableCell
-        angka
-        data-kategori={kategori}
-        data-tersedia="tidak"
-        title="Tidak tersedia: tidak ada bulan pilihan yang punya nilai pada minggu laporan ini."
-      >
-        <span className="inline-flex items-center gap-1.5 text-muted-foreground" data-status="tidakTersedia">
-          <CircleDashed aria-hidden strokeWidth={2} className="size-5" />
-          <span aria-hidden>—</span>
-          <span className="sr-only">Tidak tersedia</span>
-        </span>
-      </TableCell>
+      <SelTidakTersedia
+        kategori={kategori}
+        keterangan="Tidak tersedia: tidak ada bulan pilihan yang punya nilai pada minggu laporan ini."
+        terpilih={false}
+      />
     );
   }
   return (

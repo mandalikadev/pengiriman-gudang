@@ -417,8 +417,18 @@ describe("/ringkasan: perbandingan minggu yang sama antarbulan (T36, PRD A2)", (
     expect(tr).toMatch(/class="block text-accent-foreground">15ML GLITTER - GORGEOUS</);
     expect(tr).toMatch(/class="text-xs text-accent-foreground">Σ/);
     expect(tr).toMatch(/class="[^"]*text-accent-foreground[^"]*" data-status="tidakTersedia"/);
+    // Tautan "Minggu sama" di baris terpilih: accent-foreground (6,6 : 1 di accent), bukan primary (±3,97 : 1).
+    const tautan = /<a[^>]*data-tautan-minggu-sama="[^"]*"[^>]*>/.exec(tr)?.[0] ?? "";
+    expect(tautan).toContain('aria-current="true"');
+    expect(tautan).toContain("text-accent-foreground");
+    expect(tautan).toContain("hover:bg-accent-foreground/10");
+    expect(tautan).not.toContain("text-primary");
+    expect(tautan).not.toContain("hover:bg-primary/10");
+    // Tidak ada sisa token berkontras rendah di atas accent pada baris terpilih (selain ikon, §7).
+    expect(trTanpaIkon).not.toMatch(/text-primary|text-clay|text-warning|text-info/);
     // Baris yang tidak terpilih tetap memakai muted-foreground.
     const lain = baris(await buka("viewer", { bulan: ["2029-05", "2029-03"] }), d.toko.nama, d.kode).tr;
+    expect(/<a[^>]*data-tautan-minggu-sama="[^"]*"[^>]*>/.exec(lain)?.[0]).toContain("text-primary");
     expect(lain).not.toContain("text-accent-foreground");
     expect(lain).toMatch(/class="block text-muted-foreground">15ML GLITTER - GORGEOUS</);
   });
