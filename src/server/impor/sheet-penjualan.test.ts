@@ -263,3 +263,38 @@ describe("bacaSheetPenjualan — struktur sheet", () => {
     }
   });
 });
+
+describe("bacaSheetPenjualan — normalisasi nama toko (keputusan T10)", () => {
+  it.each([" pms ", "Pms", "PMS"])("nama toko %j cocok dengan master PMS", (nama) => {
+    const hasil = baca(sheetSatuBlok(nama, [46174], [[...PRODUK_A, 2]]));
+    expect(hasil.masalah).toEqual([]);
+    expect(hasil.blokToko.map((b) => b.namaToko)).toEqual(["PMS"]);
+    expect(hasil.selBernilai.map((s) => s.namaToko)).toEqual(["PMS"]);
+  });
+
+  it("spasi ganda dirapikan: GUDANG  BALI cocok dengan master Gudang Bali", () => {
+    const hasil = baca(sheetSatuBlok("GUDANG  BALI", [46174], [PRODUK_A]), { toko: ["  Gudang   Bali "] });
+    expect(hasil.masalah).toEqual([]);
+    expect(hasil.blokToko.map((b) => b.namaToko)).toEqual(["  Gudang   Bali "]);
+  });
+
+  it("blok PMS dan pms  → error blok toko ganda di blok kedua", () => {
+    const hasil = baca([
+      ["SALES", null, null, null, "TOKO :", "PMS", "pms "],
+      [null, null, null, null, "TANGGAL :", 46174, 46174],
+      [...JUDUL_KOLOM, 0, 0],
+      PRODUK_A,
+    ]);
+    expect(hasil.masalah).toEqual([
+      expect.objectContaining({ tingkat: "error", kode: "blok-toko-ganda", lokasi: "JUNI (S)!G1" }),
+    ]);
+  });
+
+  it("nama yang hanya mirip (PMSS) tetap toko-tidak-dikenal", () => {
+    const hasil = baca(sheetSatuBlok("PMSS", [46174], [PRODUK_A]));
+    expect(hasil.masalah).toEqual([
+      expect.objectContaining({ tingkat: "error", kode: "toko-tidak-dikenal", lokasi: "JUNI (S)!F1" }),
+    ]);
+    expect(hasil.blokToko.map((b) => b.namaToko)).toEqual(["PMSS"]);
+  });
+});

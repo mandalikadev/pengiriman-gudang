@@ -157,6 +157,11 @@ function teksSel(sel: XLSX.CellObject | undefined): string {
   return String(sel.v).trim();
 }
 
+/** Kunci pencocokan nama toko (keputusan T10): trim, spasi beruntun jadi satu, huruf besar. Tanpa fuzzy. */
+function kunciNamaToko(nama: string): string {
+  return nama.trim().replace(/\s+/g, " ").toUpperCase();
+}
+
 /** Sel terisi: ada, bukan stub, dan bukan teks kosong. */
 function selTerisi(sel: XLSX.CellObject | undefined): sel is XLSX.CellObject {
   return sel !== undefined && sel.t !== "z" && sel.v !== undefined && !(sel.t === "s" && String(sel.v).trim() === "");
@@ -209,7 +214,12 @@ export function bacaSheetPenjualan(masukan: MasukanBacaSheet): HasilBacaSheet {
   const ambil = (baris: number, kolom: number) => sheet[alamatSel(baris, kolom)] as XLSX.CellObject | undefined;
 
   // Blok toko: setiap sel terisi di baris 1 (mulai kolom F) membuka blok sampai blok berikutnya.
-  const tokoMaster = new Set(masukan.namaTokoMaster.map((nama) => nama.trim()));
+  // Kunci ternormalisasi → nama master; nama di hasil memakai nama master agar cocok dengan identitas toko.
+  const tokoMaster = new Map<string, string>();
+  for (const nama of masukan.namaTokoMaster) {
+    const kunci = kunciNamaToko(nama);
+    if (!tokoMaster.has(kunci)) tokoMaster.set(kunci, nama);
+  }
   const tokoTerlihat = new Set<string>();
   const blokPerKolom: (BlokToko | undefined)[] = [];
   const kolomPerIndeks: (KolomTanggal | undefined)[] = [];
@@ -219,30 +229,33 @@ export function bacaSheetPenjualan(masukan: MasukanBacaSheet): HasilBacaSheet {
   for (let kolom = KOLOM_DATA_PERTAMA; kolom <= rentang.e.c; kolom++) {
     const selToko = ambil(BARIS_TOKO, kolom);
     if (selTerisi(selToko)) {
-      const namaToko = teksSel(selToko);
+      const namaDiSheet = teksSel(selToko);
+      const kunciToko = kunciNamaToko(namaDiSheet);
+      const namaMaster = tokoMaster.get(kunciToko);
+      const namaToko = namaMaster ?? namaDiSheet;
       const alamat = alamatSel(BARIS_TOKO, kolom);
       blokAktif = { namaToko, alamat, kolomTanggal: [] };
       tanggalBlok = new Set();
       hasil.blokToko.push(blokAktif);
-      if (!tokoMaster.has(namaToko)) {
+      if (namaMaster === undefined) {
         lapor(
           "error",
           "toko-tidak-dikenal",
           alamat,
-          `Toko "${namaToko}" tidak ada di daftar toko.`,
+          `Toko "${namaDiSheet}" tidak ada di daftar toko.`,
           "Perbaiki nama toko di Excel agar sama dengan daftar toko, atau minta admin menambahkan toko ini.",
         );
       }
-      if (tokoTerlihat.has(namaToko)) {
+      if (tokoTerlihat.has(kunciToko)) {
         lapor(
           "error",
           "blok-toko-ganda",
           alamat,
-          `Toko "${namaToko}" muncul lebih dari sekali di baris 1.`,
+          `Toko "${namaDiSheet}" muncul lebih dari sekali di baris 1.`,
           "Gabungkan atau hapus blok toko yang ganda di Excel.",
         );
       }
-      tokoTerlihat.add(namaToko);
+      tokoTerlihat.add(kunciToko);
     }
     blokPerKolom[kolom] = blokAktif;
 
