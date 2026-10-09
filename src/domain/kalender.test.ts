@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { formatTanggal, parseTanggalBisnis, posisiLaporan } from "./kalender";
+import { formatTanggal, parseTanggalBisnis, posisiLaporan, tanggalDalamBulanLaporan } from "./kalender";
 
 type KasusKalender = {
   tanggal: string;
@@ -62,5 +62,25 @@ describe("parseTanggalBisnis", () => {
     "",
   ])("menolak %s", (teks) => {
     expect(() => parseTanggalBisnis(teks)).toThrow(RangeError);
+  });
+});
+
+describe("tanggalDalamBulanLaporan (PRD B5)", () => {
+  it("Juli 2026 dimulai 29 Juni (Senin–Kamis acuan Kamis 2 Juli) dan berakhir 31 Juli", () => {
+    const juli = tanggalDalamBulanLaporan(2026, 7);
+    expect(juli.slice(0, 6)).toEqual(["2026-06-29", "2026-06-30", "2026-07-01", "2026-07-02", "2026-07-03", "2026-07-04"]);
+    expect(juli.at(-1)).toBe("2026-07-31");
+  });
+
+  it("Juni 2026 tidak memuat 29–30 Juni (PRD B7)", () => {
+    const juni = tanggalDalamBulanLaporan(2026, 6);
+    expect(juni[0]).toBe("2026-06-01");
+    expect(juni.at(-1)).toBe("2026-06-28");
+    expect(juni).toHaveLength(28);
+  });
+
+  it("Januari 2026 memuat 29–31 Desember 2025; Desember 2026 memuat 28–31 Desember", () => {
+    expect(tanggalDalamBulanLaporan(2026, 1).slice(0, 3)).toEqual(["2025-12-29", "2025-12-30", "2025-12-31"]);
+    expect(tanggalDalamBulanLaporan(2026, 12).slice(-4)).toEqual(["2026-12-28", "2026-12-29", "2026-12-30", "2026-12-31"]);
   });
 });

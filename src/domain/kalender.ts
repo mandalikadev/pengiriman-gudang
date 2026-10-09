@@ -121,6 +121,31 @@ export function posisiLaporan(tanggal: TanggalBisnis): PosisiLaporan {
   };
 }
 
+/**
+ * Semua tanggal asli yang posisinya jatuh di bulan laporan `tahun`-`bulan`, urut naik.
+ * Senin–Rabu paling jauh tiga hari sebelum Kamis acuannya, jadi kandidat dimulai tiga hari
+ * sebelum tanggal 1; tidak ada tanggal sesudah akhir bulan yang acuannya jatuh di bulan itu.
+ */
+export function tanggalDalamBulanLaporan(tahun: number, bulan: number): TanggalBisnis[] {
+  const bulanLaporan = `${pad(tahun, 4)}-${pad(bulan, 2)}`;
+  const bulanSebelumnya = bulan === 1 ? { tahun: tahun - 1, bulan: 12 } : { tahun, bulan: bulan - 1 };
+  let kandidat: BagianTanggal = {
+    ...bulanSebelumnya,
+    hari: jumlahHariDalamBulan(bulanSebelumnya.tahun, bulanSebelumnya.bulan) - 2,
+  };
+
+  const hasil: TanggalBisnis[] = [];
+  const banyakKandidat = 3 + jumlahHariDalamBulan(tahun, bulan);
+  for (let i = 0; i < banyakKandidat; i++) {
+    const tanggal = keTanggalBisnis(kandidat);
+    if (posisiLaporan(tanggal).bulanLaporan === bulanLaporan) {
+      hasil.push(tanggal);
+    }
+    kandidat = tambahHari(kandidat, 1);
+  }
+  return hasil;
+}
+
 /** Format tampilan Indonesia, mis. `Jumat, 05-06-2026` (PRD B8). */
 export function formatTanggal(tanggal: TanggalBisnis): string {
   const bagian = uraikan(tanggal);
