@@ -17,7 +17,7 @@ Daftar hal yang **belum diputuskan pemilik**. Agen tidak mengimplementasikan per
 
 | ID | Tindakan |
 |---|---|
-| TP-01 | Perbaiki workbook: `SEPTEMBER (S)` memiliki 749 sel berisi penjualan pada kolom `31/9` (contoh: PMS `AJ11`, SENTUL `AAP4`). Impor September tertahan sampai diperbaiki. |
+| TP-01 | Perbaiki workbook: `SEPTEMBER (S)` memiliki 750 sel bermasalah pada kolom `31/9`: 749 sel berisi penjualan (contoh: PMS `AJ11`, SENTUL `AAP4`) ditambah 1 nol yang diketik di `ACZ305` (nol yang diketik dihitung sebagai data, ADR-0005). Impor September tertahan sampai diperbaiki. |
 
 ## Ditunda (di luar scope tahap ini)
 
@@ -39,4 +39,11 @@ Daftar hal yang **belum diputuskan pemilik**. Agen tidak mengimplementasikan per
 | OD-08: definisi penanda kelengkapan sesuai usulan (2026-10-09) | PRD A2; T04 |
 | OD-09: angka harapan `laporan-15GL-GOR-PMS-juni.json` (Senin–Kamis 1, Jumat 0, Sabtu 1, Minggu 0) benar (2026-10-09) | PRD A2; T04 |
 | OD-10: hanya admin yang boleh mengunggah dan mengaktifkan impor (2026-10-09) | PRD A3; T11 |
+| T05: produk manual selalu berstatus `manual` berapa pun stoknya; stok kosong/negatif produk manual tidak menahan finalisasi; stok yang diisi tetap disimpan dan ditampilkan (2026-10-09) | PRD A6; T05 |
+| T05: mesin mengembalikan semua masalah sebagai daftar; urutan tampilan `kebutuhan-tidak-tersedia`, `stok-negatif`, `stok-belum-diisi`; semuanya harus beres sebelum finalisasi (2026-10-09) | PRD A6; T05 |
+| T05: jika masalah hanya soal stok, kebutuhan dan rinciannya tetap tampil dan jumlah kirim tampil "—"; jika kebutuhan tidak tersedia, tampilkan tanggal/kategori yang tidak punya rata-rata (2026-10-09) | PRD A6; T05 |
+| T07: "Belum disimpan" = `muted-foreground` + `PencilLine` + "Ada perubahan yang belum disimpan"; badge: latar 10% warna status, ikon warna status, teks `foreground` (2026-10-09) | DESIGN §7; T07 |
+| T04: Rata-rata Ringkasan ditandai parsial jika ada rata-rata bulanan pembentuknya yang parsial (2026-10-09) | PRD A2; T04 |
+| T06: produk berkode `-T` yang juga berkategori `KTP`/`KTL` beralasan `display-tester` (aturan kode didahulukan) (2026-10-09) | ADR-0007; T06 |
+| T10: nama toko dicocokkan dengan master setelah normalisasi (trim, spasi ganda jadi satu, huruf besar); tanpa pencocokan mirip/fuzzy (2026-10-09) | PRD A1; T10 |
 | TP-02: `@GANTI-PEMILIK` di `.github/CODEOWNERS` diganti `@mandalikadev` (2026-10-09) | `.github/CODEOWNERS` |

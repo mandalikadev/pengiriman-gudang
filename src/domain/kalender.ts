@@ -96,6 +96,31 @@ function tambahHari(tanggal: BagianTanggal, jumlah: number): BagianTanggal {
   return { tahun, bulan, hari };
 }
 
+function kurangiHari(tanggal: BagianTanggal, jumlah: number): BagianTanggal {
+  let { tahun, bulan, hari } = tanggal;
+  for (let i = 0; i < jumlah; i++) {
+    hari--;
+    if (hari < 1) {
+      bulan--;
+      if (bulan < 1) {
+        bulan = 12;
+        tahun--;
+      }
+      hari = jumlahHariDalamBulan(tahun, bulan);
+    }
+  }
+  return { tahun, bulan, hari };
+}
+
+/** Tanggal `jumlah` hari sesudah (positif) atau sebelum (negatif) `tanggal`. */
+export function geserHari(tanggal: TanggalBisnis, jumlah: number): TanggalBisnis {
+  if (!Number.isSafeInteger(jumlah)) {
+    throw new RangeError(`jumlah hari harus bilangan bulat, diterima: ${jumlah}`);
+  }
+  const bagian = uraikan(tanggal);
+  return keTanggalBisnis(jumlah >= 0 ? tambahHari(bagian, jumlah) : kurangiHari(bagian, -jumlah));
+}
+
 function kategoriDasarDari(indeksHari: number): KategoriDasar {
   if (indeksHari === 0) return "Minggu";
   if (indeksHari === 5) return "Jumat";
