@@ -1,1 +1,102 @@
 @import "tailwindcss";
+
+/*
+ * Tema "Organic" (docs/DESIGN.md, ADR-0010). Hanya mode terang.
+ * Nilai warna hanya ditulis di sini; komponen memakai kelas semantik (bg-primary, text-muted-foreground).
+ * tests/kontras.test.ts membaca blok :root ini untuk menjaga kontras.
+ */
+:root {
+  --background: #fdfcf8;
+  --foreground: #2c2c24;
+  --card: #fefefa;
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --primary: #5d7052;
+  --primary-foreground: #f3f4f1;
+  --secondary: #946538;
+  --secondary-foreground: #ffffff;
+  --clay: #c18c5d;
+  --accent: #e6dccd;
+  --accent-foreground: #4a4a40;
+  --muted: #f0ebe5;
+  --muted-foreground: #6b6b60;
+  --border: #ded8cf;
+  --input: #948c7d;
+  --ring: #5d7052;
+  --destructive: #a85448;
+  --warning: #8a6a1f;
+  --info: #4f6475;
+  --success: #4a5c40;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-clay: var(--clay);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-success: var(--success);
+
+  --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-fraunces), ui-serif, Georgia, serif;
+
+  --shadow-soft: 0 4px 20px -2px rgba(93, 112, 82, 0.15);
+  --shadow-float: 0 10px 40px -10px rgba(193, 140, 93, 0.2);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-heading);
+  }
+}
+
+/* DESIGN §4: satu lapisan noise global untuk rasa kertas. */
+.tekstur-kertas {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* DESIGN §5: hormati prefers-reduced-motion — tanpa scale, translate, maupun animasi. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    scale: none !important;
+    translate: none !important;
+    animation: none !important;
+  }
+}
