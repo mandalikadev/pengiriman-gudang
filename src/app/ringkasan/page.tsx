@@ -90,14 +90,27 @@ function KeadaanKosong({ judul, keterangan }: { judul: string; keterangan: strin
   );
 }
 
+/** DESIGN §2: teks sekunder di baris terpilih (latar accent) memakai accent-foreground, bukan muted-foreground. */
+function kelasTeksSekunder(terpilih: boolean) {
+  return terpilih ? "text-accent-foreground" : "text-muted-foreground";
+}
+
 /** Rata-rata Ringkasan satu kategori: nilai, penanda parsial, dan jumlah ÷ pembaginya (DESIGN §7, §8). */
-function SelRataRata({ kategori, nilai }: { kategori: KategoriDasar; nilai: BarisRingkasan["rataRata"][KategoriDasar] }) {
+function SelRataRata({
+  kategori,
+  nilai,
+  terpilih,
+}: {
+  kategori: KategoriDasar;
+  nilai: BarisRingkasan["rataRata"][KategoriDasar];
+  terpilih: boolean;
+}) {
   if (nilai === null) {
     return (
       <TableCell angka data-kategori={kategori} data-tersedia="tidak" title="Tidak tersedia: tidak ada bulan pilihan yang punya pengamatan.">
-        {/* DESIGN §7: tidak tersedia = muted-foreground + CircleDashed, tampil "—" (bukan 0). */}
-        <span className="inline-flex items-center gap-1.5 text-muted-foreground" data-status="tidakTersedia">
-          <CircleDashed aria-hidden strokeWidth={2} className="size-5" />
+        {/* DESIGN §7: tidak tersedia = ikon CircleDashed muted-foreground, tampil "—" (bukan 0); teksnya ikut §2. */}
+        <span className={`inline-flex items-center gap-1.5 ${kelasTeksSekunder(terpilih)}`} data-status="tidakTersedia">
+          <CircleDashed aria-hidden strokeWidth={2} className="size-5 text-muted-foreground" />
           <span aria-hidden>—</span>
           <span className="sr-only">Tidak tersedia</span>
         </span>
@@ -114,7 +127,7 @@ function SelRataRata({ kategori, nilai }: { kategori: KategoriDasar; nilai: Bari
     >
       <div className="flex flex-col items-end gap-1">
         <span className="font-semibold">{formatAngka(nilai.rataRataRingkasan)}</span>
-        <span className="text-xs text-muted-foreground">
+        <span className={`text-xs ${kelasTeksSekunder(terpilih)}`}>
           Σ {formatAngka(nilai.jumlahRataRataBulanan)} ÷ {nilai.pembagiBulan} bulan
         </span>
         {nilai.kelengkapan === "parsial" ? <BadgeStatus status="parsial" /> : null}
@@ -168,15 +181,15 @@ function TabelRingkasan({ hasil }: { hasil: Extract<HasilRingkasan, { keadaan: "
                 <TableCell className="font-semibold">{b.namaToko}</TableCell>
                 <TableCell className="whitespace-normal">
                   <span className="font-semibold">{b.kodeProduk}</span>
-                  {b.namaProduk ? <span className="block text-muted-foreground">{b.namaProduk}</span> : null}
+                  {b.namaProduk ? <span className={`block ${kelasTeksSekunder(terpilih)}`}>{b.namaProduk}</span> : null}
                 </TableCell>
                 {KATEGORI.map((kategori) => (
-                  <SelRataRata key={kategori} kategori={kategori} nilai={b.rataRata[kategori]} />
+                  <SelRataRata key={kategori} kategori={kategori} nilai={b.rataRata[kategori]} terpilih={terpilih} />
                 ))}
-                {/* DESIGN §2/§8: di baris terpilih (latar accent) teks total mentah memakai accent-foreground. */}
+                {/* DESIGN §8: total mentah dalam teks sekunder; di baris terpilih accent-foreground (§2). */}
                 <TableCell
                   angka
-                  className={terpilih ? "text-accent-foreground" : "text-muted-foreground"}
+                  className={kelasTeksSekunder(terpilih)}
                   data-total-mentah={b.totalPenjualanMentah}
                 >
                   {formatAngka(b.totalPenjualanMentah)}

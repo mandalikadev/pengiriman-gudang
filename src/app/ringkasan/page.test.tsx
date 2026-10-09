@@ -409,6 +409,18 @@ describe("/ringkasan: perbandingan minggu yang sama antarbulan (T36, PRD A2)", (
     const { tr } = baris(html, d.toko.nama, d.kode);
     expect(html).toMatch(new RegExp(`<tr[^>]*data-baris="${d.toko.nama}\\|${d.kode}"[^>]*data-state="selected"`));
     expect(tr).toMatch(/class="[^"]*text-accent-foreground[^"]*"[^>]*data-total-mentah/);
+    // DESIGN §2: semua teks sekunder di baris terpilih memakai accent-foreground (nama produk, Σ ÷ bulan, "—");
+    // hanya ikon CircleDashed yang tetap muted-foreground (§7).
+    const trTanpaIkon = tr.replace(/<svg[^>]*>.*?<\/svg>/g, "");
+    expect(trTanpaIkon).not.toContain("text-muted-foreground");
+    expect(tr).toMatch(/<svg[^>]*lucide-circle-dashed[^>]*text-muted-foreground/);
+    expect(tr).toMatch(/class="block text-accent-foreground">15ML GLITTER - GORGEOUS</);
+    expect(tr).toMatch(/class="text-xs text-accent-foreground">Σ/);
+    expect(tr).toMatch(/class="[^"]*text-accent-foreground[^"]*" data-status="tidakTersedia"/);
+    // Baris yang tidak terpilih tetap memakai muted-foreground.
+    const lain = baris(await buka("viewer", { bulan: ["2029-05", "2029-03"] }), d.toko.nama, d.kode).tr;
+    expect(lain).not.toContain("text-accent-foreground");
+    expect(lain).toMatch(/class="block text-muted-foreground">15ML GLITTER - GORGEOUS</);
   });
 
   it("bulan tanpa nilai pada indeks minggu itu tidak menambah pembagi", async () => {
