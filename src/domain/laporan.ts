@@ -48,6 +48,8 @@ type RataRataRingkasan = {
   jumlahRataRataBulanan: number;
   pembagiBulan: number;
   rataRataRingkasan: number;
+  /** Parsial jika ada rata-rata bulanan pembentuknya yang parsial (OD-08). */
+  kelengkapan: Kelengkapan;
 };
 
 type PerbandinganMingguSama = {
@@ -240,6 +242,7 @@ function hitungRingkasan(rataRataBulanan: readonly RataRataBulanan[]): RataRataR
         jumlahRataRataBulanan,
         pembagiBulan: pembentuk.length,
         rataRataRingkasan: bagiBulatAtas(jumlahRataRataBulanan, pembentuk.length),
+        kelengkapan: pembentuk.some((nilai) => nilai.kelengkapan === "parsial") ? "parsial" : "lengkap",
       },
     ];
   });

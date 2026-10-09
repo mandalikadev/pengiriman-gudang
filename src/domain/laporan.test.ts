@@ -155,6 +155,7 @@ describe("hitungLaporan: Ringkasan", () => {
         jumlahRataRataBulanan: 3,
         pembagiBulan: 2,
         rataRataRingkasan: 2,
+        kelengkapan: "lengkap",
       },
     ]);
   });
@@ -172,9 +173,53 @@ describe("hitungLaporan: Ringkasan", () => {
         jumlahRataRataBulanan: 3,
         pembagiBulan: 2,
         rataRataRingkasan: 2,
+        kelengkapan: "lengkap",
       },
     ]);
     expect(hasil.rataRataBulanan.map((nilai) => nilai.bulanLaporan)).toEqual(["2026-06", "2026-07"]);
+  });
+});
+
+describe("hitungLaporan: kelengkapan Ringkasan (OD-08)", () => {
+  it("Juni parsial (hanya 1 dari 4 tanggal Senin–Kamis teramati) dan Juli lengkap → Ringkasan parsial", () => {
+    const hasil = hitungLaporan({
+      pengamatan: amati([
+        ["2026-06-01", 2],
+        ["2026-07-06", 1],
+        ["2026-07-07", 1],
+        ["2026-07-08", 1],
+        ["2026-07-09", 1],
+      ]),
+      kategoriEfektif: kategoriDasar,
+      bulanPilihan: ["2026-06", "2026-07"],
+    });
+    expect(hasil.rataRataBulanan.map(({ bulanLaporan, kelengkapan }) => ({ bulanLaporan, kelengkapan }))).toEqual([
+      { bulanLaporan: "2026-06", kelengkapan: "parsial" },
+      { bulanLaporan: "2026-07", kelengkapan: "lengkap" },
+    ]);
+    expect(hasil.rataRataRingkasan).toEqual([
+      {
+        kategori: "Senin–Kamis",
+        bulanLaporan: ["2026-06", "2026-07"],
+        jumlahRataRataBulanan: 3,
+        pembagiBulan: 2,
+        rataRataRingkasan: 2,
+        kelengkapan: "parsial",
+      },
+    ]);
+  });
+
+  it("semua rata-rata bulanan pembentuk lengkap → Ringkasan lengkap", () => {
+    const hasil = hitungLaporan({
+      pengamatan: amati([
+        ["2026-06-06", 1],
+        ["2026-07-04", 2],
+      ]),
+      kategoriEfektif: kategoriDasar,
+      bulanPilihan: ["2026-06", "2026-07"],
+    });
+    expect(hasil.rataRataBulanan.every((nilai) => nilai.kelengkapan === "lengkap")).toBe(true);
+    expect(hasil.rataRataRingkasan.map((nilai) => nilai.kelengkapan)).toEqual(["lengkap"]);
   });
 });
 
