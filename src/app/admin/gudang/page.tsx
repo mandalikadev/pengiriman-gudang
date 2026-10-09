@@ -2,11 +2,14 @@ import { asc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { formatBulanLaporan, formatWaktu } from "@/app/admin/impor/format";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
 import { db } from "@/server/db";
 import { gudang, hubunganTokoGudang, toko } from "@/server/db/schema";
+import { bulanTersediaUntukPeriode, daftarPeriodeSumber } from "@/server/gudang/periode-sumber";
 
+import { FormPeriodeSumber, type DataPeriodeSumber } from "./form-periode-sumber";
 import { FormTambahToko, type DataGudang, type DataToko } from "./form-tambah-toko";
 
 export const metadata: Metadata = {
@@ -24,6 +27,18 @@ async function muatData(): Promise<{ daftarGudang: DataGudang[]; daftarToko: Dat
   return { daftarGudang, daftarToko };
 }
 
+const keBulan = (kode: string) => ({ kode, label: formatBulanLaporan(kode) });
+
+async function muatPeriodeSumber(): Promise<{ daftarPeriode: DataPeriodeSumber[]; bulanTersedia: { kode: string; label: string }[] }> {
+  const daftarPeriode = (await daftarPeriodeSumber()).map((p) => ({
+    idGudang: p.idGudang,
+    bulan: p.bulan.map(keBulan),
+    ditetapkanOleh: p.ditetapkanOleh,
+    ditetapkanPada: formatWaktu(p.ditetapkanPada),
+  }));
+  return { daftarPeriode, bulanTersedia: (await bulanTersediaUntukPeriode()).map(keBulan) };
+}
+
 /** Zona kerja (DESIGN §1). Hanya admin; viewer mendapat 404 agar halaman admin tidak terungkap. */
 export default async function HalamanGudang() {
   try {
@@ -33,6 +48,7 @@ export default async function HalamanGudang() {
     throw galat;
   }
   const { daftarGudang, daftarToko } = await muatData();
+  const { daftarPeriode, bulanTersedia } = await muatPeriodeSumber();
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
@@ -64,6 +80,8 @@ export default async function HalamanGudang() {
       </section>
 
       <FormTambahToko daftarGudang={daftarGudang} daftarToko={daftarToko} />
+
+      <FormPeriodeSumber daftarGudang={daftarGudang} daftarPeriode={daftarPeriode} bulanTersedia={bulanTersedia} />
     </main>
   );
 }

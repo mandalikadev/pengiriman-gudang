@@ -20,6 +20,11 @@ export function formatBulanImpor(tahun: number, bulan: number) {
   return `${NAMA_BULAN[bulan - 1]} ${tahun}`;
 }
 
+/** Kode bulan laporan `YYYY-MM` → mis. `Juni 2026`. */
+export function formatBulanLaporan(kode: string) {
+  return formatBulanImpor(Number(kode.slice(0, 4)), Number(kode.slice(5, 7)));
+}
+
 export function formatAngka(nilai: number) {
   return nilai.toLocaleString("id-ID");
 }

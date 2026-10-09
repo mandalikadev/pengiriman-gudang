@@ -586,3 +586,29 @@ export const riwayatPemetaanProduk = pgTable(
     ),
   ],
 );
+
+// --- Periode sumber gudang (T51, PRD A4, ADR-0003) ---
+
+/**
+ * Periode sumber per gudang, ditetapkan admin: 1–12 bulan laporan `YYYY-MM` (urut naik, boleh tidak berurutan).
+ * Tabel hanya ditambah, tidak pernah diubah: periode yang berlaku adalah baris terbaru (id terbesar) gudang itu,
+ * baris lainnya riwayat perubahan. Id baris yang berlaku menjadi versi periode sumber gudang.
+ */
+export const periodeSumberGudang = pgTable(
+  "periode_sumber_gudang",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    gudangId: integer("gudang_id")
+      .notNull()
+      .references(() => gudang.id),
+    bulan: text("bulan").array().notNull(),
+    ditetapkanOleh: text("ditetapkan_oleh")
+      .notNull()
+      .references(() => user.id),
+    ditetapkanPada: timestamp("ditetapkan_pada", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabel) => [
+    index("periode_sumber_gudang_gudang_id_idx").on(tabel.gudangId, tabel.id),
+    check("periode_sumber_gudang_jumlah_bulan", sql`cardinality(${tabel.bulan}) between 1 and 12`),
+  ],
+);

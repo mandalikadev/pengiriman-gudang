@@ -81,6 +81,16 @@ export async function idVersiCacheAktif(klien: Klien = db): Promise<number | nul
   return baris?.id ?? null;
 }
 
+/** Bulan laporan (`YYYY-MM`, urut naik) yang ada di cache versi `versiId`: bulan yang tersedia di data. */
+export async function bulanLaporanTersedia(klien: Klien, versiId: number): Promise<string[]> {
+  const baris = await klien
+    .selectDistinct({ bulanLaporan: cacheRataRataBulanan.bulanLaporan })
+    .from(cacheRataRataBulanan)
+    .where(eq(cacheRataRataBulanan.versiId, versiId))
+    .orderBy(asc(cacheRataRataBulanan.bulanLaporan));
+  return baris.map((b) => b.bulanLaporan);
+}
+
 export type StatusCacheLaporan = "terbaru" | "sedang-dihitung" | "perlu-dihitung-ulang" | "gagal";
 
 /** Status cache terhadap kunci versi saat ini, atau `null` bila belum ada impor aktif. */

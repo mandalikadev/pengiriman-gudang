@@ -7,7 +7,7 @@ import { hitungPerbandinganMingguSama, hitungRingkasan } from "@/domain/laporan"
 import { db } from "@/server/db";
 import { cacheNilaiMingguan, cacheRataRataBulanan, cacheTotalPenjualanMentah, produk, toko } from "@/server/db/schema";
 import type { Tx } from "@/server/impor/antrean";
-import { idVersiCacheAktif } from "@/server/laporan/cache";
+import { bulanLaporanTersedia, idVersiCacheAktif } from "@/server/laporan/cache";
 import { muatRincian, type RincianAngka } from "@/server/laporan/rincian";
 
 // Halaman Ringkasan (T34, PRD A2). Membaca cache rata-rata bulanan (T33) lalu menghitung tahap 3 lewat
@@ -156,13 +156,7 @@ async function periksaPilihanDanFilter(
   const versiId = await idVersiCacheAktif(tx);
   if (versiId === null) return { keadaan: "belum-ada-cache" };
 
-  const bulanTersedia = (
-    await tx
-      .selectDistinct({ bulanLaporan: cacheRataRataBulanan.bulanLaporan })
-      .from(cacheRataRataBulanan)
-      .where(eq(cacheRataRataBulanan.versiId, versiId))
-      .orderBy(asc(cacheRataRataBulanan.bulanLaporan))
-  ).map((b) => b.bulanLaporan);
+  const bulanTersedia = await bulanLaporanTersedia(tx, versiId);
 
   const opsiToko = await tx
     .selectDistinct({ id: toko.id, nama: toko.nama })

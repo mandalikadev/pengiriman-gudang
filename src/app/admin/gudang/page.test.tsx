@@ -1,10 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { eq } from "drizzle-orm";
+
 import { kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
-import { hubunganTokoGudang } from "@/server/db/schema";
+import { hubunganTokoGudang, periodeSumberGudang } from "@/server/db/schema";
+import { tetapkanPeriodeSumber } from "@/server/gudang/periode-sumber";
 import { buatTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
+import { siapkanBulanTersediaUji } from "@/server/laporan/uji-bantu";
 
 const kepala = vi.hoisted(() => ({ cookie: "" }));
 vi.mock("next/headers", () => ({
@@ -54,5 +58,30 @@ describe("/admin/gudang", () => {
     // Zona kerja: judul halaman text-2xl md:text-3xl, tanpa blob.
     expect(html).toContain("text-2xl font-bold md:text-3xl");
     expect(html).not.toContain("blur-3xl");
+  });
+});
+
+describe("/admin/gudang: periode sumber", () => {
+  it("admin melihat periode berlaku per gudang (siapa, kapan), gudang yang belum ditetapkan, dan bulan tersedia sebagai pilihan", async () => {
+    const admin = await kepalaPenggunaUji("admin");
+    const [agustus, november] = await siapkanBulanTersediaUji(admin.id, [8, 11]);
+    const bali = await idGudangUji("Gudang Bali");
+    const bandung = await idGudangUji("Gudang Bandung");
+    await tetapkanPeriodeSumber({ idGudang: bali, bulan: [november, agustus], idPengguna: admin.id });
+    await db.delete(periodeSumberGudang).where(eq(periodeSumberGudang.gudangId, bandung));
+    kepala.cookie = admin.cookie;
+
+    const html = renderToStaticMarkup(await HalamanGudang());
+    const tahun = agustus.slice(0, 4);
+    const barisBali = new RegExp(`<tr[^>]*data-periode-gudang="${bali}"[^>]*>(.*?)</tr>`).exec(html)?.[1] ?? "";
+    expect(barisBali).toContain(`Agustus ${tahun}, November ${tahun}`);
+    expect(barisBali).toMatch(/Uji admin, \w+, \d{2}-\d{2}-\d{4} pukul \d{2}\.\d{2} WIB/);
+    const barisBandung = new RegExp(`<tr[^>]*data-periode-gudang="${bandung}"[^>]*>(.*?)</tr>`).exec(html)?.[1] ?? "";
+    expect(barisBandung).toContain('data-status="periodeBelumDitetapkan"');
+    expect(barisBandung).toContain("Belum ditetapkan");
+    expect(html).toContain(`value="${agustus}"`);
+    expect(html).toContain(`value="${november}"`);
+    expect(html).toContain("Pilih 1–12 bulan, boleh tidak berurutan.");
+    expect(html).toContain("Simpan periode sumber");
   });
 });

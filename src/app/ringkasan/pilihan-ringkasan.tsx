@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 
 const MAKS_BULAN = 12;
 
-const kelasChip =
+/** Chip centang (bulan, toko, kategori); juga dipakai pemilih bulan periode sumber di admin Gudang. */
+export const kelasChip =
   "inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-input bg-card px-4 font-semibold transition-colors duration-300 ease-out hover:bg-primary/10 has-[:checked]:border-primary has-[:checked]:bg-accent has-[:checked]:text-accent-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/40 has-[:focus-visible]:ring-offset-2";
 
 type OpsiProduk = { kode: string; nama: string | null };
