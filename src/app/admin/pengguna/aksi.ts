@@ -1,12 +1,15 @@
 "use server";
 
 import { APIError } from "better-auth/api";
+import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 
 import { auth, daftarPeran } from "@/server/auth/auth";
 import { wajibAdmin } from "@/server/auth/kewenangan";
+import { db } from "@/server/db";
+import { user } from "@/server/db/schema";
 
 /** Hasil aksi simpan untuk PesanStatusSimpan (CODING_STANDARDS "Penyimpanan dan status"). */
 export type HasilSimpan = { keadaan: "berhasil" | "tersimpanGagalMuatUlang" } | { keadaan: "gagal"; pesan: string };
@@ -39,6 +42,28 @@ function gagal(pesan: string): HasilSimpan {
   return { keadaan: "gagal", pesan };
 }
 
+// Kunci advisory PostgreSQL yang menyerialkan setiap perubahan yang bisa mengurangi jumlah admin aktif.
+const KUNCI_ADMIN_AKTIF = 2_000_001;
+
+/**
+ * PRD A3: aplikasi selalu punya minimal satu admin aktif (peran admin dan tidak dinonaktifkan).
+ * Jika `idTarget` adalah admin aktif terakhir, `tulis` tidak dijalankan dan hasilnya `false`.
+ * Pemeriksaan dan penulisan berjalan di bawah satu kunci agar dua admin tidak saling menurunkan bersamaan.
+ */
+async function jagaAdminAktif(idTarget: string, tulis: () => Promise<unknown>): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${KUNCI_ADMIN_AKTIF})`);
+    const adminAktif = await tx
+      .select({ id: user.id })
+      .from(user)
+      .where(and(eq(user.role, "admin"), eq(user.banned, false)));
+    const targetAdminAktif = adminAktif.some((admin) => admin.id === idTarget);
+    if (targetAdminAktif && adminAktif.length <= 1) return false;
+    await tulis();
+    return true;
+  });
+}
+
 /** Menjalankan tulis data; galat Better Auth menjadi pesan gagal, lalu tampilan dimuat ulang. */
 async function simpan(tulis: () => Promise<unknown>): Promise<HasilSimpan> {
   try {
@@ -58,6 +83,15 @@ async function simpan(tulis: () => Promise<unknown>): Promise<HasilSimpan> {
   return { keadaan: "berhasil" };
 }
 
+/** Seperti `simpan`, tetapi ditolak dengan `pesanTolak` jika menghabiskan admin aktif. */
+async function simpanDijaga(idTarget: string, tulis: () => Promise<unknown>, pesanTolak: string) {
+  let dijalankan = true;
+  const hasil = await simpan(async () => {
+    dijalankan = await jagaAdminAktif(idTarget, tulis);
+  });
+  return dijalankan ? hasil : gagal(pesanTolak);
+}
+
 export async function buatPengguna(input: unknown): Promise<HasilSimpan> {
   await wajibAdmin();
   const isian = skemaBuat.safeParse(input);
@@ -71,17 +105,24 @@ export async function ubahPeran(input: unknown): Promise<HasilSimpan> {
   await wajibAdmin();
   const isian = skemaUbahPeran.safeParse(input);
   if (!isian.success) return gagal(isian.error.issues[0].message);
+  const { idPengguna, peran } = isian.data;
   const kepala = await headers();
-  return simpan(() =>
-    auth.api.setRole({ body: { userId: isian.data.idPengguna, role: isian.data.peran }, headers: kepala }),
-  );
+  const tulis = () => auth.api.setRole({ body: { userId: idPengguna, role: peran }, headers: kepala });
+  if (peran === "admin") return simpan(tulis);
+  return simpanDijaga(idPengguna, tulis, "Peran tidak bisa diubah: aplikasi harus punya minimal satu admin aktif.");
 }
 
 /** Nonaktifkan = ban Better Auth tanpa batas waktu; semua sesi pengguna itu dicabut. */
 export async function nonaktifkanPengguna(input: unknown): Promise<HasilSimpan> {
-  await wajibAdmin();
+  const admin = await wajibAdmin();
   const isian = skemaNonaktifkan.safeParse(input);
   if (!isian.success) return gagal(isian.error.issues[0].message);
+  const { idPengguna } = isian.data;
+  if (idPengguna === admin.id) return gagal(pesanGalatAuth.YOU_CANNOT_BAN_YOURSELF);
   const kepala = await headers();
-  return simpan(() => auth.api.banUser({ body: { userId: isian.data.idPengguna }, headers: kepala }));
+  return simpanDijaga(
+    idPengguna,
+    () => auth.api.banUser({ body: { userId: idPengguna }, headers: kepala }),
+    "Pengguna tidak bisa dinonaktifkan: aplikasi harus punya minimal satu admin aktif.",
+  );
 }

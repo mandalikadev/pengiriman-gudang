@@ -2,7 +2,15 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AksesDitolakError } from "@/server/auth/kewenangan";
-import { buatPenggunaUji, emailUnik, kepalaPenggunaUji, masukUji, sandiUji } from "@/server/auth/uji-bantu";
+import {
+  adminAktifUji,
+  buatPenggunaUji,
+  emailUnik,
+  kepalaPenggunaUji,
+  masukUji,
+  sandiUji,
+  sisakanAdminAktifUji,
+} from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
 import { user } from "@/server/db/schema";
 
@@ -132,5 +140,81 @@ describe("admin", () => {
     await expect(ubahPeran({ idPengguna: target.id, peran: "admin" })).rejects.toMatchObject({
       digest: expect.stringContaining("/masuk"),
     });
+  });
+});
+
+describe("admin tidak boleh menonaktifkan akunnya sendiri (PRD A3)", () => {
+  it("ditolak dengan pesan, akun tetap aktif", async () => {
+    const admin = await kepalaPenggunaUji("admin");
+    await buatPenggunaUji("admin");
+    kepala.cookie = admin.cookie;
+    await expect(nonaktifkanPengguna({ idPengguna: admin.id })).resolves.toEqual({
+      keadaan: "gagal",
+      pesan: "Akun sendiri tidak bisa dinonaktifkan.",
+    });
+    expect((await cariPengguna(admin.email)).banned).toBe(false);
+  });
+});
+
+// Test di bawah menonaktifkan admin lain di database test agar jumlah admin aktif pasti.
+describe("aplikasi selalu punya minimal satu admin aktif (PRD A3)", () => {
+  it("admin satu-satunya tidak bisa menurunkan perannya sendiri", async () => {
+    const admin = await kepalaPenggunaUji("admin");
+    await sisakanAdminAktifUji(admin.id);
+    kepala.cookie = admin.cookie;
+
+    await expect(ubahPeran({ idPengguna: admin.id, peran: "viewer" })).resolves.toEqual({
+      keadaan: "gagal",
+      pesan: "Peran tidak bisa diubah: aplikasi harus punya minimal satu admin aktif.",
+    });
+    expect((await cariPengguna(admin.email)).role).toBe("admin");
+  });
+
+  it("dengan dua admin aktif, admin bisa menurunkan perannya sendiri", async () => {
+    const admin = await kepalaPenggunaUji("admin");
+    const adminLain = await buatPenggunaUji("admin");
+    await sisakanAdminAktifUji(admin.id, adminLain.id);
+    kepala.cookie = admin.cookie;
+
+    await expect(ubahPeran({ idPengguna: admin.id, peran: "viewer" })).resolves.toEqual({ keadaan: "berhasil" });
+    expect((await cariPengguna(admin.email)).role).toBe("viewer");
+    expect(await adminAktifUji(admin.id, adminLain.id)).toEqual([adminLain.id]);
+  });
+
+  it("admin yang tersisa satu tidak bisa diturunkan oleh siapa pun", async () => {
+    const admin = await kepalaPenggunaUji("admin");
+    const adminLain = await buatPenggunaUji("admin");
+    await sisakanAdminAktifUji(admin.id, adminLain.id);
+    kepala.cookie = admin.cookie;
+
+    await expect(ubahPeran({ idPengguna: adminLain.id, peran: "viewer" })).resolves.toEqual({ keadaan: "berhasil" });
+    await expect(ubahPeran({ idPengguna: admin.id, peran: "viewer" })).resolves.toMatchObject({ keadaan: "gagal" });
+    expect(await adminAktifUji(admin.id, adminLain.id)).toEqual([admin.id]);
+  });
+
+  it("dua penurunan peran bersamaan tidak menghabiskan admin aktif", async () => {
+    const admin = await kepalaPenggunaUji("admin");
+    const adminLain = await buatPenggunaUji("admin");
+    await sisakanAdminAktifUji(admin.id, adminLain.id);
+    kepala.cookie = admin.cookie;
+
+    await Promise.allSettled([
+      ubahPeran({ idPengguna: adminLain.id, peran: "viewer" }),
+      ubahPeran({ idPengguna: admin.id, peran: "viewer" }),
+    ]);
+    expect(await adminAktifUji(admin.id, adminLain.id)).toHaveLength(1);
+  });
+
+  it("penurunan peran sendiri bersamaan dengan menonaktifkan admin lain tidak menghabiskan admin aktif", async () => {
+    const admin = await kepalaPenggunaUji("admin");
+    const adminLain = await buatPenggunaUji("admin");
+    await sisakanAdminAktifUji(admin.id, adminLain.id);
+    kepala.cookie = admin.cookie;
+
+    await Promise.allSettled([
+      nonaktifkanPengguna({ idPengguna: adminLain.id }),
+      ubahPeran({ idPengguna: admin.id, peran: "viewer" }),
+    ]);
+    expect(await adminAktifUji(admin.id, adminLain.id)).toHaveLength(1);
   });
 });

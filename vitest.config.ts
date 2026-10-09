@@ -12,5 +12,8 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.{ts,tsx}", "tests/**/*.test.{ts,tsx}"],
     globalSetup: ["./tests/siapkan-database.ts"],
+    // Berkas test berjalan berurutan: test "minimal satu admin aktif" menonaktifkan admin lain di database test,
+    // dan itu tidak boleh mengenai pengguna uji milik berkas lain yang sedang berjalan.
+    fileParallelism: false,
   },
 });
