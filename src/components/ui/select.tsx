@@ -4,6 +4,7 @@ import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { Select as SelectPrimitive } from "radix-ui";
 import type { ComponentProps } from "react";
 
+import { ukuranKontrol } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 export function Select(props: ComponentProps<typeof SelectPrimitive.Root>) {
@@ -14,24 +15,19 @@ export function SelectValue(props: ComponentProps<typeof SelectPrimitive.Value>)
   return <SelectPrimitive.Value data-slot="select-value" {...props} />;
 }
 
-// DESIGN §4 & §6: sama dengan Input — form tunggal `rounded-full h-12`, di tabel `rounded-xl h-9`.
-const ukuranTrigger = {
-  form: "h-12 rounded-full px-5 text-base",
-  tabel: "h-9 rounded-xl px-3 text-sm",
-} as const;
 
 export function SelectTrigger({
   className,
   ukuran = "form",
   children,
   ...props
-}: ComponentProps<typeof SelectPrimitive.Trigger> & { ukuran?: keyof typeof ukuranTrigger }) {
+}: ComponentProps<typeof SelectPrimitive.Trigger> & { ukuran?: keyof typeof ukuranKontrol }) {
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       className={cn(
         "flex w-full items-center justify-between gap-2 border border-input bg-card text-foreground whitespace-nowrap transition-colors duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-muted-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0",
-        ukuranTrigger[ukuran],
+        ukuranKontrol[ukuran],
         className,
       )}
       {...props}

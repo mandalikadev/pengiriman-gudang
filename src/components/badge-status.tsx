@@ -45,8 +45,6 @@ export type Status = keyof typeof daftarStatus;
 
 export const semuaStatus = Object.keys(daftarStatus) as Status[];
 
-const ikonBerputar: ReadonlySet<LucideIcon> = new Set([LoaderCircle]);
-
 export function BadgeStatus({
   status,
   className,
@@ -55,7 +53,7 @@ export function BadgeStatus({
   const { label, nada, ikon: Ikon } = daftarStatus[status];
   return (
     <Badge variant={nada} data-status={status} className={className} {...props}>
-      <Ikon aria-hidden strokeWidth={2} className={cn(ikonBerputar.has(Ikon) && "motion-safe:animate-spin")} />
+      <Ikon aria-hidden strokeWidth={2} className={cn(Ikon === LoaderCircle && "motion-safe:animate-spin")} />
       {label}
     </Badge>
   );

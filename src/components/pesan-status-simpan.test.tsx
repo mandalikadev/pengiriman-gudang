@@ -27,6 +27,8 @@ describe("PesanStatusSimpan (CODING_STANDARDS: lima keadaan simpan)", () => {
     const kelasSvg = html.match(/<svg[^>]*class="([^"]*)"/)?.[1].split(/\s+/) ?? [];
     const kelasP = html.match(/^<p[^>]*class="([^"]*)"/)?.[1].split(/\s+/) ?? [];
     expect(kelasSvg).toContain(warna);
+    // DESIGN §6: ikon 20 px di zona kerja.
+    expect(kelasSvg).toContain("size-5");
     expect(kelasP).toContain("text-foreground");
     expect(kelasP).not.toContain(warna);
   });

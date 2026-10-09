@@ -50,6 +50,9 @@ describe("BadgeStatus (DESIGN §7)", () => {
     expect(kelas).toContain(`[&>svg]:text-${h.token}`);
     expect(kelas).toContain("text-foreground");
     expect(kelas).not.toContain(`text-${h.token}`);
+    // DESIGN §6: ikon 20 px di zona kerja; DESIGN §3: teks dasar zona kerja text-sm.
+    expect(kelas).toContain("[&>svg]:size-5");
+    expect(kelas).toContain("text-sm");
   });
 
   it("ikon berputar hanya jika gerak diizinkan", () => {

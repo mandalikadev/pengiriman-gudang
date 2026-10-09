@@ -60,6 +60,8 @@ const pasanganTeks: Array<[teks: string, latar: string]> = [
   ["warning", "background"],
   ["info", "background"],
   ["success", "background"],
+  // Teks tombol varian `destructive` (DESIGN §6) di atas latar destructive.
+  ["secondary-foreground", "destructive"],
 ];
 
 // DESIGN §7 (Keputusan 2026-10-09): latar badge = token status opacity 10% di atas latar baris

@@ -42,7 +42,7 @@ export function PesanStatusSimpan({
       <Ikon
         aria-hidden
         strokeWidth={2}
-        className={cn("mt-0.5 size-4 shrink-0", warna, Ikon === LoaderCircle && "motion-safe:animate-spin")}
+        className={cn("size-5 shrink-0", warna, Ikon === LoaderCircle && "motion-safe:animate-spin")}
       />
       <span>
         {label}

@@ -48,4 +48,15 @@ describe("gaya global", () => {
       );
     expect(pelanggaran).toEqual([]);
   });
+
+  it("tidak ada warna palet bawaan Tailwind di komponen dan halaman (semua warna lewat token DESIGN §2)", () => {
+    const paletBawaan =
+      /\b(?:text|bg|border|ring|ring-offset|fill|stroke|from|via|to|outline|decoration|shadow|accent|caret|divide|placeholder)-(?:white|black|(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3})\b/g;
+    const pelanggaran = berkasKomponen(join(akar, "src"))
+      .filter((path) => !path.includes(`${join("src", "domain")}`))
+      .flatMap((path) =>
+        [...readFileSync(path, "utf8").matchAll(paletBawaan)].map((m) => `${relative(akar, path)}: ${m[0]}`),
+      );
+    expect(pelanggaran).toEqual([]);
+  });
 });
