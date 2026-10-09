@@ -3,21 +3,30 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 
 /**
- * globalSetup vitest: membuat database test jika belum ada (lokal), lalu menjalankan semua migrasi Drizzle.
- * Test yang memakai database membuat datanya sendiri dengan email unik, jadi tidak perlu mengosongkan tabel.
+ * globalSetup vitest (dan Playwright): membuat ulang database test dari kosong, lalu menjalankan semua migrasi Drizzle.
+ * Setiap putaran mulai dari keadaan yang sama dengan CI, jadi data putaran lokal sebelumnya (mis. impor aktif yang
+ * menumpuk) tidak memperlambat test. Test membuat datanya sendiri, termasuk master gudang/toko.
+ * Hanya database yang namanya berakhiran `_test` yang boleh dihapus.
  */
 export default async function siapkanDatabase() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL belum diset untuk test (lihat .env.ci).");
 
   const target = new URL(url);
-  const namaDatabase = target.pathname.slice(1);
+  const namaDatabase = decodeURIComponent(target.pathname.slice(1));
+  if (!namaDatabase.endsWith("_test")) {
+    throw new Error(
+      `Database test harus bernama *_test agar aman dibuat ulang, tetapi DATABASE_URL menunjuk "${namaDatabase}".`,
+    );
+  }
+
   const urlAdmin = new URL(url);
   urlAdmin.pathname = "/postgres";
   const sqlAdmin = postgres(urlAdmin.toString(), { max: 1, onnotice: () => {} });
   try {
-    const ada = await sqlAdmin`select 1 from pg_database where datname = ${namaDatabase}`;
-    if (ada.length === 0) await sqlAdmin.unsafe(`create database "${namaDatabase.replaceAll('"', '""')}"`);
+    const nama = `"${namaDatabase.replaceAll('"', '""')}"`;
+    await sqlAdmin.unsafe(`drop database if exists ${nama} with (force)`);
+    await sqlAdmin.unsafe(`create database ${nama}`);
   } finally {
     await sqlAdmin.end();
   }
