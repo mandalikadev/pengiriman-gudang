@@ -29,6 +29,18 @@ export function bagiBulatAtas(jumlah: number, pembagi: number): number {
   return sisa === 0 ? hasilBagi : hasilBagi + 1;
 }
 
+/** ⌊jumlah / pembagi⌋ untuk jumlah ≥ 0 dan pembagi > 0, keduanya bilangan bulat. */
+export function bagiBulatBawah(jumlah: number, pembagi: number): number {
+  pastikanTidakNegatif("jumlah", jumlah);
+  pastikanBilanganBulat("pembagi", pembagi);
+  if (pembagi <= 0) {
+    throw new RangeError(`pembagi harus lebih besar dari 0, diterima: ${pembagi}`);
+  }
+
+  // (jumlah − sisa) kelipatan tepat dari pembagi, jadi pembagian ini eksak.
+  return (jumlah - (jumlah % pembagi)) / pembagi;
+}
+
 /**
  * Jumlah kirim = max(0, ⌈(kebutuhan − stokAkhir) × (100 + persenBuffer) / 100⌉) (PRD A6, ADR-0008).
  * Stok dikurangkan tepat satu kali sebelum buffer diterapkan.

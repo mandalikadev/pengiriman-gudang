@@ -2,7 +2,7 @@
 // Tanggal bisnis adalah string `YYYY-MM-DD`; semua operasi memakai aritmetika kalender
 // bilangan bulat, tanpa objek `Date`, supaya tidak bergeser akibat zona waktu.
 
-import { bagiBulatAtas } from "./angka";
+import { bagiBulatAtas, bagiBulatBawah } from "./angka";
 
 declare const merekTanggalBisnis: unique symbol;
 
@@ -28,11 +28,6 @@ const POLA_TANGGAL = /^(\d{4})-(\d{2})-(\d{2})$/;
 const NAMA_HARI = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"] as const;
 
 const KAMIS = 4;
-
-/** Pembagian bilangan bulat ke bawah untuk pembilang ≥ 0 dan pembagi > 0 (eksak, tanpa float). */
-function bagiBulat(pembilang: number, pembagi: number): number {
-  return (pembilang - (pembilang % pembagi)) / pembagi;
-}
 
 function tahunKabisat(tahun: number): boolean {
   return (tahun % 4 === 0 && tahun % 100 !== 0) || tahun % 400 === 0;
@@ -73,12 +68,15 @@ export function parseTanggalBisnis(teks: string): TanggalBisnis {
   return keTanggalBisnis({ tahun, bulan, hari });
 }
 
-/** Hari dalam pekan, 0 = Minggu … 6 = Sabtu (algoritma Sakamoto, kalender Gregorian). */
+/**
+ * Hari dalam pekan, 0 = Minggu … 6 = Sabtu (algoritma Sakamoto, kalender Gregorian).
+ * Tahun ≥ 1 (dijamin parseTanggalBisnis), jadi y = tahun − 1 ≥ 0 dan semua pembagian bernilai tidak negatif.
+ */
 function hariDalamPekan({ tahun, bulan, hari }: BagianTanggal): number {
   const geserBulan = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4] as const;
   const y = bulan < 3 ? tahun - 1 : tahun;
   return (
-    (y + bagiBulat(y, 4) - bagiBulat(y, 100) + bagiBulat(y, 400) + geserBulan[bulan - 1]! + hari) % 7
+    (y + bagiBulatBawah(y, 4) - bagiBulatBawah(y, 100) + bagiBulatBawah(y, 400) + geserBulan[bulan - 1]! + hari) % 7
   );
 }
 
