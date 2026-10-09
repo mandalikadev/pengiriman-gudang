@@ -171,6 +171,34 @@ export function tanggalDalamBulanLaporan(tahun: number, bulan: number): TanggalB
   return hasil;
 }
 
+/**
+ * Kisi satu bulan kalender: baris Senin–Minggu, dari Senin pada/sebelum tanggal 1 sampai Minggu pada/sesudah
+ * tanggal terakhir (PRD B1). Baris kisi bukan minggu laporan (PRD B5).
+ */
+export function kisiBulan(tahun: number, bulan: number): TanggalBisnis[][] {
+  if (!Number.isSafeInteger(bulan) || bulan < 1 || bulan > 12 || !Number.isSafeInteger(tahun) || tahun < 1 || tahun > 9999) {
+    throw new RangeError(`Bulan kalender tidak valid: ${tahun}-${bulan}`);
+  }
+  const awalBulan: BagianTanggal = { tahun, bulan, hari: 1 };
+  // hariDalamPekan: 0 = Minggu; jarak ke Senin sebelumnya = (indeks + 6) % 7.
+  let tanggal = kurangiHari(awalBulan, (hariDalamPekan(awalBulan) + 6) % 7);
+  const akhirBulan = keTanggalBisnis({ tahun, bulan, hari: jumlahHariDalamBulan(tahun, bulan) });
+
+  const kisi: TanggalBisnis[][] = [];
+  let selesai = false;
+  while (!selesai) {
+    const baris: TanggalBisnis[] = [];
+    for (let i = 0; i < 7; i++) {
+      const teks = keTanggalBisnis(tanggal);
+      baris.push(teks);
+      if (teks === akhirBulan) selesai = true;
+      tanggal = tambahHari(tanggal, 1);
+    }
+    kisi.push(baris);
+  }
+  return kisi;
+}
+
 /** Format tampilan Indonesia, mis. `Jumat, 05-06-2026` (PRD B8). */
 export function formatTanggal(tanggal: TanggalBisnis): string {
   const bagian = uraikan(tanggal);

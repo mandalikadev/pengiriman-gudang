@@ -1,4 +1,4 @@
-import { formatTanggal, parseTanggalBisnis } from "@/domain/kalender";
+import { formatTanggal, parseTanggalBisnis, type TanggalBisnis } from "@/domain/kalender";
 
 export const NAMA_BULAN = [
   "Januari",
@@ -37,8 +37,13 @@ const formatJamWib = new Intl.DateTimeFormat("en-GB", {
   hourCycle: "h23",
 });
 
+/** Tanggal kalender (WIB) dari suatu waktu kejadian, mis. untuk "hari ini". */
+export function tanggalWib(waktu: Date): TanggalBisnis {
+  return parseTanggalBisnis(formatTanggalWib.format(waktu));
+}
+
 /** Waktu kejadian (bukan tanggal bisnis) dalam WIB, mis. `Jumat, 09-10-2026 pukul 14.05 WIB`. */
 export function formatWaktu(waktu: Date) {
-  const tanggal = formatTanggal(parseTanggalBisnis(formatTanggalWib.format(waktu)));
+  const tanggal = formatTanggal(tanggalWib(waktu));
   return `${tanggal} pukul ${formatJamWib.format(waktu).replace(":", ".")} WIB`;
 }

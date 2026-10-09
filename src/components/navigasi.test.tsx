@@ -70,13 +70,15 @@ describe("Navigasi untuk pengguna yang sudah masuk", () => {
     }
   });
 
-  it("menambahkan tautan Ringkasan untuk semua pengguna yang sudah masuk (T34)", () => {
+  it("menambahkan tautan Ringkasan (T34) dan Kalender (T39) untuk semua pengguna yang sudah masuk", () => {
     const tautan = [...html.matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[2]]);
     expect(tautan).toEqual([
       ["/", "Beranda"],
       ["/ringkasan", "Ringkasan"],
+      ["/kalender", "Kalender"],
       ["/", "Beranda"],
       ["/ringkasan", "Ringkasan"],
+      ["/kalender", "Kalender"],
     ]);
   });
 });
@@ -88,12 +90,14 @@ describe("Navigasi untuk admin", () => {
     expect(tautan).toEqual([
       ["/", "Beranda"],
       ["/ringkasan", "Ringkasan"],
+      ["/kalender", "Kalender"],
       ["/admin/pengguna", "Pengguna"],
       ["/admin/gudang", "Gudang"],
       ["/admin/penugasan", "Penugasan"],
       ["/admin/impor", "Impor"],
       ["/", "Beranda"],
       ["/ringkasan", "Ringkasan"],
+      ["/kalender", "Kalender"],
       ["/admin/pengguna", "Pengguna"],
       ["/admin/gudang", "Gudang"],
       ["/admin/penugasan", "Penugasan"],

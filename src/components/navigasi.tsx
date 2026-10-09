@@ -11,7 +11,10 @@ import { cn } from "@/lib/utils";
 // DESIGN §6: item hanya untuk halaman yang sudah ada.
 const itemUmum = [{ href: "/", label: "Beranda" }];
 // Semua pengguna yang sudah masuk (PRD A2, perencanaan M2–M3). Halaman memeriksa sesi di server (wajibMasuk).
-const itemMasuk = [{ href: "/ringkasan", label: "Ringkasan" }];
+const itemMasuk = [
+  { href: "/ringkasan", label: "Ringkasan" },
+  { href: "/kalender", label: "Kalender" },
+];
 // Hanya untuk admin. Penyembunyian ini tambahan; halaman memeriksa peran di server (wajibAdmin).
 const itemAdmin = [
   { href: "/admin/pengguna", label: "Pengguna" },
