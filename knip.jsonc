@@ -1,0 +1,8 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // drizzle-orm dan driver postgres dipakai drizzle-kit saat `pnpm db:migrate` (peer runtime),
+  // belum diimpor kode karena belum ada tabel bisnis. Hapus dari daftar ini begitu ada impor nyata.
+  "ignoreDependencies": ["drizzle-orm", "postgres"],
+  // `playwright` dipanggil CI hanya jika skrip `test:e2e` ada; dependency-nya ditambahkan tiket e2e.
+  "ignoreBinaries": ["playwright"]
+}

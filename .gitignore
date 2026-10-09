@@ -14,3 +14,5 @@ playwright-report/
 test-results/
 .DS_Store
 data-lokal/
+*.tsbuildinfo
+next-env.d.ts
