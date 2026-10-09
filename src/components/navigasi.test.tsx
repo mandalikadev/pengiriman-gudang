@@ -30,6 +30,11 @@ describe("Navigasi", () => {
     expect(html).toContain('aria-label="Buka menu"');
   });
 
+  it("logo dan wordmark memakai font dasar Nunito, bukan Fraunces (DESIGN §3)", () => {
+    expect(html).toContain(">MANDALIKA</span>");
+    expect(html).not.toContain("font-heading");
+  });
+
   it("halaman aktif ditandai aria-current", () => {
     expect(html).toContain('aria-current="page"');
   });

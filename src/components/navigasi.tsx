@@ -64,11 +64,11 @@ export function Navigasi() {
           <span className="flex items-center gap-3">
             <span
               aria-hidden
-              className="flex size-10 items-center justify-center rounded-full bg-primary font-heading text-lg font-bold text-primary-foreground"
+              className="flex size-10 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground"
             >
               M
             </span>
-            <span className="font-heading text-lg font-bold">MANDALIKA</span>
+            <span className="text-lg font-bold">MANDALIKA</span>
           </span>
 
           <ul className="hidden items-center gap-1 md:flex">
@@ -90,7 +90,7 @@ export function Navigasi() {
             aria-label={menuTerbuka ? "Tutup menu" : "Buka menu"}
             onClick={() => setMenuTerbuka((terbuka) => !terbuka)}
           >
-            {menuTerbuka ? <X aria-hidden className="size-5" /> : <Menu aria-hidden className="size-5" />}
+            {menuTerbuka ? <X aria-hidden strokeWidth={2} className="size-5" /> : <Menu aria-hidden strokeWidth={2} className="size-5" />}
           </button>
         </div>
 

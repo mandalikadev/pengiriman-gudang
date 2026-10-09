@@ -15,7 +15,6 @@ export function SelectValue(props: ComponentProps<typeof SelectPrimitive.Value>)
   return <SelectPrimitive.Value data-slot="select-value" {...props} />;
 }
 
-
 export function SelectTrigger({
   className,
   ukuran = "form",
@@ -34,7 +33,7 @@ export function SelectTrigger({
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDownIcon className="size-4 text-muted-foreground" aria-hidden />
+        <ChevronDownIcon strokeWidth={2} className="size-5 text-muted-foreground" aria-hidden />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   );
@@ -62,14 +61,14 @@ export function SelectItem({ className, children, ...props }: ComponentProps<typ
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-default items-center rounded-xl py-2 pr-8 pl-3 text-sm outline-none select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "relative flex w-full cursor-default items-center rounded-xl py-2 pr-9 pl-3 text-sm outline-none select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className,
       )}
       {...props}
     >
-      <span className="absolute right-2 flex size-4 items-center justify-center">
+      <span className="absolute right-2 flex size-5 items-center justify-center">
         <SelectPrimitive.ItemIndicator>
-          <CheckIcon className="size-4 text-primary" aria-hidden />
+          <CheckIcon strokeWidth={2} className="size-5 text-primary" aria-hidden />
         </SelectPrimitive.ItemIndicator>
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
