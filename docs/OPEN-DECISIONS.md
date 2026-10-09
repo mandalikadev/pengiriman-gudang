@@ -46,4 +46,9 @@ Daftar hal yang **belum diputuskan pemilik**. Agen tidak mengimplementasikan per
 | T04: Rata-rata Ringkasan ditandai parsial jika ada rata-rata bulanan pembentuknya yang parsial (2026-10-09) | PRD A2; T04 |
 | T06: produk berkode `-T` yang juga berkategori `KTP`/`KTL` beralasan `display-tester` (aturan kode didahulukan) (2026-10-09) | ADR-0007; T06 |
 | T10: nama toko dicocokkan dengan master setelah normalisasi (trim, spasi ganda jadi satu, huruf besar); tanpa pencocokan mirip/fuzzy (2026-10-09) | PRD A1; T10 |
+| T20: admin tidak boleh menonaktifkan akunnya sendiri (2026-10-09) | PRD A3; T20 |
+| T20: admin boleh mengubah perannya sendiri, kecuali jika ia satu-satunya admin aktif; aplikasi harus selalu punya minimal satu admin aktif (2026-10-09) | PRD A3; T20 |
+| T20: "aktifkan kembali pengguna" dan tombol "Keluar" (logout) dibuat sebagai tiket terpisah (2026-10-09) | PRD A3; T20 |
+| Teks sekunder di atas latar `accent` (mis. baris terpilih) memakai `accent-foreground`, bukan `muted-foreground` (2026-10-09) | DESIGN §2, §8 |
+| `agentRules: false` di `next.config.ts` supaya `next dev` tidak mengubah AGENTS.md (2026-10-09) | `next.config.ts` |
 | TP-02: `@GANTI-PEMILIK` di `.github/CODEOWNERS` diganti `@mandalikadev` (2026-10-09) | `.github/CODEOWNERS` |
