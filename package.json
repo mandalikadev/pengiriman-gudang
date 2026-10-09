@@ -20,15 +20,20 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed-admin": "tsx scripts/seed-admin.ts",
-    "db:seed-master": "tsx scripts/seed-master.ts"
+    "db:seed-master": "tsx scripts/seed-master.ts",
+    "worker": "tsx src/worker/index.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1148.0",
+    "@aws-sdk/s3-request-presigner": "^3.1148.0",
     "better-auth": "^1.7.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.4",
     "lucide-react": "^1.53.0",
     "next": "16.4.0",
+    "pg-boss": "^12.37.1",
     "postgres": "^3.4.9",
     "radix-ui": "^1.7.0",
     "react": "^19.3.0",
@@ -38,6 +43,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.20.5",
     "@types/react": "^19.3.0",

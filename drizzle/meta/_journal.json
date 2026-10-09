@@ -22,6 +22,13 @@
       "when": 1791530209915,
       "tag": "0002_penugasan_operator",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791530965481,
+      "tag": "0003_impor_penjualan",
+      "breakpoints": true
     }
   ]
 }

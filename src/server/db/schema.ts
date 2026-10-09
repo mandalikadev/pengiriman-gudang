@@ -1,8 +1,22 @@
 // Skema Drizzle. Tabel bisnis ditambahkan oleh tiket yang membutuhkannya.
 import { sql } from "drizzle-orm";
-import { boolean, check, index, integer, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  boolean,
+  check,
+  date,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 import { daftarHakTindakan, type HakTindakan } from "@/server/gudang/hak-tindakan";
+import type { Masalah, ProdukSheet } from "@/server/impor/sheet-penjualan";
 
 // --- Autentikasi (Better Auth + plugin admin, T20) ---
 // Nama tabel dan field mengikuti model bawaan Better Auth agar adapter Drizzle tidak perlu pemetaan.
@@ -134,6 +148,126 @@ export const penugasanOperator = pgTable(
     check(
       "penugasan_operator_hak_tindakan_dikenal",
       sql`${tabel.hakTindakan} <@ ARRAY[${sql.raw(daftarHakTindakan.map((h) => `'${h}'`).join(", "))}]::text[]`,
+    ),
+  ],
+);
+
+// --- Impor penjualan (T11) ---
+
+/** diunggah → diproses → siap-ditinjau / gagal → aktif → diarsipkan (issue T11). */
+export const daftarStatusImpor = ["diunggah", "diproses", "siap-ditinjau", "gagal", "aktif", "diarsipkan"] as const;
+export type StatusImpor = (typeof daftarStatusImpor)[number];
+
+const daftarSql = (nilai: readonly string[]) => sql.raw(nilai.map((n) => `'${n}'`).join(", "));
+
+/**
+ * Satu pembacaan satu sheet dari satu file (CONTEXT "Impor"). Hasil validasi (`masalah`) dan produk di sheet
+ * disimpan sebagai JSONB; sel dan cakupan tanggal di tabel tersendiri dengan kunci `impor_id` (staging).
+ * ADR-0002: hanya satu impor aktif per bulan impor, ditegakkan unique index parsial.
+ */
+export const impor = pgTable(
+  "impor",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    namaFile: text("nama_file").notNull(),
+    ukuranByte: bigint("ukuran_byte", { mode: "number" }).notNull(),
+    kunciObjek: text("kunci_objek").notNull().unique(),
+    /** SHA-256 isi file (hex), dihitung worker dari objek di storage. */
+    sha256: text("sha256"),
+    namaSheet: text("nama_sheet").notNull(),
+    tahunImpor: integer("tahun_impor").notNull(),
+    bulanImpor: integer("bulan_impor").notNull(),
+    status: text("status").$type<StatusImpor>().notNull().default("diunggah"),
+    masalah: jsonb("masalah").$type<Masalah[]>().notNull().default([]),
+    produk: jsonb("produk").$type<ProdukSheet[]>().notNull().default([]),
+    pesanGagal: text("pesan_gagal"),
+    diunggahOleh: text("diunggah_oleh")
+      .notNull()
+      .references(() => user.id),
+    diunggahPada: timestamp("diunggah_pada", { withTimezone: true }).notNull().defaultNow(),
+    selesaiDiprosesPada: timestamp("selesai_diproses_pada", { withTimezone: true }),
+    diaktifkanOleh: text("diaktifkan_oleh").references(() => user.id),
+    diaktifkanPada: timestamp("diaktifkan_pada", { withTimezone: true }),
+    diarsipkanPada: timestamp("diarsipkan_pada", { withTimezone: true }),
+  },
+  (tabel) => [
+    uniqueIndex("impor_satu_aktif_per_bulan")
+      .on(tabel.tahunImpor, tabel.bulanImpor)
+      .where(sql`${tabel.status} = 'aktif'`),
+    check("impor_status_dikenal", sql`${tabel.status} in (${daftarSql(daftarStatusImpor)})`),
+    check("impor_bulan_valid", sql`${tabel.bulanImpor} between 1 and 12`),
+  ],
+);
+
+/** Cakupan tanggal per toko (ADR-0002): satu baris per kolom tanggal valid di blok toko. */
+export const cakupanTanggalImpor = pgTable(
+  "cakupan_tanggal_impor",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    imporId: integer("impor_id")
+      .notNull()
+      .references(() => impor.id),
+    tokoId: integer("toko_id")
+      .notNull()
+      .references(() => toko.id),
+    tanggal: date("tanggal", { mode: "string" }).notNull(),
+    /** Alamat sel header tanggal, mis. `F2`. */
+    alamatKolom: text("alamat_kolom").notNull(),
+  },
+  (tabel) => [index("cakupan_tanggal_impor_impor_toko_idx").on(tabel.imporId, tabel.tokoId)],
+);
+
+/** Sel penjualan bernilai (ADR-0002): hanya sel berisi angka, termasuk nol yang diketik, beserta alamatnya. */
+export const selPenjualan = pgTable(
+  "sel_penjualan",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    imporId: integer("impor_id")
+      .notNull()
+      .references(() => impor.id),
+    tokoId: integer("toko_id")
+      .notNull()
+      .references(() => toko.id),
+    kodeProduk: text("kode_produk").notNull(),
+    tanggal: date("tanggal", { mode: "string" }).notNull(),
+    kuantitas: integer("kuantitas").notNull(),
+    alamat: text("alamat").notNull(),
+  },
+  (tabel) => [index("sel_penjualan_impor_toko_idx").on(tabel.imporId, tabel.tokoId)],
+);
+
+export const daftarStatusKeluargaAroma = ["terpetakan", "tanpa-aroma", "belum-dipetakan"] as const;
+
+/**
+ * Master produk (ADR-0006): kode produk = identitas varian; nama hanya label.
+ * Kode baru didaftarkan saat impor diaktifkan, dengan status keluarga aroma `belum-dipetakan`.
+ * Klasifikasi dari klasifikasiProduk (T06, ADR-0007).
+ */
+export const produk = pgTable(
+  "produk",
+  {
+    kode: text("kode").primaryKey(),
+    nama: text("nama").notNull(),
+    ukuran: text("ukuran").notNull(),
+    kategori: text("kategori").notNull(),
+    klasifikasi: text("klasifikasi").$type<"manual" | "otomatis">().notNull(),
+    alasanManual: text("alasan_manual").$type<"display-tester" | "kertas-tester">(),
+    statusKeluargaAroma: text("status_keluarga_aroma")
+      .$type<(typeof daftarStatusKeluargaAroma)[number]>()
+      .notNull()
+      .default("belum-dipetakan"),
+    didaftarkanOlehImporId: integer("didaftarkan_oleh_impor_id").references(() => impor.id),
+    didaftarkanPada: timestamp("didaftarkan_pada", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabel) => [
+    check("produk_klasifikasi_dikenal", sql`${tabel.klasifikasi} in ('manual', 'otomatis')`),
+    check(
+      "produk_alasan_manual_sesuai",
+      sql`(${tabel.klasifikasi} = 'manual' and ${tabel.alasanManual} in ('display-tester', 'kertas-tester')) or (${tabel.klasifikasi} = 'otomatis' and ${tabel.alasanManual} is null)`,
+    ),
+    check(
+      "produk_status_keluarga_aroma_dikenal",
+      sql`${tabel.statusKeluargaAroma} in (${daftarSql(daftarStatusKeluargaAroma)})`,
     ),
   ],
 );

@@ -1,5 +1,3 @@
 {
-  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
-  // `playwright` dipanggil CI hanya jika skrip `test:e2e` ada; dependency-nya ditambahkan tiket e2e.
-  "ignoreBinaries": ["playwright"]
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json"
 }

@@ -1,0 +1,44 @@
+import { formatTanggal, parseTanggalBisnis } from "@/domain/kalender";
+
+export const NAMA_BULAN = [
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
+] as const;
+
+/** Mis. `Juni 2026`. */
+export function formatBulanImpor(tahun: number, bulan: number) {
+  return `${NAMA_BULAN[bulan - 1]} ${tahun}`;
+}
+
+export function formatAngka(nilai: number) {
+  return nilai.toLocaleString("id-ID");
+}
+
+const formatTanggalWib = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Jakarta",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const formatJamWib = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Jakarta",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/** Waktu kejadian (bukan tanggal bisnis) dalam WIB, mis. `Jumat, 09-10-2026 pukul 14.05 WIB`. */
+export function formatWaktu(waktu: Date) {
+  const tanggal = formatTanggal(parseTanggalBisnis(formatTanggalWib.format(waktu)));
+  return `${tanggal} pukul ${formatJamWib.format(waktu).replace(":", ".")} WIB`;
+}

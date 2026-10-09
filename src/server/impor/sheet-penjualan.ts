@@ -32,7 +32,7 @@ type KodeMasalah =
   | "kolom-tanggal-invalid-kosong"
   | "sel-tanpa-blok-toko";
 
-type Masalah = {
+export type Masalah = {
   tingkat: "error" | "peringatan";
   kode: KodeMasalah;
   /** `sheet!sel`, mis. `JUNI (S)!AJ4`. */
@@ -53,7 +53,7 @@ type BlokToko = {
   kolomTanggal: KolomTanggal[];
 };
 
-type ProdukSheet = {
+export type ProdukSheet = {
   /** Alamat sel PRODUCT CODE. */
   alamat: string;
   no: string | number | null;

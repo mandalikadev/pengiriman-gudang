@@ -14,6 +14,7 @@ const itemAdmin = [
   { href: "/admin/pengguna", label: "Pengguna" },
   { href: "/admin/gudang", label: "Gudang" },
   { href: "/admin/penugasan", label: "Penugasan" },
+  { href: "/admin/impor", label: "Impor" },
 ];
 
 const fokusTerlihat =
