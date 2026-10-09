@@ -15,6 +15,8 @@ const itemMasuk = [
   { href: "/ringkasan", label: "Ringkasan" },
   { href: "/kalender", label: "Kalender" },
 ];
+// Pengguna dengan akses lihat Pengiriman Gudang: admin atau punya penugasan (PRD A3). Halaman memeriksa akses di server.
+const itemPengirimanGudang = [{ href: "/pengiriman-gudang", label: "Pengiriman Gudang" }];
 // Hanya untuk admin. Penyembunyian ini tambahan; halaman memeriksa peran di server (wajibAdmin).
 const itemAdmin = [
   { href: "/admin/pengguna", label: "Pengguna" },
@@ -76,12 +78,19 @@ function TombolKeluar() {
 
 export function Navigasi({
   tampilkanAdmin = false,
+  tampilkanPengirimanGudang = false,
   sudahMasuk = false,
 }: {
   tampilkanAdmin?: boolean;
+  tampilkanPengirimanGudang?: boolean;
   sudahMasuk?: boolean;
 }) {
-  const itemNavigasi = [...itemUmum, ...(sudahMasuk ? itemMasuk : []), ...(tampilkanAdmin ? itemAdmin : [])];
+  const itemNavigasi = [
+    ...itemUmum,
+    ...(sudahMasuk ? itemMasuk : []),
+    ...(tampilkanPengirimanGudang ? itemPengirimanGudang : []),
+    ...(tampilkanAdmin ? itemAdmin : []),
+  ];
   const pathname = usePathname();
   const [menuTerbuka, setMenuTerbuka] = useState(false);
   const idMenu = useId();

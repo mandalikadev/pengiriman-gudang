@@ -111,3 +111,24 @@ describe("Navigasi untuk admin", () => {
     ]);
   });
 });
+
+describe("Navigasi untuk pengguna dengan akses Pengiriman Gudang (T50)", () => {
+  function tautan(html: string) {
+    return [...html.matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[2]]);
+  }
+
+  it("menambahkan tautan Pengiriman Gudang hanya jika diminta", () => {
+    const html = renderToStaticMarkup(<Navigasi tampilkanPengirimanGudang sudahMasuk />);
+    const satuMenu = [
+      ["/", "Beranda"],
+      ["/ringkasan", "Ringkasan"],
+      ["/kalender", "Kalender"],
+      ["/pengiriman-gudang", "Pengiriman Gudang"],
+    ];
+    expect(tautan(html)).toEqual([...satuMenu, ...satuMenu]);
+  });
+
+  it("tanpa akses: tidak ada tautan Pengiriman Gudang", () => {
+    expect(renderToStaticMarkup(<Navigasi sudahMasuk />)).not.toContain("/pengiriman-gudang");
+  });
+});

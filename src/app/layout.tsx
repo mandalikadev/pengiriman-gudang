@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { Navigasi } from "@/components/navigasi";
 import { penggunaSaatIni } from "@/server/auth/kewenangan";
+import { daftarGudangDapatDilihat } from "@/server/gudang/akses";
 
 import "./globals.css";
 
@@ -28,10 +29,15 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const pengguna = await penggunaSaatIni();
+  const aksesPengirimanGudang = pengguna !== null && (await daftarGudangDapatDilihat(pengguna)).length > 0;
   return (
     <html lang="id" className={`${fraunces.variable} ${nunito.variable}`}>
       <body className="min-h-screen pt-4 antialiased">
-        <Navigasi tampilkanAdmin={pengguna?.peran === "admin"} sudahMasuk={pengguna !== null} />
+        <Navigasi
+          tampilkanAdmin={pengguna?.peran === "admin"}
+          tampilkanPengirimanGudang={aksesPengirimanGudang}
+          sudahMasuk={pengguna !== null}
+        />
         {children}
         <div aria-hidden className="tekstur-kertas" />
       </body>

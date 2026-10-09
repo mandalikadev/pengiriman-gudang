@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { auth, type Peran } from "@/server/auth/auth";
+import { daftarGudangDapatDilihat, type GudangDapatDilihat } from "@/server/gudang/akses";
 import type { HakTindakan } from "@/server/gudang/hak-tindakan";
 import { punyaHakTindakan } from "@/server/gudang/penugasan";
 
@@ -54,4 +55,28 @@ export async function wajibHakTindakan(idGudang: number, tindakan: HakTindakan):
     throw new AksesDitolakError("Anda tidak punya hak tindakan ini di gudang tersebut.");
   }
   return pengguna;
+}
+
+/**
+ * Seperti `wajibMasuk`, lalu mengembalikan gudang yang boleh dilihat di halaman Pengiriman Gudang.
+ * Menolak dengan `AksesDitolakError` jika tidak ada (viewer tanpa penugasan). Akses lihat tidak memberi tindakan.
+ */
+export async function wajibAksesPengirimanGudang(): Promise<{ pengguna: PenggunaMasuk; daftarGudang: GudangDapatDilihat[] }> {
+  const pengguna = await wajibMasuk();
+  const daftarGudang = await daftarGudangDapatDilihat(pengguna);
+  if (daftarGudang.length === 0) throw new AksesDitolakError("Anda belum ditugaskan di gudang mana pun.");
+  return { pengguna, daftarGudang };
+}
+
+/**
+ * Seperti `wajibMasuk`, lalu menolak dengan `AksesDitolakError` jika pengguna tidak boleh melihat Pengiriman Gudang
+ * `idGudang`: tidak punya penugasan di gudang itu dan bukan admin (PRD A3). Tindakan tetap lewat `wajibHakTindakan`.
+ */
+export async function wajibAksesLihatGudang(
+  idGudang: number,
+): Promise<{ pengguna: PenggunaMasuk; gudang: GudangDapatDilihat }> {
+  const pengguna = await wajibMasuk();
+  const gudang = (await daftarGudangDapatDilihat(pengguna)).find((g) => g.id === idGudang);
+  if (!gudang) throw new AksesDitolakError("Anda tidak punya akses ke gudang tersebut.");
+  return { pengguna, gudang };
 }
