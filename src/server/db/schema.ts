@@ -271,3 +271,147 @@ export const produk = pgTable(
     ),
   ],
 );
+
+// --- Cache hasil hitung laporan (T33, ADR-0002) ---
+
+/**
+ * Penanda revisi kalender: satu baris (id = 1) berisi angka yang naik setiap kali kategori efektif bisa berubah
+ * (T42). Belum ada baris berarti revisi 0.
+ */
+export const revisiKalender = pgTable(
+  "revisi_kalender",
+  {
+    id: integer("id").primaryKey(),
+    revisi: integer("revisi").notNull(),
+    diubahPada: timestamp("diubah_pada", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabel) => [check("revisi_kalender_satu_baris", sql`${tabel.id} = 1`)],
+);
+
+export const daftarStatusVersiCache = ["sedang-dihitung", "selesai", "gagal"] as const;
+export type StatusVersiCache = (typeof daftarStatusVersiCache)[number];
+
+const daftarKategoriHari = ["Senin–Kamis", "Jumat", "Sabtu", "Minggu"] as const;
+const daftarKelengkapan = ["lengkap", "parsial"] as const;
+
+/**
+ * Satu kali hitung cache laporan. Kunci versi = set impor aktif (id urut naik) + revisi kalender (ADR-0002).
+ * Cache yang dibaca adalah versi `selesai` terbaru; versi `sedang-dihitung` atau `gagal` tidak menggantikannya.
+ */
+export const versiCacheLaporan = pgTable(
+  "versi_cache_laporan",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    imporAktif: integer("impor_aktif").array().notNull(),
+    revisiKalender: integer("revisi_kalender").notNull(),
+    status: text("status").$type<StatusVersiCache>().notNull(),
+    pesanGagal: text("pesan_gagal"),
+    mulaiPada: timestamp("mulai_pada", { withTimezone: true }).notNull().defaultNow(),
+    selesaiPada: timestamp("selesai_pada", { withTimezone: true }),
+  },
+  (tabel) => [
+    check("versi_cache_laporan_status_dikenal", sql`${tabel.status} in (${daftarSql(daftarStatusVersiCache)})`),
+    index("versi_cache_laporan_status_idx").on(tabel.status, tabel.selesaiPada),
+  ],
+);
+
+/** Tahap 1 (PRD A2): nilai mingguan per produk–toko–bulan laporan–minggu laporan–kategori. */
+export const cacheNilaiMingguan = pgTable(
+  "cache_nilai_mingguan",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    versiId: integer("versi_id")
+      .notNull()
+      .references(() => versiCacheLaporan.id, { onDelete: "cascade" }),
+    tokoId: integer("toko_id")
+      .notNull()
+      .references(() => toko.id),
+    kodeProduk: text("kode_produk").notNull(),
+    /** `YYYY-MM`. */
+    bulanLaporan: text("bulan_laporan").notNull(),
+    mingguLaporan: integer("minggu_laporan").notNull(),
+    kategori: text("kategori").$type<(typeof daftarKategoriHari)[number]>().notNull(),
+    /** Tanggal teramati, urut naik; `selSumber` dan `imporId` sejajar dengan daftar ini. */
+    tanggal: date("tanggal", { mode: "string" }).array().notNull(),
+    selSumber: text("sel_sumber").array().notNull(),
+    imporId: integer("impor_id").array().notNull(),
+    tanggalTidakTeramati: date("tanggal_tidak_teramati", { mode: "string" }).array().notNull(),
+    jumlahQty: integer("jumlah_qty").notNull(),
+    /** Jumlah tanggal teramati untuk Senin–Kamis; null untuk Jumat/Sabtu/Minggu. */
+    pembagiTanggal: integer("pembagi_tanggal"),
+    nilaiMingguan: integer("nilai_mingguan").notNull(),
+    kelengkapan: text("kelengkapan").$type<(typeof daftarKelengkapan)[number]>().notNull(),
+  },
+  (tabel) => [
+    uniqueIndex("cache_nilai_mingguan_unik").on(
+      tabel.versiId,
+      tabel.tokoId,
+      tabel.kodeProduk,
+      tabel.bulanLaporan,
+      tabel.mingguLaporan,
+      tabel.kategori,
+    ),
+    check("cache_nilai_mingguan_kategori_dikenal", sql`${tabel.kategori} in (${daftarSql(daftarKategoriHari)})`),
+    check("cache_nilai_mingguan_kelengkapan_dikenal", sql`${tabel.kelengkapan} in (${daftarSql(daftarKelengkapan)})`),
+  ],
+);
+
+/** Tahap 2 (PRD A2): rata-rata bulanan per produk–toko–bulan laporan–kategori. */
+export const cacheRataRataBulanan = pgTable(
+  "cache_rata_rata_bulanan",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    versiId: integer("versi_id")
+      .notNull()
+      .references(() => versiCacheLaporan.id, { onDelete: "cascade" }),
+    tokoId: integer("toko_id")
+      .notNull()
+      .references(() => toko.id),
+    kodeProduk: text("kode_produk").notNull(),
+    bulanLaporan: text("bulan_laporan").notNull(),
+    kategori: text("kategori").$type<(typeof daftarKategoriHari)[number]>().notNull(),
+    jumlahNilaiMingguan: integer("jumlah_nilai_mingguan").notNull(),
+    pembagiMinggu: integer("pembagi_minggu").notNull(),
+    rataRataBulanan: integer("rata_rata_bulanan").notNull(),
+    kelengkapan: text("kelengkapan").$type<(typeof daftarKelengkapan)[number]>().notNull(),
+  },
+  (tabel) => [
+    uniqueIndex("cache_rata_rata_bulanan_unik").on(
+      tabel.versiId,
+      tabel.tokoId,
+      tabel.kodeProduk,
+      tabel.bulanLaporan,
+      tabel.kategori,
+    ),
+    check("cache_rata_rata_bulanan_kategori_dikenal", sql`${tabel.kategori} in (${daftarSql(daftarKategoriHari)})`),
+    check(
+      "cache_rata_rata_bulanan_kelengkapan_dikenal",
+      sql`${tabel.kelengkapan} in (${daftarSql(daftarKelengkapan)})`,
+    ),
+  ],
+);
+
+/** Total penjualan mentah (CONTEXT) per produk–toko–bulan laporan: jumlah kuantitas teramati tanpa perataan. */
+export const cacheTotalPenjualanMentah = pgTable(
+  "cache_total_penjualan_mentah",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    versiId: integer("versi_id")
+      .notNull()
+      .references(() => versiCacheLaporan.id, { onDelete: "cascade" }),
+    tokoId: integer("toko_id")
+      .notNull()
+      .references(() => toko.id),
+    kodeProduk: text("kode_produk").notNull(),
+    bulanLaporan: text("bulan_laporan").notNull(),
+    totalPenjualanMentah: integer("total_penjualan_mentah").notNull(),
+  },
+  (tabel) => [
+    uniqueIndex("cache_total_penjualan_mentah_unik").on(
+      tabel.versiId,
+      tabel.tokoId,
+      tabel.kodeProduk,
+      tabel.bulanLaporan,
+    ),
+  ],
+);

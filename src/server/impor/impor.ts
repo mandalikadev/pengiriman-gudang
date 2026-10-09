@@ -6,7 +6,7 @@ import { klasifikasiProduk } from "@/domain/produk";
 import { db } from "@/server/db";
 import { impor, produk, type StatusImpor } from "@/server/db/schema";
 
-import { kirimJobProsesImpor } from "./antrean";
+import { kirimJobHitungCacheLaporan, kirimJobProsesImpor } from "./antrean";
 import { ukuranObjek } from "./penyimpanan";
 
 // Siklus impor (issue T11, ADR-0002): daftarkan → (worker) → aktifkan. Pemeriksaan peran ada di server action.
@@ -90,7 +90,8 @@ export function alasanTidakBisaAktif({ status, jumlahError }: { status: StatusIm
 /**
  * Mengaktifkan impor dalam satu transaksi (ADR-0002, CODING_STANDARDS): impor aktif lama untuk bulan yang sama
  * diarsipkan, produk baru didaftarkan dengan keluarga aroma `belum-dipetakan` (ADR-0006), produk yang sudah ada
- * diperbarui nama, ukuran, kategori, dan klasifikasinya (PRD A1, Keputusan 2026-10-09), lalu impor ini aktif.
+ * diperbarui nama, ukuran, kategori, dan klasifikasinya (PRD A1, Keputusan 2026-10-09), lalu impor ini aktif dan
+ * job hitung ulang cache laporan dikirim (T33).
  */
 export async function aktifkanImpor(idImpor: number, idPengguna: string): Promise<{ keadaan: "berhasil" } | HasilGagal> {
   return db.transaction(async (tx) => {
@@ -152,6 +153,7 @@ export async function aktifkanImpor(idImpor: number, idPengguna: string): Promis
       .update(impor)
       .set({ status: "aktif", diaktifkanOleh: idPengguna, diaktifkanPada: sql`now()` })
       .where(eq(impor.id, target.id));
+    await kirimJobHitungCacheLaporan(tx);
     return { keadaan: "berhasil" };
   });
 }

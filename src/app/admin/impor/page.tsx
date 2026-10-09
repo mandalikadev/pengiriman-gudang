@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { StatusCacheLaporan } from "@/components/status-cache-laporan";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
 import { muatDaftarImpor } from "@/server/impor/tinjau";
+import { muatStatusCacheLaporan } from "@/server/laporan/cache";
 
 import { formatBulanImpor, formatWaktu } from "./format";
 import { FormUnggahImpor } from "./form-unggah-impor";
@@ -22,11 +24,14 @@ export default async function HalamanImpor() {
     if (galat instanceof AksesDitolakError) notFound();
     throw galat;
   }
-  const daftarImpor = await muatDaftarImpor();
+  const [daftarImpor, statusCache] = await Promise.all([muatDaftarImpor(), muatStatusCacheLaporan()]);
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
-      <h1 className="text-2xl font-bold md:text-3xl">Impor penjualan</h1>
+      <div className="flex flex-col gap-2">
+        <h1 className="text-2xl font-bold md:text-3xl">Impor penjualan</h1>
+        {statusCache ? <StatusCacheLaporan status={statusCache} /> : null}
+      </div>
 
       <FormUnggahImpor />
 

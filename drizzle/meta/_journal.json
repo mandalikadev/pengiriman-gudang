@@ -29,6 +29,13 @@
       "when": 1791530965481,
       "tag": "0003_impor_penjualan",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791544127395,
+      "tag": "0004_cache_laporan",
+      "breakpoints": true
     }
   ]
 }
