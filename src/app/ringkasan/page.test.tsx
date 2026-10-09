@@ -349,17 +349,22 @@ describe("/ringkasan: filter toko, kategori produk, dan produk (T35)", () => {
 describe("/ringkasan: perbandingan minggu yang sama antarbulan (T36, PRD A2)", () => {
   /**
    * 2029, kategori Sabtu. Maret: 3 Mar (M1) = 1, 10 Mar (M2) = 0 (nol teramati). April: 14 Apr (M2) = 5,
-   * M1 tidak punya nilai. Mei: 5 Mei (M1) = 3.
+   * M1 tidak punya nilai. Mei: 5 Mei (M1) = 3. `tokoLain` (opsional): toko lain yang hanya menjual di Juni 2029.
+   * Semua impor diaktifkan sebelum satu kali hitung ulang cache.
    */
-  async function siapkan() {
+  async function siapkan({ denganTokoLain = false }: { denganTokoLain?: boolean } = {}) {
     const admin = await buatPenggunaUji("admin");
     const toko = await buatTokoUji();
     const kode = kodeProdukUji();
     await imporAktif({ idAdmin: admin.id, toko: toko.nama, tahun: 2029, bulan: 3, hari: [3, 10], produk: [produkUji(kode, [1, 0])] });
     await imporAktif({ idAdmin: admin.id, toko: toko.nama, tahun: 2029, bulan: 4, hari: [14], produk: [produkUji(kode, [5])] });
     await imporAktif({ idAdmin: admin.id, toko: toko.nama, tahun: 2029, bulan: 5, hari: [5], produk: [produkUji(kode, [3])] });
+    const tokoLain = denganTokoLain ? await buatTokoUji() : null;
+    if (tokoLain !== null) {
+      await imporAktif({ idAdmin: admin.id, toko: tokoLain.nama, tahun: 2029, bulan: 6, hari: [2], produk: [produkUji(kodeProdukUji(), [1])] });
+    }
     await hitungUlangCacheLaporan();
-    return { toko, kode, pasangan: `${toko.id}|${kode}` };
+    return { toko, kode, tokoLain, pasangan: `${toko.id}|${kode}` };
   }
 
   /** Bagian perbandingan minggu sama: sel per minggu laporan dan kategori. */
@@ -443,7 +448,7 @@ describe("/ringkasan: perbandingan minggu yang sama antarbulan (T36, PRD A2)", (
     expect(sel["M2 Sabtu"].isi).toContain("Maret 2029, April 2029");
   });
 
-  it("mengikuti periode dan filter yang diterapkan; tautan per baris membawa periode dan filter", async () => {
+  it("mengikuti periode yang diterapkan; tautan per baris membawa periode dan filter", async () => {
     const d = await siapkan();
     const hanyaMaret = mingguSama(await buka("viewer", { bulan: "2029-03", mingguSama: d.pasangan }));
     expect(hanyaMaret.sel["M1 Sabtu"]).toMatchObject({ nilai: "1", jumlah: "1", pembagi: "1", bulan: "2029-03" });
@@ -453,15 +458,13 @@ describe("/ringkasan: perbandingan minggu yang sama antarbulan (T36, PRD A2)", (
     expect(tanpaPilihan).not.toContain('id="minggu-sama"');
     const harapanUrl = new URLSearchParams({ bulan: "2029-03", toko: String(d.toko.id), mingguSama: d.pasangan }).toString();
     expect(tanpaPilihan).toContain(`href="/ringkasan?${harapanUrl.replaceAll("&", "&amp;")}#minggu-sama"`);
+  });
 
-    // Pasangan di luar hasil filter atau tidak dikenal: pesan, tanpa angka.
-    const tokoLain = await buatTokoUji();
-    const admin = await buatPenggunaUji("admin");
-    const kodeLain = kodeProdukUji();
-    await imporAktif({ idAdmin: admin.id, toko: tokoLain.nama, tahun: 2029, bulan: 6, hari: [2], produk: [produkUji(kodeLain, [1])] });
-    await hitungUlangCacheLaporan();
+  it("pasangan di luar periode atau filter yang diterapkan, atau tidak dikenal: pesan, tanpa angka", async () => {
+    const d = await siapkan({ denganTokoLain: true });
+    if (d.tokoLain === null) throw new Error("Toko lain belum disiapkan.");
     const daftarParameter: Record<string, string>[] = [
-      { bulan: "2029-03", toko: String(tokoLain.id), mingguSama: d.pasangan },
+      { bulan: "2029-03", toko: String(d.tokoLain.id), mingguSama: d.pasangan },
       { bulan: "2029-06", mingguSama: d.pasangan },
       { bulan: "2029-03", mingguSama: "bukan-pasangan" },
     ];
