@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { formatTanggal, parseTanggalBisnis, posisiLaporan, tanggalDalamBulanLaporan } from "./kalender";
+import { formatTanggal, geserHari, parseTanggalBisnis, posisiLaporan, tanggalDalamBulanLaporan } from "./kalender";
 
 type KasusKalender = {
   tanggal: string;
@@ -82,5 +82,21 @@ describe("tanggalDalamBulanLaporan (PRD B5)", () => {
   it("Januari 2026 memuat 29–31 Desember 2025; Desember 2026 memuat 28–31 Desember", () => {
     expect(tanggalDalamBulanLaporan(2026, 1).slice(0, 3)).toEqual(["2025-12-29", "2025-12-30", "2025-12-31"]);
     expect(tanggalDalamBulanLaporan(2026, 12).slice(-4)).toEqual(["2026-12-28", "2026-12-29", "2026-12-30", "2026-12-31"]);
+  });
+});
+
+describe("geserHari", () => {
+  it.each([
+    ["2026-06-08", -2, "2026-06-06"],
+    ["2026-06-08", 0, "2026-06-08"],
+    ["2026-06-08", 6, "2026-06-14"],
+    ["2026-07-01", -1, "2026-06-30"],
+    ["2026-01-01", -1, "2025-12-31"],
+    ["2026-12-31", 1, "2027-01-01"],
+    ["2028-03-01", -1, "2028-02-29"],
+    ["2026-03-01", -1, "2026-02-28"],
+    ["2026-06-20", 13, "2026-07-03"],
+  ])("%s digeser %i hari = %s", (awal, jumlah, harapan) => {
+    expect(geserHari(parseTanggalBisnis(awal), jumlah)).toBe(harapan);
   });
 });
