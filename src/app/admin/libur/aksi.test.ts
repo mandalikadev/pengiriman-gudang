@@ -103,6 +103,20 @@ describe("admin menyinkronkan libur", () => {
     ]);
   });
 
+  it("respons dengan `data` kosong → snapshot menunggu persetujuan tanpa entri (perilaku saat ini)", async () => {
+    const tahun = tahunLiburUji();
+    gantiApiHariLibur({ isi: { data: [] } });
+
+    await expect(sinkronkanLiburTahun({ tahun })).resolves.toEqual({ keadaan: "berhasil", tahun, jumlahLibur: 0 });
+    const [snapshot, ...lain] = await snapshotTahunUji(tahun);
+    expect(lain).toEqual([]);
+    expect(snapshot.status).toBe("menunggu-persetujuan");
+    expect(await entriSnapshotUji(snapshot.id)).toEqual([]);
+    expect(await kejadianTahunUji(tahun)).toEqual([
+      { jenis: "sinkronisasi-berhasil", snapshotId: snapshot.id, pesan: null, pelaku: idAdmin },
+    ]);
+  });
+
   it("sinkronisasi berhasil tidak mengganti snapshot aktif tahun itu", async () => {
     const tahun = tahunLiburUji();
     const aktif = await buatSnapshotAktifUji(tahun, idAdmin);

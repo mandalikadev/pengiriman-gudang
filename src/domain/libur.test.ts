@@ -69,10 +69,10 @@ describe("periksaDaftarLibur (PRD B2: validasi tanggal, tahun, duplikasi)", () =
     });
   });
 
-  it("keterangan kosong → tidak valid", () => {
-    expect(periksaDaftarLibur(2026, [{ tanggal: "2026-01-01", keterangan: "  " }])).toEqual({
-      keadaan: "tidakValid",
-      pesan: "Entri ke-1: keterangan libur kosong.",
+  it("keterangan disimpan apa adanya, tanpa dipangkas", () => {
+    expect(periksaDaftarLibur(2026, [{ tanggal: "2026-01-01", keterangan: " Tahun Baru " }])).toEqual({
+      keadaan: "valid",
+      entri: [{ tanggal: "2026-01-01", keterangan: " Tahun Baru ", jenis: "libur nasional" }],
     });
   });
 });

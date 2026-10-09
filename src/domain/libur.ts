@@ -18,7 +18,7 @@ export function usulanJenisLibur(keterangan: string): JenisLibur {
   return keterangan.includes("Cuti Bersama") ? "cuti bersama" : "libur nasional";
 }
 
-/** Memeriksa daftar libur satu tahun: format tanggal, tahun sesuai pilihan, duplikasi tanggal, keterangan terisi. */
+/** Memeriksa daftar libur satu tahun: format tanggal, tahun sesuai pilihan, duplikasi tanggal. Keterangan disimpan apa adanya. */
 export function periksaDaftarLibur(tahun: number, daftar: readonly EntriMasukan[]): HasilPeriksaLibur {
   const sudahAda = new Set<string>();
   const entri: EntriLibur[] = [];
@@ -36,10 +36,8 @@ export function periksaDaftarLibur(tahun: number, daftar: readonly EntriMasukan[
     if (sudahAda.has(tanggal)) {
       return { keadaan: "tidakValid", pesan: `${awalan} tanggal ${tanggal} muncul lebih dari sekali.` };
     }
-    const keteranganBersih = keterangan.trim();
-    if (keteranganBersih === "") return { keadaan: "tidakValid", pesan: `${awalan} keterangan libur kosong.` };
     sudahAda.add(tanggal);
-    entri.push({ tanggal, keterangan: keteranganBersih, jenis: usulanJenisLibur(keteranganBersih) });
+    entri.push({ tanggal, keterangan, jenis: usulanJenisLibur(keterangan) });
   }
   return { keadaan: "valid", entri };
 }
