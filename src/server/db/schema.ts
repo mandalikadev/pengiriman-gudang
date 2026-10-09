@@ -15,6 +15,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+import { daftarJenisLibur, type JenisLibur } from "@/domain/libur";
 import { daftarHakTindakan, type HakTindakan } from "@/server/gudang/hak-tindakan";
 import type { Masalah, ProdukSheet } from "@/server/impor/sheet-penjualan";
 
@@ -413,5 +414,78 @@ export const cacheTotalPenjualanMentah = pgTable(
       tabel.kodeProduk,
       tabel.bulanLaporan,
     ),
+  ],
+);
+
+// --- Snapshot libur (T40, PRD B2–B3, ADR-0004) ---
+
+/** Snapshot hasil sinkronisasi menunggu persetujuan admin; aktivasi dan arsip diatur T41. */
+export const daftarStatusSnapshotLibur = ["menunggu-persetujuan", "aktif", "diarsipkan"] as const;
+export type StatusSnapshotLibur = (typeof daftarStatusSnapshotLibur)[number];
+
+/**
+ * Daftar libur satu tahun hasil sinkronisasi API (CONTEXT "Snapshot libur"). Hanya satu snapshot aktif per tahun,
+ * ditegakkan unique index parsial. Sinkronisasi tidak pernah mengubah snapshot yang sudah ada.
+ */
+export const snapshotLibur = pgTable(
+  "snapshot_libur",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    tahun: integer("tahun").notNull(),
+    status: text("status").$type<StatusSnapshotLibur>().notNull().default("menunggu-persetujuan"),
+    /** URL yang diambil, mis. `https://api-hari-libur.vercel.app/api?year=2026`. */
+    sumber: text("sumber").notNull(),
+    disinkronkanPada: timestamp("disinkronkan_pada", { withTimezone: true }).notNull().defaultNow(),
+    disinkronkanOleh: text("disinkronkan_oleh")
+      .notNull()
+      .references(() => user.id),
+  },
+  (tabel) => [
+    uniqueIndex("snapshot_libur_satu_aktif_per_tahun")
+      .on(tabel.tahun)
+      .where(sql`${tabel.status} = 'aktif'`),
+    check("snapshot_libur_status_dikenal", sql`${tabel.status} in (${daftarSql(daftarStatusSnapshotLibur)})`),
+  ],
+);
+
+/** Satu tanggal libur dalam snapshot. `jenisUsulan` = jenis masih usulan otomatis dari keterangan (PRD B2). */
+export const entriLibur = pgTable(
+  "entri_libur",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    snapshotId: integer("snapshot_id")
+      .notNull()
+      .references(() => snapshotLibur.id),
+    tanggal: date("tanggal", { mode: "string" }).notNull(),
+    keterangan: text("keterangan").notNull(),
+    jenis: text("jenis").$type<JenisLibur>().notNull(),
+    jenisUsulan: boolean("jenis_usulan").notNull().default(true),
+  },
+  (tabel) => [
+    uniqueIndex("entri_libur_tanggal_unik").on(tabel.snapshotId, tabel.tanggal),
+    check("entri_libur_jenis_dikenal", sql`${tabel.jenis} in (${daftarSql(daftarJenisLibur)})`),
+  ],
+);
+
+export const daftarJenisKejadianLibur = ["sinkronisasi-berhasil", "sinkronisasi-gagal"] as const;
+export type JenisKejadianLibur = (typeof daftarJenisKejadianLibur)[number];
+
+/** Riwayat kejadian libur (PRD B3). Sinkronisasi gagal tidak membuat snapshot; pesannya disimpan di sini. */
+export const kejadianLibur = pgTable(
+  "kejadian_libur",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    jenis: text("jenis").$type<JenisKejadianLibur>().notNull(),
+    tahun: integer("tahun").notNull(),
+    snapshotId: integer("snapshot_id").references(() => snapshotLibur.id),
+    pesan: text("pesan"),
+    pelaku: text("pelaku")
+      .notNull()
+      .references(() => user.id),
+    terjadiPada: timestamp("terjadi_pada", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabel) => [
+    index("kejadian_libur_jenis_waktu_idx").on(tabel.jenis, tabel.terjadiPada),
+    check("kejadian_libur_jenis_dikenal", sql`${tabel.jenis} in (${daftarSql(daftarJenisKejadianLibur)})`),
   ],
 );
