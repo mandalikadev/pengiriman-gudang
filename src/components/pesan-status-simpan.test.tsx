@@ -52,4 +52,11 @@ describe("PesanStatusSimpan (CODING_STANDARDS: lima keadaan simpan)", () => {
   it("keadaan lain diumumkan sebagai status", () => {
     expect(renderToStaticMarkup(<PesanStatusSimpan keadaan="berhasil" />)).toContain('role="status"');
   });
+
+  it("label bisa diganti untuk tindakan lain; ikon dan warna tetap milik keadaannya", () => {
+    const html = renderToStaticMarkup(<PesanStatusSimpan keadaan="gagal" label="Gagal mengekspor" pesan="Sesi berakhir." />);
+    expect(html).toContain("Gagal mengekspor");
+    expect(html).not.toContain("<span>Gagal<");
+    expect(html).toMatch(/<svg[^>]*lucide-circle-x[^>]*text-destructive/);
+  });
 });

@@ -23,15 +23,18 @@ export const semuaKeadaanSimpan = Object.keys(daftarKeadaan) as KeadaanSimpan[];
 
 /**
  * Pesan status simpan yang diletakkan dekat bagian yang dikerjakan.
- * `pesan` adalah keterangan tambahan (misalnya alasan gagal) yang tampil setelah label.
+ * `pesan` adalah keterangan tambahan (misalnya alasan gagal) yang tampil setelah label. `label` mengganti label bawaan
+ * untuk tindakan selain menyimpan (misalnya "Sedang mengekspor"); ikon dan warna tetap milik keadaannya.
  */
 export function PesanStatusSimpan({
   keadaan,
   pesan,
+  label: labelLain,
   className,
   ...props
-}: Omit<ComponentProps<"p">, "children"> & { keadaan: KeadaanSimpan; pesan?: string }) {
-  const { label, warna, ikon: Ikon } = daftarKeadaan[keadaan];
+}: Omit<ComponentProps<"p">, "children"> & { keadaan: KeadaanSimpan; pesan?: string; label?: string }) {
+  const { label: labelBawaan, warna, ikon: Ikon } = daftarKeadaan[keadaan];
+  const label = labelLain ?? labelBawaan;
   return (
     <p
       role={keadaan === "gagal" ? "alert" : "status"}

@@ -36,10 +36,32 @@ describe("StatusEkspor (DESIGN §7: ikon + teks)", () => {
 describe("bacaJawabanEkspor", () => {
   it("berhasil: berkas dan nama dari Content-Disposition", async () => {
     const hasil = await bacaJawabanEkspor(
-      new Response(new Uint8Array([1, 2, 3]), { headers: { "Content-Disposition": 'attachment; filename="ringkasan-2026-06.xlsx"' } }),
+      new Response(new Uint8Array([1, 2, 3]), {
+        headers: {
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition": 'attachment; filename="ringkasan-2026-06.xlsx"',
+        },
+      }),
     );
     expect(hasil).toMatchObject({ keadaan: "berhasil", namaBerkas: "ringkasan-2026-06.xlsx" });
     if (hasil.keadaan === "berhasil") expect(hasil.berkas.size).toBe(3);
+  });
+
+  it("sesi berakhir: fetch mengikuti pengalihan proxy ke /masuk (HTML 200) → gagal dengan pesan masuk lagi", async () => {
+    const halamanMasuk = new Response("<html>Masuk</html>", { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+    Object.defineProperty(halamanMasuk, "redirected", { value: true });
+    Object.defineProperty(halamanMasuk, "url", { value: "http://localhost:3000/masuk" });
+    expect(await bacaJawabanEkspor(halamanMasuk)).toEqual({
+      keadaan: "gagal",
+      pesan: "Sesi Anda sudah berakhir. Masuk lagi lalu ulangi ekspor.",
+    });
+  });
+
+  it("jawaban 200 yang bukan berkas .xlsx tidak diunduh: gagal", async () => {
+    expect(await bacaJawabanEkspor(new Response("<html>", { headers: { "Content-Type": "text/html" } }))).toEqual({
+      keadaan: "gagal",
+      pesan: "Server tidak mengirim berkas .xlsx. Muat ulang halaman lalu ulangi ekspor.",
+    });
   });
 
   it("ditolak server: pesan dari server", async () => {
