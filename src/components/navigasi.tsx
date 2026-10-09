@@ -1,10 +1,11 @@
 "use client";
 
-import { Menu, X } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 
+import { keluar } from "@/app/keluar/aksi";
 import { cn } from "@/lib/utils";
 
 // DESIGN §6: item hanya untuk halaman yang sudah ada.
@@ -19,6 +20,9 @@ const itemAdmin = [
 
 const fokusTerlihat =
   "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+
+const bentukItem =
+  "inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold transition-colors duration-300 ease-out";
 
 function TautanNavigasi({
   href,
@@ -37,7 +41,7 @@ function TautanNavigasi({
       aria-current={aktif ? "page" : undefined}
       onClick={onClick}
       className={cn(
-        "inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold transition-colors duration-300 ease-out",
+        bentukItem,
         aktif ? "bg-primary/10 text-primary" : "text-foreground hover:bg-primary/10 hover:text-primary",
         fokusTerlihat,
       )}
@@ -47,7 +51,28 @@ function TautanNavigasi({
   );
 }
 
-export function Navigasi({ tampilkanAdmin = false }: { tampilkanAdmin?: boolean }) {
+/** Form kecil agar tombol tetap berfungsi dengan keyboard (Enter/Spasi) dan sebelum JavaScript termuat. */
+function TombolKeluar() {
+  return (
+    <form action={keluar}>
+      <button
+        type="submit"
+        className={cn(bentukItem, "gap-2 text-foreground hover:bg-primary/10 hover:text-primary", fokusTerlihat)}
+      >
+        <LogOut aria-hidden strokeWidth={2} className="size-5" />
+        Keluar
+      </button>
+    </form>
+  );
+}
+
+export function Navigasi({
+  tampilkanAdmin = false,
+  sudahMasuk = false,
+}: {
+  tampilkanAdmin?: boolean;
+  sudahMasuk?: boolean;
+}) {
   const itemNavigasi = tampilkanAdmin ? [...itemUmum, ...itemAdmin] : itemUmum;
   const pathname = usePathname();
   const [menuTerbuka, setMenuTerbuka] = useState(false);
@@ -85,6 +110,11 @@ export function Navigasi({ tampilkanAdmin = false }: { tampilkanAdmin?: boolean 
                 <TautanNavigasi {...item} aktif={pathname === item.href} />
               </li>
             ))}
+            {sudahMasuk ? (
+              <li>
+                <TombolKeluar />
+              </li>
+            ) : null}
           </ul>
 
           <button
@@ -108,6 +138,11 @@ export function Navigasi({ tampilkanAdmin = false }: { tampilkanAdmin?: boolean 
               <TautanNavigasi {...item} aktif={pathname === item.href} onClick={() => setMenuTerbuka(false)} />
             </li>
           ))}
+          {sudahMasuk ? (
+            <li>
+              <TombolKeluar />
+            </li>
+          ) : null}
         </ul>
       </nav>
     </header>

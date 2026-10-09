@@ -31,7 +31,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="id" className={`${fraunces.variable} ${nunito.variable}`}>
       <body className="min-h-screen pt-4 antialiased">
-        <Navigasi tampilkanAdmin={pengguna?.peran === "admin"} />
+        <Navigasi tampilkanAdmin={pengguna?.peran === "admin"} sudahMasuk={pengguna !== null} />
         {children}
         <div aria-hidden className="tekstur-kertas" />
       </body>
