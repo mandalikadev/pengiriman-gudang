@@ -15,6 +15,13 @@
       "when": 1791529456868,
       "tag": "0001_gudang_toko",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791530209915,
+      "tag": "0002_penugasan_operator",
+      "breakpoints": true
     }
   ]
 }

@@ -1,13 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { kepalaPenggunaUji } from "@/server/auth/uji-bantu";
+import { daftarHakTindakan } from "@/server/gudang/hak-tindakan";
+import { tugaskanOperator } from "@/server/gudang/penugasan";
+import { idGudangUji } from "@/server/gudang/uji-bantu";
 
 const kepala = vi.hoisted(() => ({ cookie: "" }));
 vi.mock("next/headers", () => ({
   headers: async () => new Headers(kepala.cookie ? { cookie: kepala.cookie } : {}),
 }));
 
-import { AksesDitolakError, wajibAdmin, wajibMasuk } from "./kewenangan";
+import { AksesDitolakError, wajibAdmin, wajibHakTindakan, wajibMasuk } from "./kewenangan";
 
 beforeEach(() => {
   kepala.cookie = "";
@@ -44,5 +47,61 @@ describe("wajibAdmin", () => {
     const admin = await kepalaPenggunaUji("admin");
     kepala.cookie = admin.cookie;
     await expect(wajibAdmin()).resolves.toMatchObject({ id: admin.id, peran: "admin" });
+  });
+});
+
+describe("wajibHakTindakan", () => {
+  let gudangX: number;
+  let gudangY: number;
+
+  beforeAll(async () => {
+    gudangX = await idGudangUji("Gudang Bali");
+    gudangY = await idGudangUji("Gudang Bandung");
+  });
+
+  it("tanpa sesi: diarahkan ke halaman masuk", async () => {
+    await expect(wajibHakTindakan(gudangX, "input-stok")).rejects.toMatchObject({
+      digest: expect.stringContaining("/masuk"),
+    });
+  });
+
+  it("admin tanpa penugasan ditolak (admin tidak otomatis operator)", async () => {
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+    for (const tindakan of daftarHakTindakan) {
+      await expect(wajibHakTindakan(gudangX, tindakan)).rejects.toBeInstanceOf(AksesDitolakError);
+    }
+  });
+
+  it("viewer tanpa penugasan ditolak", async () => {
+    kepala.cookie = (await kepalaPenggunaUji("viewer")).cookie;
+    await expect(wajibHakTindakan(gudangX, "input-stok")).rejects.toBeInstanceOf(AksesDitolakError);
+  });
+
+  it("operator dengan hak input-stok di gudang X lolos untuk X dan ditolak untuk gudang Y", async () => {
+    const operator = await kepalaPenggunaUji("viewer");
+    await tugaskanOperator({ idPengguna: operator.id, idGudang: gudangX, hakTindakan: ["input-stok"] });
+    kepala.cookie = operator.cookie;
+
+    await expect(wajibHakTindakan(gudangX, "input-stok")).resolves.toMatchObject({ id: operator.id });
+    await expect(wajibHakTindakan(gudangY, "input-stok")).rejects.toBeInstanceOf(AksesDitolakError);
+  });
+
+  it("operator hanya lolos untuk hak tindakan yang dipilih", async () => {
+    const operator = await kepalaPenggunaUji("viewer");
+    await tugaskanOperator({ idPengguna: operator.id, idGudang: gudangX, hakTindakan: ["input-stok", "ekspor"] });
+    kepala.cookie = operator.cookie;
+
+    await expect(wajibHakTindakan(gudangX, "ekspor")).resolves.toMatchObject({ id: operator.id });
+    await expect(wajibHakTindakan(gudangX, "finalisasi")).rejects.toBeInstanceOf(AksesDitolakError);
+    await expect(wajibHakTindakan(gudangX, "kelola-usulan-jadwal")).rejects.toBeInstanceOf(AksesDitolakError);
+  });
+
+  it("admin yang ditugaskan sebagai operator lolos sesuai hak penugasannya", async () => {
+    const admin = await kepalaPenggunaUji("admin");
+    await tugaskanOperator({ idPengguna: admin.id, idGudang: gudangY, hakTindakan: ["finalisasi"] });
+    kepala.cookie = admin.cookie;
+
+    await expect(wajibHakTindakan(gudangY, "finalisasi")).resolves.toMatchObject({ id: admin.id });
+    await expect(wajibHakTindakan(gudangX, "finalisasi")).rejects.toBeInstanceOf(AksesDitolakError);
   });
 });

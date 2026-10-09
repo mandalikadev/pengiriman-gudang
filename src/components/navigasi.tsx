@@ -13,6 +13,7 @@ const itemUmum = [{ href: "/", label: "Beranda" }];
 const itemAdmin = [
   { href: "/admin/pengguna", label: "Pengguna" },
   { href: "/admin/gudang", label: "Gudang" },
+  { href: "/admin/penugasan", label: "Penugasan" },
 ];
 
 const fokusTerlihat =

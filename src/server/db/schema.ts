@@ -1,5 +1,8 @@
 // Skema Drizzle. Tabel bisnis ditambahkan oleh tiket yang membutuhkannya.
-import { boolean, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { boolean, check, index, integer, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
+
+import { daftarHakTindakan, type HakTindakan } from "@/server/gudang/hak-tindakan";
 
 // --- Autentikasi (Better Auth + plugin admin, T20) ---
 // Nama tabel dan field mengikuti model bawaan Better Auth agar adapter Drizzle tidak perlu pemetaan.
@@ -104,4 +107,33 @@ export const hubunganTokoGudang = pgTable(
     dibuatPada: timestamp("dibuat_pada", { withTimezone: true }).notNull().defaultNow(),
   },
   (tabel) => [index("hubungan_toko_gudang_gudang_id_idx").on(tabel.gudangId)],
+);
+
+// --- Penugasan operator (T22) ---
+
+/**
+ * Penugasan operator: satu baris per pengguna per gudang, berisi daftar hak tindakannya.
+ * Pengguna menjadi operator gudang hanya lewat baris ini; peran global (admin/viewer) tidak memberi hak operator.
+ */
+export const penugasanOperator = pgTable(
+  "penugasan_operator",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    gudangId: integer("gudang_id")
+      .notNull()
+      .references(() => gudang.id),
+    hakTindakan: text("hak_tindakan").array().$type<HakTindakan[]>().notNull().default(sql`'{}'::text[]`),
+    dibuatPada: timestamp("dibuat_pada", { withTimezone: true }).notNull().defaultNow(),
+    diubahPada: timestamp("diubah_pada", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabel) => [
+    primaryKey({ columns: [tabel.userId, tabel.gudangId] }),
+    index("penugasan_operator_gudang_id_idx").on(tabel.gudangId),
+    check(
+      "penugasan_operator_hak_tindakan_dikenal",
+      sql`${tabel.hakTindakan} <@ ARRAY[${sql.raw(daftarHakTindakan.map((h) => `'${h}'`).join(", "))}]::text[]`,
+    ),
+  ],
 );

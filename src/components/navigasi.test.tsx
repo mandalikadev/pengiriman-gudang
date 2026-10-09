@@ -41,16 +41,18 @@ describe("Navigasi", () => {
 });
 
 describe("Navigasi untuk admin", () => {
-  it("menambahkan tautan Pengguna dan Gudang hanya jika diminta (admin)", () => {
+  it("menambahkan tautan Pengguna, Gudang, dan Penugasan hanya jika diminta (admin)", () => {
     const html = renderToStaticMarkup(<Navigasi tampilkanAdmin />);
     const tautan = [...html.matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[2]]);
     expect(tautan).toEqual([
       ["/", "Beranda"],
       ["/admin/pengguna", "Pengguna"],
       ["/admin/gudang", "Gudang"],
+      ["/admin/penugasan", "Penugasan"],
       ["/", "Beranda"],
       ["/admin/pengguna", "Pengguna"],
       ["/admin/gudang", "Gudang"],
+      ["/admin/penugasan", "Penugasan"],
     ]);
   });
 });
