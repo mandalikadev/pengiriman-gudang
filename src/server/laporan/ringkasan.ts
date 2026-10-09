@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 import { bagiBulatAtas } from "@/domain/angka";
@@ -6,6 +6,7 @@ import type { KategoriDasar } from "@/domain/kalender";
 import { hitungPerbandinganMingguSama, hitungRingkasan } from "@/domain/laporan";
 import { db } from "@/server/db";
 import { cacheNilaiMingguan, cacheRataRataBulanan, cacheTotalPenjualanMentah, produk, toko } from "@/server/db/schema";
+import type { Tx } from "@/server/impor/antrean";
 import { idVersiCacheAktif } from "@/server/laporan/cache";
 import { muatRincian, type RincianAngka } from "@/server/laporan/rincian";
 
@@ -13,6 +14,7 @@ import { muatRincian, type RincianAngka } from "@/server/laporan/rincian";
 // `hitungRingkasan` (T32) untuk baris di halaman tabel yang dibuka saja. Tidak membaca Excel (PRD C1).
 // Perbandingan minggu sama (T36) untuk satu produk–toko terpilih dari cache nilai mingguan lewat
 // `hitungPerbandinganMingguSama` (T32). Rincian satu angka sampai sel sumber (T37) dari `muatRincian`.
+// Ekspor (T38) memakai pemeriksaan pilihan dan perhitungan baris yang sama untuk semua baris hasil filter.
 
 export const UKURAN_HALAMAN = 50;
 const MAKS_BULAN = 12;
@@ -25,6 +27,7 @@ export type BarisRingkasan = {
   namaToko: string;
   kodeProduk: string;
   namaProduk: string | null;
+  kategoriProduk: string | null;
   /** Per kategori hari; `null` = tidak tersedia (tidak ada bulan pilihan yang punya hasil). */
   rataRata: Record<KategoriDasar, RataRataRingkasan | null>;
   /** Jumlah total penjualan mentah bulan pilihan; bukan penjumlahan rata-rata. */
@@ -127,6 +130,186 @@ function periksaFilter(filter: FilterRingkasan, opsi: OpsiFilter): FilterAktif |
 /** Urutan kolom kategori hari di tabel Ringkasan. */
 export const KATEGORI: readonly KategoriDasar[] = ["Senin–Kamis", "Jumat", "Sabtu", "Minggu"];
 
+type HasilBelumSiap = Exclude<HasilRingkasan, { keadaan: "siap" }>;
+
+/** Pilihan dan filter yang sudah diperiksa terhadap cache aktif, beserta kondisi SQL-nya. */
+type PilihanTerperiksa = {
+  keadaan: "siap";
+  versiId: number;
+  bulanTersedia: string[];
+  opsiFilter: OpsiFilter;
+  filterAktif: FilterAktif;
+  /** Bulan pilihan, urut naik. */
+  pilihan: string[];
+  /** Baris cache rata-rata bulanan di versi aktif dan bulan pilihan. */
+  dalamPilihan: SQL | undefined;
+  /** `dalamPilihan` + filter yang diterapkan. */
+  sesuaiFilter: SQL | undefined;
+};
+
+/** Membaca versi cache aktif, bulan dan pilihan filter yang tersedia, lalu memeriksa pilihan dari URL. */
+async function periksaPilihanDanFilter(
+  tx: Tx,
+  bulanPilihan: readonly string[],
+  filter: FilterRingkasan,
+): Promise<PilihanTerperiksa | HasilBelumSiap> {
+  const versiId = await idVersiCacheAktif(tx);
+  if (versiId === null) return { keadaan: "belum-ada-cache" };
+
+  const bulanTersedia = (
+    await tx
+      .selectDistinct({ bulanLaporan: cacheRataRataBulanan.bulanLaporan })
+      .from(cacheRataRataBulanan)
+      .where(eq(cacheRataRataBulanan.versiId, versiId))
+      .orderBy(asc(cacheRataRataBulanan.bulanLaporan))
+  ).map((b) => b.bulanLaporan);
+
+  const opsiToko = await tx
+    .selectDistinct({ id: toko.id, nama: toko.nama })
+    .from(cacheRataRataBulanan)
+    .innerJoin(toko, eq(toko.id, cacheRataRataBulanan.tokoId))
+    .where(eq(cacheRataRataBulanan.versiId, versiId))
+    .orderBy(asc(toko.nama));
+  const opsiProduk = await tx
+    .selectDistinct({ kode: cacheRataRataBulanan.kodeProduk, nama: produk.nama, kategori: produk.kategori })
+    .from(cacheRataRataBulanan)
+    .leftJoin(produk, eq(produk.kode, cacheRataRataBulanan.kodeProduk))
+    .where(eq(cacheRataRataBulanan.versiId, versiId))
+    .orderBy(asc(cacheRataRataBulanan.kodeProduk));
+  const opsiFilter: OpsiFilter = {
+    toko: opsiToko,
+    kategoriProduk: [...new Set(opsiProduk.flatMap((p) => (p.kategori === null ? [] : [p.kategori])))].sort(),
+    produk: opsiProduk.map(({ kode, nama }) => ({ kode, nama })),
+  };
+
+  if (bulanPilihan.length === 0) return { keadaan: "belum-dipilih", bulanTersedia, opsiFilter };
+  const pesan = periksaPilihan(bulanPilihan, bulanTersedia);
+  if (pesan !== null) return { keadaan: "pilihan-tidak-valid", bulanTersedia, opsiFilter, pesan };
+  const filterAktif = periksaFilter(filter, opsiFilter);
+  if (filterAktif === null) {
+    return {
+      keadaan: "pilihan-tidak-valid",
+      bulanTersedia,
+      opsiFilter,
+      pesan: "Ada filter yang tidak tersedia di data. Ubah filter lalu tekan Terapkan.",
+    };
+  }
+  const pilihan = [...bulanPilihan].sort();
+
+  const dalamPilihan = and(eq(cacheRataRataBulanan.versiId, versiId), inArray(cacheRataRataBulanan.bulanLaporan, pilihan));
+  // Filter antarjenis digabung dengan "dan"; banyak pilihan dalam satu jenis digabung dengan "atau".
+  const sesuaiFilter = and(
+    dalamPilihan,
+    filterAktif.toko.length > 0
+      ? inArray(
+          cacheRataRataBulanan.tokoId,
+          filterAktif.toko.map((t) => t.id),
+        )
+      : undefined,
+    filterAktif.produk.length > 0
+      ? inArray(
+          cacheRataRataBulanan.kodeProduk,
+          filterAktif.produk.map((p) => p.kode),
+        )
+      : undefined,
+    filterAktif.kategoriProduk.length > 0
+      ? inArray(
+          cacheRataRataBulanan.kodeProduk,
+          tx.select({ kode: produk.kode }).from(produk).where(inArray(produk.kategori, filterAktif.kategoriProduk)),
+        )
+      : undefined,
+  );
+  return { keadaan: "siap", versiId, bulanTersedia, opsiFilter, filterAktif, pilihan, dalamPilihan, sesuaiFilter };
+}
+
+/** Pasangan produk–toko unik yang cocok dengan periode dan filter yang diterapkan (subquery). */
+function pasanganUnikDari(tx: Tx, sesuaiFilter: SQL | undefined) {
+  return tx
+    .selectDistinct({ tokoId: cacheRataRataBulanan.tokoId, kodeProduk: cacheRataRataBulanan.kodeProduk })
+    .from(cacheRataRataBulanan)
+    .where(sesuaiFilter)
+    .as("pasangan");
+}
+
+type PasanganBaris = Pick<BarisRingkasan, "tokoId" | "namaToko" | "kodeProduk" | "namaProduk" | "kategoriProduk">;
+
+/**
+ * Baris Ringkasan (tahap 3 lewat `hitungRingkasan`) untuk `pasangan`. `milikPasangan(kolomToko, kolomKode)` membatasi
+ * bacaan cache ke pasangan tersebut.
+ */
+async function hitungBaris(
+  tx: Tx,
+  { versiId, pilihan, dalamPilihan }: PilihanTerperiksa,
+  pasangan: PasanganBaris[],
+  milikPasangan: (kolomToko: AnyPgColumn, kolomKode: AnyPgColumn) => SQL,
+): Promise<BarisRingkasan[]> {
+  if (pasangan.length === 0) return [];
+  const kunci = (tokoId: number, kodeProduk: string) => `${tokoId}|${kodeProduk}`;
+
+  const bulanan = await tx
+    .select({
+      tokoId: cacheRataRataBulanan.tokoId,
+      kodeProduk: cacheRataRataBulanan.kodeProduk,
+      bulanLaporan: cacheRataRataBulanan.bulanLaporan,
+      kategori: cacheRataRataBulanan.kategori,
+      rataRataBulanan: cacheRataRataBulanan.rataRataBulanan,
+      kelengkapan: cacheRataRataBulanan.kelengkapan,
+    })
+    .from(cacheRataRataBulanan)
+    .where(and(dalamPilihan, milikPasangan(cacheRataRataBulanan.tokoId, cacheRataRataBulanan.kodeProduk)));
+
+  const mentah = await tx
+    .select({
+      tokoId: cacheTotalPenjualanMentah.tokoId,
+      kodeProduk: cacheTotalPenjualanMentah.kodeProduk,
+      total: sql<number>`sum(${cacheTotalPenjualanMentah.totalPenjualanMentah})::int`,
+    })
+    .from(cacheTotalPenjualanMentah)
+    .where(
+      and(
+        eq(cacheTotalPenjualanMentah.versiId, versiId),
+        inArray(cacheTotalPenjualanMentah.bulanLaporan, pilihan),
+        milikPasangan(cacheTotalPenjualanMentah.tokoId, cacheTotalPenjualanMentah.kodeProduk),
+      ),
+    )
+    .groupBy(cacheTotalPenjualanMentah.tokoId, cacheTotalPenjualanMentah.kodeProduk);
+
+  const bulananPerPasangan = new Map<string, typeof bulanan>();
+  for (const b of bulanan) {
+    const k = kunci(b.tokoId, b.kodeProduk);
+    bulananPerPasangan.set(k, [...(bulananPerPasangan.get(k) ?? []), b]);
+  }
+  const mentahPerPasangan = new Map(mentah.map((m) => [kunci(m.tokoId, m.kodeProduk), m.total]));
+
+  return pasangan.map((p) => {
+    const k = kunci(p.tokoId, p.kodeProduk);
+    const ringkasan = hitungRingkasan(bulananPerPasangan.get(k) ?? [], pilihan);
+    return {
+      ...p,
+      rataRata: Object.fromEntries(
+        KATEGORI.map((kategori) => [kategori, ringkasan.find((r) => r.kategori === kategori) ?? null]),
+      ) as BarisRingkasan["rataRata"],
+      totalPenjualanMentah: mentahPerPasangan.get(k) ?? 0,
+    };
+  });
+}
+
+/** Pasangan produk–toko dari subquery `pasanganUnik`, dengan nama toko, nama produk, dan kategori produk. */
+function pilihPasangan(tx: Tx, pasanganUnik: ReturnType<typeof pasanganUnikDari>) {
+  return tx
+    .select({
+      tokoId: pasanganUnik.tokoId,
+      namaToko: toko.nama,
+      kodeProduk: pasanganUnik.kodeProduk,
+      namaProduk: produk.nama,
+      kategoriProduk: produk.kategori,
+    })
+    .from(pasanganUnik)
+    .innerJoin(toko, eq(toko.id, pasanganUnik.tokoId))
+    .leftJoin(produk, eq(produk.kode, pasanganUnik.kodeProduk))
+    .orderBy(asc(toko.nama), asc(pasanganUnik.kodeProduk));
+}
+
 /**
  * Ringkasan per produk–toko untuk bulan pilihan, satu halaman tabel. Semua bacaan cache berada dalam satu
  * transaksi `repeatable read`, sehingga versi cache yang dibaca tidak berganti di tengah jalan (T33).
@@ -149,95 +332,16 @@ export async function muatRingkasan({
 }): Promise<HasilRingkasan> {
   return db.transaction(
     async (tx) => {
-      const versiId = await idVersiCacheAktif(tx);
-      if (versiId === null) return { keadaan: "belum-ada-cache" };
+      const terperiksa = await periksaPilihanDanFilter(tx, bulanPilihan, filter);
+      if (terperiksa.keadaan !== "siap") return terperiksa;
+      const { versiId, bulanTersedia, opsiFilter, filterAktif, pilihan, sesuaiFilter } = terperiksa;
 
-      const bulanTersedia = (
-        await tx
-          .selectDistinct({ bulanLaporan: cacheRataRataBulanan.bulanLaporan })
-          .from(cacheRataRataBulanan)
-          .where(eq(cacheRataRataBulanan.versiId, versiId))
-          .orderBy(asc(cacheRataRataBulanan.bulanLaporan))
-      ).map((b) => b.bulanLaporan);
-
-      const opsiToko = await tx
-        .selectDistinct({ id: toko.id, nama: toko.nama })
-        .from(cacheRataRataBulanan)
-        .innerJoin(toko, eq(toko.id, cacheRataRataBulanan.tokoId))
-        .where(eq(cacheRataRataBulanan.versiId, versiId))
-        .orderBy(asc(toko.nama));
-      const opsiProduk = await tx
-        .selectDistinct({ kode: cacheRataRataBulanan.kodeProduk, nama: produk.nama, kategori: produk.kategori })
-        .from(cacheRataRataBulanan)
-        .leftJoin(produk, eq(produk.kode, cacheRataRataBulanan.kodeProduk))
-        .where(eq(cacheRataRataBulanan.versiId, versiId))
-        .orderBy(asc(cacheRataRataBulanan.kodeProduk));
-      const opsiFilter: OpsiFilter = {
-        toko: opsiToko,
-        kategoriProduk: [...new Set(opsiProduk.flatMap((p) => (p.kategori === null ? [] : [p.kategori])))].sort(),
-        produk: opsiProduk.map(({ kode, nama }) => ({ kode, nama })),
-      };
-
-      if (bulanPilihan.length === 0) return { keadaan: "belum-dipilih", bulanTersedia, opsiFilter };
-      const pesan = periksaPilihan(bulanPilihan, bulanTersedia);
-      if (pesan !== null) return { keadaan: "pilihan-tidak-valid", bulanTersedia, opsiFilter, pesan };
-      const filterAktif = periksaFilter(filter, opsiFilter);
-      if (filterAktif === null) {
-        return {
-          keadaan: "pilihan-tidak-valid",
-          bulanTersedia,
-          opsiFilter,
-          pesan: "Ada filter yang tidak tersedia di data. Ubah filter lalu tekan Terapkan.",
-        };
-      }
-      const pilihan = [...bulanPilihan].sort();
-
-      const dalamPilihan = and(
-        eq(cacheRataRataBulanan.versiId, versiId),
-        inArray(cacheRataRataBulanan.bulanLaporan, pilihan),
-      );
-      // Filter antarjenis digabung dengan "dan"; banyak pilihan dalam satu jenis digabung dengan "atau".
-      const sesuaiFilter = and(
-        dalamPilihan,
-        filterAktif.toko.length > 0
-          ? inArray(
-              cacheRataRataBulanan.tokoId,
-              filterAktif.toko.map((t) => t.id),
-            )
-          : undefined,
-        filterAktif.produk.length > 0
-          ? inArray(
-              cacheRataRataBulanan.kodeProduk,
-              filterAktif.produk.map((p) => p.kode),
-            )
-          : undefined,
-        filterAktif.kategoriProduk.length > 0
-          ? inArray(
-              cacheRataRataBulanan.kodeProduk,
-              tx.select({ kode: produk.kode }).from(produk).where(inArray(produk.kategori, filterAktif.kategoriProduk)),
-            )
-          : undefined,
-      );
-      const pasanganUnik = tx
-        .selectDistinct({ tokoId: cacheRataRataBulanan.tokoId, kodeProduk: cacheRataRataBulanan.kodeProduk })
-        .from(cacheRataRataBulanan)
-        .where(sesuaiFilter)
-        .as("pasangan");
+      const pasanganUnik = pasanganUnikDari(tx, sesuaiFilter);
       const [{ jumlah }] = await tx.select({ jumlah: sql<number>`count(*)::int` }).from(pasanganUnik);
       const jumlahHalaman = Math.max(1, bagiBulatAtas(jumlah, UKURAN_HALAMAN));
       const halamanDibuka = Math.min(Math.max(1, halaman), jumlahHalaman);
 
-      const pasangan = await tx
-        .select({
-          tokoId: pasanganUnik.tokoId,
-          namaToko: toko.nama,
-          kodeProduk: pasanganUnik.kodeProduk,
-          namaProduk: produk.nama,
-        })
-        .from(pasanganUnik)
-        .innerJoin(toko, eq(toko.id, pasanganUnik.tokoId))
-        .leftJoin(produk, eq(produk.kode, pasanganUnik.kodeProduk))
-        .orderBy(asc(toko.nama), asc(pasanganUnik.kodeProduk))
+      const pasangan = await pilihPasangan(tx, pasanganUnik)
         .limit(UKURAN_HALAMAN)
         .offset((halamanDibuka - 1) * UKURAN_HALAMAN);
 
@@ -285,76 +389,66 @@ export async function muatRingkasan({
       const hasilRincian =
         rincian === undefined ? null : await muatRincian(tx, { versiId, bulanPilihan: pilihan, sesuaiFilter, nilai: rincian });
 
-      const siap = (baris: BarisRingkasan[]): HasilRingkasan => ({
-        keadaan: "siap",
-        bulanTersedia,
-        opsiFilter,
-        bulanPilihan: pilihan,
-        filterAktif,
-        baris,
-        mingguSama: hasilMingguSama,
-        rincian: hasilRincian,
-        jumlahBaris: jumlah,
-        halaman: halamanDibuka,
-        jumlahHalaman,
-      });
-      if (pasangan.length === 0) return siap([]);
-
-      const kunci = (tokoId: number, kodeProduk: string) => `${tokoId}|${kodeProduk}`;
       const milikHalaman = (kolomToko: AnyPgColumn, kolomKode: AnyPgColumn) =>
         sql`(${kolomToko}, ${kolomKode}) in (${sql.join(
           pasangan.map((p) => sql`(${p.tokoId}, ${p.kodeProduk})`),
           sql`, `,
         )})`;
 
-      const bulanan = await tx
-        .select({
-          tokoId: cacheRataRataBulanan.tokoId,
-          kodeProduk: cacheRataRataBulanan.kodeProduk,
-          bulanLaporan: cacheRataRataBulanan.bulanLaporan,
-          kategori: cacheRataRataBulanan.kategori,
-          rataRataBulanan: cacheRataRataBulanan.rataRataBulanan,
-          kelengkapan: cacheRataRataBulanan.kelengkapan,
-        })
-        .from(cacheRataRataBulanan)
-        .where(and(dalamPilihan, milikHalaman(cacheRataRataBulanan.tokoId, cacheRataRataBulanan.kodeProduk)));
+      return {
+        keadaan: "siap",
+        bulanTersedia,
+        opsiFilter,
+        bulanPilihan: pilihan,
+        filterAktif,
+        baris: await hitungBaris(tx, terperiksa, pasangan, milikHalaman),
+        mingguSama: hasilMingguSama,
+        rincian: hasilRincian,
+        jumlahBaris: jumlah,
+        halaman: halamanDibuka,
+        jumlahHalaman,
+      };
+    },
+    { isolationLevel: "repeatable read", accessMode: "read only" },
+  );
+}
 
-      const mentah = await tx
-        .select({
-          tokoId: cacheTotalPenjualanMentah.tokoId,
-          kodeProduk: cacheTotalPenjualanMentah.kodeProduk,
-          total: sql<number>`sum(${cacheTotalPenjualanMentah.totalPenjualanMentah})::int`,
-        })
-        .from(cacheTotalPenjualanMentah)
-        .where(
-          and(
-            eq(cacheTotalPenjualanMentah.versiId, versiId),
-            inArray(cacheTotalPenjualanMentah.bulanLaporan, pilihan),
-            milikHalaman(cacheTotalPenjualanMentah.tokoId, cacheTotalPenjualanMentah.kodeProduk),
-          ),
-        )
-        .groupBy(cacheTotalPenjualanMentah.tokoId, cacheTotalPenjualanMentah.kodeProduk);
+/** Semua baris Ringkasan hasil periode dan filter yang diterapkan, untuk ekspor (T38). */
+export type HasilSemuaBarisRingkasan =
+  | { keadaan: "belum-ada-cache" }
+  | { keadaan: "belum-dipilih" }
+  | { keadaan: "pilihan-tidak-valid"; pesan: string }
+  | { keadaan: "siap"; bulanPilihan: string[]; filterAktif: FilterAktif; baris: BarisRingkasan[] };
 
-      const bulananPerPasangan = new Map<string, typeof bulanan>();
-      for (const b of bulanan) {
-        const k = kunci(b.tokoId, b.kodeProduk);
-        bulananPerPasangan.set(k, [...(bulananPerPasangan.get(k) ?? []), b]);
+/**
+ * Seperti `muatRingkasan`, tetapi semua baris hasil periode dan filter yang diterapkan, bukan satu halaman tabel
+ * (PRD A2: ekspor mencakup seluruh hasil filter). Pemeriksaan pilihan dan perhitungan barisnya sama.
+ */
+export async function muatSemuaBarisRingkasan({
+  bulanPilihan,
+  filter,
+}: {
+  bulanPilihan: readonly string[];
+  filter: FilterRingkasan;
+}): Promise<HasilSemuaBarisRingkasan> {
+  return db.transaction(
+    async (tx) => {
+      const terperiksa = await periksaPilihanDanFilter(tx, bulanPilihan, filter);
+      if (terperiksa.keadaan === "belum-ada-cache" || terperiksa.keadaan === "belum-dipilih") {
+        return { keadaan: terperiksa.keadaan };
       }
-      const mentahPerPasangan = new Map(mentah.map((m) => [kunci(m.tokoId, m.kodeProduk), m.total]));
+      if (terperiksa.keadaan === "pilihan-tidak-valid") return { keadaan: terperiksa.keadaan, pesan: terperiksa.pesan };
 
-      return siap(
-        pasangan.map((p) => {
-          const k = kunci(p.tokoId, p.kodeProduk);
-          const ringkasan = hitungRingkasan(bulananPerPasangan.get(k) ?? [], pilihan);
-          return {
-            ...p,
-            rataRata: Object.fromEntries(
-              KATEGORI.map((kategori) => [kategori, ringkasan.find((r) => r.kategori === kategori) ?? null]),
-            ) as BarisRingkasan["rataRata"],
-            totalPenjualanMentah: mentahPerPasangan.get(k) ?? 0,
-          };
-        }),
-      );
+      const pasangan = await pilihPasangan(tx, pasanganUnikDari(tx, terperiksa.sesuaiFilter));
+      // Bacaan cache dibatasi ke pasangan hasil filter lewat subquery, bukan daftar pasangan (bisa ribuan).
+      const milikHasilFilter = (kolomToko: AnyPgColumn, kolomKode: AnyPgColumn) =>
+        sql`(${kolomToko}, ${kolomKode}) in (select ${cacheRataRataBulanan.tokoId}, ${cacheRataRataBulanan.kodeProduk} from ${cacheRataRataBulanan} where ${terperiksa.sesuaiFilter})`;
+      return {
+        keadaan: "siap",
+        bulanPilihan: terperiksa.pilihan,
+        filterAktif: terperiksa.filterAktif,
+        baris: await hitungBaris(tx, terperiksa, pasangan, milikHasilFilter),
+      };
     },
     { isolationLevel: "repeatable read", accessMode: "read only" },
   );

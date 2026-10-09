@@ -217,6 +217,7 @@ describe("/ringkasan: viewer, pagination, dan pilihan", () => {
     expect(html).toContain("Belum ada periode yang diterapkan");
     expect(html).not.toContain("data-baris=");
     expect(html).toContain("Terapkan");
+    expect(html).not.toContain("data-ekspor-url=");
   });
 
   it("bulan di URL yang tidak tersedia di data ditolak dengan pesan", async () => {
@@ -290,6 +291,15 @@ describe("/ringkasan: filter toko, kategori produk, dan produk (T35)", () => {
     expect(tokoB).toContain(`data-filter-kategori-produk="${d.x}"`);
     expect(tokoB.indexOf("Periode aktif:")).toBeLessThan(tokoB.indexOf("data-baris="));
     expect(tokoB.indexOf("data-filter-toko=")).toBeLessThan(tokoB.indexOf("data-baris="));
+
+    // T38: tombol Ekspor membawa periode dan filter yang diterapkan (tanpa halaman), di dekat filter aktif.
+    const ekspor = new URLSearchParams([
+      ...d.bulan.map((b) => ["bulan", b]),
+      ["toko", String(d.tokoB.id)],
+      ["kategoriProduk", d.x],
+    ]);
+    expect(tokoB).toContain(`data-ekspor-url="/ringkasan/ekspor?${ekspor.toString().replaceAll("&", "&amp;")}"`);
+    expect(tokoB.indexOf("data-ekspor-url=")).toBeLessThan(tokoB.indexOf("data-baris="));
   });
 
   it("filter produk (banyak pilihan) menyaring per kode produk di semua toko", async () => {

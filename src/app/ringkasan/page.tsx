@@ -25,6 +25,7 @@ import { nilaiRincian, type RincianAngka, type SumberTanggal } from "@/server/la
 
 import { formatPembagian } from "./format-pembagian";
 import { PilihanRingkasan } from "./pilihan-ringkasan";
+import { TombolEkspor } from "./tombol-ekspor";
 
 export const metadata: Metadata = {
   title: "Ringkasan — Dashboard Penjualan MANDALIKA",
@@ -69,13 +70,17 @@ type Terbuka = {
   rincian?: string;
 };
 
-function urlHalaman(bulanPilihan: string[], filter: FilterRingkasan, halaman: number, { mingguSama, rincian }: Terbuka = {}) {
-  const parameter = new URLSearchParams([
+function parameterTerapan(bulanPilihan: string[], filter: FilterRingkasan) {
+  return new URLSearchParams([
     ...bulanPilihan.map((b) => ["bulan", b]),
     ...filter.toko.map((t) => ["toko", t]),
     ...filter.kategoriProduk.map((k) => ["kategoriProduk", k]),
     ...filter.produk.map((p) => ["produk", p]),
   ]);
+}
+
+function urlHalaman(bulanPilihan: string[], filter: FilterRingkasan, halaman: number, { mingguSama, rincian }: Terbuka = {}) {
+  const parameter = parameterTerapan(bulanPilihan, filter);
   if (halaman > 1) parameter.set("halaman", String(halaman));
   if (mingguSama !== undefined) parameter.set("mingguSama", mingguSama);
   if (rincian !== undefined) parameter.set("rincian", rincian);
@@ -687,7 +692,17 @@ export default async function HalamanRingkasan({ searchParams }: { searchParams:
           ) : (
             <div className="flex flex-col gap-2 rounded-2xl bg-muted px-4 py-3">
               <PeriodeAktif bulanPilihan={hasil.keadaan === "siap" ? hasil.bulanPilihan : []} />
-              {hasil.keadaan === "siap" ? <FilterTerapan bulanPilihan={hasil.bulanPilihan} filter={hasil.filterAktif} /> : null}
+              {hasil.keadaan === "siap" ? (
+                <>
+                  <FilterTerapan bulanPilihan={hasil.bulanPilihan} filter={hasil.filterAktif} />
+                  {/* T38: ekspor semua baris hasil periode dan filter yang diterapkan, bukan hanya halaman ini. */}
+                  <div className="pl-7">
+                    <TombolEkspor
+                      url={`/ringkasan/ekspor?${parameterTerapan(hasil.bulanPilihan, nilaiFilter(hasil.filterAktif)).toString()}`}
+                    />
+                  </div>
+                </>
+              ) : null}
             </div>
           )}
           {hasil.keadaan === "siap" && hasil.mingguSama !== null ? (
