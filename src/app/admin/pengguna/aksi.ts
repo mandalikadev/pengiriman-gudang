@@ -6,13 +6,11 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 
+import type { HasilSimpan } from "@/components/keadaan-simpan";
 import { auth, daftarPeran } from "@/server/auth/auth";
 import { wajibAdmin } from "@/server/auth/kewenangan";
 import { db } from "@/server/db";
 import { user } from "@/server/db/schema";
-
-/** Hasil aksi simpan untuk PesanStatusSimpan (CODING_STANDARDS "Penyimpanan dan status"). */
-export type HasilSimpan = { keadaan: "berhasil" | "tersimpanGagalMuatUlang" } | { keadaan: "gagal"; pesan: string };
 
 const PATH_HALAMAN = "/admin/pengguna";
 

@@ -1,5 +1,5 @@
 // Skema Drizzle. Tabel bisnis ditambahkan oleh tiket yang membutuhkannya.
-import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 // --- Autentikasi (Better Auth + plugin admin, T20) ---
 // Nama tabel dan field mengikuti model bawaan Better Auth agar adapter Drizzle tidak perlu pemetaan.
@@ -71,4 +71,37 @@ export const verification = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (tabel) => [index("verification_identifier_idx").on(tabel.identifier)],
+);
+
+// --- Gudang dan toko (T21) ---
+
+/** Lima gudang (PRD A3, OD-02). Diisi oleh seed master; tidak ada UI untuk menambah atau mengubahnya. */
+export const gudang = pgTable("gudang", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  nama: text("nama").notNull().unique(),
+});
+
+/** Master toko: nama sesuai blok toko di sheet penjualan. */
+export const toko = pgTable("toko", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  nama: text("nama").notNull().unique(),
+  aktif: boolean("aktif").notNull().default(true),
+});
+
+/**
+ * Hubungan toko–gudang. ADR-0009 (OD-03): satu toko terhubung ke paling banyak satu gudang,
+ * ditegakkan database lewat primary key `toko_id`. Toko yang belum terhubung tidak punya baris.
+ */
+export const hubunganTokoGudang = pgTable(
+  "hubungan_toko_gudang",
+  {
+    tokoId: integer("toko_id")
+      .primaryKey()
+      .references(() => toko.id),
+    gudangId: integer("gudang_id")
+      .notNull()
+      .references(() => gudang.id),
+    dibuatPada: timestamp("dibuat_pada", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabel) => [index("hubungan_toko_gudang_gudang_id_idx").on(tabel.gudangId)],
 );

@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 
+import { usePenyimpanan } from "@/components/keadaan-simpan";
 import { PesanStatusSimpan } from "@/components/pesan-status-simpan";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,14 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { buatPengguna } from "./aksi";
-import { usePenyimpanan } from "./keadaan-simpan";
 
 const isianKosong = { nama: "", email: "", sandi: "", peran: "viewer" };
 
 export function FormBuatPengguna() {
   const id = useId();
   const [isian, setIsian] = useState(isianKosong);
-  const { tampilan, menunggu, tandaiBerubah, simpan } = usePenyimpanan();
+  const { tampilan, menunggu, tandaiBerubah, simpan } = usePenyimpanan("daftar pengguna");
 
   function ubah(kolom: keyof typeof isianKosong, nilai: string) {
     setIsian((sebelumnya) => ({ ...sebelumnya, [kolom]: nilai }));

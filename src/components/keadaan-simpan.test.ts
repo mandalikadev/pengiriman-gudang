@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { keadaanTampil, PESAN_BELUM_PASTI } from "./keadaan-simpan";
+import { keadaanTampil, pesanBelumPasti } from "./keadaan-simpan";
 
 describe("keadaanTampil (CODING_STANDARDS: lima keadaan simpan)", () => {
   it("belum ada perubahan → tidak ada pesan", () => {
@@ -26,7 +26,8 @@ describe("keadaanTampil (CODING_STANDARDS: lima keadaan simpan)", () => {
   });
 
   it("pesan untuk hasil yang belum pasti menyuruh memeriksa, bukan mengulang otomatis", () => {
-    expect(PESAN_BELUM_PASTI).toMatch(/belum pasti/i);
-    expect(PESAN_BELUM_PASTI).toMatch(/periksa/i);
+    expect(pesanBelumPasti("daftar pengguna")).toBe(
+      "Hasil belum pasti karena server tidak menjawab. Muat ulang halaman dan periksa daftar pengguna sebelum mencoba lagi.",
+    );
   });
 });

@@ -4,6 +4,7 @@ import { Archive } from "lucide-react";
 import { useState } from "react";
 
 import { BadgeStatus } from "@/components/badge-status";
+import { usePenyimpanan } from "@/components/keadaan-simpan";
 import { PesanStatusSimpan } from "@/components/pesan-status-simpan";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,13 +13,12 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import type { Peran } from "@/server/auth/auth";
 
 import { nonaktifkanPengguna, ubahPeran } from "./aksi";
-import { usePenyimpanan } from "./keadaan-simpan";
 
 export type DataPengguna = { id: string; nama: string; email: string; peran: Peran; nonaktif: boolean };
 
 export function BarisPengguna({ pengguna }: { pengguna: DataPengguna }) {
   const [peran, setPeran] = useState<string>(pengguna.peran);
-  const { tampilan, menunggu, berubah, tandaiBerubah, simpan } = usePenyimpanan();
+  const { tampilan, menunggu, berubah, tandaiBerubah, simpan } = usePenyimpanan("daftar pengguna");
 
   return (
     <TableRow>
