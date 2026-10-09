@@ -3,6 +3,7 @@ import { Fraunces, Nunito } from "next/font/google";
 import type { ReactNode } from "react";
 
 import { Navigasi } from "@/components/navigasi";
+import { penggunaSaatIni } from "@/server/auth/kewenangan";
 
 import "./globals.css";
 
@@ -25,11 +26,12 @@ export const metadata: Metadata = {
   title: "Dashboard Penjualan MANDALIKA",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const pengguna = await penggunaSaatIni();
   return (
     <html lang="id" className={`${fraunces.variable} ${nunito.variable}`}>
       <body className="min-h-screen pt-4 antialiased">
-        <Navigasi />
+        <Navigasi tampilkanPengguna={pengguna?.peran === "admin"} />
         {children}
         <div aria-hidden className="tekstur-kertas" />
       </body>

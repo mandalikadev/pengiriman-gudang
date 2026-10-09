@@ -8,7 +8,9 @@ import { useEffect, useId, useState } from "react";
 import { cn } from "@/lib/utils";
 
 // DESIGN §6: item hanya untuk halaman yang sudah ada.
-const itemNavigasi = [{ href: "/", label: "Beranda" }] as const;
+const itemUmum = [{ href: "/", label: "Beranda" }];
+// Hanya untuk admin. Penyembunyian ini tambahan; halaman memeriksa peran di server (wajibAdmin).
+const itemAdmin = [{ href: "/admin/pengguna", label: "Pengguna" }];
 
 const fokusTerlihat =
   "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
@@ -40,7 +42,8 @@ function TautanNavigasi({
   );
 }
 
-export function Navigasi() {
+export function Navigasi({ tampilkanPengguna = false }: { tampilkanPengguna?: boolean }) {
+  const itemNavigasi = tampilkanPengguna ? [...itemUmum, ...itemAdmin] : itemUmum;
   const pathname = usePathname();
   const [menuTerbuka, setMenuTerbuka] = useState(false);
   const idMenu = useId();

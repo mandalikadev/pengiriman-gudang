@@ -39,3 +39,16 @@ describe("Navigasi", () => {
     expect(html).toContain('aria-current="page"');
   });
 });
+
+describe("Navigasi untuk admin", () => {
+  it("menambahkan tautan Pengguna hanya jika diminta (admin)", () => {
+    const html = renderToStaticMarkup(<Navigasi tampilkanPengguna />);
+    const tautan = [...html.matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[2]]);
+    expect(tautan).toEqual([
+      ["/", "Beranda"],
+      ["/admin/pengguna", "Pengguna"],
+      ["/", "Beranda"],
+      ["/admin/pengguna", "Pengguna"],
+    ]);
+  });
+});
