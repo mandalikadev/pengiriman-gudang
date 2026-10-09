@@ -50,6 +50,13 @@
       "when": 1791560749140,
       "tag": "0006_aktivasi_libur",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791562188019,
+      "tag": "0007_keluarga_aroma",
+      "breakpoints": true
     }
   ]
 }

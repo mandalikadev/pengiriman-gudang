@@ -84,7 +84,7 @@ describe("Navigasi untuk pengguna yang sudah masuk", () => {
 });
 
 describe("Navigasi untuk admin", () => {
-  it("menambahkan tautan Pengguna, Gudang, Penugasan, Impor, dan Libur (T40) hanya jika diminta (admin)", () => {
+  it("menambahkan tautan Pengguna, Gudang, Penugasan, Impor, Libur (T40), dan Keluarga aroma (T44) hanya jika diminta (admin)", () => {
     const html = renderToStaticMarkup(<Navigasi tampilkanAdmin sudahMasuk />);
     const tautan = [...html.matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[2]]);
     expect(tautan).toEqual([
@@ -96,6 +96,7 @@ describe("Navigasi untuk admin", () => {
       ["/admin/penugasan", "Penugasan"],
       ["/admin/impor", "Impor"],
       ["/admin/libur", "Libur"],
+      ["/admin/keluarga-aroma", "Keluarga aroma"],
       ["/", "Beranda"],
       ["/ringkasan", "Ringkasan"],
       ["/kalender", "Kalender"],
@@ -104,6 +105,7 @@ describe("Navigasi untuk admin", () => {
       ["/admin/penugasan", "Penugasan"],
       ["/admin/impor", "Impor"],
       ["/admin/libur", "Libur"],
+      ["/admin/keluarga-aroma", "Keluarga aroma"],
     ]);
   });
 });

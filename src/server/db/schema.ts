@@ -500,3 +500,31 @@ export const kejadianLibur = pgTable(
     check("kejadian_libur_jenis_dikenal", sql`${tabel.jenis} in (${daftarSql(daftarJenisKejadianLibur)})`),
   ],
 );
+
+// --- Keluarga aroma dan alias (T44) ---
+
+/**
+ * Keluarga aroma = kelompok ranking (ADR-0006, revisi 2026-10-09): satu baris file ranking pusat,
+ * termasuk kelompok yang bukan aroma seperti GIFT SET BOX. Dikelola admin.
+ */
+export const keluargaAroma = pgTable("keluarga_aroma", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  nama: text("nama").notNull(),
+  aktif: boolean("aktif").notNull().default(true),
+});
+
+/**
+ * Alias keluarga aroma untuk mencocokkan baris file ranking (PRD A6, OD-05). `alias` disimpan sudah dinormalisasi
+ * (huruf besar, spasi dirapikan; `normalisasiAlias`) dan unik di seluruh keluarga, ditegakkan database.
+ */
+export const aliasKeluargaAroma = pgTable(
+  "alias_keluarga_aroma",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    keluargaId: integer("keluarga_id")
+      .notNull()
+      .references(() => keluargaAroma.id),
+    alias: text("alias").notNull().unique(),
+  },
+  (tabel) => [index("alias_keluarga_aroma_keluarga_id_idx").on(tabel.keluargaId)],
+);
