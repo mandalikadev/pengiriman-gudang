@@ -124,6 +124,12 @@ Jumlah kirim = pembulatan ke atas dari (56−20) × 1,20 = 44 unit.
 
 Stok yang belum diisi berarti belum diketahui, bukan nol. Stok negatif untuk produk otomatis, identitas ambigu, duplikasi, atau kebutuhan yang tidak tersedia harus diselesaikan sebelum finalisasi.
 
+> ▶ Keputusan (2026-10-09, T05): masalah yang terjadi bersamaan.
+> - **Produk manual** selalu berstatus `manual`, berapa pun stoknya. Stok kosong atau negatif pada produk manual tidak menahan finalisasi; aturan stok negatif di atas hanya untuk produk otomatis. Stok yang diisi tetap disimpan dan ditampilkan.
+> - **Produk otomatis:** mesin mengembalikan **semua** masalah yang terjadi sebagai daftar, bukan satu status. Semuanya harus beres sebelum finalisasi. Urutan tampilan: `kebutuhan-tidak-tersedia`, `stok-negatif`, `stok-belum-diisi`.
+> - Jika masalahnya hanya soal stok, kebutuhan tetap ditampilkan beserta rinciannya, dan jumlah kirim tampil "—".
+> - Jika kebutuhan tidak tersedia, tampilkan tanggal dan kategori mana yang tidak punya rata-rata.
+
 Display, display tester, dan kertas tester ditangani manual tanpa jumlah kirim atau buffer otomatis. Jangan menganggap semua produk dengan kata “tester” memiliki perlakuan yang sama tanpa konfirmasi.
 
 > ▶ Revisi (2026-10-08, ADR-0007): pemilik mengoreksi kalimat di atas. **Yang ditangani manual hanya display tester (kode berakhiran `-T`) dan kertas tester (kategori `KTP`/`KTL`).** Display biasa, display dummy, display rework, ATOMIZER, GIFT SET, HAMPERS, KEMASAN, VIAL, dan ALKOHOL dihitung otomatis. Golden: `tests/golden/klasifikasi-produk.json`.

@@ -101,8 +101,11 @@ Status **selalu** tampil sebagai ikon + teks. Warna hanya penguat, tidak pernah 
 | Tersimpan tetapi gagal memuat ulang | `warning` | `RefreshCcw` + teks "Perubahan tersimpan. Muat ulang halaman untuk melihatnya." |
 | Belum diketahui (stok belum diisi), Tidak tersedia | `muted-foreground` | `CircleDashed`; tampil "—", **bukan 0** |
 | Manual (display/kertas tester), Diarsipkan | `muted-foreground` | `Hand` / `Archive` |
+| Belum disimpan (form) | `muted-foreground` | `PencilLine` + teks "Ada perubahan yang belum disimpan" |
 
-Latar badge memakai token yang sama dengan opacity 10–15%.
+Kolom "Token" menentukan warna **ikon** dan latar badge, bukan warna teks. Teks badge memakai `foreground`.
+
+> ▶ Keputusan (2026-10-09, T07): latar badge memakai token status dengan opacity **10%**, ikon memakai warna token status, dan **teks memakai `foreground`** supaya kontras teks tetap ≥ 4,5 : 1 di atas latar badge maupun baris terpilih. Keadaan "Belum disimpan" memakai `muted-foreground` + `PencilLine` dengan teks "Ada perubahan yang belum disimpan".
 
 ## 8. Menampilkan angka dan asalnya
 
