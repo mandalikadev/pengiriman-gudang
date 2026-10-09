@@ -4,8 +4,9 @@ import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
 // CODING_STANDARDS "Penyimpanan dan status": empat keadaan + keadaan kelima. Ikon dan token dari DESIGN §7.
+// Token menentukan warna ikon; teks memakai foreground (DESIGN §7).
 const daftarKeadaan = {
-  belumDisimpan: { label: "Belum disimpan", warna: "text-muted-foreground", ikon: PencilLine },
+  belumDisimpan: { label: "Ada perubahan yang belum disimpan", warna: "text-muted-foreground", ikon: PencilLine },
   menyimpan: { label: "Sedang menyimpan", warna: "text-info", ikon: LoaderCircle },
   berhasil: { label: "Berhasil disimpan", warna: "text-success", ikon: CircleCheck },
   gagal: { label: "Gagal", warna: "text-destructive", ikon: CircleX },
@@ -35,17 +36,17 @@ export function PesanStatusSimpan({
     <p
       role={keadaan === "gagal" ? "alert" : "status"}
       data-keadaan={keadaan}
-      className={cn("flex items-start gap-2 text-sm font-semibold", warna, className)}
+      className={cn("flex items-start gap-2 text-sm font-semibold text-foreground", className)}
       {...props}
     >
       <Ikon
         aria-hidden
         strokeWidth={2}
-        className={cn("mt-0.5 size-4 shrink-0", Ikon === LoaderCircle && "motion-safe:animate-spin")}
+        className={cn("mt-0.5 size-4 shrink-0", warna, Ikon === LoaderCircle && "motion-safe:animate-spin")}
       />
       <span>
         {label}
-        {pesan ? <span className="font-normal text-foreground"> — {pesan}</span> : null}
+        {pesan ? <span className="font-normal"> — {pesan}</span> : null}
       </span>
     </p>
   );

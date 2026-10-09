@@ -29,6 +29,11 @@ const harapan: Record<Status, { token: string; ikon: string; teks: string }> = {
   diarsipkan: { token: "muted-foreground", ikon: "archive", teks: "Diarsipkan" },
 };
 
+function kelasBadge(html: string): string[] {
+  const kelas = html.match(/^<span[^>]*class="([^"]*)"/)?.[1] ?? "";
+  return kelas.replaceAll("&amp;", "&").replaceAll("&gt;", ">").split(/\s+/);
+}
+
 describe("BadgeStatus (DESIGN §7)", () => {
   it("mencakup semua status di tabel §7", () => {
     expect([...semuaStatus].sort()).toEqual(Object.keys(harapan).sort());
@@ -39,8 +44,12 @@ describe("BadgeStatus (DESIGN §7)", () => {
     expect(html).toContain(`lucide-${h.ikon}`);
     expect(html).toContain(`aria-hidden="true"`);
     expect(html).toContain(`>${h.teks}</span>`);
-    expect(html).toContain(`text-${h.token}`);
-    expect(html).toMatch(new RegExp(`bg-${h.token}/1[05]`));
+    const kelas = kelasBadge(html);
+    // DESIGN §7 (Keputusan 2026-10-09): latar 10% token status, ikon berwarna status, teks foreground.
+    expect(kelas).toContain(`bg-${h.token}/10`);
+    expect(kelas).toContain(`[&>svg]:text-${h.token}`);
+    expect(kelas).toContain("text-foreground");
+    expect(kelas).not.toContain(`text-${h.token}`);
   });
 
   it("ikon berputar hanya jika gerak diizinkan", () => {

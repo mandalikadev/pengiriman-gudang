@@ -26,15 +26,22 @@ function hex(nama: string): string {
   return nilai;
 }
 
-function luminansi(warna: string): number {
-  const [r, g, b] = [1, 3, 5].map((i) => {
-    const v = parseInt(warna.slice(i, i + 2), 16) / 255;
+type Rgb = readonly [number, number, number];
+
+function rgb(warna: string): Rgb {
+  return [1, 3, 5].map((i) => parseInt(warna.slice(i, i + 2), 16)) as unknown as Rgb;
+}
+
+function luminansi(warna: string | Rgb): number {
+  const kanal = typeof warna === "string" ? rgb(warna) : warna;
+  const [r, g, b] = kanal.map((k) => {
+    const v = k / 255;
     return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
   });
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-function kontras(a: string, b: string): number {
+function kontras(a: string | Rgb, b: string | Rgb): number {
   const [terang, gelap] = [luminansi(a), luminansi(b)].sort((x, y) => y - x);
   return (terang + 0.05) / (gelap + 0.05);
 }
@@ -55,10 +62,40 @@ const pasanganTeks: Array<[teks: string, latar: string]> = [
   ["success", "background"],
 ];
 
+// DESIGN §7 (Keputusan 2026-10-09): latar badge = token status opacity 10% di atas latar baris
+// (latar halaman, kartu/tabel, atau baris terpilih `accent`); teks badge memakai `foreground`.
+const tokenStatus = ["success", "info", "primary", "warning", "destructive", "muted-foreground"] as const;
+const latarBaris = ["background", "card", "accent"] as const;
+const OPACITY_LATAR_BADGE = 0.1;
+
+// Komposit alfa: warna atas dengan opacity `alfa` di atas warna bawah (kanal 0–255, tanpa pembulatan).
+function campur(atas: string, bawah: string, alfa: number): Rgb {
+  const [a, b] = [rgb(atas), rgb(bawah)];
+  return [0, 1, 2].map((i) => a[i] * alfa + b[i] * (1 - alfa)) as unknown as Rgb;
+}
+
+function latarBadge(status: string, latar: string): Rgb {
+  return campur(hex(status), hex(latar), OPACITY_LATAR_BADGE);
+}
+
 describe("kontras token warna (DESIGN §2)", () => {
   it.each(pasanganTeks)("teks %s di atas %s minimal 4,5 : 1", (teks, latar) => {
     expect(kontras(hex(teks), hex(latar))).toBeGreaterThanOrEqual(4.5);
   });
+
+  it.each(tokenStatus.flatMap((status) => latarBaris.map((latar) => [status, latar] as const)))(
+    "badge %s di atas %s: teks foreground minimal 4,5 : 1 (DESIGN §7)",
+    (status, latar) => {
+      expect(kontras(hex("foreground"), latarBadge(status, latar))).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
+  it.each(tokenStatus.flatMap((status) => latarBaris.map((latar) => [status, latar] as const)))(
+    "badge %s di atas %s: ikon berwarna status minimal 3 : 1 (komponen non-teks)",
+    (status, latar) => {
+      expect(kontras(hex(status), latarBadge(status, latar))).toBeGreaterThanOrEqual(3);
+    },
+  );
 
   it("bingkai input terhadap background minimal 3 : 1", () => {
     expect(kontras(hex("input"), hex("background"))).toBeGreaterThanOrEqual(3);

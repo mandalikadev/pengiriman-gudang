@@ -15,7 +15,7 @@ describe("PesanStatusSimpan (CODING_STANDARDS: lima keadaan simpan)", () => {
   });
 
   it.each([
-    ["belumDisimpan", "Belum disimpan", "text-muted-foreground"],
+    ["belumDisimpan", "Ada perubahan yang belum disimpan", "text-muted-foreground"],
     ["menyimpan", "Sedang menyimpan", "text-info"],
     ["berhasil", "Berhasil disimpan", "text-success"],
     ["gagal", "Gagal", "text-destructive"],
@@ -23,11 +23,16 @@ describe("PesanStatusSimpan (CODING_STANDARDS: lima keadaan simpan)", () => {
   ] as const)("%s menampilkan ikon + teks \"%s\"", (keadaan, teks, warna) => {
     const html = renderToStaticMarkup(<PesanStatusSimpan keadaan={keadaan} />);
     expect(html).toContain(`<span>${teks}</span>`);
-    expect(html).toContain("<svg");
-    expect(html).toContain(warna);
+    // DESIGN §7: token menentukan warna ikon, bukan warna teks; teks memakai foreground.
+    const kelasSvg = html.match(/<svg[^>]*class="([^"]*)"/)?.[1].split(/\s+/) ?? [];
+    const kelasP = html.match(/^<p[^>]*class="([^"]*)"/)?.[1].split(/\s+/) ?? [];
+    expect(kelasSvg).toContain(warna);
+    expect(kelasP).toContain("text-foreground");
+    expect(kelasP).not.toContain(warna);
   });
 
   it("ikon DESIGN §7 untuk keadaan yang tercantum di tabel", () => {
+    expect(renderToStaticMarkup(<PesanStatusSimpan keadaan="belumDisimpan" />)).toContain("lucide-pencil-line");
     expect(renderToStaticMarkup(<PesanStatusSimpan keadaan="menyimpan" />)).toContain("lucide-loader-circle");
     expect(renderToStaticMarkup(<PesanStatusSimpan keadaan="berhasil" />)).toContain("lucide-circle-check");
     expect(renderToStaticMarkup(<PesanStatusSimpan keadaan="gagal" />)).toContain("lucide-circle-x");
