@@ -164,7 +164,9 @@ describe("/ringkasan: bulan tidak berurutan", () => {
     expect(kategori.Sabtu.isi).toContain("Σ 5 ÷ 2 bulan");
     for (const nama of ["Senin–Kamis", "Jumat", "Minggu"]) {
       expect(kategori[nama]).toMatchObject({ tersedia: false, nilai: undefined });
-      expect(kategori[nama].isi).toContain("—");
+      // DESIGN §7: ikon CircleDashed + "—", bukan 0.
+      expect(kategori[nama].isi).toMatch(/data-status="tidakTersedia".*<svg[^>]*lucide-circle-dashed[^>]*>.*—/);
+      expect(kategori[nama].isi).toContain("Tidak tersedia");
     }
     expect(totalMentah).toBe("5");
 

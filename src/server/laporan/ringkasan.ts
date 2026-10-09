@@ -55,7 +55,8 @@ function periksaPilihan(bulanPilihan: readonly string[], bulanTersedia: readonly
   return null;
 }
 
-const KATEGORI: readonly KategoriDasar[] = ["Senin–Kamis", "Jumat", "Sabtu", "Minggu"];
+/** Urutan kolom kategori hari di tabel Ringkasan. */
+export const KATEGORI: readonly KategoriDasar[] = ["Senin–Kamis", "Jumat", "Sabtu", "Minggu"];
 
 /**
  * Ringkasan per produk–toko untuk bulan pilihan, satu halaman tabel. Semua bacaan cache berada dalam satu

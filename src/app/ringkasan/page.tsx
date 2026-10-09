@@ -1,4 +1,4 @@
-import { CalendarRange, CircleX, FileSpreadsheet } from "lucide-react";
+import { CalendarRange, CircleDashed, CircleX, FileSpreadsheet } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { KategoriDasar } from "@/domain/kalender";
 import { wajibMasuk } from "@/server/auth/kewenangan";
 import { muatStatusCacheLaporan } from "@/server/laporan/cache";
-import { muatRingkasan, UKURAN_HALAMAN, type BarisRingkasan, type HasilRingkasan } from "@/server/laporan/ringkasan";
+import { KATEGORI, muatRingkasan, UKURAN_HALAMAN, type BarisRingkasan, type HasilRingkasan } from "@/server/laporan/ringkasan";
 
 import { PilihanBulan } from "./pilihan-bulan";
 
@@ -18,8 +18,6 @@ export const metadata: Metadata = {
 };
 
 type ParameterUrl = Record<string, string | string[] | undefined>;
-
-const KATEGORI: readonly KategoriDasar[] = ["Senin–Kamis", "Jumat", "Sabtu", "Minggu"];
 
 /** `2027-03` → `Maret 2027`. */
 function labelBulan(kode: string) {
@@ -63,8 +61,12 @@ function SelRataRata({ kategori, nilai }: { kategori: KategoriDasar; nilai: Bari
   if (nilai === null) {
     return (
       <TableCell angka data-kategori={kategori} data-tersedia="tidak" title="Tidak tersedia: tidak ada bulan pilihan yang punya pengamatan.">
-        <span aria-hidden>—</span>
-        <span className="sr-only">Tidak tersedia</span>
+        {/* DESIGN §7: tidak tersedia = muted-foreground + CircleDashed, tampil "—" (bukan 0). */}
+        <span className="inline-flex items-center gap-1.5 text-muted-foreground" data-status="tidakTersedia">
+          <CircleDashed aria-hidden strokeWidth={2} className="size-5" />
+          <span aria-hidden>—</span>
+          <span className="sr-only">Tidak tersedia</span>
+        </span>
       </TableCell>
     );
   }
