@@ -62,7 +62,15 @@ async function ringkasanPerToko(idImpor: number) {
   }));
 }
 
-type ProdukBaru = { kode: string; nama: string; ukuran: string; kategori: string; klasifikasi: ReturnType<typeof klasifikasiProduk> };
+type KlasifikasiProduk = ReturnType<typeof klasifikasiProduk>;
+
+function klasifikasiTersimpan(p: typeof produk.$inferSelect): KlasifikasiProduk {
+  return p.klasifikasi === "manual" && p.alasanManual
+    ? { klasifikasi: "manual", alasan: p.alasanManual }
+    : { klasifikasi: "otomatis" };
+}
+
+type ProdukBaru = { kode: string; nama: string; ukuran: string; kategori: string; klasifikasi: KlasifikasiProduk };
 
 async function produkBaru(data: typeof impor.$inferSelect): Promise<ProdukBaru[]> {
   if (data.status === "aktif" || data.status === "diarsipkan") {
@@ -76,10 +84,7 @@ async function produkBaru(data: typeof impor.$inferSelect): Promise<ProdukBaru[]
       nama: p.nama,
       ukuran: p.ukuran,
       kategori: p.kategori,
-      klasifikasi:
-        p.klasifikasi === "manual" && p.alasanManual
-          ? { klasifikasi: "manual", alasan: p.alasanManual }
-          : { klasifikasi: "otomatis" },
+      klasifikasi: klasifikasiTersimpan(p),
     }));
   }
   if (data.produk.length === 0) return [];
@@ -97,6 +102,52 @@ async function produkBaru(data: typeof impor.$inferSelect): Promise<ProdukBaru[]
         ukuran: p.ukuran,
         kategori: p.kategoriProduk,
         klasifikasi: klasifikasiProduk(p.kodeProduk, p.kategoriProduk),
+      },
+    ];
+  });
+}
+
+type PerubahanProduk = {
+  kode: string;
+  perubahan: { kolom: "nama" | "ukuran" | "kategori"; lama: string; baru: string }[];
+  /** Diisi hanya jika klasifikasi hasil hitung ulang berbeda dari master. */
+  klasifikasi: { lama: KlasifikasiProduk; baru: KlasifikasiProduk } | null;
+};
+
+function samaKlasifikasi(a: KlasifikasiProduk, b: KlasifikasiProduk) {
+  return a.klasifikasi === b.klasifikasi && (a.klasifikasi === "otomatis" || (b.klasifikasi === "manual" && a.alasan === b.alasan));
+}
+
+/**
+ * "Data produk berubah" (PRD A1, Keputusan 2026-10-09): kode produk di impor yang nama, ukuran, atau kategorinya
+ * berbeda dari master. Hanya sebelum aktivasi; setelah aktif atau diarsipkan, master tidak lagi dibandingkan.
+ */
+async function perubahanProduk(data: typeof impor.$inferSelect): Promise<PerubahanProduk[]> {
+  if (data.status === "aktif" || data.status === "diarsipkan" || data.produk.length === 0) return [];
+  const kode = [...new Set(data.produk.map((p) => p.kodeProduk))];
+  const master = new Map(
+    (await db.select().from(produk).where(inArray(produk.kode, kode))).map((p) => [p.kode, p]),
+  );
+  const terlihat = new Set<string>();
+  return data.produk.flatMap((p) => {
+    const lama = master.get(p.kodeProduk);
+    if (!lama || terlihat.has(p.kodeProduk)) return [];
+    terlihat.add(p.kodeProduk);
+    const perubahan = (
+      [
+        { kolom: "nama", lama: lama.nama, baru: p.namaProduk },
+        { kolom: "ukuran", lama: lama.ukuran, baru: p.ukuran },
+        { kolom: "kategori", lama: lama.kategori, baru: p.kategoriProduk },
+      ] as const
+    ).filter((k) => k.lama !== k.baru);
+    if (perubahan.length === 0) return [];
+    const klasifikasiLama = klasifikasiTersimpan(lama);
+    const klasifikasiBaru = klasifikasiProduk(p.kodeProduk, p.kategoriProduk);
+    return [
+      {
+        kode: p.kodeProduk,
+        perubahan: [...perubahan],
+        klasifikasi: samaKlasifikasi(klasifikasiLama, klasifikasiBaru) ? null : { lama: klasifikasiLama, baru: klasifikasiBaru },
       },
     ];
   });
@@ -145,6 +196,7 @@ export async function muatTinjauImpor(idImpor: number) {
     imporAktifLain: imporAktifLain[0] ?? null,
     ringkasanPerToko: await ringkasanPerToko(data.id),
     produkBaru: await produkBaru(data),
+    perubahanProduk: await perubahanProduk(data),
   };
 }
 

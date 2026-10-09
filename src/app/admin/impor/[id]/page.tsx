@@ -122,6 +122,64 @@ const labelKlasifikasi = {
   "kertas-tester": "Manual — kertas tester",
 } as const;
 
+const labelKolomProduk = { nama: "Nama", ukuran: "Ukuran", kategori: "Kategori" } as const;
+
+function teksKlasifikasi(k: DataTinjauImpor["produkBaru"][number]["klasifikasi"]) {
+  return k.klasifikasi === "manual" ? labelKlasifikasi[k.alasan] : "Otomatis";
+}
+
+/** PRD A1 (Keputusan 2026-10-09): peringatan "data produk berubah"; tidak menahan aktivasi. */
+function DataProdukBerubah({ perubahan }: { perubahan: DataTinjauImpor["perubahanProduk"] }) {
+  if (perubahan.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-4">
+      <h2 className="text-xl font-semibold">Data produk berubah</h2>
+      <p className="text-muted-foreground">
+        Kode produk yang nama, ukuran, atau kategorinya berbeda dari master produk. Saat impor ini diaktifkan, master
+        produk diperbarui mengikuti impor ini dan klasifikasinya dihitung ulang.
+      </p>
+      <Table aria-label="Data produk berubah">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Kode produk</TableHead>
+            <TableHead>Perubahan (lama → baru)</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {perubahan.map((p) => (
+            <TableRow key={p.kode}>
+              <TableCell className="font-semibold">
+                <div className="flex flex-wrap items-center gap-2">
+                  {p.kode}
+                  {/* DESIGN §7: peringatan impor = token warning + TriangleAlert, ikon + teks. */}
+                  <Badge variant="warning" data-penanda="data-produk-berubah">
+                    <TriangleAlert aria-hidden strokeWidth={2} className="size-5" />
+                    Data produk berubah
+                  </Badge>
+                </div>
+              </TableCell>
+              <TableCell className="whitespace-normal">
+                <ul className="flex flex-col gap-1">
+                  {p.perubahan.map((k) => (
+                    <li key={k.kolom}>
+                      {labelKolomProduk[k.kolom]}: {k.lama} → {k.baru}
+                    </li>
+                  ))}
+                  {p.klasifikasi ? (
+                    <li>
+                      Klasifikasi: {teksKlasifikasi(p.klasifikasi.lama)} → {teksKlasifikasi(p.klasifikasi.baru)}
+                    </li>
+                  ) : null}
+                </ul>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </section>
+  );
+}
+
 function ProdukBaru({ data }: { data: DataTinjauImpor }) {
   const sudahDidaftarkan = data.status === "aktif" || data.status === "diarsipkan";
   return (
@@ -153,7 +211,7 @@ function ProdukBaru({ data }: { data: DataTinjauImpor }) {
                 <TableCell>{p.ukuran}</TableCell>
                 <TableCell>{p.kategori}</TableCell>
                 <TableCell>
-                  {p.klasifikasi.klasifikasi === "manual" ? labelKlasifikasi[p.klasifikasi.alasan] : "Otomatis"}
+                  {teksKlasifikasi(p.klasifikasi)}
                 </TableCell>
               </TableRow>
             ))}
@@ -254,6 +312,7 @@ export default async function HalamanTinjauImpor({ params }: { params: Promise<{
         <>
           <RingkasanPerToko ringkasan={data.ringkasanPerToko} />
           <DaftarMasalah data={data} />
+          <DataProdukBerubah perubahan={data.perubahanProduk} />
           <ProdukBaru data={data} />
         </>
       ) : null}

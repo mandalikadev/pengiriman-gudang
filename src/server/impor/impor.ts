@@ -89,7 +89,8 @@ export function alasanTidakBisaAktif({ status, jumlahError }: { status: StatusIm
 
 /**
  * Mengaktifkan impor dalam satu transaksi (ADR-0002, CODING_STANDARDS): impor aktif lama untuk bulan yang sama
- * diarsipkan, produk baru didaftarkan dengan keluarga aroma `belum-dipetakan` (ADR-0006), lalu impor ini aktif.
+ * diarsipkan, produk baru didaftarkan dengan keluarga aroma `belum-dipetakan` (ADR-0006), produk yang sudah ada
+ * diperbarui nama, ukuran, kategori, dan klasifikasinya (PRD A1, Keputusan 2026-10-09), lalu impor ini aktif.
  */
 export async function aktifkanImpor(idImpor: number, idPengguna: string): Promise<{ keadaan: "berhasil" } | HasilGagal> {
   return db.transaction(async (tx) => {
@@ -133,7 +134,18 @@ export async function aktifkanImpor(idImpor: number, idPengguna: string): Promis
             };
           }),
         )
-        .onConflictDoNothing({ target: produk.kode });
+        // PRD A1 (Keputusan 2026-10-09): master produk mengikuti impor yang terakhir diaktifkan. Kode tetap
+        // identitas; status keluarga aroma dan impor pendaftar tidak diubah.
+        .onConflictDoUpdate({
+          target: produk.kode,
+          set: {
+            nama: sql`excluded.nama`,
+            ukuran: sql`excluded.ukuran`,
+            kategori: sql`excluded.kategori`,
+            klasifikasi: sql`excluded.klasifikasi`,
+            alasanManual: sql`excluded.alasan_manual`,
+          },
+        });
     }
 
     await tx

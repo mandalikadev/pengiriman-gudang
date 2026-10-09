@@ -203,19 +203,6 @@ describe("unggah → worker → siap ditinjau → aktif", () => {
     expect(terdaftarProduk).toHaveLength(3);
   });
 
-  it("produk yang sudah terdaftar tidak diubah oleh impor berikutnya (kode = identitas, nama hanya label)", async () => {
-    const tahun = tahunUji();
-    const p = produkUji([1, 1]);
-    const pertama = await imporSiapDitinjau(tahun, [p]);
-    await aktifkanImpor({ idImpor: pertama });
-
-    const kedua = await imporSiapDitinjau(tahun, [{ ...p, nama: "NAMA LAIN" }]);
-    await aktifkanImpor({ idImpor: kedua });
-
-    const [baris] = await db.select().from(produk).where(eq(produk.kode, p.kode));
-    expect(baris).toMatchObject({ nama: p.nama, didaftarkanOlehImporId: pertama });
-  });
-
   it("worker yang menjalankan job yang sama dua kali tidak menggandakan sel", async () => {
     const idImpor = await imporSiapDitinjau(tahunUji());
     await prosesImpor(idImpor);
@@ -431,5 +418,88 @@ describe("toko nonaktif di sheet (PRD A1, Keputusan 2026-10-09)", () => {
     const idImpor = await imporSiapDitinjau(tahunUji());
     const [baris] = await db.select().from(impor).where(eq(impor.id, idImpor));
     expect(baris.masalah.filter((m) => m.kode === "toko-nonaktif")).toEqual([]);
+  });
+});
+
+describe("master produk mengikuti impor yang terakhir diaktifkan (PRD A1, Keputusan 2026-10-09)", () => {
+  async function masterProduk(kode: string) {
+    const [baris] = await db.select().from(produk).where(eq(produk.kode, kode));
+    return baris;
+  }
+
+  it("kategori berubah menjadi KTP → setelah aktivasi berklasifikasi manual (kertas-tester); kode, status keluarga aroma, dan pendaftar tetap", async () => {
+    const tahun = tahunUji();
+    const p = produkUji([1, 1], { nama: "KERTAS UJI LAMA", ukuran: "15ML", kategori: "15ML GLITTER/LEATHER" });
+    const pertama = await imporSiapDitinjau(tahun, [p]);
+    await aktifkanImpor({ idImpor: pertama });
+    expect(await masterProduk(p.kode)).toMatchObject({ klasifikasi: "otomatis", alasanManual: null });
+    await db.update(produk).set({ statusKeluargaAroma: "tanpa-aroma" }).where(eq(produk.kode, p.kode));
+
+    const kedua = await imporSiapDitinjau(tahun, [{ ...p, nama: "KERTAS UJI BARU", ukuran: "1PCS", kategori: "KTP" }]);
+    // Sebelum aktivasi master belum berubah.
+    expect(await masterProduk(p.kode)).toMatchObject({ nama: "KERTAS UJI LAMA", kategori: "15ML GLITTER/LEATHER" });
+    await expect(aktifkanImpor({ idImpor: kedua })).resolves.toEqual({ keadaan: "berhasil" });
+
+    expect(await masterProduk(p.kode)).toMatchObject({
+      kode: p.kode,
+      nama: "KERTAS UJI BARU",
+      ukuran: "1PCS",
+      kategori: "KTP",
+      klasifikasi: "manual",
+      alasanManual: "kertas-tester",
+      statusKeluargaAroma: "tanpa-aroma",
+      didaftarkanOlehImporId: pertama,
+    });
+  });
+
+  it("kategori KTP kembali ke kategori biasa → otomatis lagi", async () => {
+    const tahun = tahunUji();
+    const p = produkUji([1, 1], { kategori: "KTP" });
+    await aktifkanImpor({ idImpor: await imporSiapDitinjau(tahun, [p]) });
+    expect(await masterProduk(p.kode)).toMatchObject({ klasifikasi: "manual", alasanManual: "kertas-tester" });
+
+    await aktifkanImpor({ idImpor: await imporSiapDitinjau(tahun, [{ ...p, kategori: "15ML GLITTER/LEATHER" }]) });
+    expect(await masterProduk(p.kode)).toMatchObject({ kategori: "15ML GLITTER/LEATHER", klasifikasi: "otomatis", alasanManual: null });
+  });
+
+  it("mengaktifkan impor bulan lebih lama setelah bulan lebih baru memakai data impor yang terakhir diaktifkan", async () => {
+    const tahun = tahunUji();
+    const p = produkUji([1, 1], { nama: "NAMA JUNI", ukuran: "15ML", kategori: "15ML GLITTER/LEATHER" });
+    const toko = await buatTokoUji();
+    const juli = await unggahDanDaftarkan(
+      buatWorkbookUji({
+        "JULI (S)": sheetPenjualanUji({
+          toko: toko.nama,
+          bulan: 7,
+          hari: [1],
+          produk: [{ ...p, nama: "NAMA JULI", ukuran: "30ML", kategori: "KTL", kuantitas: [1] }],
+        }),
+      }),
+      { namaSheet: "JULI (S)", tahunImpor: tahun, bulanImpor: 7 },
+    );
+    await prosesImpor(juli);
+    const juni = await imporSiapDitinjau(tahun, [p]);
+
+    await aktifkanImpor({ idImpor: juli });
+    expect(await masterProduk(p.kode)).toMatchObject({ nama: "NAMA JULI", ukuran: "30ML", kategori: "KTL", klasifikasi: "manual" });
+
+    await aktifkanImpor({ idImpor: juni });
+    expect(await statusImpor(juni, juli)).toEqual({ [juni]: "aktif", [juli]: "aktif" });
+    expect(await masterProduk(p.kode)).toMatchObject({
+      nama: "NAMA JUNI",
+      ukuran: "15ML",
+      kategori: "15ML GLITTER/LEATHER",
+      klasifikasi: "otomatis",
+      alasanManual: null,
+    });
+  });
+
+  it("produk yang tidak ada di impor yang diaktifkan tidak berubah", async () => {
+    const tahun = tahunUji();
+    const a = produkUji([1, 1], { nama: "NAMA A" });
+    const b = produkUji([1, 1]);
+    await aktifkanImpor({ idImpor: await imporSiapDitinjau(tahun, [a]) });
+    await aktifkanImpor({ idImpor: await imporSiapDitinjau(tahun, [b]) });
+    expect(await masterProduk(a.kode)).toMatchObject({ nama: "NAMA A" });
   });
 });

@@ -136,6 +136,51 @@ describe("/admin/impor/[id]", () => {
     expect(html).not.toMatch(/<button[^>]*disabled=""[^>]*>Aktifkan<\/button>/);
   });
 
+  it("data produk berubah: peringatan per kode (lama → baru, termasuk klasifikasi) sebelum aktivasi, tanpa menahan Aktifkan", async () => {
+    const tahun = tahunUji();
+    const toko = await buatTokoUji();
+    const berubah = kodeProdukUji();
+    const sama = kodeProdukUji();
+    const lembar = (p: ReturnType<typeof produk>[]) =>
+      buatWorkbookUji({ "JUNI (S)": sheetPenjualanUji({ toko: toko.nama, bulan: 6, hari: [1], produk: p }) });
+    const lama = await imporUji({ isi: lembar([produk(berubah, [1]), produk(sama, [1])]), tahunImpor: tahun, idPengguna: idAdmin });
+    await aktifkanImpor(lama, idAdmin);
+    const baru = await imporUji({
+      isi: lembar([{ ...produk(berubah, [1], "KTP"), nama: "NAMA BARU", ukuran: "1PCS" }, produk(sama, [1])]),
+      tahunImpor: tahun,
+      idPengguna: idAdmin,
+    });
+
+    const html = await tampil(baru);
+    expect(html).toContain("Data produk berubah");
+    const baris = html.match(/<tr[^>]*>.*?<\/tr>/g) ?? [];
+    const barisBerubah = baris.find((b) => b.includes(berubah) && b.includes("NAMA BARU"));
+    // DESIGN §7: peringatan = ikon TriangleAlert + teks, token warning.
+    expect(barisBerubah).toMatch(/lucide-triangle-alert[^]*Data produk berubah/);
+    expect(barisBerubah).toContain("bg-warning/10");
+    expect(barisBerubah).toContain(`Nama: NAMA ${berubah} → NAMA BARU`);
+    expect(barisBerubah).toContain("Ukuran: 15ML → 1PCS");
+    expect(barisBerubah).toContain("Kategori: 15ML GLITTER/LEATHER → KTP");
+    expect(barisBerubah).toContain("Klasifikasi: Otomatis → Manual — kertas tester");
+    expect(baris.some((b) => b.includes(sama) && b.includes("Data produk berubah"))).toBe(false);
+    // Bukan masalah impor: hitungan masalah tetap, dan Aktifkan tidak ditahan.
+    expect(html).toContain("0 error, 0 peringatan.");
+    expect(html).not.toMatch(/<button[^>]*disabled=""[^>]*>Aktifkan<\/button>/);
+  });
+
+  it("data produk sama dengan master → peringatan data produk berubah tidak muncul", async () => {
+    const tahun = tahunUji();
+    const toko = await buatTokoUji();
+    const isi = buatWorkbookUji({ "JUNI (S)": sheetPenjualanUji({ toko: toko.nama, bulan: 6, hari: [1], produk: [produk(kodeProdukUji(), [1])] }) });
+    const lama = await imporUji({ isi, tahunImpor: tahun, idPengguna: idAdmin });
+    await aktifkanImpor(lama, idAdmin);
+    const baru = await imporUji({ isi, tahunImpor: tahun, idPengguna: idAdmin });
+
+    expect(await tampil(baru)).not.toContain("Data produk berubah");
+    // Setelah aktivasi, master sudah mengikuti impor ini: tidak ada lagi yang dibandingkan.
+    expect(await tampil(lama)).not.toContain("Data produk berubah");
+  });
+
   it("impor tanpa error bisa diaktifkan dan memberi tahu impor aktif yang akan diarsipkan", async () => {
     const tahun = tahunUji();
     const toko = await buatTokoUji();
