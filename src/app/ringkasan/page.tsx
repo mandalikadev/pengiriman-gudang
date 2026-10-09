@@ -117,12 +117,22 @@ function kelasTeksSekunder(terpilih: boolean) {
 function SelTidakTersedia({ kategori, keterangan, terpilih }: { kategori: KategoriDasar; keterangan: string; terpilih: boolean }) {
   return (
     <TableCell angka data-kategori={kategori} data-tersedia="tidak" title={keterangan}>
-      <span className={`inline-flex items-center gap-1.5 ${kelasTeksSekunder(terpilih)}`} data-status="tidakTersedia">
-        <CircleDashed aria-hidden strokeWidth={2} className="size-5 text-muted-foreground" />
-        <span aria-hidden>—</span>
-        <span className="sr-only">Tidak tersedia</span>
-      </span>
+      <TandaTidakTersedia terpilih={terpilih} />
     </TableCell>
+  );
+}
+
+/**
+ * Tanda "tidak tersedia" (DESIGN §7): ikon CircleDashed muted-foreground + "—", bukan 0. `labelTerlihat` = teks
+ * "Tidak tersedia" tampil di samping tanda (di luar tabel); di sel tabel hanya untuk pembaca layar.
+ */
+function TandaTidakTersedia({ terpilih, labelTerlihat = false }: { terpilih: boolean; labelTerlihat?: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 ${kelasTeksSekunder(terpilih)}`} data-status="tidakTersedia">
+      <CircleDashed aria-hidden strokeWidth={2} className="size-5 text-muted-foreground" />
+      <span aria-hidden>—</span>
+      <span className={labelTerlihat ? undefined : "sr-only"}>Tidak tersedia</span>
+    </span>
   );
 }
 
@@ -421,14 +431,8 @@ function ItemSumber({ sumber, kelompok }: { sumber: SumberTanggal; kelompok: str
         <>
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-semibold tabular-nums">{formatTanggal(sumber.tanggal)}</span>
-            <span
-              className="inline-flex items-center gap-1.5 text-muted-foreground"
-              data-status="tidakTersedia"
-              title="Tidak tersedia: tanggal ini tidak ada di cakupan impor aktif mana pun, jadi tidak dihitung sebagai 0."
-            >
-              <CircleDashed aria-hidden strokeWidth={2} className="size-5 text-muted-foreground" />
-              <span aria-hidden>—</span>
-              <span>Tidak tersedia</span>
+            <span title="Tidak tersedia: tanggal ini tidak ada di cakupan impor aktif mana pun, jadi tidak dihitung sebagai 0.">
+              <TandaTidakTersedia terpilih={false} labelTerlihat />
             </span>
           </span>
           <span className="text-xs text-muted-foreground">
