@@ -3,13 +3,15 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 import { bagiBulatAtas } from "@/domain/angka";
 import type { KategoriDasar } from "@/domain/kalender";
-import { hitungRingkasan } from "@/domain/laporan";
+import { hitungPerbandinganMingguSama, hitungRingkasan } from "@/domain/laporan";
 import { db } from "@/server/db";
-import { cacheRataRataBulanan, cacheTotalPenjualanMentah, produk, toko } from "@/server/db/schema";
+import { cacheNilaiMingguan, cacheRataRataBulanan, cacheTotalPenjualanMentah, produk, toko } from "@/server/db/schema";
 import { idVersiCacheAktif } from "@/server/laporan/cache";
 
 // Halaman Ringkasan (T34, PRD A2). Membaca cache rata-rata bulanan (T33) lalu menghitung tahap 3 lewat
 // `hitungRingkasan` (T32) untuk baris di halaman tabel yang dibuka saja. Tidak membaca Excel (PRD C1).
+// Perbandingan minggu sama (T36) untuk satu produk–toko terpilih dari cache nilai mingguan lewat
+// `hitungPerbandinganMingguSama` (T32).
 
 export const UKURAN_HALAMAN = 50;
 const MAKS_BULAN = 12;
@@ -27,6 +29,32 @@ export type BarisRingkasan = {
   /** Jumlah total penjualan mentah bulan pilihan; bukan penjumlahan rata-rata. */
   totalPenjualanMentah: number;
 };
+
+type PerbandinganMingguSama = ReturnType<typeof hitungPerbandinganMingguSama>[number];
+
+/** Perbandingan minggu sama satu produk–toko untuk bulan pilihan (T36, PRD A2). */
+export type MingguSamaTerpilih =
+  | {
+      keadaan: "siap";
+      tokoId: number;
+      namaToko: string;
+      kodeProduk: string;
+      namaProduk: string | null;
+      /** Urut kategori hari lalu minggu laporan; hanya indeks minggu yang punya nilai. */
+      perbandingan: PerbandinganMingguSama[];
+    }
+  /** Pasangan dari URL tidak dikenal atau tidak termasuk hasil periode dan filter yang diterapkan. */
+  | { keadaan: "tidak-ada" };
+
+/** Nilai URL pasangan produk–toko untuk perbandingan minggu sama: `<id toko>|<kode produk>`. */
+export function nilaiPasanganMingguSama(tokoId: number, kodeProduk: string) {
+  return `${tokoId}|${kodeProduk}`;
+}
+
+function bacaPasanganMingguSama(nilai: string): { tokoId: number; kodeProduk: string } | null {
+  const cocok = /^(\d{1,9})\|(.+)$/.exec(nilai);
+  return cocok ? { tokoId: Number(cocok[1]), kodeProduk: cocok[2] } : null;
+}
 
 /** Filter Ringkasan dari URL (T35), nilai mentah. Kosong = tidak menyaring. "Kategori" = kategori produk (PRD A2). */
 export type FilterRingkasan = {
@@ -58,6 +86,8 @@ export type HasilRingkasan =
       bulanPilihan: string[];
       filterAktif: FilterAktif;
       baris: BarisRingkasan[];
+      /** `null` = belum ada produk–toko yang dipilih untuk perbandingan minggu sama. */
+      mingguSama: MingguSamaTerpilih | null;
       jumlahBaris: number;
       halaman: number;
       jumlahHalaman: number;
@@ -97,16 +127,19 @@ export const KATEGORI: readonly KategoriDasar[] = ["Senin–Kamis", "Jumat", "Sa
 /**
  * Ringkasan per produk–toko untuk bulan pilihan, satu halaman tabel. Semua bacaan cache berada dalam satu
  * transaksi `repeatable read`, sehingga versi cache yang dibaca tidak berganti di tengah jalan (T33).
- * `bulanPilihan` kosong = belum ada pilihan yang diterapkan.
+ * `bulanPilihan` kosong = belum ada pilihan yang diterapkan. `mingguSama` = nilai URL pasangan produk–toko
+ * (lihat `nilaiPasanganMingguSama`) yang perbandingan minggu samanya ditampilkan.
  */
 export async function muatRingkasan({
   bulanPilihan,
   filter = { toko: [], kategoriProduk: [], produk: [] },
   halaman,
+  mingguSama,
 }: {
   bulanPilihan: readonly string[];
   filter?: FilterRingkasan;
   halaman: number;
+  mingguSama?: string;
 }): Promise<HasilRingkasan> {
   return db.transaction(
     async (tx) => {
@@ -202,6 +235,48 @@ export async function muatRingkasan({
         .limit(UKURAN_HALAMAN)
         .offset((halamanDibuka - 1) * UKURAN_HALAMAN);
 
+      const muatMingguSama = async (nilai: string): Promise<MingguSamaTerpilih> => {
+        const terpilih = bacaPasanganMingguSama(nilai);
+        if (terpilih === null) return { keadaan: "tidak-ada" };
+        // Pasangan harus termasuk hasil periode dan filter yang diterapkan.
+        const [pasanganTerpilih] = await tx
+          .selectDistinct({ namaToko: toko.nama, namaProduk: produk.nama })
+          .from(cacheRataRataBulanan)
+          .innerJoin(toko, eq(toko.id, cacheRataRataBulanan.tokoId))
+          .leftJoin(produk, eq(produk.kode, cacheRataRataBulanan.kodeProduk))
+          .where(
+            and(
+              sesuaiFilter,
+              eq(cacheRataRataBulanan.tokoId, terpilih.tokoId),
+              eq(cacheRataRataBulanan.kodeProduk, terpilih.kodeProduk),
+            ),
+          );
+        if (pasanganTerpilih === undefined) return { keadaan: "tidak-ada" };
+        const mingguan = await tx
+          .select({
+            bulanLaporan: cacheNilaiMingguan.bulanLaporan,
+            mingguLaporan: cacheNilaiMingguan.mingguLaporan,
+            kategori: cacheNilaiMingguan.kategori,
+            nilaiMingguan: cacheNilaiMingguan.nilaiMingguan,
+          })
+          .from(cacheNilaiMingguan)
+          .where(
+            and(
+              eq(cacheNilaiMingguan.versiId, versiId),
+              inArray(cacheNilaiMingguan.bulanLaporan, pilihan),
+              eq(cacheNilaiMingguan.tokoId, terpilih.tokoId),
+              eq(cacheNilaiMingguan.kodeProduk, terpilih.kodeProduk),
+            ),
+          );
+        return {
+          keadaan: "siap",
+          ...terpilih,
+          ...pasanganTerpilih,
+          perbandingan: hitungPerbandinganMingguSama(mingguan, pilihan),
+        };
+      };
+      const hasilMingguSama = mingguSama === undefined ? null : await muatMingguSama(mingguSama);
+
       const siap = (baris: BarisRingkasan[]): HasilRingkasan => ({
         keadaan: "siap",
         bulanTersedia,
@@ -209,6 +284,7 @@ export async function muatRingkasan({
         bulanPilihan: pilihan,
         filterAktif,
         baris,
+        mingguSama: hasilMingguSama,
         jumlahBaris: jumlah,
         halaman: halamanDibuka,
         jumlahHalaman,
