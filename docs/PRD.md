@@ -69,6 +69,9 @@ Saya ingin menambahkan beberapa toko sekaligus dengan memilih toko lalu menekan 
 > ▶ Keputusan (OD-02, bagian nama): empat gudang selain Pusat adalah Gudang Bali, Gudang Bandung, Gudang Cibubur, dan Gudang Jabodetabek.
 > ▶ Keputusan (OD-03, ADR-0009): satu toko tidak boleh terhubung ke lebih dari satu gudang.
 > ▶ Keputusan (OD-10): hanya admin yang boleh mengunggah dan mengaktifkan impor penjualan.
+> ▶ Keputusan (2026-10-09, T20): admin tidak boleh menonaktifkan akunnya sendiri.
+> ▶ Keputusan (2026-10-09, T20): admin boleh mengubah perannya sendiri, **kecuali** jika ia satu-satunya admin aktif. Aplikasi harus selalu punya minimal satu admin aktif.
+> ▶ Keputusan (2026-10-09, T20): fitur "aktifkan kembali pengguna" yang dinonaktifkan dan tombol "Keluar" (logout) masing-masing dibuat sebagai tiket terpisah.
 > ▶ Terbuka: OD-12 (toko mana terhubung ke gudang mana), OD-07 (cakupan laporan viewer).
 
 ### A4. Ketika saya menentukan sumber perhitungan gudang

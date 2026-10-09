@@ -43,6 +43,8 @@ Token ditulis sekali sebagai CSS variable (format tema shadcn/ui) dan dipakai le
 | `info` | `#4F6475` (batu sungai) | Informasi, sedang diproses | 6,0 : 1 |
 | `success` | `#4A5C40` (moss tua) | Berhasil, aktif, final | 7,1 : 1 |
 
+> ▶ Keputusan (2026-10-09): teks sekunder di atas latar `accent` (misalnya baris tabel terpilih) memakai `accent-foreground`, **bukan** `muted-foreground`. `muted-foreground` di atas `accent` hanya ±3,97 : 1, di bawah 4,5 : 1. Ini juga berlaku untuk "Total penjualan mentah" (§8) pada baris terpilih.
+
 **Koreksi terhadap sumber.** Pada sumber, teks putih di atas terracotta `#C18C5D` (2,9 : 1), teks terracotta (2,9 : 1), dan muted `#78786C` (4,4 : 1) tidak memenuhi WCAG AA, padahal sumber mengklaim lolos. Bingkai input `#DED8CF` (1,4 : 1) juga tidak terlihat sebagai batas kontrol. Token di atas adalah perbaikannya. Test kontras otomatis menjaga angka-angka ini.
 
 Hanya mode terang (ADR-0010).
@@ -109,7 +111,7 @@ Kolom "Token" menentukan warna **ikon** dan latar badge, bukan warna teks. Teks 
 
 ## 8. Menampilkan angka dan asalnya
 
-- Rata-rata dan total penjualan mentah berbeda label **dan** bentuk. Rata-rata diberi label "Rata-rata …". Total mentah diberi label "Total penjualan mentah" dalam teks `muted-foreground`.
+- Rata-rata dan total penjualan mentah berbeda label **dan** bentuk. Rata-rata diberi label "Rata-rata …". Total mentah diberi label "Total penjualan mentah" dalam teks `muted-foreground`. Di baris terpilih (latar `accent`) teksnya memakai `accent-foreground` (lihat ▶ Keputusan di §2).
 - Penelusuran angka memperlihatkan perhitungannya: `Σ 2 ÷ 4 minggu = 0,5 → dibulatkan ke atas 1`. Lalu daftar sumber: `JUNI (S)!H4 · Rabu, 03-06-2026 · 1`.
 - Nol teramati ditampilkan `0`. Tidak tersedia ditampilkan `—` dengan keterangan saat disorot.
 
