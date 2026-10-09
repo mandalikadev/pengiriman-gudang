@@ -11,6 +11,8 @@ export type TanggalBisnis = string & { readonly [merekTanggalBisnis]: true };
 
 export type KategoriDasar = "Senin–Kamis" | "Jumat" | "Sabtu" | "Minggu";
 
+export type NamaHari = (typeof NAMA_HARI)[number];
+
 type PosisiLaporan = {
   kategoriDasar: KategoriDasar;
   tanggalAcuan: TanggalBisnis;
@@ -110,6 +112,31 @@ function kurangiHari(tanggal: BagianTanggal, jumlah: number): BagianTanggal {
     }
   }
   return { tahun, bulan, hari };
+}
+
+/** Nama hari Indonesia, mis. `Senin`. */
+export function namaHari(tanggal: TanggalBisnis): NamaHari {
+  return NAMA_HARI[hariDalamPekan(uraikan(tanggal))]!;
+}
+
+/**
+ * Nomor urut hari sejak 0000-03-01 (algoritma days-from-civil, kalender Gregorian).
+ * Tahun ≥ 1, jadi y ≥ 0 dan semua pembagian bernilai tidak negatif.
+ */
+function nomorHari({ tahun, bulan, hari }: BagianTanggal): number {
+  const y = bulan <= 2 ? tahun - 1 : tahun;
+  const era = bagiBulatBawah(y, 400);
+  const tahunDalamEra = y - era * 400;
+  const bulanSejakMaret = (bulan + 9) % 12;
+  const hariDalamTahun = bagiBulatBawah(153 * bulanSejakMaret + 2, 5) + hari - 1;
+  const hariDalamEra =
+    tahunDalamEra * 365 + bagiBulatBawah(tahunDalamEra, 4) - bagiBulatBawah(tahunDalamEra, 100) + hariDalamTahun;
+  return era * 146097 + hariDalamEra;
+}
+
+/** Jumlah hari dari `dari` ke `sampai`; negatif jika `sampai` lebih awal. */
+export function selisihHari(dari: TanggalBisnis, sampai: TanggalBisnis): number {
+  return nomorHari(uraikan(sampai)) - nomorHari(uraikan(dari));
 }
 
 /** Tanggal `jumlah` hari sesudah (positif) atau sebelum (negatif) `tanggal`. */

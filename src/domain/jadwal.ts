@@ -1,0 +1,138 @@
+// Tanggal kirim dari satu jadwal toko (PRD A5 termasuk ▶ Keputusan perencanaan M2–M3 pekan jangkar; PRD A6).
+// Jadwal yang lolos periksaJadwal menentukan apakah suatu tanggal adalah tanggal kirim (H),
+// beserta persiapan (p) dan panjang cakupan (L) pengiriman itu.
+
+import { geserHari, namaHari, parseTanggalBisnis, selisihHari, type NamaHari, type TanggalBisnis } from "./kalender";
+
+type PolaJadwal = "mingguan" | "2x-seminggu" | "3x-seminggu" | "dua-mingguan";
+
+/** Persiapan per hari kirim: H, H−1, atau H−2. */
+type Persiapan = "H" | "H-1" | "H-2";
+
+type HariKirim = Exclude<NamaHari, "Minggu">;
+
+export type MasukanJadwal = {
+  pola: PolaJadwal;
+  /** Hari kirim yang dipilih; `Minggu` diterima di sini supaya bisa ditolak dengan pesan. */
+  hariKirim: readonly { hari: NamaHari; persiapan: Persiapan }[];
+  /** `YYYY-MM-DD`; wajib untuk dua mingguan, diabaikan untuk pola lain. */
+  tanggalJangkar: string | null;
+};
+
+/** Jadwal yang sudah lolos periksaJadwal. */
+export type Jadwal = {
+  pola: PolaJadwal;
+  hariKirim: readonly { hari: HariKirim; persiapanHari: 0 | 1 | 2 }[];
+  /** Hanya untuk dua mingguan. */
+  tanggalJangkar: TanggalBisnis | null;
+};
+
+type HasilPeriksaJadwal = { keadaan: "valid"; jadwal: Jadwal } | { keadaan: "tidakValid"; pesan: string[] };
+
+type HasilTanggalKirim = { kirim: false } | { kirim: true; persiapanHari: 0 | 1 | 2; panjangCakupan: 7 | 14 };
+
+const LABEL_POLA: Record<PolaJadwal, string> = {
+  mingguan: "mingguan",
+  "2x-seminggu": "2× seminggu",
+  "3x-seminggu": "3× seminggu",
+  "dua-mingguan": "dua mingguan",
+};
+
+/** Jumlah hari kirim tepat per pola; dua mingguan minimal 1. */
+const JUMLAH_HARI_TEPAT: Partial<Record<PolaJadwal, number>> = { mingguan: 1, "2x-seminggu": 2, "3x-seminggu": 3 };
+
+const PERSIAPAN_HARI: Record<Persiapan, 0 | 1 | 2> = { H: 0, "H-1": 1, "H-2": 2 };
+
+const URUTAN_HARI_DARI_SENIN: readonly NamaHari[] = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+
+function pesanJumlahHari(pola: PolaJadwal, jumlah: number): string | null {
+  const tepat = JUMLAH_HARI_TEPAT[pola];
+  if (tepat !== undefined) {
+    return jumlah === tepat ? null : `Pola ${LABEL_POLA[pola]} membutuhkan tepat ${tepat} hari kirim, dipilih ${jumlah}.`;
+  }
+  return jumlah >= 1 ? null : `Pola ${LABEL_POLA[pola]} membutuhkan minimal 1 hari kirim, dipilih ${jumlah}.`;
+}
+
+function bacaJangkar(teks: string): TanggalBisnis | null {
+  try {
+    return parseTanggalBisnis(teks);
+  } catch {
+    return null;
+  }
+}
+
+/** Memvalidasi jadwal satu toko (PRD A5) dan mengembalikan semua pesan kesalahan sekaligus. */
+export function periksaJadwal(masukan: MasukanJadwal): HasilPeriksaJadwal {
+  const pesan: string[] = [];
+  const hariKirim: { hari: HariKirim; persiapanHari: 0 | 1 | 2 }[] = [];
+  const sudahDipilih = new Set<NamaHari>();
+
+  for (const { hari, persiapan } of masukan.hariKirim) {
+    if (hari === "Minggu") {
+      pesan.push("Hari Minggu tidak bisa dipilih sebagai hari kirim. Pilih Senin–Sabtu.");
+      continue;
+    }
+    if (sudahDipilih.has(hari)) {
+      pesan.push(`Hari ${hari} dipilih lebih dari sekali.`);
+      continue;
+    }
+    sudahDipilih.add(hari);
+    hariKirim.push({ hari, persiapanHari: PERSIAPAN_HARI[persiapan] });
+  }
+
+  const pesanJumlah = pesan.length === 0 ? pesanJumlahHari(masukan.pola, hariKirim.length) : null;
+  if (pesanJumlah !== null) {
+    pesan.push(pesanJumlah);
+  }
+
+  let tanggalJangkar: TanggalBisnis | null = null;
+  if (masukan.pola === "dua-mingguan") {
+    if (masukan.tanggalJangkar === null || masukan.tanggalJangkar === "") {
+      pesan.push("Pola dua mingguan wajib memiliki tanggal jangkar.");
+    } else {
+      tanggalJangkar = bacaJangkar(masukan.tanggalJangkar);
+      if (tanggalJangkar === null) {
+        pesan.push(`Tanggal jangkar tidak valid: "${masukan.tanggalJangkar}".`);
+      }
+    }
+  }
+
+  if (pesan.length > 0) {
+    return { keadaan: "tidakValid", pesan };
+  }
+  return { keadaan: "valid", jadwal: { pola: masukan.pola, hariKirim, tanggalJangkar } };
+}
+
+function seninPekanIni(tanggal: TanggalBisnis): TanggalBisnis {
+  return geserHari(tanggal, -URUTAN_HARI_DARI_SENIN.indexOf(namaHari(tanggal)));
+}
+
+/**
+ * Pekan dua mingguan: pekan Senin–Minggu yang memuat tanggal jangkar, lalu berulang setiap 14 hari
+ * (PRD A5 ▶ Keputusan perencanaan M2–M3). Pekan sebelum pekan jangkar bukan pekan kirim.
+ */
+function pekanKirimDuaMingguan(tanggalJangkar: TanggalBisnis, tanggal: TanggalBisnis): boolean {
+  const selisih = selisihHari(seninPekanIni(tanggalJangkar), seninPekanIni(tanggal));
+  return selisih >= 0 && selisih % 14 === 0;
+}
+
+/** Apakah `tanggal` adalah tanggal kirim menurut jadwal, beserta p dan L-nya (PRD A5, A6). */
+export function tanggalKirimMenurutJadwal(jadwal: Jadwal, tanggal: TanggalBisnis): HasilTanggalKirim {
+  const hari = namaHari(tanggal);
+  const hariKirim = jadwal.hariKirim.find((entri) => entri.hari === hari);
+  if (hariKirim === undefined) {
+    return { kirim: false };
+  }
+
+  if (jadwal.pola === "dua-mingguan") {
+    if (jadwal.tanggalJangkar === null) {
+      throw new RangeError("Jadwal dua mingguan tanpa tanggal jangkar; periksa dengan periksaJadwal.");
+    }
+    if (!pekanKirimDuaMingguan(jadwal.tanggalJangkar, tanggal)) {
+      return { kirim: false };
+    }
+    return { kirim: true, persiapanHari: hariKirim.persiapanHari, panjangCakupan: 14 };
+  }
+
+  return { kirim: true, persiapanHari: hariKirim.persiapanHari, panjangCakupan: 7 };
+}

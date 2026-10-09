@@ -1,7 +1,16 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { formatTanggal, geserHari, kisiBulan, parseTanggalBisnis, posisiLaporan, tanggalDalamBulanLaporan } from "./kalender";
+import {
+  formatTanggal,
+  geserHari,
+  kisiBulan,
+  namaHari,
+  parseTanggalBisnis,
+  posisiLaporan,
+  selisihHari,
+  tanggalDalamBulanLaporan,
+} from "./kalender";
 
 type KasusKalender = {
   tanggal: string;
@@ -133,5 +142,27 @@ describe("kisiBulan (PRD B1: susunan Senin–Minggu)", () => {
   it("menolak bulan di luar 1–12", () => {
     expect(() => kisiBulan(2026, 13)).toThrow(RangeError);
     expect(() => kisiBulan(2026, 0)).toThrow(RangeError);
+  });
+});
+
+describe("namaHari", () => {
+  it("nama hari Indonesia dari tanggal bisnis", () => {
+    expect(namaHari(parseTanggalBisnis("2026-06-07"))).toBe("Minggu");
+    expect(namaHari(parseTanggalBisnis("2026-06-08"))).toBe("Senin");
+    expect(namaHari(parseTanggalBisnis("2026-06-13"))).toBe("Sabtu");
+  });
+});
+
+describe("selisihHari", () => {
+  it("jumlah hari dari tanggal pertama ke tanggal kedua, bertanda", () => {
+    expect(selisihHari(parseTanggalBisnis("2026-06-08"), parseTanggalBisnis("2026-06-22"))).toBe(14);
+    expect(selisihHari(parseTanggalBisnis("2026-06-22"), parseTanggalBisnis("2026-06-08"))).toBe(-14);
+    expect(selisihHari(parseTanggalBisnis("2026-06-08"), parseTanggalBisnis("2026-06-08"))).toBe(0);
+  });
+
+  it("melintasi akhir Februari tahun kabisat dan pergantian tahun", () => {
+    expect(selisihHari(parseTanggalBisnis("2028-02-28"), parseTanggalBisnis("2028-03-01"))).toBe(2);
+    expect(selisihHari(parseTanggalBisnis("2025-12-31"), parseTanggalBisnis("2026-12-31"))).toBe(365);
+    expect(selisihHari(parseTanggalBisnis("2000-01-01"), parseTanggalBisnis("2001-01-01"))).toBe(366);
   });
 });
