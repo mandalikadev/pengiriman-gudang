@@ -3,11 +3,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { formatBulanImpor, tanggalWib } from "@/app/admin/impor/format";
+import { labelJenisLibur } from "@/app/admin/libur/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, kisiBulan, parseTanggalBisnis, posisiLaporan, type TanggalBisnis } from "@/domain/kalender";
 import { cn } from "@/lib/utils";
 import { wajibMasuk } from "@/server/auth/kewenangan";
+import { muatLiburAktif, type LiburAktif } from "@/server/libur/libur-aktif";
 
 export const metadata: Metadata = {
   title: "Kalender — Dashboard Penjualan MANDALIKA",
@@ -119,11 +121,13 @@ function SelTanggal({
   bulan,
   hariIni,
   terpilih,
+  libur,
 }: {
   tanggal: TanggalBisnis;
   bulan: Bulan;
   hariIni: boolean;
   terpilih: boolean;
+  libur: LiburAktif | undefined;
 }) {
   const { kategoriDasar } = posisiLaporan(tanggal);
   const diLuarBulan = kodeBulan(bulanDari(tanggal)) !== kodeBulan(bulan);
@@ -149,6 +153,14 @@ function SelTanggal({
           {Number(tanggal.slice(8, 10))}
         </span>
         <span className={cn("text-xs", teksSekunder)}>{kategoriDasar}</span>
+        {libur ? (
+          // Informasi libur dari snapshot aktif; kategori di atasnya tetap kategori dasar (PRD B4).
+          <span className="text-xs font-semibold" data-libur={libur.jenis}>
+            <span className="sr-only">Libur: </span>
+            {libur.keterangan}
+            <span className={cn("block font-normal", teksSekunder)}>{labelJenisLibur(libur.jenis)}</span>
+          </span>
+        ) : null}
         {hariIni ? (
           <span className={cn("text-xs font-semibold", terpilih ? "text-accent-foreground" : "text-primary")}>Hari ini</span>
         ) : null}
@@ -157,7 +169,19 @@ function SelTanggal({
   );
 }
 
-function KisiBulan({ bulan, hariIni, terpilih }: { bulan: Bulan; hariIni: TanggalBisnis; terpilih: TanggalBisnis | null }) {
+function KisiBulan({
+  bulan,
+  kisi,
+  hariIni,
+  terpilih,
+  libur,
+}: {
+  bulan: Bulan;
+  kisi: TanggalBisnis[][];
+  hariIni: TanggalBisnis;
+  terpilih: TanggalBisnis | null;
+  libur: Map<string, LiburAktif>;
+}) {
   return (
     <Table className="table-fixed">
       <TableCaption className="sr-only">
@@ -172,7 +196,7 @@ function KisiBulan({ bulan, hariIni, terpilih }: { bulan: Bulan; hariIni: Tangga
           ))}
         </TableRow>
       </TableHeader>
-      {kisiBulan(bulan.tahun, bulan.bulan).map((baris) => (
+      {kisi.map((baris) => (
         <TableBody key={baris[0]} className="border-t border-border">
           <TableRow className="border-b-0 bg-muted/50">
             {kelompokMinggu(baris).map((k) => (
@@ -191,7 +215,14 @@ function KisiBulan({ bulan, hariIni, terpilih }: { bulan: Bulan; hariIni: Tangga
           </TableRow>
           <TableRow>
             {baris.map((tanggal) => (
-              <SelTanggal key={tanggal} tanggal={tanggal} bulan={bulan} hariIni={tanggal === hariIni} terpilih={tanggal === terpilih} />
+              <SelTanggal
+                key={tanggal}
+                tanggal={tanggal}
+                bulan={bulan}
+                hariIni={tanggal === hariIni}
+                terpilih={tanggal === terpilih}
+                libur={libur.get(tanggal)}
+              />
             ))}
           </TableRow>
         </TableBody>
@@ -200,7 +231,7 @@ function KisiBulan({ bulan, hariIni, terpilih }: { bulan: Bulan; hariIni: Tangga
   );
 }
 
-function DetailTanggal({ tanggal }: { tanggal: TanggalBisnis | null }) {
+function DetailTanggal({ tanggal, libur }: { tanggal: TanggalBisnis | null; libur: LiburAktif | undefined }) {
   if (!tanggal) {
     return (
       <Card>
@@ -212,12 +243,18 @@ function DetailTanggal({ tanggal }: { tanggal: TanggalBisnis | null }) {
     );
   }
   const posisi = posisiLaporan(tanggal);
-  const isian = [
+  const isian: [string, string][] = [
     ["Tanggal sebenarnya", formatTanggal(tanggal)],
+    ...(libur
+      ? ([
+          ["Nama libur", libur.keterangan],
+          ["Jenis libur", labelJenisLibur(libur.jenis)],
+        ] satisfies [string, string][])
+      : []),
     ["Kategori dasar", posisi.kategoriDasar],
     ["Bulan laporan", labelBulanLaporan(posisi.bulanLaporan)],
     ["Minggu laporan", `Minggu ${posisi.mingguLaporan}`],
-  ] as const;
+  ];
   return (
     <section data-detail-tanggal={tanggal} aria-labelledby="judul-detail-tanggal">
       <Card>
@@ -249,6 +286,8 @@ export default async function HalamanKalender({ searchParams }: { searchParams: 
   const bulan = bacaBulan(teksPertama(parameter.bulan)) ?? (tanggalUrl ? bulanDari(tanggalUrl) : bulanDari(hariIni));
   const hariIniDiBulan = kodeBulan(bulanDari(hariIni)) === kodeBulan(bulan);
   const terpilih = tanggalUrl ?? (hariIniDiBulan ? hariIni : null);
+  const kisi = kisiBulan(bulan.tahun, bulan.bulan);
+  const libur = await muatLiburAktif([...kisi.flat(), ...(terpilih ? [terpilih] : [])]);
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
@@ -256,7 +295,8 @@ export default async function HalamanKalender({ searchParams }: { searchParams: 
         <h1 className="text-2xl font-bold md:text-3xl">Kalender</h1>
         <p className="text-muted-foreground">
           Kategori dasar setiap tanggal dan minggu laporannya. Label di atas setiap baris menunjukkan minggu dan bulan
-          laporan; satu baris bisa memiliki dua label.
+          laporan; satu baris bisa memiliki dua label. Nama dan jenis libur berasal dari daftar libur aktif dan hanya
+          informasi: libur tidak mengubah kategori.
         </p>
       </div>
 
@@ -266,8 +306,8 @@ export default async function HalamanKalender({ searchParams }: { searchParams: 
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
-        <KisiBulan bulan={bulan} hariIni={hariIni} terpilih={terpilih} />
-        <DetailTanggal tanggal={terpilih} />
+        <KisiBulan bulan={bulan} kisi={kisi} hariIni={hariIni} terpilih={terpilih} libur={libur} />
+        <DetailTanggal tanggal={terpilih} libur={terpilih ? libur.get(terpilih) : undefined} />
       </div>
     </main>
   );

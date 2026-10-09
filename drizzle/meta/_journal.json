@@ -43,6 +43,13 @@
       "when": 1791559101433,
       "tag": "0005_snapshot_libur",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791560749140,
+      "tag": "0006_aktivasi_libur",
+      "breakpoints": true
     }
   ]
 }

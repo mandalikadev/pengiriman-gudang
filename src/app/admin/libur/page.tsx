@@ -1,34 +1,23 @@
-import { ClipboardList } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { formatAngka, formatWaktu, tanggalWib } from "@/app/admin/impor/format";
 import { BadgeStatus } from "@/components/badge-status";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
-import type { StatusSnapshotLibur } from "@/server/db/schema";
 import { muatDataLibur, type KegagalanSinkronisasi } from "@/server/libur/sinkronisasi";
 
 import { FormSinkronisasiLibur } from "./form-sinkronisasi";
+import { BadgeStatusSnapshot } from "./status-snapshot";
 
 export const metadata: Metadata = {
   title: "Libur — Dashboard Penjualan MANDALIKA",
 };
 
-// DESIGN §7: "Menunggu persetujuan" memakai nada dan ikon "Siap ditinjau" (menunggu tinjauan admin).
-function BadgeStatusSnapshot({ status }: { status: StatusSnapshotLibur }) {
-  if (status === "menunggu-persetujuan") {
-    return (
-      <Badge variant="default" data-status-snapshot={status}>
-        <ClipboardList aria-hidden strokeWidth={2} className="size-5" />
-        Menunggu persetujuan
-      </Badge>
-    );
-  }
-  return <BadgeStatus status={status} data-status-snapshot={status} />;
-}
+const kelasTautan =
+  "inline-flex min-h-11 items-center rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
 
 function KegagalanTerakhir({ kegagalan }: { kegagalan: KegagalanSinkronisasi }) {
   return (
@@ -81,6 +70,7 @@ export default async function HalamanLibur() {
                 <TableHead className="text-right">Jumlah libur</TableHead>
                 <TableHead>Sumber</TableHead>
                 <TableHead>Disinkronkan</TableHead>
+                <TableHead>Tinjau</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -95,6 +85,11 @@ export default async function HalamanLibur() {
                   <TableCell className="whitespace-normal">
                     {formatWaktu(s.disinkronkanPada)}
                     <span className="block text-muted-foreground">oleh {s.disinkronkanOleh}</span>
+                  </TableCell>
+                  <TableCell>
+                    <Link href={`/admin/libur/${s.id}`} className={kelasTautan}>
+                      Tinjau<span className="sr-only"> snapshot libur {s.tahun}</span>
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))}

@@ -41,3 +41,33 @@ export function periksaDaftarLibur(tahun: number, daftar: readonly EntriMasukan[
   }
   return { keadaan: "valid", entri };
 }
+
+type IsiLibur = { keterangan: string; jenis: JenisLibur };
+type EntriBanding = { tanggal: string } & IsiLibur;
+
+export type PerubahanLibur =
+  | { perubahan: "ditambah"; tanggal: string; sebelum: null; sesudah: IsiLibur }
+  | { perubahan: "dihapus"; tanggal: string; sebelum: IsiLibur; sesudah: null }
+  | { perubahan: "berubah"; tanggal: string; sebelum: IsiLibur; sesudah: IsiLibur };
+
+/**
+ * Perubahan daftar libur `baru` dibandingkan daftar `aktif` (PRD B3), urut tanggal. Tanggal yang sama dengan nama
+ * atau jenis berbeda = berubah. Tanpa daftar aktif, semua tanggal adalah tambahan.
+ */
+export function bandingkanDaftarLibur(aktif: readonly EntriBanding[], baru: readonly EntriBanding[]): PerubahanLibur[] {
+  const isi = ({ keterangan, jenis }: IsiLibur): IsiLibur => ({ keterangan, jenis });
+  const peta = (daftar: readonly EntriBanding[]) => new Map(daftar.map((e) => [e.tanggal, isi(e)]));
+  const lama = peta(aktif);
+  const kini = peta(baru);
+  const hasil: PerubahanLibur[] = [];
+  for (const tanggal of [...new Set([...lama.keys(), ...kini.keys()])].sort()) {
+    const sebelum = lama.get(tanggal);
+    const sesudah = kini.get(tanggal);
+    if (!sebelum && sesudah) hasil.push({ perubahan: "ditambah", tanggal, sebelum: null, sesudah });
+    else if (sebelum && !sesudah) hasil.push({ perubahan: "dihapus", tanggal, sebelum, sesudah: null });
+    else if (sebelum && sesudah && (sebelum.keterangan !== sesudah.keterangan || sebelum.jenis !== sesudah.jenis)) {
+      hasil.push({ perubahan: "berubah", tanggal, sebelum, sesudah });
+    }
+  }
+  return hasil;
+}

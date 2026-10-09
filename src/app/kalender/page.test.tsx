@@ -4,7 +4,9 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import golden from "../../../tests/golden/kalender-minggu-laporan.json";
 
 import { formatBulanImpor } from "@/app/admin/impor/format";
-import { kepalaPenggunaUji } from "@/server/auth/uji-bantu";
+import { kisiBulan } from "@/domain/kalender";
+import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
+import { buatSnapshotUji, tahunLiburUji } from "@/server/libur/uji-bantu";
 
 const kepala = vi.hoisted(() => ({ cookie: "" }));
 // "Hari ini" dibaca dari jam server (WIB); dipatok agar test tidak bergantung pada tanggal menjalankan test.
@@ -188,5 +190,47 @@ describe("/kalender: hari ini dan navigasi", () => {
     const terpilih = sel(await buka({ tanggal: "2026-05-08" }), "2026-05-08").tag;
     expect(terpilih).toContain("bg-accent");
     expect(terpilih).toContain("text-accent-foreground");
+  });
+});
+
+describe("/kalender: libur dari snapshot aktif (PRD B1, B3, B4)", () => {
+  it("Senin yang libur tetap berkategori dasar Senin–Kamis; nama dan jenis libur tampil di kisi dan detail", async () => {
+    const idAdmin = (await buatPenggunaUji("admin")).id;
+    const tahun = await tahunLiburUji();
+    const kisi = kisiBulan(tahun, 3);
+    const senin = kisi[1]![0]!;
+    const jumat = kisi[1]![4]!;
+    const selasa = kisi[1]![1]!;
+    await buatSnapshotUji(tahun, idAdmin, "aktif", [
+      { tanggal: senin, keterangan: "Hari Raya Nyepi", jenis: "libur nasional" },
+      { tanggal: jumat, keterangan: "Cuti Bersama Nyepi", jenis: "cuti bersama" },
+    ]);
+    // Snapshot yang belum aktif (menunggu persetujuan atau arsip) tidak tampil.
+    await buatSnapshotUji(tahun, idAdmin, "menunggu-persetujuan", [
+      { tanggal: selasa, keterangan: "Libur Usulan", jenis: "libur nasional" },
+    ]);
+    await buatSnapshotUji(tahun, idAdmin, "diarsipkan", [{ tanggal: selasa, keterangan: "Libur Arsip", jenis: "libur nasional" }]);
+
+    const html = await buka({ tanggal: senin });
+    const selSenin = sel(html, senin);
+    expect(selSenin.tag).toContain('data-kategori-dasar="Senin–Kamis"');
+    expect(selSenin.isi).toContain("Senin–Kamis");
+    expect(selSenin.isi).toContain("Hari Raya Nyepi");
+    expect(selSenin.isi).toContain("Libur nasional");
+    expect(sel(html, jumat).isi).toContain("Cuti Bersama Nyepi");
+    expect(sel(html, jumat).isi).toContain("Cuti bersama");
+    expect(sel(html, jumat).tag).toContain('data-kategori-dasar="Jumat"');
+    expect(html).not.toContain("Libur Usulan");
+    expect(html).not.toContain("Libur Arsip");
+
+    const d = detail(html);
+    expect(d?.teks).toContain("Kategori dasar Senin–Kamis");
+    expect(d?.teks).toContain("Nama libur Hari Raya Nyepi");
+    expect(d?.teks).toContain("Jenis libur Libur nasional");
+  });
+
+  it("tanggal tanpa libur aktif tidak menampilkan informasi libur di detail", async () => {
+    const tahun = await tahunLiburUji();
+    expect(detail(await buka({ tanggal: `${tahun}-03-10` }))?.teks).not.toContain("Jenis libur");
   });
 });

@@ -30,8 +30,8 @@ describe("/admin/libur", () => {
   it("admin melihat pilihan tahun, tombol Sinkronisasi, daftar snapshot dan statusnya, dan kegagalan terakhir", async () => {
     const admin = await kepalaPenggunaUji("admin");
     kepala.cookie = admin.cookie;
-    const tahun = tahunLiburUji();
-    await buatSnapshotAktifUji(tahun, admin.id);
+    const tahun = await tahunLiburUji();
+    const aktif = await buatSnapshotAktifUji(tahun, admin.id);
     gantiApiHariLibur({
       isi: {
         data: [
@@ -41,7 +41,7 @@ describe("/admin/libur", () => {
       },
     });
     await sinkronkanLibur(tahun, admin.id);
-    const tahunGagal = tahunLiburUji();
+    const tahunGagal = await tahunLiburUji();
     gantiApiHariLibur({ status: 500, isi: {} });
     await sinkronkanLibur(tahunGagal, admin.id);
 
@@ -57,6 +57,8 @@ describe("/admin/libur", () => {
     expect(html).toContain(`https://api-hari-libur.vercel.app/api?year=${tahun}`);
     expect(html).toContain(String(tahun));
     expect(html).toContain("Uji admin");
+    // Setiap snapshot bisa dibuka untuk ditinjau (T41).
+    expect(html).toContain(`href="/admin/libur/${aktif.id}"`);
 
     // Kegagalan terakhir tampil beserta pesannya; snapshot aktif tetap.
     expect(html).toContain("Kegagalan sinkronisasi terakhir");

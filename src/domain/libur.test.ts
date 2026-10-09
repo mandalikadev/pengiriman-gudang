@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { periksaDaftarLibur, usulanJenisLibur } from "./libur";
+import { bandingkanDaftarLibur, periksaDaftarLibur, usulanJenisLibur } from "./libur";
 
 describe("usulanJenisLibur (PRD B2, ▶ Keputusan perencanaan M2–M3)", () => {
   it('keterangan berisi "Cuti Bersama" → cuti bersama', () => {
@@ -74,5 +74,46 @@ describe("periksaDaftarLibur (PRD B2: validasi tanggal, tahun, duplikasi)", () =
       keadaan: "valid",
       entri: [{ tanggal: "2026-01-01", keterangan: " Tahun Baru ", jenis: "libur nasional" }],
     });
+  });
+});
+
+describe("bandingkanDaftarLibur (PRD B3: perubahan dibandingkan daftar aktif)", () => {
+  const aktif = [
+    { tanggal: "2026-01-01", keterangan: "Tahun Baru", jenis: "libur nasional" },
+    { tanggal: "2026-03-20", keterangan: "Idul Fitri", jenis: "libur nasional" },
+    { tanggal: "2026-03-23", keterangan: "Cuti Bersama Idul Fitri", jenis: "cuti bersama" },
+    { tanggal: "2026-12-25", keterangan: "Natal", jenis: "libur nasional" },
+  ] as const;
+
+  it("ditambah, dihapus, dan berubah (nama atau jenis), urut tanggal; yang sama tidak dilaporkan", () => {
+    const baru = [
+      { tanggal: "2026-12-25", keterangan: "Hari Raya Natal", jenis: "libur nasional" },
+      { tanggal: "2026-01-01", keterangan: "Tahun Baru", jenis: "libur nasional" },
+      { tanggal: "2026-03-23", keterangan: "Cuti Bersama Idul Fitri", jenis: "libur nasional" },
+      { tanggal: "2026-08-17", keterangan: "Kemerdekaan", jenis: "libur nasional" },
+    ] as const;
+    expect(bandingkanDaftarLibur(aktif, baru)).toEqual([
+      { perubahan: "dihapus", tanggal: "2026-03-20", sebelum: { keterangan: "Idul Fitri", jenis: "libur nasional" }, sesudah: null },
+      {
+        perubahan: "berubah",
+        tanggal: "2026-03-23",
+        sebelum: { keterangan: "Cuti Bersama Idul Fitri", jenis: "cuti bersama" },
+        sesudah: { keterangan: "Cuti Bersama Idul Fitri", jenis: "libur nasional" },
+      },
+      { perubahan: "ditambah", tanggal: "2026-08-17", sebelum: null, sesudah: { keterangan: "Kemerdekaan", jenis: "libur nasional" } },
+      {
+        perubahan: "berubah",
+        tanggal: "2026-12-25",
+        sebelum: { keterangan: "Natal", jenis: "libur nasional" },
+        sesudah: { keterangan: "Hari Raya Natal", jenis: "libur nasional" },
+      },
+    ]);
+  });
+
+  it("daftar sama → tidak ada perubahan; tanpa daftar aktif → semua ditambah", () => {
+    expect(bandingkanDaftarLibur(aktif, aktif)).toEqual([]);
+    expect(bandingkanDaftarLibur([], [aktif[0]])).toEqual([
+      { perubahan: "ditambah", tanggal: "2026-01-01", sebelum: null, sesudah: { keterangan: "Tahun Baru", jenis: "libur nasional" } },
+    ]);
   });
 });

@@ -419,7 +419,7 @@ export const cacheTotalPenjualanMentah = pgTable(
 
 // --- Snapshot libur (T40, PRD B2–B3, ADR-0004) ---
 
-/** Snapshot hasil sinkronisasi menunggu persetujuan admin; aktivasi dan arsip diatur T41. */
+/** Snapshot hasil sinkronisasi menunggu persetujuan admin; aktivasi dan arsip diatur T41 (`server/libur/aktivasi.ts`). */
 export const daftarStatusSnapshotLibur = ["menunggu-persetujuan", "aktif", "diarsipkan"] as const;
 export type StatusSnapshotLibur = (typeof daftarStatusSnapshotLibur)[number];
 
@@ -467,7 +467,14 @@ export const entriLibur = pgTable(
   ],
 );
 
-export const daftarJenisKejadianLibur = ["sinkronisasi-berhasil", "sinkronisasi-gagal"] as const;
+/** `persetujuan` = aktivasi pertama snapshot menunggu persetujuan (siapa dan kapan disimpan sekali, PRD B3);
+ * `aktivasi-ulang` = aktivasi berikutnya atas snapshot arsip (T41). */
+export const daftarJenisKejadianLibur = [
+  "sinkronisasi-berhasil",
+  "sinkronisasi-gagal",
+  "persetujuan",
+  "aktivasi-ulang",
+] as const;
 export type JenisKejadianLibur = (typeof daftarJenisKejadianLibur)[number];
 
 /** Riwayat kejadian libur (PRD B3). Sinkronisasi gagal tidak membuat snapshot; pesannya disimpan di sini. */
@@ -486,6 +493,10 @@ export const kejadianLibur = pgTable(
   },
   (tabel) => [
     index("kejadian_libur_jenis_waktu_idx").on(tabel.jenis, tabel.terjadiPada),
+    // Persetujuan pertama hanya sekali per snapshot; aktivasi berikutnya dicatat sebagai `aktivasi-ulang`.
+    uniqueIndex("kejadian_libur_satu_persetujuan_per_snapshot")
+      .on(tabel.snapshotId)
+      .where(sql`${tabel.jenis} = 'persetujuan'`),
     check("kejadian_libur_jenis_dikenal", sql`${tabel.jenis} in (${daftarSql(daftarJenisKejadianLibur)})`),
   ],
 );

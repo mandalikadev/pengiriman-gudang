@@ -4,13 +4,24 @@ import { asc, eq } from "drizzle-orm";
 import { vi } from "vitest";
 
 import { db } from "@/server/db";
-import { entriLibur, kejadianLibur, snapshotLibur } from "@/server/db/schema";
+import { entriLibur, kejadianLibur, snapshotLibur, type StatusSnapshotLibur } from "@/server/db/schema";
 
 // Bantuan khusus test. API Hari Libur diganti dengan `fetch` palsu (tanpa jaringan di CI).
-// Setiap test memakai tahun acak agar snapshot aktif buatan test lain tidak bertabrakan.
+// Setiap test memakai tahun acak yang belum dipakai di database test, agar snapshot aktif buatan test lain (termasuk
+// dari putaran sebelumnya) tidak bertabrakan.
 
-export function tahunLiburUji() {
-  return randomInt(3000, 9000);
+const tahunDipakai = new Set<number>();
+
+export async function tahunLiburUji() {
+  for (;;) {
+    const tahun = randomInt(3000, 9000);
+    if (tahunDipakai.has(tahun)) continue;
+    const [snapshot] = await db.select({ id: snapshotLibur.id }).from(snapshotLibur).where(eq(snapshotLibur.tahun, tahun)).limit(1);
+    const [kejadian] = await db.select({ id: kejadianLibur.id }).from(kejadianLibur).where(eq(kejadianLibur.tahun, tahun)).limit(1);
+    if (snapshot || kejadian) continue;
+    tahunDipakai.add(tahun);
+    return tahun;
+  }
 }
 
 type JawabanPalsu = { status?: number; isi?: unknown; teks?: string } | "putus";
@@ -27,16 +38,23 @@ export function gantiApiHariLibur(jawaban: JawabanPalsu) {
   return diminta;
 }
 
-/** Snapshot aktif buatan test (aktivasi lewat aplikasi adalah T41). */
-export async function buatSnapshotAktifUji(tahun: number, idPengguna: string) {
+type EntriUji = { tanggal: string; keterangan: string; jenis: "libur nasional" | "cuti bersama" };
+
+/** Snapshot buatan test langsung di database, tanpa riwayat kejadian. */
+export async function buatSnapshotUji(tahun: number, idPengguna: string, status: StatusSnapshotLibur, entri: EntriUji[]) {
   const [snapshot] = await db
     .insert(snapshotLibur)
-    .values({ tahun, status: "aktif", sumber: "uji", disinkronkanOleh: idPengguna })
+    .values({ tahun, status, sumber: "uji", disinkronkanOleh: idPengguna })
     .returning();
-  await db
-    .insert(entriLibur)
-    .values({ snapshotId: snapshot.id, tanggal: `${tahun}-01-01`, keterangan: "Tahun Baru", jenis: "libur nasional" });
+  if (entri.length > 0) await db.insert(entriLibur).values(entri.map((e) => ({ snapshotId: snapshot.id, ...e })));
   return snapshot;
+}
+
+/** Snapshot aktif buatan test dengan satu libur 1 Januari. */
+export async function buatSnapshotAktifUji(tahun: number, idPengguna: string) {
+  return buatSnapshotUji(tahun, idPengguna, "aktif", [
+    { tanggal: `${tahun}-01-01`, keterangan: "Tahun Baru", jenis: "libur nasional" },
+  ]);
 }
 
 export async function snapshotTahunUji(tahun: number) {

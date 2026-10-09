@@ -1,0 +1,3 @@
+ALTER TABLE "kejadian_libur" DROP CONSTRAINT "kejadian_libur_jenis_dikenal";--> statement-breakpoint
+CREATE UNIQUE INDEX "kejadian_libur_satu_persetujuan_per_snapshot" ON "kejadian_libur" USING btree ("snapshot_id") WHERE "kejadian_libur"."jenis" = 'persetujuan';--> statement-breakpoint
+ALTER TABLE "kejadian_libur" ADD CONSTRAINT "kejadian_libur_jenis_dikenal" CHECK ("kejadian_libur"."jenis" in ('sinkronisasi-berhasil', 'sinkronisasi-gagal', 'persetujuan', 'aktivasi-ulang'));

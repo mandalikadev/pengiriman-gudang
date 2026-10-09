@@ -2,8 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AksesDitolakError } from "@/server/auth/kewenangan";
 import { kepalaPenggunaUji } from "@/server/auth/uji-bantu";
+import { muatTinjauSnapshotLibur } from "@/server/libur/aktivasi";
 import {
   buatSnapshotAktifUji,
+  buatSnapshotUji,
   entriSnapshotUji,
   gantiApiHariLibur,
   kejadianTahunUji,
@@ -21,7 +23,7 @@ vi.mock("next/cache", () => ({
   },
 }));
 
-import { sinkronkanLiburTahun } from "./aksi";
+import { aktifkanSnapshot, sinkronkanLiburTahun } from "./aksi";
 
 beforeEach(() => {
   kepala.cookie = "";
@@ -46,7 +48,7 @@ function responsContoh(tahun: number) {
 
 describe("non-admin ditolak di server", () => {
   it("viewer ditolak sebelum API dipanggil; tidak ada snapshot maupun kejadian", async () => {
-    const tahun = tahunLiburUji();
+    const tahun = await tahunLiburUji();
     const diminta = gantiApiHariLibur({ isi: responsContoh(tahun) });
     kepala.cookie = (await kepalaPenggunaUji("viewer")).cookie;
     await expect(sinkronkanLiburTahun({ tahun })).rejects.toBeInstanceOf(AksesDitolakError);
@@ -56,7 +58,7 @@ describe("non-admin ditolak di server", () => {
   });
 
   it("pengguna yang belum masuk diarahkan ke halaman masuk", async () => {
-    const tahun = tahunLiburUji();
+    const tahun = await tahunLiburUji();
     gantiApiHariLibur({ isi: responsContoh(tahun) });
     await expect(sinkronkanLiburTahun({ tahun })).rejects.toMatchObject({ digest: expect.stringContaining("/masuk") });
     expect(await snapshotTahunUji(tahun)).toEqual([]);
@@ -72,7 +74,7 @@ describe("admin menyinkronkan libur", () => {
   });
 
   it("respons contoh valid → snapshot menunggu persetujuan dengan entri dan usulan jenis yang benar", async () => {
-    const tahun = tahunLiburUji();
+    const tahun = await tahunLiburUji();
     const diminta = gantiApiHariLibur({ isi: responsContoh(tahun) });
 
     const hasil = await sinkronkanLiburTahun({ tahun });
@@ -104,7 +106,7 @@ describe("admin menyinkronkan libur", () => {
   });
 
   it("respons dengan `data` kosong → snapshot menunggu persetujuan tanpa entri (perilaku saat ini)", async () => {
-    const tahun = tahunLiburUji();
+    const tahun = await tahunLiburUji();
     gantiApiHariLibur({ isi: { data: [] } });
 
     await expect(sinkronkanLiburTahun({ tahun })).resolves.toEqual({ keadaan: "berhasil", tahun, jumlahLibur: 0 });
@@ -118,7 +120,7 @@ describe("admin menyinkronkan libur", () => {
   });
 
   it("sinkronisasi berhasil tidak mengganti snapshot aktif tahun itu", async () => {
-    const tahun = tahunLiburUji();
+    const tahun = await tahunLiburUji();
     const aktif = await buatSnapshotAktifUji(tahun, idAdmin);
     gantiApiHariLibur({ isi: responsContoh(tahun) });
 
@@ -132,7 +134,7 @@ describe("admin menyinkronkan libur", () => {
   });
 
   it("tersimpan tetapi gagal memuat ulang tampilan", async () => {
-    const tahun = tahunLiburUji();
+    const tahun = await tahunLiburUji();
     gantiApiHariLibur({ isi: responsContoh(tahun) });
     kepala.muatUlangGagal = true;
     await expect(sinkronkanLiburTahun({ tahun })).resolves.toEqual({
@@ -177,7 +179,7 @@ describe("admin menyinkronkan libur", () => {
   ];
 
   it.each(kasusGagal)("%s → gagal dengan pesan jelas, snapshot aktif tidak berubah, kegagalan tercatat", async (_, jawaban, polaPesan) => {
-    const tahun = tahunLiburUji();
+    const tahun = await tahunLiburUji();
     const pesan = polaPesan
       .replace("{tahun-1}", String(tahun - 1))
       .replaceAll("{tahun}", String(tahun));
@@ -202,5 +204,56 @@ describe("admin menyinkronkan libur", () => {
     });
     await expect(sinkronkanLiburTahun({ tahun: "2026" })).resolves.toMatchObject({ keadaan: "gagal" });
     expect(diminta).toEqual([]);
+  });
+});
+
+describe("aktifkanSnapshot (server action)", () => {
+  it("viewer ditolak di server sebelum data disentuh", async () => {
+    const admin = await kepalaPenggunaUji("admin");
+    const tahun = await tahunLiburUji();
+    const snapshot = await buatSnapshotUji(tahun, admin.id, "menunggu-persetujuan", []);
+    const tinjau = await muatTinjauSnapshotLibur(snapshot.id);
+    kepala.cookie = (await kepalaPenggunaUji("viewer")).cookie;
+
+    await expect(aktifkanSnapshot({ idSnapshot: snapshot.id, versi: tinjau?.versi })).rejects.toBeInstanceOf(AksesDitolakError);
+    expect((await snapshotTahunUji(tahun)).map((s) => s.status)).toEqual(["menunggu-persetujuan"]);
+    expect(await kejadianTahunUji(tahun)).toEqual([]);
+  });
+
+  it("admin mengaktifkan; snapshot aktif lama diarsipkan; gagal memuat ulang tetap tersimpan", async () => {
+    const admin = await kepalaPenggunaUji("admin");
+    kepala.cookie = admin.cookie;
+    const tahun = await tahunLiburUji();
+    const lama = await buatSnapshotAktifUji(tahun, admin.id);
+    const baru = await buatSnapshotUji(tahun, admin.id, "menunggu-persetujuan", []);
+
+    const versi = (await muatTinjauSnapshotLibur(baru.id))?.versi;
+    await expect(aktifkanSnapshot({ idSnapshot: baru.id, versi })).resolves.toEqual({ keadaan: "berhasil" });
+    expect((await snapshotTahunUji(tahun)).map((s) => [s.id, s.status])).toEqual([
+      [lama.id, "diarsipkan"],
+      [baru.id, "aktif"],
+    ]);
+
+    kepala.muatUlangGagal = true;
+    const versiLama = (await muatTinjauSnapshotLibur(lama.id))?.versi;
+    await expect(aktifkanSnapshot({ idSnapshot: lama.id, versi: versiLama })).resolves.toEqual({
+      keadaan: "tersimpanGagalMuatUlang",
+    });
+    expect((await snapshotTahunUji(tahun)).map((s) => [s.id, s.status])).toEqual([
+      [lama.id, "aktif"],
+      [baru.id, "diarsipkan"],
+    ]);
+  });
+
+  it("isian tidak valid → gagal tanpa perubahan", async () => {
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+    await expect(aktifkanSnapshot({ idSnapshot: "1", versi: "x" })).resolves.toEqual({
+      keadaan: "gagal",
+      pesan: "Snapshot libur tidak ditemukan.",
+    });
+    await expect(aktifkanSnapshot({ idSnapshot: 1 })).resolves.toEqual({
+      keadaan: "gagal",
+      pesan: "Muat ulang halaman dan tinjau ulang sebelum mengaktifkan.",
+    });
   });
 });
