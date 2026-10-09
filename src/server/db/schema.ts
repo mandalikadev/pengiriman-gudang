@@ -9,6 +9,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  type AnyPgColumn,
   primaryKey,
   text,
   timestamp,
@@ -238,6 +239,7 @@ export const selPenjualan = pgTable(
 );
 
 export const daftarStatusKeluargaAroma = ["terpetakan", "tanpa-aroma", "belum-dipetakan"] as const;
+export type StatusKeluargaAroma = (typeof daftarStatusKeluargaAroma)[number];
 
 /**
  * Master produk (ADR-0006): kode produk = identitas varian; nama hanya label.
@@ -254,9 +256,11 @@ export const produk = pgTable(
     klasifikasi: text("klasifikasi").$type<"manual" | "otomatis">().notNull(),
     alasanManual: text("alasan_manual").$type<"display-tester" | "kertas-tester">(),
     statusKeluargaAroma: text("status_keluarga_aroma")
-      .$type<(typeof daftarStatusKeluargaAroma)[number]>()
+      .$type<StatusKeluargaAroma>()
       .notNull()
       .default("belum-dipetakan"),
+    /** Keluarga hasil konfirmasi admin (T45); terisi persis saat status `terpetakan`. */
+    keluargaAromaId: integer("keluarga_aroma_id").references((): AnyPgColumn => keluargaAroma.id),
     didaftarkanOlehImporId: integer("didaftarkan_oleh_impor_id").references(() => impor.id),
     didaftarkanPada: timestamp("didaftarkan_pada", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -270,6 +274,11 @@ export const produk = pgTable(
       "produk_status_keluarga_aroma_dikenal",
       sql`${tabel.statusKeluargaAroma} in (${daftarSql(daftarStatusKeluargaAroma)})`,
     ),
+    check(
+      "produk_keluarga_aroma_sesuai_status",
+      sql`(${tabel.statusKeluargaAroma} = 'terpetakan') = (${tabel.keluargaAromaId} is not null)`,
+    ),
+    index("produk_keluarga_aroma_id_idx").on(tabel.keluargaAromaId),
   ],
 );
 
@@ -527,4 +536,53 @@ export const aliasKeluargaAroma = pgTable(
     alias: text("alias").notNull().unique(),
   },
   (tabel) => [index("alias_keluarga_aroma_keluarga_id_idx").on(tabel.keluargaId)],
+);
+
+/**
+ * Segmen kode yang dicatat admin untuk keluarga (T45), mis. `GOR`. Produk yang salah satu segmen kodenya sama
+ * persis mendapat usulan keluarga ini (`usulkanKeluargaAroma`). Disimpan huruf besar; unik di seluruh keluarga.
+ */
+export const segmenKodeKeluargaAroma = pgTable(
+  "segmen_kode_keluarga_aroma",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    keluargaId: integer("keluarga_id")
+      .notNull()
+      .references(() => keluargaAroma.id),
+    segmen: text("segmen").notNull().unique(),
+  },
+  (tabel) => [index("segmen_kode_keluarga_aroma_keluarga_id_idx").on(tabel.keluargaId)],
+);
+
+// --- Pemetaan produk ke keluarga aroma (T45) ---
+
+/** Riwayat konfirmasi pemetaan produk: siapa, kapan, dari → ke. Keluarga terisi persis saat status `terpetakan`. */
+export const riwayatPemetaanProduk = pgTable(
+  "riwayat_pemetaan_produk",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    kodeProduk: text("kode_produk")
+      .notNull()
+      .references(() => produk.kode),
+    dariStatus: text("dari_status").$type<StatusKeluargaAroma>().notNull(),
+    dariKeluargaId: integer("dari_keluarga_id").references(() => keluargaAroma.id),
+    keStatus: text("ke_status").$type<StatusKeluargaAroma>().notNull(),
+    keKeluargaId: integer("ke_keluarga_id").references(() => keluargaAroma.id),
+    pelaku: text("pelaku")
+      .notNull()
+      .references(() => user.id),
+    terjadiPada: timestamp("terjadi_pada", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabel) => [
+    index("riwayat_pemetaan_produk_waktu_idx").on(tabel.terjadiPada),
+    index("riwayat_pemetaan_produk_kode_idx").on(tabel.kodeProduk),
+    check(
+      "riwayat_pemetaan_produk_status_dikenal",
+      sql`${tabel.dariStatus} in (${daftarSql(daftarStatusKeluargaAroma)}) and ${tabel.keStatus} in (${daftarSql(daftarStatusKeluargaAroma)})`,
+    ),
+    check(
+      "riwayat_pemetaan_produk_keluarga_sesuai_status",
+      sql`(${tabel.dariStatus} = 'terpetakan') = (${tabel.dariKeluargaId} is not null) and (${tabel.keStatus} = 'terpetakan') = (${tabel.keKeluargaId} is not null)`,
+    ),
+  ],
 );

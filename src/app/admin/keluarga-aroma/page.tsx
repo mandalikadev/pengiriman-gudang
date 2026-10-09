@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
 import { db } from "@/server/db";
-import { aliasKeluargaAroma, keluargaAroma } from "@/server/db/schema";
+import { aliasKeluargaAroma, keluargaAroma, segmenKodeKeluargaAroma } from "@/server/db/schema";
 
 import { FormTambahKeluarga } from "./form-tambah-keluarga";
 import { KartuKeluarga, type DataKeluarga } from "./kartu-keluarga";
@@ -16,11 +16,13 @@ export const metadata: Metadata = {
 async function daftarKeluarga(): Promise<DataKeluarga[]> {
   const keluarga = await db.select().from(keluargaAroma).orderBy(asc(keluargaAroma.nama), asc(keluargaAroma.id));
   const alias = await db.select().from(aliasKeluargaAroma).orderBy(asc(aliasKeluargaAroma.alias));
+  const segmen = await db.select().from(segmenKodeKeluargaAroma).orderBy(asc(segmenKodeKeluargaAroma.segmen));
   return keluarga.map((k) => ({
     id: k.id,
     nama: k.nama,
     aktif: k.aktif,
     alias: alias.filter((a) => a.keluargaId === k.id).map((a) => ({ id: a.id, alias: a.alias })),
+    segmen: segmen.filter((s) => s.keluargaId === k.id).map((s) => ({ id: s.id, segmen: s.segmen })),
   }));
 }
 

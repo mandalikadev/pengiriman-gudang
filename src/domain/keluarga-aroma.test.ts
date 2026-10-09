@@ -2,7 +2,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { cocokkanKeluargaAroma, normalisasiAlias } from "./keluarga-aroma";
+import {
+  cocokkanKeluargaAroma,
+  normalisasiAlias,
+  normalisasiSegmenKode,
+  segmenKodeProduk,
+  usulkanKeluargaAroma,
+} from "./keluarga-aroma";
 
 // ADR-0006, PRD A6 (▶ Keputusan OD-05): baris ranking dicocokkan ke keluarga aroma lewat alias,
 // persis setelah normalisasi (huruf besar, spasi dirapikan). Tanpa pencocokan mirip (PRD C3).
@@ -45,5 +51,61 @@ describe("cocokkanKeluargaAroma", () => {
       expect(cocokkanKeluargaAroma(` ${b.variant.toLowerCase()} `, aliasGolden)).toBe(b.baris);
     }
     expect(cocokkanKeluargaAroma("GIFT SET BOX", daftarAlias)).toEqual({ id: 2, nama: "GIFT SET BOX" });
+  });
+});
+
+// Issue T45, ADR-0006: usulan keluarga dari segmen kode yang dicatat admin, cocok persis; akhiran rework `-R` dan
+// tester `-T` diabaikan. Contoh literal dari issue.
+describe("normalisasiSegmenKode", () => {
+  it("spasi di tepi dibuang dan huruf besar", () => {
+    expect(normalisasiSegmenKode(" gor ")).toBe("GOR");
+  });
+});
+
+describe("segmenKodeProduk", () => {
+  it("memecah kode pada tanda hubung", () => {
+    expect(segmenKodeProduk("DD-HAM120-MRF")).toEqual(["DD", "HAM120", "MRF"]);
+  });
+
+  it("akhiran rework -R dan tester -T diabaikan", () => {
+    expect(segmenKodeProduk("DW110E-GOR-R")).toEqual(["DW110E", "GOR"]);
+    expect(segmenKodeProduk("DW110E-GOR-T")).toEqual(["DW110E", "GOR"]);
+  });
+});
+
+describe("usulkanKeluargaAroma", () => {
+  const segmen = [
+    { segmen: "GOR", keluarga: 1 },
+    { segmen: "MRF", keluarga: 2 },
+  ];
+
+  it("DD-HAM120-MRF dan DW110E-GOR-R mendapat usulan dari segmen yang dicatat, bukan dari posisi tetap", () => {
+    expect(usulkanKeluargaAroma("DD-HAM120-MRF", segmen)).toBe(2);
+    expect(usulkanKeluargaAroma("DW110E-GOR-R", segmen)).toBe(1);
+  });
+
+  it("rework dan tester mengikuti keluarga varian non-rework-nya", () => {
+    expect(usulkanKeluargaAroma("DW110E-GOR", segmen)).toBe(1);
+    expect(usulkanKeluargaAroma("DW110E-GOR-T", segmen)).toBe(1);
+  });
+
+  it("akhiran -R/-T tidak bisa menjadi sumber usulan walaupun dicatat sebagai segmen", () => {
+    expect(usulkanKeluargaAroma("DW110E-ABC-R", [{ segmen: "R", keluarga: 3 }])).toBeNull();
+    expect(usulkanKeluargaAroma("DW110E-ABC-T", [{ segmen: "T", keluarga: 3 }])).toBeNull();
+  });
+
+  it("kode tanpa segmen yang cocok persis tidak diberi usulan", () => {
+    expect(usulkanKeluargaAroma("DP120E-24H", segmen)).toBeNull();
+    expect(usulkanKeluargaAroma("DW110E-GORX", segmen)).toBeNull();
+    expect(usulkanKeluargaAroma("DW110EGOR", segmen)).toBeNull();
+    expect(usulkanKeluargaAroma("DW110E-GOR", [])).toBeNull();
+  });
+
+  it("segmen yang menunjuk lebih dari satu keluarga tidak diberi usulan", () => {
+    expect(usulkanKeluargaAroma("DD-GOR-MRF", segmen)).toBeNull();
+  });
+
+  it("dua segmen yang menunjuk keluarga yang sama tetap diusulkan", () => {
+    expect(usulkanKeluargaAroma("DD-GOR-GOR2", [...segmen, { segmen: "GOR2", keluarga: 1 }])).toBe(1);
   });
 });

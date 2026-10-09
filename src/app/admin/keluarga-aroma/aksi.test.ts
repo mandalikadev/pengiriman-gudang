@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AksesDitolakError } from "@/server/auth/kewenangan";
 import { kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
-import { aliasKeluargaAroma, keluargaAroma } from "@/server/db/schema";
+import { aliasKeluargaAroma, keluargaAroma, segmenKodeKeluargaAroma } from "@/server/db/schema";
 
 const kepala = vi.hoisted(() => ({ cookie: "", muatUlangGagal: false }));
 vi.mock("next/headers", () => ({
@@ -18,7 +18,14 @@ vi.mock("next/cache", () => ({
   },
 }));
 
-import { hapusAlias, tambahAlias, tambahKeluargaAroma, ubahKeluargaAroma } from "./aksi";
+import {
+  hapusAlias,
+  hapusSegmenKode,
+  tambahAlias,
+  tambahKeluargaAroma,
+  tambahSegmenKode,
+  ubahKeluargaAroma,
+} from "./aksi";
 
 /** Teks unik per test: database test tidak dikosongkan antar putaran, dan alias unik di seluruh keluarga. */
 function unik(awalan: string) {
@@ -182,5 +189,96 @@ describe("admin mengelola keluarga aroma", () => {
     const nama = unik("MUAT ULANG");
     expect(await tambahKeluargaAroma({ nama })).toEqual({ keadaan: "tersimpanGagalMuatUlang" });
     expect(await db.select().from(keluargaAroma).where(eq(keluargaAroma.nama, nama))).toHaveLength(1);
+  });
+});
+
+async function segmenMilik(idKeluarga: number) {
+  const baris = await db
+    .select()
+    .from(segmenKodeKeluargaAroma)
+    .where(eq(segmenKodeKeluargaAroma.keluargaId, idKeluarga));
+  return baris.map((b) => b.segmen);
+}
+
+/** Segmen unik per test (unik di seluruh keluarga). */
+function segmenUnik() {
+  return `S${randomUUID().slice(0, 8).toUpperCase()}`;
+}
+
+describe("segmen kode keluarga (T45)", () => {
+  it("non-admin ditolak: tambah dan hapus segmen tidak mengubah apa pun", async () => {
+    kepala.cookie = (await kepalaPenggunaUji("viewer")).cookie;
+    const keluarga = await buatKeluargaUji();
+    await expect(tambahSegmenKode({ idKeluarga: keluarga.id, segmen: segmenUnik() })).rejects.toBeInstanceOf(
+      AksesDitolakError,
+    );
+    expect(await segmenMilik(keluarga.id)).toEqual([]);
+
+    const segmen = segmenUnik();
+    const [baris] = await db.insert(segmenKodeKeluargaAroma).values({ keluargaId: keluarga.id, segmen }).returning();
+    await expect(hapusSegmenKode({ idSegmen: baris.id })).rejects.toBeInstanceOf(AksesDitolakError);
+    expect(await segmenMilik(keluarga.id)).toEqual([segmen]);
+  });
+
+  describe("admin", () => {
+    beforeEach(async () => {
+      kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+    });
+
+    it("tambah segmen: disimpan huruf besar tanpa spasi di tepi", async () => {
+      const keluarga = await buatKeluargaUji();
+      const segmen = segmenUnik();
+      expect(await tambahSegmenKode({ idKeluarga: keluarga.id, segmen: ` ${segmen.toLowerCase()} ` })).toEqual({
+        keadaan: "berhasil",
+      });
+      expect(await segmenMilik(keluarga.id)).toEqual([segmen]);
+    });
+
+    it("satu segmen hanya untuk satu keluarga", async () => {
+      const pertama = await buatKeluargaUji(unik("PERTAMA"));
+      const kedua = await buatKeluargaUji(unik("KEDUA"));
+      const segmen = segmenUnik();
+      await tambahSegmenKode({ idKeluarga: pertama.id, segmen });
+      expect(await tambahSegmenKode({ idKeluarga: kedua.id, segmen })).toEqual({
+        keadaan: "gagal",
+        pesan: `Segmen kode ${segmen} sudah dipakai keluarga ${pertama.nama}.`,
+      });
+      expect(await segmenMilik(kedua.id)).toEqual([]);
+    });
+
+    it("segmen kosong, bertanda hubung, atau berspasi ditolak; keluarga yang tidak ada ditolak", async () => {
+      const keluarga = await buatKeluargaUji();
+      expect(await tambahSegmenKode({ idKeluarga: keluarga.id, segmen: "  " })).toEqual({
+        keadaan: "gagal",
+        pesan: "Segmen kode wajib diisi.",
+      });
+      expect(await tambahSegmenKode({ idKeluarga: keluarga.id, segmen: "DW110E-GOR" })).toEqual({
+        keadaan: "gagal",
+        pesan: "Segmen kode adalah satu bagian kode, tanpa tanda hubung (-).",
+      });
+      expect(await tambahSegmenKode({ idKeluarga: keluarga.id, segmen: "GO R" })).toEqual({
+        keadaan: "gagal",
+        pesan: "Segmen kode tidak boleh memuat spasi.",
+      });
+      expect(await tambahSegmenKode({ idKeluarga: 2_000_000_000, segmen: segmenUnik() })).toEqual({
+        keadaan: "gagal",
+        pesan: "Keluarga aroma tidak ditemukan.",
+      });
+      expect(await segmenMilik(keluarga.id)).toEqual([]);
+    });
+
+    it("hapus segmen", async () => {
+      const keluarga = await buatKeluargaUji();
+      const [baris] = await db
+        .insert(segmenKodeKeluargaAroma)
+        .values({ keluargaId: keluarga.id, segmen: segmenUnik() })
+        .returning();
+      expect(await hapusSegmenKode({ idSegmen: baris.id })).toEqual({ keadaan: "berhasil" });
+      expect(await segmenMilik(keluarga.id)).toEqual([]);
+      expect(await hapusSegmenKode({ idSegmen: baris.id })).toEqual({
+        keadaan: "gagal",
+        pesan: "Segmen kode tidak ditemukan.",
+      });
+    });
   });
 });
