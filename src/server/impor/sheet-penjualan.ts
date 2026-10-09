@@ -218,7 +218,7 @@ export function bacaSheetPenjualan(masukan: MasukanBacaSheet): HasilBacaSheet {
   const tokoMaster = new Map<string, string>();
   for (const nama of masukan.namaTokoMaster) {
     const kunci = kunciNamaToko(nama);
-    if (!tokoMaster.has(kunci)) tokoMaster.set(kunci, nama);
+    if (!tokoMaster.has(kunci)) tokoMaster.set(kunci, nama.trim());
   }
   const tokoTerlihat = new Set<string>();
   const blokPerKolom: (BlokToko | undefined)[] = [];

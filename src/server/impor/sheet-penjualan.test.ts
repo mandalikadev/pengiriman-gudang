@@ -273,9 +273,10 @@ describe("bacaSheetPenjualan — normalisasi nama toko (keputusan T10)", () => {
   });
 
   it("spasi ganda dirapikan: GUDANG  BALI cocok dengan master Gudang Bali", () => {
-    const hasil = baca(sheetSatuBlok("GUDANG  BALI", [46174], [PRODUK_A]), { toko: ["  Gudang   Bali "] });
+    const hasil = baca(sheetSatuBlok("GUDANG  BALI", [46174], [[...PRODUK_A, 2]]), { toko: ["  Gudang   Bali "] });
     expect(hasil.masalah).toEqual([]);
-    expect(hasil.blokToko.map((b) => b.namaToko)).toEqual(["  Gudang   Bali "]);
+    expect(hasil.blokToko.map((b) => b.namaToko)).toEqual(["Gudang   Bali"]);
+    expect(hasil.selBernilai.map((s) => s.namaToko)).toEqual(["Gudang   Bali"]);
   });
 
   it("blok PMS dan pms  → error blok toko ganda di blok kedua", () => {
