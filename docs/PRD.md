@@ -58,6 +58,8 @@ Untuk Senin–Kamis, penempatan minggu dan bulan laporan mengikuti hari Kamis da
 > ▶ Keputusan (OD-08): penanda kelengkapan. Kelompok mingguan *parsial* jika ada tanggal anggotanya yang tidak teramati (contoh: Senin–Kamis Juli M1 baru teramati 29–30 Juni). Rata-rata bulanan *parsial* jika ada kelompok mingguan pembentuknya yang parsial.
 > ▶ Keputusan (OD-09): angka harapan di `tests/golden/laporan-15GL-GOR-PMS-juni.json` (Senin–Kamis 1, Jumat 0, Sabtu 1, Minggu 0) dikonfirmasi benar oleh pemilik.
 > ▶ Keputusan (2026-10-09): ekspor laporan dalam format Excel (`.xlsx`).
+> ▶ Keputusan (2026-10-09, perencanaan M2–M3): semua pengguna yang sudah masuk (admin, operator, viewer) boleh melihat Ringkasan dan mengekspor laporan.
+> ▶ Keputusan (2026-10-09, perencanaan M2–M3): filter "kategori" di Ringkasan adalah kategori **produk**. Kategori hari menjadi kolom tabel.
 
 ### A3. Ketika saya mengelola gudang dan pengguna
 
@@ -77,6 +79,8 @@ Saya ingin menambahkan beberapa toko sekaligus dengan memilih toko lalu menekan 
 > ▶ Keputusan (2026-10-09, T20): fitur "aktifkan kembali pengguna" yang dinonaktifkan dan tombol "Keluar" (logout) masing-masing dibuat sebagai tiket terpisah.
 > ▶ Keputusan (2026-10-09): penugasan operator ke gudang tanpa hak tindakan apa pun memberi akses lihat (hanya-baca) ke halaman Pengiriman Gudang gudang tersebut.
 > ▶ Keputusan (OD-07, 2026-10-09): viewer melihat laporan semua toko.
+> ▶ Keputusan (2026-10-09, perencanaan M2–M3): admin boleh **melihat** halaman Pengiriman Gudang semua gudang (hanya-baca), tanpa tindakan operasional. Menetapkan periode sumber dan menyetujui jadwal tetap dilakukan dari halaman admin.
+> ▶ Keputusan (2026-10-09, perencanaan M2–M3): selama OD-12 terbuka, seed data UAT tidak menghubungkan toko ke gudang. Penguji menghubungkan toko lewat halaman admin sebagai bagian dari skenario UAT.
 > ▶ Terbuka: OD-12 (toko mana terhubung ke gudang mana).
 
 ### A4. Ketika saya menentukan sumber perhitungan gudang
@@ -98,6 +102,9 @@ Setiap hari pengiriman dapat memiliki persiapan H, H−1, atau H−2. Operator d
 Pembuatan, perubahan, dan penonaktifan jadwal empat gudang selain Pusat memerlukan persetujuan admin. Pengaturan langsung Pusat mengikuti kewenangan yang telah ditetapkan. Usulan yang belum disetujui tidak menggantikan jadwal aktif.
 
 > ▶ Keputusan (OD-06, 2026-10-09): operator gudang Pusat yang punya hak tindakan kelola-usulan-jadwal boleh langsung membuat, mengubah, dan menonaktifkan jadwal Pusat tanpa persetujuan admin. Jadwal empat gudang lainnya tetap butuh persetujuan admin.
+> ▶ Keputusan (2026-10-09, perencanaan M2–M3): usulan jadwal gudang non-Pusat dibuat oleh operator yang punya hak kelola-usulan-jadwal. Admin hanya menyetujui atau menolak.
+> ▶ Keputusan (2026-10-09, perencanaan M2–M3): menyalin template = menerapkan satu pengaturan jadwal ke beberapa toko sekaligus, tanpa entitas template tersimpan. Untuk gudang non-Pusat, setiap toko hasil salinan menjadi usulan tersendiri yang perlu disetujui admin.
+> ▶ Keputusan (2026-10-09, perencanaan M2–M3): pola dua mingguan: hari kirim berlaku di pekan (Senin–Minggu) yang memuat tanggal jangkar, lalu berulang setiap 14 hari.
 
 Jika jadwal atau dasar perhitungan berubah, draft terkait harus dihitung ulang. Input stok tetap dipertahankan. Rencana yang sudah final tidak berubah mengikuti aturan baru.
 
@@ -128,6 +135,13 @@ Ranking pusat berasal dari file yang dipublikasikan admin dengan bulan dan versi
 > - Tujuh besar = baris dengan `RANK` 1–7, persis seperti di file. `RANK` harus bilangan bulat, unik, dan berurutan mulai dari 1; jika ganda atau loncat → error. `VARIANT` unik dan tidak kosong. `QTY SALES` bilangan bulat ≥ 0 (hanya informasi).
 > - Setiap baris ranking adalah satu kelompok ranking (keluarga aroma), termasuk `GIFT SET BOX` (produk kotak hadiah). Baris dicocokkan ke keluarga lewat alias, persis setelah normalisasi (ADR-0006).
 > - Ranking yang berlaku = ranking terakhir yang dipublikasikan admin, untuk semua gudang. Ranking lama diarsipkan. Rencana final menyimpan bulan dan versi ranking yang dipakai.
+
+> ▶ Keputusan (2026-10-09, perencanaan M2–M3): draft rencana dan dasar perhitungannya.
+> - Draft dibuat per gudang dan tanggal kirim yang dipilih operator. Isinya semua toko gudang itu yang menurut jadwal aktifnya mengirim pada tanggal tersebut.
+> - Varian per toko = semua produk yang barisnya ada di impor aktif periode sumber untuk toko itu, termasuk yang penjualannya nol. Produk manual ikut tampil dengan status `manual`.
+> - Rata-rata yang dipakai untuk kebutuhan = Rata-rata Ringkasan per kategori hari atas bulan periode sumber gudang (A4, ADR-0003).
+> - Jika belum ada ranking yang dipublikasikan, perhitungan tidak berjalan dan pesan "Ranking pusat belum dipublikasikan" tampil.
+> - Produk otomatis yang keluarga aromanya belum dipetakan tampil sebagai masalah dan menahan finalisasi (ADR-0006).
 
 Contoh: rata-rata Senin–Kamis adalah 4, Jumat 4, Sabtu 10, dan Minggu 8. Pengiriman Senin dengan persiapan dua hari mencakup Sabtu sebelumnya sampai Minggu berikutnya, sebanyak sembilan hari.
 Kebutuhan = (4 × 4) + (1 × 4) + (2 × 10) + (2 × 8) = 56 unit.
@@ -161,6 +175,8 @@ Finalisasi hanya menyatakan rencana kebutuhan barang telah disimpan. Jangan meny
 Saya ingin alur akhirnya terasa sederhana: data penjualan yang valid menghasilkan laporan yang jelas; operator memakai sumber, jadwal, ranking, dan stok yang benar; sistem memperlihatkan perhitungan; pengguna memeriksa dan memfinalisasi rencana; kemudian hasilnya dapat diekspor dan ditelusuri kembali.
 
 > ▶ Keputusan (2026-10-09): ekspor rencana dalam format Excel (`.xlsx`).
+> ▶ Keputusan (2026-10-09, perencanaan M2–M3): finalisasi dilakukan per toko per tanggal kirim, sehingga masalah di satu toko tidak menahan toko lain.
+> ▶ Keputusan (2026-10-09, perencanaan M2–M3): ekspor rencana hanya untuk rencana final, termasuk dari riwayat, dan membutuhkan hak tindakan `ekspor` di gudang itu.
 
 ---
 
@@ -179,6 +195,8 @@ Kalender menampilkan:
 - Detail tanggal, bulan laporan, dan nomor minggu laporan.
 
 Pengguna harus dapat membedakan hari sebenarnya, informasi libur, dan kategori yang dipakai untuk menghitung.
+
+> ▶ Keputusan (2026-10-09, perencanaan M2–M3): semua pengguna yang sudah masuk (admin, operator, viewer) boleh melihat Kalender. Mengubah kalender (perubahan kategori, sinkronisasi, dan aktivasi snapshot libur) hanya admin.
 
 ### B2. Sumber API Hari Libur
 
@@ -203,6 +221,7 @@ API ini merupakan sumber pihak ketiga, bukan jaminan kebenaran penetapan pemerin
 API hanya menyediakan informasi libur. Nama hari, nomor minggu, dan bulan laporan tetap dihitung dari aturan kalender ASOY. Libur tidak otomatis menjadi kategori Minggu atau menggeser jadwal pengiriman.
 
 > ▶ Revisi (2026-10-08): "ASOY" adalah salah ketik pemilik. Maksudnya: aturan kalender pada §B5.
+> ▶ Keputusan (2026-10-09, perencanaan M2–M3): jenis libur diusulkan dari keterangan: berisi "Cuti Bersama" → "cuti bersama", selain itu → "libur nasional". Usulan ini hanya petunjuk untuk ditinjau admin.
 
 ### B3. Peninjauan dan persetujuan hasil sinkronisasi
 

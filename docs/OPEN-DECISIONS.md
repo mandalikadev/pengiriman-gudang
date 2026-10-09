@@ -55,3 +55,17 @@ Daftar hal yang **belum diputuskan pemilik**. Agen tidak mengimplementasikan per
 | OD-06: operator Pusat dengan hak kelola-usulan-jadwal boleh langsung membuat, mengubah, dan menonaktifkan jadwal Pusat tanpa persetujuan admin; empat gudang lain tetap butuh persetujuan admin (2026-10-09) | PRD A5 |
 | OD-07: viewer melihat laporan semua toko (2026-10-09) | PRD A3 |
 | OD-11: target performa di PRD C1 disetujui (2026-10-09) | PRD C1 |
+| Draft per gudang dan tanggal kirim (toko yang mengirim pada tanggal itu); finalisasi per toko per tanggal kirim (2026-10-09) | PRD A6, A7 |
+| Varian draft = semua produk yang barisnya ada di impor aktif periode sumber untuk toko itu, termasuk penjualan nol; produk manual tampil berstatus `manual` (2026-10-09) | PRD A6 |
+| Rata-rata untuk kebutuhan = Rata-rata Ringkasan per kategori hari atas bulan periode sumber gudang (2026-10-09) | PRD A6 |
+| Belum ada ranking dipublikasikan → perhitungan tidak berjalan, pesan "Ranking pusat belum dipublikasikan" (2026-10-09) | PRD A6 |
+| Produk otomatis yang belum dipetakan keluarga aromanya menjadi masalah yang menahan finalisasi (2026-10-09) | PRD A6, ADR-0006 |
+| Admin boleh melihat halaman Pengiriman Gudang semua gudang (hanya-baca); periode sumber dan persetujuan jadwal dari halaman admin (2026-10-09) | PRD A3 |
+| Usulan jadwal non-Pusat dibuat operator berhak; admin hanya menyetujui/menolak (2026-10-09) | PRD A5 |
+| Salin jadwal = satu pengaturan ke beberapa toko, tanpa entitas template; di non-Pusat setiap toko menjadi usulan tersendiri (2026-10-09) | PRD A5 |
+| Dua mingguan: hari kirim di pekan Senin–Minggu yang memuat tanggal jangkar, berulang tiap 14 hari (2026-10-09) | PRD A5 |
+| Semua pengguna yang masuk boleh melihat Ringkasan, mengekspor laporan, dan melihat Kalender; mengubah kalender hanya admin (2026-10-09) | PRD A2, B1 |
+| Filter "kategori" di Ringkasan = kategori produk; kategori hari menjadi kolom (2026-10-09) | PRD A2 |
+| Jenis libur diusulkan dari keterangan ("Cuti Bersama" → cuti bersama, selain itu libur nasional), hanya petunjuk untuk admin (2026-10-09) | PRD B2 |
+| Ekspor rencana hanya untuk rencana final (termasuk dari riwayat) dan membutuhkan hak tindakan `ekspor` di gudang itu (2026-10-09) | PRD A7 |
+| Seed UAT tidak menghubungkan toko ke gudang selama OD-12 terbuka; penguji menghubungkan lewat halaman admin (2026-10-09) | PRD A3; T99 |
