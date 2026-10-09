@@ -71,6 +71,13 @@
       "when": 1791565966079,
       "tag": "0009_periode_sumber_gudang",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791568115644,
+      "tag": "0010_versi_ranking",
+      "breakpoints": true
     }
   ]
 }

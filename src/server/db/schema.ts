@@ -17,6 +17,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { daftarJenisLibur, type JenisLibur } from "@/domain/libur";
+import type { ErrorRanking } from "@/domain/ranking";
 import { daftarHakTindakan, type HakTindakan } from "@/server/gudang/hak-tindakan";
 import type { Masalah, ProdukSheet } from "@/server/impor/sheet-penjualan";
 
@@ -610,5 +611,68 @@ export const periodeSumberGudang = pgTable(
   (tabel) => [
     index("periode_sumber_gudang_gudang_id_idx").on(tabel.gudangId, tabel.id),
     check("periode_sumber_gudang_jumlah_bulan", sql`cardinality(${tabel.bulan}) between 1 and 12`),
+  ],
+);
+
+// --- Ranking pusat (T53, PRD A6 ▶ OD-05, ADR-0006) ---
+
+/** draft → dipublikasikan → diarsipkan (issue T53). Hanya satu versi berstatus `dipublikasikan` (= ranking berlaku). */
+export const daftarStatusVersiRanking = ["draft", "dipublikasikan", "diarsipkan"] as const;
+export type StatusVersiRanking = (typeof daftarStatusVersiRanking)[number];
+
+/**
+ * Satu unggahan file ranking pusat (CONTEXT "Ranking pusat"). `bulanRanking` = `YYYY-MM` dipilih admin saat
+ * mengunggah; `versi` = nomor urut unggahan untuk bulan ranking itu (1, 2, …). `errorValidasi` = hasil `bacaRanking`
+ * (T52); versi dengan error tidak punya baris dan tidak bisa dipublikasikan. Ranking berlaku untuk semua gudang =
+ * versi berstatus `dipublikasikan`, ditegakkan unique index parsial; versi berlaku sebelumnya diarsipkan.
+ */
+export const versiRanking = pgTable(
+  "versi_ranking",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    bulanRanking: text("bulan_ranking").notNull(),
+    versi: integer("versi").notNull(),
+    namaFile: text("nama_file").notNull(),
+    ukuranByte: bigint("ukuran_byte", { mode: "number" }).notNull(),
+    kunciObjek: text("kunci_objek").notNull().unique(),
+    status: text("status").$type<StatusVersiRanking>().notNull().default("draft"),
+    errorValidasi: jsonb("error_validasi").$type<ErrorRanking[]>().notNull().default([]),
+    diunggahOleh: text("diunggah_oleh")
+      .notNull()
+      .references(() => user.id),
+    diunggahPada: timestamp("diunggah_pada", { withTimezone: true }).notNull().defaultNow(),
+    dipublikasikanOleh: text("dipublikasikan_oleh").references(() => user.id),
+    dipublikasikanPada: timestamp("dipublikasikan_pada", { withTimezone: true }),
+    diarsipkanPada: timestamp("diarsipkan_pada", { withTimezone: true }),
+  },
+  (tabel) => [
+    uniqueIndex("versi_ranking_bulan_versi_unik").on(tabel.bulanRanking, tabel.versi),
+    uniqueIndex("versi_ranking_satu_dipublikasikan")
+      .on(tabel.status)
+      .where(sql`${tabel.status} = 'dipublikasikan'`),
+    check("versi_ranking_status_dikenal", sql`${tabel.status} in (${daftarSql(daftarStatusVersiRanking)})`),
+    check("versi_ranking_bulan_valid", sql`${tabel.bulanRanking} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
+  ],
+);
+
+/**
+ * Satu baris file ranking = satu kelompok ranking (keluarga aroma). `keluargaAromaId` = hasil pencocokan `variant`
+ * lewat alias (persis setelah normalisasi, ADR-0006); `null` = tidak cocok dengan alias mana pun (menahan publikasi).
+ */
+export const barisRanking = pgTable(
+  "baris_ranking",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    versiId: integer("versi_id")
+      .notNull()
+      .references(() => versiRanking.id),
+    rank: integer("rank").notNull(),
+    variant: text("variant").notNull(),
+    qtySales: integer("qty_sales").notNull(),
+    keluargaAromaId: integer("keluarga_aroma_id").references(() => keluargaAroma.id),
+  },
+  (tabel) => [
+    uniqueIndex("baris_ranking_versi_rank_unik").on(tabel.versiId, tabel.rank),
+    index("baris_ranking_keluarga_aroma_id_idx").on(tabel.keluargaAromaId),
   ],
 );
