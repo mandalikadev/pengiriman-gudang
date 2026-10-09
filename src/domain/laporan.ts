@@ -221,16 +221,48 @@ export function hitungLaporan({ pengamatan, kategoriEfektif, bulanPilihan }: Mas
   return {
     nilaiMingguan,
     rataRataBulanan,
-    rataRataRingkasan: hitungRingkasan(rataRataBulanan),
-    perbandinganMingguSama: hitungPerbandinganMingguSama(nilaiMingguan),
+    rataRataRingkasan: hitungRingkasan(rataRataBulanan, bulanPilihan),
+    perbandinganMingguSama: hitungPerbandinganMingguSama(nilaiMingguan, bulanPilihan),
     totalPenjualanMentah,
   };
 }
 
-/** Tahap 3: ⌈Σ rata-rata bulanan / jumlah bulan pilihan yang punya hasil⌉ per kategori. */
-function hitungRingkasan(rataRataBulanan: readonly RataRataBulanan[]): RataRataRingkasan[] {
+/** Rata-rata bulanan yang dibutuhkan tahap 3, mis. dari cache hasil bulanan. */
+export type MasukanRataRataBulanan = Pick<RataRataBulanan, "bulanLaporan" | "kategori" | "rataRataBulanan" | "kelengkapan">;
+
+/** Nilai mingguan yang dibutuhkan perbandingan minggu sama, mis. dari cache hasil bulanan. */
+export type MasukanNilaiMingguan = Pick<NilaiMingguan, "bulanLaporan" | "mingguLaporan" | "kategori" | "nilaiMingguan">;
+
+/** Urutkan menurut bulan pilihan (naik) dan buang yang di luar bulan pilihan. */
+function saringBulanPilihan<T extends { bulanLaporan: string }>(daftar: readonly T[], bulanPilihan: readonly string[]): T[] {
+  const urutan = parseBulanPilihan(bulanPilihan).map(({ kode }) => kode);
+  return urutan.flatMap((kode) => daftar.filter((nilai) => nilai.bulanLaporan === kode));
+}
+
+function pastikanUnik<T>(daftar: readonly T[], kunci: (nilai: T) => string): void {
+  const terlihat = new Set<string>();
+  for (const nilai of daftar) {
+    const satu = kunci(nilai);
+    if (terlihat.has(satu)) {
+      throw new RangeError(`Masukan ganda: ${satu}`);
+    }
+    terlihat.add(satu);
+  }
+}
+
+/**
+ * Tahap 3 (PRD A2): ⌈Σ rata-rata bulanan / jumlah bulan pilihan yang punya hasil⌉ per kategori.
+ * Rata-rata bulanan di luar bulan pilihan diabaikan; bulan pilihan tanpa hasil tidak menambah
+ * pembagi. Parsial jika ada rata-rata bulanan pembentuknya yang parsial (OD-08, T04).
+ */
+export function hitungRingkasan(
+  rataRataBulanan: readonly MasukanRataRataBulanan[],
+  bulanPilihan: readonly string[],
+): RataRataRingkasan[] {
+  const terpilih = saringBulanPilihan(rataRataBulanan, bulanPilihan);
+  pastikanUnik(terpilih, (nilai) => `${nilai.bulanLaporan} ${nilai.kategori}`);
   return URUTAN_KATEGORI.flatMap((kategori) => {
-    const pembentuk = rataRataBulanan.filter((nilai) => nilai.kategori === kategori);
+    const pembentuk = terpilih.filter((nilai) => nilai.kategori === kategori);
     if (pembentuk.length === 0) {
       return [];
     }
@@ -248,12 +280,20 @@ function hitungRingkasan(rataRataBulanan: readonly RataRataBulanan[]): RataRataR
   });
 }
 
-/** ⌈Σ nilai mingguan pada indeks minggu sama / jumlah bulan yang punya nilai itu⌉ per kategori. */
-function hitungPerbandinganMingguSama(nilaiMingguan: readonly NilaiMingguan[]): PerbandinganMingguSama[] {
-  const daftarMinggu = [...new Set(nilaiMingguan.map((nilai) => nilai.mingguLaporan))].sort((a, b) => a - b);
+/**
+ * Perbandingan minggu sama (PRD A2): ⌈Σ nilai mingguan pada indeks minggu sama / jumlah bulan
+ * pilihan yang punya nilai itu⌉ per kategori. Nilai di luar bulan pilihan diabaikan.
+ */
+export function hitungPerbandinganMingguSama(
+  nilaiMingguan: readonly MasukanNilaiMingguan[],
+  bulanPilihan: readonly string[],
+): PerbandinganMingguSama[] {
+  const terpilih = saringBulanPilihan(nilaiMingguan, bulanPilihan);
+  pastikanUnik(terpilih, (nilai) => `${nilai.bulanLaporan} M${nilai.mingguLaporan} ${nilai.kategori}`);
+  const daftarMinggu = [...new Set(terpilih.map((nilai) => nilai.mingguLaporan))].sort((a, b) => a - b);
   return URUTAN_KATEGORI.flatMap((kategori) =>
     daftarMinggu.flatMap((mingguLaporan) => {
-      const pembentuk = nilaiMingguan.filter(
+      const pembentuk = terpilih.filter(
         (nilai) => nilai.kategori === kategori && nilai.mingguLaporan === mingguLaporan,
       );
       if (pembentuk.length === 0) {
