@@ -59,7 +59,8 @@ export type DataPemetaanProduk = {
   produk: BarisPemetaanProduk[];
   /** Produk `belum-dipetakan` yang punya usulan, tanpa memandang filter. */
   usulan: (BarisPemetaanProduk & { usulan: Keluarga })[];
-  keluargaAktif: Keluarga[];
+  /** Semua keluarga untuk pilihan konfirmasi; `aktif` hanya informasi tampilan. */
+  keluarga: (Keluarga & { aktif: boolean })[];
   riwayat: RiwayatPemetaan[];
 };
 
@@ -77,13 +78,10 @@ function keluargaDari(id: number | null, nama: string | null): Keluarga | null {
 export async function muatPemetaanProduk(filterStatus: StatusKeluargaAroma | null): Promise<DataPemetaanProduk> {
   const semuaKeluarga = await db.select().from(keluargaAroma).orderBy(asc(keluargaAroma.nama), asc(keluargaAroma.id));
   const keluargaPerId = new Map(semuaKeluarga.map((k) => [k.id, { id: k.id, nama: k.nama }]));
-  const keluargaAktif = semuaKeluarga.filter((k) => k.aktif).map((k) => ({ id: k.id, nama: k.nama }));
-
-  // Usulan hanya dari keluarga aktif.
-  const idAktif = new Set(keluargaAktif.map((k) => k.id));
-  const daftarSegmen = (await db.select().from(segmenKodeKeluargaAroma))
-    .filter((s) => idAktif.has(s.keluargaId))
-    .map((s) => ({ segmen: s.segmen, keluarga: s.keluargaId }));
+  const daftarSegmen = (await db.select().from(segmenKodeKeluargaAroma)).map((s) => ({
+    segmen: s.segmen,
+    keluarga: s.keluargaId,
+  }));
 
   const jumlah = await db
     .select({ status: produk.statusKeluargaAroma, jumlah: count() })
@@ -143,7 +141,7 @@ export async function muatPemetaanProduk(filterStatus: StatusKeluargaAroma | nul
     jumlahPerStatus,
     produk: filterStatus === null ? baris : baris.filter((b) => b.pemetaan.status === filterStatus),
     usulan: baris.filter((b): b is BarisPemetaanProduk & { usulan: Keluarga } => b.usulan !== null),
-    keluargaAktif,
+    keluarga: semuaKeluarga.map((k) => ({ id: k.id, nama: k.nama, aktif: k.aktif })),
     riwayat: riwayat.map((r) => ({
       id: r.id,
       kodeProduk: r.kodeProduk,
@@ -157,7 +155,7 @@ export async function muatPemetaanProduk(filterStatus: StatusKeluargaAroma | nul
 
 /**
  * Konfirmasi admin atas pemetaan produk, berurutan sesuai `butir`, dalam satu transaksi. Setiap perubahan dicatat di
- * riwayat (siapa, kapan, dari → ke). Hanya keluarga aktif yang bisa ditetapkan. Hasil per produk.
+ * riwayat (siapa, kapan, dari → ke). Hasil per produk.
  */
 export async function terapkanPemetaan(
   idPelaku: string,
@@ -188,10 +186,6 @@ export async function terapkanPemetaan(
         const keluarga = keluargaPerId.get(tujuan.idKeluarga);
         if (!keluarga) {
           hasil.push({ kodeProduk, status: "gagal", pesan: "Keluarga aroma tidak ditemukan." });
-          continue;
-        }
-        if (!keluarga.aktif) {
-          hasil.push({ kodeProduk, status: "gagal", pesan: `Keluarga aroma ${keluarga.nama} nonaktif.` });
           continue;
         }
         ke = { status: "terpetakan", keluarga: { id: keluarga.id, nama: keluarga.nama } };

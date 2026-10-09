@@ -10,7 +10,7 @@ import type { Pemetaan, TujuanPemetaan } from "@/server/keluarga-aroma/pemetaan"
 
 import { konfirmasiPemetaan } from "./aksi";
 
-type Keluarga = { id: number; nama: string };
+type Keluarga = { id: number; nama: string; aktif: boolean };
 
 const AWALAN_KELUARGA = "keluarga:";
 
@@ -27,27 +27,23 @@ function tujuanDari(nilai: string): TujuanPemetaan {
 
 /**
  * Konfirmasi satu produk: tetapkan keluarga, tandai tanpa aroma, atau kembalikan ke belum dipetakan (T45).
- * Pilihan keluarga = keluarga aktif, ditambah keluarga saat ini bila sudah nonaktif agar tetap terbaca.
+ * Pilihan keluarga = semua keluarga; status nonaktif hanya ditandai pada labelnya.
  */
 export function FormPemetaan({
   kode,
   pemetaan,
-  keluargaAktif,
+  keluarga,
 }: {
   kode: string;
   pemetaan: Pemetaan;
-  keluargaAktif: Keluarga[];
+  keluarga: Keluarga[];
 }) {
   const id = useId();
   const [nilai, setNilai] = useState(nilaiDari(pemetaan));
   const { tampilan, menunggu, berubah, tandaiBerubah, simpan } = usePenyimpanan(`status produk ${kode}`);
 
-  const pilihanKeluarga =
-    pemetaan.keluarga && !keluargaAktif.some((k) => k.id === pemetaan.keluarga?.id)
-      ? [pemetaan.keluarga, ...keluargaAktif]
-      : keluargaAktif;
   const pilihan = [
-    ...pilihanKeluarga.map((k) => ({ nilai: `${AWALAN_KELUARGA}${k.id}`, label: k.nama })),
+    ...keluarga.map((k) => ({ nilai: `${AWALAN_KELUARGA}${k.id}`, label: k.aktif ? k.nama : `${k.nama} (nonaktif)` })),
     { nilai: "tanpa-aroma", label: "Tanpa aroma" },
     { nilai: "belum-dipetakan", label: "Belum dipetakan" },
   ];

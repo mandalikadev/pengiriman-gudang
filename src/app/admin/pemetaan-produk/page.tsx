@@ -124,7 +124,7 @@ export default async function HalamanPemetaanProduk({ searchParams }: { searchPa
                     )}
                   </TableCell>
                   <TableCell>
-                    <FormPemetaan kode={p.kode} pemetaan={p.pemetaan} keluargaAktif={data.keluargaAktif} />
+                    <FormPemetaan kode={p.kode} pemetaan={p.pemetaan} keluarga={data.keluarga} />
                   </TableCell>
                 </TableRow>
               ))}

@@ -30,10 +30,10 @@ async function buatProduk(kode: string) {
   return kode;
 }
 
-async function buatKeluarga(aktif = true) {
+async function buatKeluarga() {
   const [baris] = await db
     .insert(keluargaAroma)
-    .values({ nama: `KELUARGA ${randomUUID().slice(0, 8).toUpperCase()}`, aktif })
+    .values({ nama: `KELUARGA ${randomUUID().slice(0, 8).toUpperCase()}` })
     .returning();
   return baris;
 }
@@ -146,12 +146,11 @@ describe("admin mengonfirmasi pemetaan", () => {
 
   it("konfirmasi massal memberi hasil per produk, sesuai urutan", async () => {
     const keluarga = await buatKeluarga();
-    const nonaktif = await buatKeluarga(false);
     const pertama = await buatProduk(kodeUnik("DD-HAM120-X"));
     const kedua = await buatProduk(kodeUnik("DW110E-X-R"));
     const sudahTanpaAroma = await buatProduk(kodeUnik("BOX-X"));
     await db.update(produk).set({ statusKeluargaAroma: "tanpa-aroma" }).where(eq(produk.kode, sudahTanpaAroma));
-    const keNonaktif = await buatProduk(kodeUnik("DW110E-X"));
+    const keTidakAda = await buatProduk(kodeUnik("DW110E-X"));
     const tidakAda = kodeUnik("TIDAK-ADA-X");
 
     const hasil = await konfirmasiPemetaan({
@@ -160,8 +159,7 @@ describe("admin mengonfirmasi pemetaan", () => {
         { kodeProduk: tidakAda, tujuan: { status: "tanpa-aroma" } },
         { kodeProduk: kedua, tujuan: { status: "terpetakan", idKeluarga: keluarga.id } },
         { kodeProduk: sudahTanpaAroma, tujuan: { status: "tanpa-aroma" } },
-        { kodeProduk: keNonaktif, tujuan: { status: "terpetakan", idKeluarga: nonaktif.id } },
-        { kodeProduk: keNonaktif, tujuan: { status: "terpetakan", idKeluarga: 2_000_000_000 } },
+        { kodeProduk: keTidakAda, tujuan: { status: "terpetakan", idKeluarga: 2_000_000_000 } },
       ],
     });
     const keKeluarga = { status: "terpetakan", keluarga: { id: keluarga.id, nama: keluarga.nama } };
@@ -173,16 +171,15 @@ describe("admin mengonfirmasi pemetaan", () => {
         { kodeProduk: tidakAda, status: "gagal", pesan: "Produk tidak ditemukan." },
         { kodeProduk: kedua, status: "berhasil", dari: dariBelum, ke: keKeluarga },
         { kodeProduk: sudahTanpaAroma, status: "tidakBerubah", ke: { status: "tanpa-aroma", keluarga: null } },
-        { kodeProduk: keNonaktif, status: "gagal", pesan: `Keluarga aroma ${nonaktif.nama} nonaktif.` },
-        { kodeProduk: keNonaktif, status: "gagal", pesan: "Keluarga aroma tidak ditemukan." },
+        { kodeProduk: keTidakAda, status: "gagal", pesan: "Keluarga aroma tidak ditemukan." },
       ],
     });
     expect(await pemetaanProduk(pertama)).toEqual({ status: "terpetakan", idKeluarga: keluarga.id });
     expect(await pemetaanProduk(kedua)).toEqual({ status: "terpetakan", idKeluarga: keluarga.id });
-    expect(await pemetaanProduk(keNonaktif)).toEqual({ status: "belum-dipetakan", idKeluarga: null });
+    expect(await pemetaanProduk(keTidakAda)).toEqual({ status: "belum-dipetakan", idKeluarga: null });
     // Yang tidak berubah atau gagal tidak menambah riwayat.
     expect(await riwayatProduk(sudahTanpaAroma)).toEqual([]);
-    expect(await riwayatProduk(keNonaktif)).toEqual([]);
+    expect(await riwayatProduk(keTidakAda)).toEqual([]);
   });
 
   it("isian tidak valid ditolak tanpa mengubah apa pun", async () => {

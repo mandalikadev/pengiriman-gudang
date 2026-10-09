@@ -27,8 +27,8 @@ async function buatProduk(kode: string) {
   return kode;
 }
 
-async function buatKeluargaDenganSegmen(segmen: string, aktif = true) {
-  const [keluarga] = await db.insert(keluargaAroma).values({ nama: `KELUARGA ${acak()}`, aktif }).returning();
+async function buatKeluargaDenganSegmen(segmen: string) {
+  const [keluarga] = await db.insert(keluargaAroma).values({ nama: `KELUARGA ${acak()}` }).returning();
   await db.insert(segmenKodeKeluargaAroma).values({ keluargaId: keluarga.id, segmen });
   return keluarga;
 }
@@ -61,12 +61,9 @@ describe("/admin/pemetaan-produk", () => {
     const segmenGor = `GOR${acak()}`;
     const keluargaMrf = await buatKeluargaDenganSegmen(segmenMrf);
     const keluargaGor = await buatKeluargaDenganSegmen(segmenGor);
-    const segmenNonaktif = `OLD${acak()}`;
-    await buatKeluargaDenganSegmen(segmenNonaktif, false);
     const ham = await buatProduk(`DD-HAM120-${segmenMrf}`);
     const rework = await buatProduk(`DW110E-${segmenGor}-R`);
     const tanpaCocok = await buatProduk(`DW110E-${segmenGor}X`);
-    const keNonaktif = await buatProduk(`DW110E-${segmenNonaktif}`);
 
     kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
     const html = await render();
@@ -77,9 +74,8 @@ describe("/admin/pemetaan-produk", () => {
     // Daftar usulan dan kolom keluarga: usulan dari segmen yang dicatat.
     expect(barisDengan(html, ham).some((b) => b.includes(`Usulan: ${keluargaMrf.nama}`))).toBe(true);
     expect(barisDengan(html, rework).some((b) => b.includes(`Usulan: ${keluargaGor.nama}`))).toBe(true);
-    // Segmen yang tidak cocok persis, atau milik keluarga nonaktif, tidak menghasilkan usulan.
+    // Segmen yang tidak cocok persis tidak menghasilkan usulan.
     expect(barisDengan(html, tanpaCocok).some((b) => b.includes("Usulan:"))).toBe(false);
-    expect(barisDengan(html, keNonaktif).some((b) => b.includes("Usulan:"))).toBe(false);
 
     const status = await db
       .select({ kode: produk.kode, status: produk.statusKeluargaAroma, idKeluarga: produk.keluargaAromaId })
