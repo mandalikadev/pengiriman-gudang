@@ -7,10 +7,6 @@ Daftar hal yang **belum diputuskan pemilik**. Agen tidak mengimplementasikan per
 | ID | Pertanyaan | Menahan | Usulan sementara (berlaku hanya jika ditulis di tiket) |
 |---|---|---|---|
 | OD-04 | Penyedia hosting. Syarat: worker yang hidup lama, PostgreSQL region Singapura, storage S3. | Deploy (bukan M1) | — |
-| OD-05 | Struktur file ranking pusat: kolom apa, dan bagaimana keluarga aroma ditulis di dalamnya. | Tiket ranking (M3) | — |
-| OD-06 | Siapa yang berwenang atas "pengaturan langsung Pusat" untuk jadwal (PRD A5). | Tiket jadwal (M3) | — |
-| OD-07 | Cakupan laporan untuk viewer: semua toko, atau toko gudang tertentu? | Tiket laporan (M2) | — |
-| OD-11 | Konfirmasi target performa di PRD C1. | — | Dipakai sebagai target. |
 | OD-12 | Toko mana terhubung ke gudang mana (sisa OD-02). Menyusul dari pemilik sebagai data. | Data awal hubungan toko–gudang (tidak menahan kode T21) | — (data, bukan kode) |
 
 ## Tindakan pemilik (bukan keputusan)
@@ -52,3 +48,10 @@ Daftar hal yang **belum diputuskan pemilik**. Agen tidak mengimplementasikan per
 | Teks sekunder di atas latar `accent` (mis. baris terpilih) memakai `accent-foreground`, bukan `muted-foreground` (2026-10-09) | DESIGN §2, §8 |
 | `agentRules: false` di `next.config.ts` supaya `next dev` tidak mengubah AGENTS.md (2026-10-09) | `next.config.ts` |
 | TP-02: `@GANTI-PEMILIK` di `.github/CODEOWNERS` diganti `@mandalikadev` (2026-10-09) | `.github/CODEOWNERS` |
+| Impor: toko nonaktif tetap diterima, dengan peringatan di halaman tinjau (2026-10-09) | PRD A1 |
+| Master produk mengikuti impor yang terakhir diaktifkan (nama, ukuran, kategori; klasifikasi dihitung ulang); perubahan tampil sebagai peringatan "data produk berubah" di halaman tinjau; kode tetap identitas; rencana final tidak terpengaruh (snapshot) (2026-10-09) | PRD A1, ADR-0006 |
+| Penugasan operator tanpa hak tindakan memberi akses lihat (hanya-baca) ke halaman Pengiriman Gudang gudangnya (2026-10-09) | PRD A3 |
+| OD-05: struktur file ranking pusat — sheet `RANKING SALES`, kolom `RANK`, `VARIANT`, `QTY SALES`; bulan dipilih admin; tujuh besar = RANK 1–7; setiap baris satu kelompok ranking (termasuk `GIFT SET BOX`); ranking terakhir yang dipublikasikan berlaku untuk semua gudang (2026-10-09) | PRD A6; `tests/golden/ranking-september-2026.json` |
+| OD-06: operator Pusat dengan hak kelola-usulan-jadwal boleh langsung membuat, mengubah, dan menonaktifkan jadwal Pusat tanpa persetujuan admin; empat gudang lain tetap butuh persetujuan admin (2026-10-09) | PRD A5 |
+| OD-07: viewer melihat laporan semua toko (2026-10-09) | PRD A3 |
+| OD-11: target performa di PRD C1 disetujui (2026-10-09) | PRD C1 |

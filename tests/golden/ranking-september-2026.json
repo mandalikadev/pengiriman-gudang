@@ -1,0 +1,309 @@
+{
+  "sumber": "file contoh pemilik 2026-10-09",
+  "berkas": "data-lokal/RANKING-SALES-SEPTEMBER-2026.xlsx (tidak di-commit)",
+  "aturan": "docs/PRD.md A6, ▶ Keputusan OD-05. Sheet 'RANKING SALES', header baris 1: RANK, VARIANT, QTY SALES. Baris kosong diabaikan. Tujuh besar = RANK 1–7 persis seperti di file. RANK bilangan bulat unik berurutan mulai 1. VARIANT unik dan tidak kosong. QTY SALES bilangan bulat >= 0 (hanya informasi). Setiap baris = satu kelompok ranking.",
+  "catatan": "Bulan ranking dipilih admin saat mengunggah; nama file hanya saran isian awal. Teks pesan error belum ditetapkan pemilik; golden hanya menetapkan bahwa file ditolak dan jenis kesalahannya.",
+  "sheet": "RANKING SALES",
+  "header": [
+    "RANK",
+    "VARIANT",
+    "QTY SALES"
+  ],
+  "barisKosongDiabaikan": [
+    30
+  ],
+  "baris": [
+    {
+      "baris": 2,
+      "rank": 1,
+      "variant": "GORGEOUS TUBEROSE",
+      "qtySales": 6548
+    },
+    {
+      "baris": 3,
+      "rank": 2,
+      "variant": "HOLY SWEET",
+      "qtySales": 3200
+    },
+    {
+      "baris": 4,
+      "rank": 3,
+      "variant": "ONLY THE BRAVE",
+      "qtySales": 2991
+    },
+    {
+      "baris": 5,
+      "rank": 4,
+      "variant": "NO1",
+      "qtySales": 2303
+    },
+    {
+      "baris": 6,
+      "rank": 5,
+      "variant": "UNSTOPPABLE",
+      "qtySales": 1744
+    },
+    {
+      "baris": 7,
+      "rank": 6,
+      "variant": "CHAMPION",
+      "qtySales": 1136
+    },
+    {
+      "baris": 8,
+      "rank": 7,
+      "variant": "SEDUCTION",
+      "qtySales": 656
+    },
+    {
+      "baris": 9,
+      "rank": 8,
+      "variant": "ROMANTICA EXOTICA",
+      "qtySales": 452
+    },
+    {
+      "baris": 10,
+      "rank": 9,
+      "variant": "THE ONLY ONE",
+      "qtySales": 362
+    },
+    {
+      "baris": 11,
+      "rank": 10,
+      "variant": "MR. FANTASTIC",
+      "qtySales": 299
+    },
+    {
+      "baris": 12,
+      "rank": 11,
+      "variant": "REMEMBER ME",
+      "qtySales": 275
+    },
+    {
+      "baris": 13,
+      "rank": 12,
+      "variant": "HYPNOTIZED",
+      "qtySales": 243
+    },
+    {
+      "baris": 14,
+      "rank": 13,
+      "variant": "IRRESISTIBLE",
+      "qtySales": 212
+    },
+    {
+      "baris": 15,
+      "rank": 14,
+      "variant": "DAY",
+      "qtySales": 192
+    },
+    {
+      "baris": 16,
+      "rank": 15,
+      "variant": "FEELING GOOD",
+      "qtySales": 181
+    },
+    {
+      "baris": 17,
+      "rank": 16,
+      "variant": "VANILLA MANGO",
+      "qtySales": 180
+    },
+    {
+      "baris": 18,
+      "rank": 17,
+      "variant": "FORBIDDEN TEMPTATION",
+      "qtySales": 179
+    },
+    {
+      "baris": 19,
+      "rank": 18,
+      "variant": "SWEET CHERRY ROSE",
+      "qtySales": 153
+    },
+    {
+      "baris": 20,
+      "rank": 19,
+      "variant": "PRINCESS",
+      "qtySales": 127
+    },
+    {
+      "baris": 21,
+      "rank": 20,
+      "variant": "24HOURS",
+      "qtySales": 120
+    },
+    {
+      "baris": 22,
+      "rank": 21,
+      "variant": "GIFT SET BOX",
+      "qtySales": 102
+    },
+    {
+      "baris": 23,
+      "rank": 22,
+      "variant": "LADY BOSS",
+      "qtySales": 99
+    },
+    {
+      "baris": 24,
+      "rank": 23,
+      "variant": "MORNING GRASS",
+      "qtySales": 81
+    },
+    {
+      "baris": 25,
+      "rank": 24,
+      "variant": "ICON",
+      "qtySales": 75
+    },
+    {
+      "baris": 26,
+      "rank": 25,
+      "variant": "SIGNATURE",
+      "qtySales": 57
+    },
+    {
+      "baris": 27,
+      "rank": 26,
+      "variant": "SENSUAL OBSESSION",
+      "qtySales": 9
+    },
+    {
+      "baris": 28,
+      "rank": 27,
+      "variant": "YES I AM",
+      "qtySales": 3
+    },
+    {
+      "baris": 29,
+      "rank": 28,
+      "variant": "REBEL",
+      "qtySales": 0
+    }
+  ],
+  "tujuhBesar": [
+    "GORGEOUS TUBEROSE",
+    "HOLY SWEET",
+    "ONLY THE BRAVE",
+    "NO1",
+    "UNSTOPPABLE",
+    "CHAMPION",
+    "SEDUCTION"
+  ],
+  "kasusError": [
+    {
+      "nama": "rank ganda",
+      "jenis": "rank-ganda",
+      "header": [
+        "RANK",
+        "VARIANT",
+        "QTY SALES"
+      ],
+      "baris": [
+        [
+          1,
+          "GORGEOUS TUBEROSE",
+          6548
+        ],
+        [
+          2,
+          "HOLY SWEET",
+          3200
+        ],
+        [
+          2,
+          "ONLY THE BRAVE",
+          2991
+        ],
+        [
+          3,
+          "NO1",
+          2303
+        ]
+      ],
+      "hasil": "ditolak"
+    },
+    {
+      "nama": "rank loncat",
+      "jenis": "rank-loncat",
+      "header": [
+        "RANK",
+        "VARIANT",
+        "QTY SALES"
+      ],
+      "baris": [
+        [
+          1,
+          "GORGEOUS TUBEROSE",
+          6548
+        ],
+        [
+          2,
+          "HOLY SWEET",
+          3200
+        ],
+        [
+          4,
+          "ONLY THE BRAVE",
+          2991
+        ],
+        [
+          5,
+          "NO1",
+          2303
+        ]
+      ],
+      "hasil": "ditolak"
+    },
+    {
+      "nama": "VARIANT kosong",
+      "jenis": "variant-kosong",
+      "header": [
+        "RANK",
+        "VARIANT",
+        "QTY SALES"
+      ],
+      "baris": [
+        [
+          1,
+          "GORGEOUS TUBEROSE",
+          6548
+        ],
+        [
+          2,
+          null,
+          3200
+        ],
+        [
+          3,
+          "ONLY THE BRAVE",
+          2991
+        ]
+      ],
+      "hasil": "ditolak"
+    },
+    {
+      "nama": "nama kolom salah",
+      "jenis": "struktur-tidak-sesuai",
+      "header": [
+        "RANK",
+        "VARIAN",
+        "QTY SALES"
+      ],
+      "baris": [
+        [
+          1,
+          "GORGEOUS TUBEROSE",
+          6548
+        ],
+        [
+          2,
+          "HOLY SWEET",
+          3200
+        ]
+      ],
+      "hasil": "ditolak"
+    }
+  ]
+}

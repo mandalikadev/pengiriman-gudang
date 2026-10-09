@@ -25,6 +25,8 @@ Bedakan nol dengan data yang tidak tersedia. Sel penjualan kosong pada tanggal v
 > ▶ Keputusan (ADR-0005): sumber impor tahap ini hanya sheet berpola `<BULAN> (S)`. Sheet `MP …` dan sheet BARDAT (tanpa "(S)") di luar scope.
 > ▶ Keputusan (ADR-0002): satu impor aktif per bulan impor; tanggal di sheet harus berada di bulan impor yang dipilih.
 > ▶ Keputusan (OD-01): kuantitas negatif di sel penjualan adalah salah input dan harus diperbaiki di Excel sebelum impor. Pembaca sheet menolaknya sebagai error sehingga impor tidak bisa diaktifkan.
+> ▶ Keputusan (2026-10-09): toko nonaktif di sheet impor tetap diterima, dengan peringatan di halaman tinjau.
+> ▶ Keputusan (2026-10-09): master produk mengikuti impor yang terakhir diaktifkan: nama, ukuran, dan kategori diperbarui, lalu klasifikasi dihitung ulang. Setiap perubahan tampil sebagai peringatan "data produk berubah" di halaman tinjau. Kode produk tetap identitas (ADR-0006). Rencana final tidak terpengaruh karena menyimpan snapshot (A7).
 
 ### A2. Ketika saya membaca laporan penjualan
 
@@ -55,6 +57,7 @@ Untuk Senin–Kamis, penempatan minggu dan bulan laporan mengikuti hari Kamis da
 > ▶ Keputusan: contoh tanggal, penomoran minggu, dan perlakuan hari libur ditetapkan di **Bagian B** (ADR-0004). Contoh terhitung: `tests/golden/kalender-minggu-laporan.json`, `tests/golden/laporan-15GL-GOR-PMS-juni.json`.
 > ▶ Keputusan (OD-08): penanda kelengkapan. Kelompok mingguan *parsial* jika ada tanggal anggotanya yang tidak teramati (contoh: Senin–Kamis Juli M1 baru teramati 29–30 Juni). Rata-rata bulanan *parsial* jika ada kelompok mingguan pembentuknya yang parsial.
 > ▶ Keputusan (OD-09): angka harapan di `tests/golden/laporan-15GL-GOR-PMS-juni.json` (Senin–Kamis 1, Jumat 0, Sabtu 1, Minggu 0) dikonfirmasi benar oleh pemilik.
+> ▶ Keputusan (2026-10-09): ekspor laporan dalam format Excel (`.xlsx`).
 
 ### A3. Ketika saya mengelola gudang dan pengguna
 
@@ -72,7 +75,9 @@ Saya ingin menambahkan beberapa toko sekaligus dengan memilih toko lalu menekan 
 > ▶ Keputusan (2026-10-09, T20): admin tidak boleh menonaktifkan akunnya sendiri.
 > ▶ Keputusan (2026-10-09, T20): admin boleh mengubah perannya sendiri, **kecuali** jika ia satu-satunya admin aktif. Aplikasi harus selalu punya minimal satu admin aktif.
 > ▶ Keputusan (2026-10-09, T20): fitur "aktifkan kembali pengguna" yang dinonaktifkan dan tombol "Keluar" (logout) masing-masing dibuat sebagai tiket terpisah.
-> ▶ Terbuka: OD-12 (toko mana terhubung ke gudang mana), OD-07 (cakupan laporan viewer).
+> ▶ Keputusan (2026-10-09): penugasan operator ke gudang tanpa hak tindakan apa pun memberi akses lihat (hanya-baca) ke halaman Pengiriman Gudang gudang tersebut.
+> ▶ Keputusan (OD-07, 2026-10-09): viewer melihat laporan semua toko.
+> ▶ Terbuka: OD-12 (toko mana terhubung ke gudang mana).
 
 ### A4. Ketika saya menentukan sumber perhitungan gudang
 
@@ -92,7 +97,7 @@ Setiap hari pengiriman dapat memiliki persiapan H, H−1, atau H−2. Operator d
 
 Pembuatan, perubahan, dan penonaktifan jadwal empat gudang selain Pusat memerlukan persetujuan admin. Pengaturan langsung Pusat mengikuti kewenangan yang telah ditetapkan. Usulan yang belum disetujui tidak menggantikan jadwal aktif.
 
-> ▶ Terbuka (OD-06): siapa yang berwenang atas "pengaturan langsung Pusat".
+> ▶ Keputusan (OD-06, 2026-10-09): operator gudang Pusat yang punya hak tindakan kelola-usulan-jadwal boleh langsung membuat, mengubah, dan menonaktifkan jadwal Pusat tanpa persetujuan admin. Jadwal empat gudang lainnya tetap butuh persetujuan admin.
 
 Jika jadwal atau dasar perhitungan berubah, draft terkait harus dihitung ulang. Input stok tetap dipertahankan. Rencana yang sudah final tidak berubah mengikuti aturan baru.
 
@@ -116,7 +121,13 @@ Stok dikurangkan tepat satu kali sebelum buffer diterapkan.
 
 Ranking pusat berasal dari file yang dipublikasikan admin dengan bulan dan versi tertentu, serta berlaku lintas gudang. Tujuh keluarga aroma teratas mendapatkan buffer 20% untuk varian yang cocok dengan keluarga tersebut. Produk otomatis lainnya mendapatkan buffer 10%.
 
-> ▶ Terbuka (OD-05): struktur file ranking pusat.
+> ▶ Keputusan (OD-05, 2026-10-09): struktur file ranking pusat.
+> - Contoh file dari pemilik: `data-lokal/RANKING-SALES-SEPTEMBER-2026.xlsx` (tidak di-commit). Golden: `tests/golden/ranking-september-2026.json`.
+> - Struktur: sheet `RANKING SALES`, header di baris 1: `RANK`, `VARIANT`, `QTY SALES`. Baris kosong diabaikan. Struktur lain ditolak dengan pesan yang jelas.
+> - Bulan ranking dipilih admin saat mengunggah. Nama file hanya menjadi saran isian awal.
+> - Tujuh besar = baris dengan `RANK` 1–7, persis seperti di file. `RANK` harus bilangan bulat, unik, dan berurutan mulai dari 1; jika ganda atau loncat → error. `VARIANT` unik dan tidak kosong. `QTY SALES` bilangan bulat ≥ 0 (hanya informasi).
+> - Setiap baris ranking adalah satu kelompok ranking (keluarga aroma), termasuk `GIFT SET BOX` (produk kotak hadiah). Baris dicocokkan ke keluarga lewat alias, persis setelah normalisasi (ADR-0006).
+> - Ranking yang berlaku = ranking terakhir yang dipublikasikan admin, untuk semua gudang. Ranking lama diarsipkan. Rencana final menyimpan bulan dan versi ranking yang dipakai.
 
 Contoh: rata-rata Senin–Kamis adalah 4, Jumat 4, Sabtu 10, dan Minggu 8. Pengiriman Senin dengan persiapan dua hari mencakup Sabtu sebelumnya sampai Minggu berikutnya, sebanyak sembilan hari.
 Kebutuhan = (4 × 4) + (1 × 4) + (2 × 10) + (2 × 8) = 56 unit.
@@ -148,6 +159,8 @@ Saat finalisasi, simpan rencana beserta keadaan sumber penjualan, stok, ranking 
 Finalisasi hanya menyatakan rencana kebutuhan barang telah disimpan. Jangan menyamakannya dengan konfirmasi pengiriman fisik atau penerimaan barang.
 
 Saya ingin alur akhirnya terasa sederhana: data penjualan yang valid menghasilkan laporan yang jelas; operator memakai sumber, jadwal, ranking, dan stok yang benar; sistem memperlihatkan perhitungan; pengguna memeriksa dan memfinalisasi rencana; kemudian hasilnya dapat diekspor dan ditelusuri kembali.
+
+> ▶ Keputusan (2026-10-09): ekspor rencana dalam format Excel (`.xlsx`).
 
 ---
 
@@ -329,7 +342,9 @@ Keputusan lain yang belum jelas tetap perlu ditanyakan secara terpisah, termasuk
 
 ## Bagian C — Kebutuhan non-fungsional dan batas scope
 
-### C1. Target performa (usulan, menunggu konfirmasi pemilik)
+### C1. Target performa
+
+> ▶ Keputusan (OD-11, 2026-10-09): target performa di bawah disetujui pemilik.
 
 Diukur dengan data 12 bulan, 25 toko, ±360 produk, server database di region Singapura.
 

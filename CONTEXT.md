@@ -142,13 +142,13 @@ Persen tambahan: 20 untuk keluarga aroma tujuh besar, 10 untuk produk otomatis l
 max(0, ⌈(kebutuhan − stok akhir) × (1 + buffer)⌉).
 
 **Ranking pusat**:
-Urutan keluarga aroma dari file yang dipublikasikan admin, dengan bulan ranking dan versi.
+Urutan keluarga aroma dari file yang dipublikasikan admin, dengan bulan ranking dan versi. Setiap baris file ranking adalah satu keluarga aroma (kelompok ranking). Yang berlaku untuk semua gudang adalah ranking terakhir yang dipublikasikan.
 
 **Bulan ranking**:
 Bulan yang melekat pada satu versi ranking pusat.
 
 **Keluarga aroma**:
-Kelompok varian dengan aroma yang sama (misalnya Gorgeous Tuberose), dipetakan oleh admin.
+Kelompok varian yang menjadi satu baris di file ranking pusat, dipetakan oleh admin. Biasanya varian dengan aroma yang sama (misalnya Gorgeous Tuberose), tetapi tidak selalu aroma: GIFT SET BOX (produk kotak hadiah) juga satu kelompok.
 _Avoid_: menebaknya dari kemiripan nama
 
 **Varian**:
