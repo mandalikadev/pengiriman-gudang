@@ -9,9 +9,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { KategoriDasar } from "@/domain/kalender";
 import { wajibMasuk } from "@/server/auth/kewenangan";
 import { muatStatusCacheLaporan } from "@/server/laporan/cache";
-import { KATEGORI, muatRingkasan, UKURAN_HALAMAN, type BarisRingkasan, type HasilRingkasan } from "@/server/laporan/ringkasan";
+import {
+  KATEGORI,
+  muatRingkasan,
+  UKURAN_HALAMAN,
+  type BarisRingkasan,
+  type FilterAktif,
+  type FilterRingkasan,
+  type HasilRingkasan,
+} from "@/server/laporan/ringkasan";
 
-import { PilihanBulan } from "./pilihan-bulan";
+import { PilihanRingkasan } from "./pilihan-ringkasan";
 
 export const metadata: Metadata = {
   title: "Ringkasan — Dashboard Penjualan MANDALIKA",
@@ -34,10 +42,30 @@ function nomorHalaman(nilai: string | string[] | undefined): number {
   return /^\d{1,6}$/.test(teks) ? Number(teks) : 1;
 }
 
-function urlHalaman(bulanPilihan: string[], halaman: number) {
-  const parameter = new URLSearchParams(bulanPilihan.map((b) => ["bulan", b]));
+const TANPA_FILTER: FilterRingkasan = { toko: [], kategoriProduk: [], produk: [] };
+
+/** Filter aktif dalam bentuk nilai URL. */
+function nilaiFilter(filter: FilterAktif): FilterRingkasan {
+  return {
+    toko: filter.toko.map((t) => String(t.id)),
+    kategoriProduk: filter.kategoriProduk,
+    produk: filter.produk.map((p) => p.kode),
+  };
+}
+
+function urlHalaman(bulanPilihan: string[], filter: FilterRingkasan, halaman: number) {
+  const parameter = new URLSearchParams([
+    ...bulanPilihan.map((b) => ["bulan", b]),
+    ...filter.toko.map((t) => ["toko", t]),
+    ...filter.kategoriProduk.map((k) => ["kategoriProduk", k]),
+    ...filter.produk.map((p) => ["produk", p]),
+  ]);
   if (halaman > 1) parameter.set("halaman", String(halaman));
   return `/ringkasan?${parameter.toString()}`;
+}
+
+function adaFilter(filter: FilterAktif) {
+  return filter.toko.length + filter.kategoriProduk.length + filter.produk.length > 0;
 }
 
 const kelasTautan =
@@ -91,8 +119,15 @@ function SelRataRata({ kategori, nilai }: { kategori: KategoriDasar; nilai: Bari
 
 function TabelRingkasan({ hasil }: { hasil: Extract<HasilRingkasan, { keadaan: "siap" }> }) {
   if (hasil.baris.length === 0) {
-    return <p className="text-muted-foreground">Tidak ada data penjualan pada bulan pilihan.</p>;
+    return (
+      <p className="text-muted-foreground">
+        {adaFilter(hasil.filterAktif)
+          ? "Tidak ada baris yang cocok dengan filter pada bulan pilihan."
+          : "Tidak ada data penjualan pada bulan pilihan."}
+      </p>
+    );
   }
+  const filter = nilaiFilter(hasil.filterAktif);
   const awal = (hasil.halaman - 1) * UKURAN_HALAMAN + 1;
   const akhir = awal + hasil.baris.length - 1;
   return (
@@ -129,18 +164,18 @@ function TabelRingkasan({ hasil }: { hasil: Extract<HasilRingkasan, { keadaan: "
         </TableBody>
       </Table>
       <nav aria-label="Halaman tabel" className="flex flex-wrap items-center justify-between gap-4">
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground" data-jumlah-baris={hasil.jumlahBaris}>
           Baris {formatAngka(awal)}–{formatAngka(akhir)} dari {formatAngka(hasil.jumlahBaris)} · Halaman {hasil.halaman} dari{" "}
           {hasil.jumlahHalaman}
         </p>
         <div className="flex gap-2">
           {hasil.halaman > 1 ? (
-            <Link href={urlHalaman(hasil.bulanPilihan, hasil.halaman - 1)} className={kelasTautan}>
+            <Link href={urlHalaman(hasil.bulanPilihan, filter, hasil.halaman - 1)} className={kelasTautan}>
               Sebelumnya
             </Link>
           ) : null}
           {hasil.halaman < hasil.jumlahHalaman ? (
-            <Link href={urlHalaman(hasil.bulanPilihan, hasil.halaman + 1)} className={kelasTautan}>
+            <Link href={urlHalaman(hasil.bulanPilihan, filter, hasil.halaman + 1)} className={kelasTautan}>
               Berikutnya
             </Link>
           ) : null}
@@ -152,7 +187,7 @@ function TabelRingkasan({ hasil }: { hasil: Extract<HasilRingkasan, { keadaan: "
 
 function PeriodeAktif({ bulanPilihan }: { bulanPilihan: string[] }) {
   return (
-    <div role="status" aria-label="Periode aktif" className="flex flex-wrap items-center gap-2 rounded-2xl bg-muted px-4 py-3">
+    <div role="status" aria-label="Periode aktif" className="flex flex-wrap items-center gap-2">
       <CalendarRange aria-hidden strokeWidth={2} className="size-5 text-primary" />
       {bulanPilihan.length === 0 ? (
         <span>Belum ada periode yang diterapkan. Pilih bulan lalu tekan Terapkan.</span>
@@ -166,14 +201,52 @@ function PeriodeAktif({ bulanPilihan }: { bulanPilihan: string[] }) {
   );
 }
 
+/** Filter yang sedang dipakai, di atas tabel bersama periode aktif (T35). */
+function FilterTerapan({ bulanPilihan, filter }: { bulanPilihan: string[]; filter: FilterAktif }) {
+  const bagian = [
+    { judul: "Toko", nilai: filter.toko.map((t) => t.nama), atribut: "data-filter-toko" },
+    { judul: "Kategori produk", nilai: filter.kategoriProduk, atribut: "data-filter-kategori-produk" },
+    { judul: "Produk", nilai: filter.produk.map((p) => p.kode), atribut: "data-filter-produk" },
+  ].filter((b) => b.nilai.length > 0);
+  return (
+    <div role="status" aria-label="Filter aktif" className="flex flex-wrap items-center gap-2 pl-7">
+      {bagian.length === 0 ? (
+        <span>
+          <span className="font-semibold">Filter:</span> semua toko, kategori produk, dan produk.
+        </span>
+      ) : (
+        <>
+          <span className="font-semibold">Filter:</span>
+          {bagian.map((b, i) => (
+            <span key={b.judul} {...{ [b.atribut]: b.nilai.join(",") }}>
+              {b.judul}: {b.nilai.join(", ")}
+              {i < bagian.length - 1 ? " ·" : null}
+            </span>
+          ))}
+          <Link href={urlHalaman(bulanPilihan, TANPA_FILTER, 1)} className={kelasTautan}>
+            Kosongkan filter
+          </Link>
+        </>
+      )}
+    </div>
+  );
+}
+
 /** Zona kerja (DESIGN §1). Semua pengguna yang sudah masuk; viewer melihat semua toko (OD-07). */
 export default async function HalamanRingkasan({ searchParams }: { searchParams: Promise<ParameterUrl> }) {
   await wajibMasuk();
   const parameter = await searchParams;
   const bulanUrl = daftar(parameter.bulan);
+  const filterUrl: FilterRingkasan = {
+    toko: daftar(parameter.toko),
+    kategoriProduk: daftar(parameter.kategoriProduk),
+    produk: daftar(parameter.produk),
+  };
   const statusCache = await muatStatusCacheLaporan();
   const hasil: HasilRingkasan =
-    statusCache === null ? { keadaan: "belum-ada-cache" } : await muatRingkasan({ bulanPilihan: bulanUrl, halaman: nomorHalaman(parameter.halaman) });
+    statusCache === null
+      ? { keadaan: "belum-ada-cache" }
+      : await muatRingkasan({ bulanPilihan: bulanUrl, filter: filterUrl, halaman: nomorHalaman(parameter.halaman) });
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
@@ -194,10 +267,11 @@ export default async function HalamanRingkasan({ searchParams }: { searchParams:
         />
       ) : (
         <>
-          <PilihanBulan
-            key={bulanUrl.join(",")}
+          <PilihanRingkasan
+            key={urlHalaman(bulanUrl, filterUrl, 1)}
             bulanTersedia={hasil.bulanTersedia.map((kode) => ({ kode, label: labelBulan(kode) }))}
-            terapan={bulanUrl}
+            opsiFilter={hasil.opsiFilter}
+            terapan={{ bulan: bulanUrl, ...filterUrl }}
           />
           {hasil.keadaan === "pilihan-tidak-valid" ? (
             <p role="alert" className="flex items-center gap-2">
@@ -205,7 +279,10 @@ export default async function HalamanRingkasan({ searchParams }: { searchParams:
               {hasil.pesan}
             </p>
           ) : (
-            <PeriodeAktif bulanPilihan={hasil.keadaan === "siap" ? hasil.bulanPilihan : []} />
+            <div className="flex flex-col gap-2 rounded-2xl bg-muted px-4 py-3">
+              <PeriodeAktif bulanPilihan={hasil.keadaan === "siap" ? hasil.bulanPilihan : []} />
+              {hasil.keadaan === "siap" ? <FilterTerapan bulanPilihan={hasil.bulanPilihan} filter={hasil.filterAktif} /> : null}
+            </div>
           )}
           {hasil.keadaan === "siap" ? <TabelRingkasan hasil={hasil} /> : null}
         </>

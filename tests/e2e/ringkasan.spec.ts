@@ -10,13 +10,24 @@ import { buatWorkbookUji, imporUji, sheetPenjualanUji } from "../../src/server/i
 import { EMAIL_ADMIN_E2E, SANDI_ADMIN_E2E } from "./siapkan";
 
 /** Impor satu sheet lewat lapisan server; worker memprosesnya, lalu impor diaktifkan (worker menghitung cache). */
-async function imporAktif(idAdmin: string, namaSheet: string, tahun: number, bulan: number, kode: string, kuantitas: number[]) {
+async function imporAktif(
+  idAdmin: string,
+  namaSheet: string,
+  tahun: number,
+  bulan: number,
+  kode: string,
+  kuantitas: number[],
+  { kategori = "15ML GLITTER/LEATHER", lain = [] }: { kategori?: string; lain?: { kode: string; kategori: string; kuantitas: number[] }[] } = {},
+) {
   const isi = buatWorkbookUji({
     [namaSheet]: sheetPenjualanUji({
       toko: "PMS",
       bulan,
       hari: kuantitas.map((_, i) => i + 1),
-      produk: [{ kode, nama: "15ML GLITTER - E2E", ukuran: "15ML", kategori: "15ML GLITTER/LEATHER", kuantitas }],
+      produk: [
+        { kode, nama: "15ML GLITTER - E2E", ukuran: "15ML", kategori, kuantitas },
+        ...lain.map((p) => ({ ...p, nama: "15ML GLITTER - E2E", ukuran: "15ML" })),
+      ],
     }),
   });
   const id = await imporUji({ isi, namaSheet, tahunImpor: tahun, bulanImpor: bulan, idPengguna: idAdmin, proses: false });
@@ -24,6 +35,14 @@ async function imporAktif(idAdmin: string, namaSheet: string, tahun: number, bul
     .poll(async () => (await db.select({ status: impor.status }).from(impor).where(eq(impor.id, id)))[0]?.status, { timeout: 60_000 })
     .toBe("siap-ditinjau");
   expect(await aktifkanImpor(id, idAdmin)).toEqual({ keadaan: "berhasil" });
+}
+
+async function masuk(page: import("@playwright/test").Page) {
+  await page.goto("/masuk");
+  await page.getByLabel("Email").fill(EMAIL_ADMIN_E2E);
+  await page.getByLabel("Kata sandi").fill(SANDI_ADMIN_E2E);
+  await page.getByRole("button", { name: "Masuk" }).click();
+  await expect(page).not.toHaveURL(/\/masuk/);
 }
 
 test("Ringkasan: pilih bulan → Terapkan → periode aktif tampil; mengubah pilihan tanpa Terapkan tidak mengubah hasil", async ({ page }) => {
@@ -79,4 +98,55 @@ test("Ringkasan: pilih bulan → Terapkan → periode aktif tampil; mengubah pil
   await page.getByRole("button", { name: "Terapkan" }).click();
   await expect(periode).toContainText(`Periode aktif: Maret ${tahun} (1 bulan)`);
   await expect(totalMentah).toHaveText("28");
+});
+
+test("Ringkasan: filter kategori produk dan produk berlaku setelah Terapkan, tersimpan di URL, dan bisa dikosongkan", async ({ page }) => {
+  const tahun = randomInt(3000, 9000);
+  const akhiran = randomUUID().slice(0, 8).toUpperCase();
+  const [k1, k2] = [`E2EA${akhiran}-GOR`, `E2EB${akhiran}-GOR`];
+  const kategoriX = `KAT X E2E ${akhiran}`;
+  const [admin] = await db.select({ id: user.id }).from(user).where(eq(user.email, EMAIL_ADMIN_E2E));
+  await imporAktif(admin.id, "MARET (S)", tahun, 3, k1, [1, 1], {
+    kategori: kategoriX,
+    lain: [{ kode: k2, kategori: `KAT Y E2E ${akhiran}`, kuantitas: [2, 2] }],
+  });
+
+  await masuk(page);
+  await page.goto(`/ringkasan?bulan=${tahun}-03`);
+  const baris1 = page.locator(`tr[data-baris="PMS|${k1}"]`);
+  const baris2 = page.locator(`tr[data-baris="PMS|${k2}"]`);
+  await expect(async () => {
+    await page.reload();
+    await expect(baris2).toBeVisible({ timeout: 1_000 });
+    await expect(page.locator('[data-status-cache="terbaru"]')).toBeVisible({ timeout: 1_000 });
+    await expect(page.getByRole("checkbox", { name: kategoriX })).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 90_000 });
+  await expect(baris1).toBeVisible();
+
+  // Mencentang kategori tanpa Terapkan tidak mengubah hasil maupun URL.
+  const url = page.url();
+  await page.getByRole("checkbox", { name: kategoriX }).check();
+  await expect(baris2).toBeVisible();
+  expect(page.url()).toBe(url);
+  await expect(page.getByRole("status", { name: "Filter aktif" })).toContainText("semua toko, kategori produk, dan produk");
+
+  await page.getByRole("button", { name: "Terapkan" }).click();
+  await expect(page).toHaveURL(new RegExp(`kategoriProduk=${encodeURIComponent(kategoriX).replace(/%20/g, "\\+")}`));
+  await expect(page.getByRole("status", { name: "Filter aktif" })).toContainText(`Kategori produk: ${kategoriX}`);
+  await expect(baris1).toBeVisible();
+  await expect(baris2).toHaveCount(0);
+
+  // Kosongkan filter → semua baris kembali, periode tetap.
+  await page.getByRole("link", { name: "Kosongkan filter" }).click();
+  await expect(page).toHaveURL(new RegExp(`/ringkasan\\?bulan=${tahun}-03$`));
+  await expect(baris2).toBeVisible();
+
+  // Cari produk (teks biasa pada kode), centang, lalu Terapkan.
+  await page.getByRole("searchbox", { name: "Cari kode atau nama produk" }).fill(`e2eb${akhiran}`.toLowerCase());
+  await page.getByRole("checkbox", { name: k2 }).check();
+  await expect(baris1).toBeVisible();
+  await page.getByRole("button", { name: "Terapkan" }).click();
+  await expect(page).toHaveURL(new RegExp(`produk=${k2}`));
+  await expect(baris1).toHaveCount(0);
+  await expect(baris2).toBeVisible();
 });

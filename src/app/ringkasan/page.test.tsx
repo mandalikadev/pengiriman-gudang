@@ -226,3 +226,122 @@ describe("/ringkasan: viewer, pagination, dan pilihan", () => {
     expect(html).not.toContain("data-baris=");
   });
 });
+
+describe("/ringkasan: filter toko, kategori produk, dan produk (T35)", () => {
+  /**
+   * April: toko A menjual k1 (kategori X) dan k2 (kategori Y). Mei: toko B menjual k1 (X) dan k3 (X).
+   * Kategori acak per test agar data test lain di cache yang sama tidak ikut tersaring.
+   */
+  async function siapkan() {
+    const admin = await buatPenggunaUji("admin");
+    const tahun = tahunUji();
+    const [tokoA, tokoB] = [await buatTokoUji(), await buatTokoUji()];
+    const [k1, k2, k3] = [kodeProdukUji(), kodeProdukUji(), kodeProdukUji()];
+    const [x, y] = [`KAT X ${k1}`, `KAT Y ${k2}`];
+    const produkKategori = (kode: string, kategori: string, kuantitas: number[]): ProdukUji => ({
+      ...produkUji(kode, kuantitas),
+      nama: `PRODUK ${kode}`,
+      kategori,
+    });
+    await imporAktif({
+      idAdmin: admin.id,
+      toko: tokoA.nama,
+      tahun,
+      bulan: 4,
+      hari: [1, 2],
+      produk: [produkKategori(k1, x, [1, 2]), produkKategori(k2, y, [3, 4])],
+    });
+    await imporAktif({
+      idAdmin: admin.id,
+      toko: tokoB.nama,
+      tahun,
+      bulan: 5,
+      hari: [1, 2],
+      produk: [produkKategori(k1, x, [5, 6]), produkKategori(k3, x, [7, 8])],
+    });
+    await hitungUlangCacheLaporan();
+    return { tahun, tokoA, tokoB, k1, k2, k3, x, y, bulan: [`${tahun}-04`, `${tahun}-05`] };
+  }
+  const daftarBaris = (html: string) => [...html.matchAll(/<tr[^>]*data-baris="([^"]+)"/g)].map(([, b]) => b).sort();
+  const jumlahBaris = (html: string) => /data-jumlah-baris="(\d+)"/.exec(html)?.[1];
+
+  it("filter toko + kategori produk mengembalikan hanya baris yang cocok, dengan jumlah baris yang benar", async () => {
+    const d = await siapkan();
+
+    const tokoB = await buka("viewer", { bulan: d.bulan, toko: String(d.tokoB.id), kategoriProduk: d.x });
+    expect(daftarBaris(tokoB)).toEqual([`${d.tokoB.nama}|${d.k1}`, `${d.tokoB.nama}|${d.k3}`].sort());
+    expect(jumlahBaris(tokoB)).toBe("2");
+    expect(baris(tokoB, d.tokoB.nama, d.k3).totalMentah).toBe("15");
+
+    const tokoAX = await buka("viewer", { bulan: d.bulan, toko: String(d.tokoA.id), kategoriProduk: d.x });
+    expect(daftarBaris(tokoAX)).toEqual([`${d.tokoA.nama}|${d.k1}`]);
+    expect(jumlahBaris(tokoAX)).toBe("1");
+
+    // Banyak pilihan: dua toko dan dua kategori → semua empat pasangan.
+    const semua = await buka("viewer", {
+      bulan: d.bulan,
+      toko: [String(d.tokoA.id), String(d.tokoB.id)],
+      kategoriProduk: [d.x, d.y],
+    });
+    expect(jumlahBaris(semua)).toBe("4");
+
+    // Filter terlihat di atas tabel bersama periode aktif.
+    expect(tokoB).toContain(`data-filter-toko="${d.tokoB.nama}"`);
+    expect(tokoB).toContain(`data-filter-kategori-produk="${d.x}"`);
+    expect(tokoB.indexOf("Periode aktif:")).toBeLessThan(tokoB.indexOf("data-baris="));
+    expect(tokoB.indexOf("data-filter-toko=")).toBeLessThan(tokoB.indexOf("data-baris="));
+  });
+
+  it("filter produk (banyak pilihan) menyaring per kode produk di semua toko", async () => {
+    const d = await siapkan();
+    const html = await buka("viewer", { bulan: d.bulan, produk: [d.k1, d.k2] });
+    expect(daftarBaris(html)).toEqual([`${d.tokoA.nama}|${d.k1}`, `${d.tokoA.nama}|${d.k2}`, `${d.tokoB.nama}|${d.k1}`].sort());
+    expect(jumlahBaris(html)).toBe("3");
+    expect(html).toContain(`data-filter-produk="${[d.k1, d.k2].sort().join(",")}"`);
+  });
+
+  it("tanpa filter di URL (belum Terapkan) semua baris tetap tampil; tombol kosongkan mengarah ke URL tanpa filter", async () => {
+    const d = await siapkan();
+    const tanpaFilter = await buka("viewer", { bulan: d.bulan });
+    for (const b of [`${d.tokoA.nama}|${d.k1}`, `${d.tokoA.nama}|${d.k2}`, `${d.tokoB.nama}|${d.k1}`, `${d.tokoB.nama}|${d.k3}`]) {
+      expect(daftarBaris(tanpaFilter)).toContain(b);
+    }
+    expect(tanpaFilter).not.toContain("Kosongkan filter");
+
+    const terfilter = await buka("viewer", { bulan: d.bulan, toko: String(d.tokoA.id) });
+    expect(terfilter).toContain(`href="/ringkasan?bulan=${d.tahun}-04&amp;bulan=${d.tahun}-05"`);
+    expect(terfilter).toContain("Kosongkan filter");
+  });
+
+  it("pagination dan jumlah baris mengikuti hasil filter; tautan halaman membawa filter", async () => {
+    const admin = await buatPenggunaUji("admin");
+    const tahun = tahunUji();
+    const toko = await buatTokoUji();
+    const kategori = `KAT P ${kodeProdukUji()}`;
+    const produk = [
+      ...Array.from({ length: 51 }, () => ({ ...produkUji(kodeProdukUji(), [1]), kategori })),
+      ...Array.from({ length: 3 }, () => produkUji(kodeProdukUji(), [1])),
+    ];
+    await imporAktif({ idAdmin: admin.id, toko: toko.nama, tahun, bulan: 9, hari: [3], produk });
+    await hitungUlangCacheLaporan();
+
+    const halaman1 = await buka("viewer", { bulan: `${tahun}-09`, kategoriProduk: kategori });
+    expect(jumlahBaris(halaman1)).toBe("51");
+    expect(halaman1).toContain("Halaman 1 dari 2");
+    const kategoriUrl = new URLSearchParams({ kategoriProduk: kategori }).toString();
+    expect(halaman1).toContain(`href="/ringkasan?bulan=${tahun}-09&amp;${kategoriUrl}&amp;halaman=2"`);
+    const halaman2 = await buka("viewer", { bulan: `${tahun}-09`, kategoriProduk: kategori, halaman: "2" });
+    expect(daftarBaris(halaman2)).toHaveLength(1);
+  });
+
+  it("filter di URL yang tidak ada di data ditolak dengan pesan", async () => {
+    const d = await siapkan();
+    const daftarParameter: Record<string, string>[] = [{ toko: "abc" }, { toko: "999999999" }, { kategoriProduk: "TIDAK ADA" }, { produk: "TIDAK-ADA" }];
+    for (const parameter of daftarParameter) {
+      const html = await buka("viewer", { bulan: d.bulan, ...parameter });
+      expect(html).toContain('role="alert"');
+      expect(html).toContain("Ada filter yang tidak tersedia di data");
+      expect(html).not.toContain("data-baris=");
+    }
+  });
+});
