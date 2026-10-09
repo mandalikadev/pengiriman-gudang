@@ -24,7 +24,7 @@ vi.mock("next/cache", () => ({
   },
 }));
 
-import { buatPengguna, nonaktifkanPengguna, ubahPeran } from "./aksi";
+import { aktifkanKembaliPengguna, buatPengguna, nonaktifkanPengguna, ubahPeran } from "./aksi";
 
 async function cariPengguna(email: string) {
   const [baris] = await db.select().from(user).where(eq(user.email, email));
@@ -59,6 +59,14 @@ describe("viewer yang memanggil aksi admin langsung (tanpa UI) ditolak", () => {
     const target = await buatPenggunaUji("admin");
     await expect(nonaktifkanPengguna({ idPengguna: target.id })).rejects.toBeInstanceOf(AksesDitolakError);
     expect((await cariPengguna(target.email)).banned).toBe(false);
+  });
+
+  it("aktifkanKembaliPengguna ditolak dan pengguna tetap nonaktif", async () => {
+    const target = await buatPenggunaUji("viewer");
+    await db.update(user).set({ banned: true }).where(eq(user.id, target.id));
+    await expect(aktifkanKembaliPengguna({ idPengguna: target.id })).rejects.toBeInstanceOf(AksesDitolakError);
+    expect((await cariPengguna(target.email)).banned).toBe(true);
+    await expect(masukUji(target.email)).rejects.toThrow();
   });
 });
 
@@ -140,6 +148,49 @@ describe("admin", () => {
     await expect(ubahPeran({ idPengguna: target.id, peran: "admin" })).rejects.toMatchObject({
       digest: expect.stringContaining("/masuk"),
     });
+  });
+});
+
+describe("admin mengaktifkan kembali pengguna nonaktif (T23)", () => {
+  beforeEach(async () => {
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+  });
+
+  it("pengguna nonaktif diaktifkan kembali dan bisa masuk lagi, dengan peran tetap", async () => {
+    const target = await kepalaPenggunaUji("viewer");
+    await expect(nonaktifkanPengguna({ idPengguna: target.id })).resolves.toEqual({ keadaan: "berhasil" });
+    await expect(masukUji(target.email)).rejects.toThrow();
+
+    await expect(aktifkanKembaliPengguna({ idPengguna: target.id })).resolves.toEqual({ keadaan: "berhasil" });
+    expect(await cariPengguna(target.email)).toMatchObject({ banned: false, role: "viewer" });
+    await expect(masukUji(target.email)).resolves.toContain("session_token");
+  });
+
+  it("pengguna yang sudah aktif ditolak dengan pesan jelas", async () => {
+    const target = await buatPenggunaUji("viewer");
+    await expect(aktifkanKembaliPengguna({ idPengguna: target.id })).resolves.toEqual({
+      keadaan: "gagal",
+      pesan: "Pengguna ini sudah aktif.",
+    });
+    expect((await cariPengguna(target.email)).banned).toBe(false);
+  });
+
+  it("pengguna yang tidak ada atau isian tidak valid → gagal", async () => {
+    await expect(aktifkanKembaliPengguna({ idPengguna: "tidak-ada" })).resolves.toEqual({
+      keadaan: "gagal",
+      pesan: "Pengguna tidak ditemukan.",
+    });
+    await expect(aktifkanKembaliPengguna({})).resolves.toMatchObject({ keadaan: "gagal" });
+  });
+
+  it("tersimpan tetapi gagal memuat ulang tampilan", async () => {
+    const target = await buatPenggunaUji("viewer");
+    await db.update(user).set({ banned: true }).where(eq(user.id, target.id));
+    kepala.muatUlangGagal = true;
+    await expect(aktifkanKembaliPengguna({ idPengguna: target.id })).resolves.toEqual({
+      keadaan: "tersimpanGagalMuatUlang",
+    });
+    expect((await cariPengguna(target.email)).banned).toBe(false);
   });
 });
 

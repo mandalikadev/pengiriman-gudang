@@ -11,7 +11,8 @@ import * as schema from "@/server/db/schema";
 export const daftarPeran = ["admin", "viewer"] as const;
 export type Peran = (typeof daftarPeran)[number];
 
-// Hak plugin admin dibatasi pada yang dipakai T20: daftar, buat, ubah peran, nonaktifkan (ban).
+// Hak plugin admin dibatasi pada yang dipakai: daftar, buat, ubah peran, nonaktifkan (ban).
+// Hak "ban" juga mencakup unban di Better Auth, dipakai untuk mengaktifkan kembali (T23).
 const hakPeran = {
   admin: defaultAc.newRole({ user: ["create", "list", "set-role", "ban"], session: [] }),
   viewer: defaultAc.newRole({ user: [], session: [] }),

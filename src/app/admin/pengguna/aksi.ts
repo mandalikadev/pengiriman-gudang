@@ -35,6 +35,7 @@ const skemaBuat = z.object({
 });
 const skemaUbahPeran = z.object({ idPengguna, peran });
 const skemaNonaktifkan = z.object({ idPengguna });
+const skemaAktifkanKembali = z.object({ idPengguna });
 
 function gagal(pesan: string): HasilSimpan {
   return { keadaan: "gagal", pesan };
@@ -123,4 +124,17 @@ export async function nonaktifkanPengguna(input: unknown): Promise<HasilSimpan> 
     () => auth.api.banUser({ body: { userId: idPengguna }, headers: kepala }),
     "Pengguna tidak bisa dinonaktifkan: aplikasi harus punya minimal satu admin aktif.",
   );
+}
+
+/** Aktifkan kembali = unban Better Auth (T23). Peran tidak diubah; pengguna yang sudah aktif ditolak. */
+export async function aktifkanKembaliPengguna(input: unknown): Promise<HasilSimpan> {
+  await wajibAdmin();
+  const isian = skemaAktifkanKembali.safeParse(input);
+  if (!isian.success) return gagal(isian.error.issues[0].message);
+  const { idPengguna } = isian.data;
+  const [target] = await db.select({ banned: user.banned }).from(user).where(eq(user.id, idPengguna));
+  if (!target) return gagal(pesanGalatAuth.USER_NOT_FOUND);
+  if (target.banned !== true) return gagal("Pengguna ini sudah aktif.");
+  const kepala = await headers();
+  return simpan(() => auth.api.unbanUser({ body: { userId: idPengguna }, headers: kepala }));
 }

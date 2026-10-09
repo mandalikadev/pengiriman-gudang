@@ -1,7 +1,10 @@
+import { eq } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
+import { db } from "@/server/db";
+import { user } from "@/server/db/schema";
 
 const kepala = vi.hoisted(() => ({ cookie: "" }));
 vi.mock("next/headers", () => ({
@@ -35,5 +38,15 @@ describe("/admin/pengguna", () => {
     // Zona kerja: judul halaman text-2xl md:text-3xl, tanpa blob.
     expect(html).toContain("text-2xl font-bold md:text-3xl");
     expect(html).not.toContain("blur-3xl");
+  });
+
+  it("tombol Aktifkan kembali hanya untuk pengguna nonaktif", async () => {
+    const nonaktif = await buatPenggunaUji("viewer");
+    await db.update(user).set({ banned: true }).where(eq(user.id, nonaktif.id));
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+    const html = renderToStaticMarkup(await HalamanPengguna());
+    const jumlahNonaktif = html.split(">Nonaktif<").length - 1;
+    expect(jumlahNonaktif).toBeGreaterThan(0);
+    expect(html.split(">Aktifkan kembali<").length - 1).toBe(jumlahNonaktif);
   });
 });

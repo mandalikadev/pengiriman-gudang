@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TableCell, TableRow } from "@/components/ui/table";
 import type { Peran } from "@/server/auth/auth";
 
-import { nonaktifkanPengguna, ubahPeran } from "./aksi";
+import { aktifkanKembaliPengguna, nonaktifkanPengguna, ubahPeran } from "./aksi";
 
 export type DataPengguna = { id: string; nama: string; email: string; peran: Peran; nonaktif: boolean };
 
@@ -62,7 +62,20 @@ export function BarisPengguna({ pengguna }: { pengguna: DataPengguna }) {
         )}
       </TableCell>
       <TableCell>
-        {pengguna.nonaktif ? null : (
+        {pengguna.nonaktif ? (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={menunggu}
+            onClick={() => {
+              if (window.confirm(`Aktifkan kembali ${pengguna.nama}? Pengguna ini bisa masuk lagi.`)) {
+                simpan(() => aktifkanKembaliPengguna({ idPengguna: pengguna.id }));
+              }
+            }}
+          >
+            Aktifkan kembali
+          </Button>
+        ) : (
           <Button
             size="sm"
             variant="destructive"
