@@ -70,23 +70,30 @@ describe("Navigasi untuk pengguna yang sudah masuk", () => {
     }
   });
 
-  it("tidak mengubah tautan navigasi", () => {
-    const tautan = [...html.matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => m[1]);
-    expect(tautan).toEqual(["/", "/"]);
+  it("menambahkan tautan Ringkasan untuk semua pengguna yang sudah masuk (T34)", () => {
+    const tautan = [...html.matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[2]]);
+    expect(tautan).toEqual([
+      ["/", "Beranda"],
+      ["/ringkasan", "Ringkasan"],
+      ["/", "Beranda"],
+      ["/ringkasan", "Ringkasan"],
+    ]);
   });
 });
 
 describe("Navigasi untuk admin", () => {
   it("menambahkan tautan Pengguna, Gudang, Penugasan, dan Impor hanya jika diminta (admin)", () => {
-    const html = renderToStaticMarkup(<Navigasi tampilkanAdmin />);
+    const html = renderToStaticMarkup(<Navigasi tampilkanAdmin sudahMasuk />);
     const tautan = [...html.matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[2]]);
     expect(tautan).toEqual([
       ["/", "Beranda"],
+      ["/ringkasan", "Ringkasan"],
       ["/admin/pengguna", "Pengguna"],
       ["/admin/gudang", "Gudang"],
       ["/admin/penugasan", "Penugasan"],
       ["/admin/impor", "Impor"],
       ["/", "Beranda"],
+      ["/ringkasan", "Ringkasan"],
       ["/admin/pengguna", "Pengguna"],
       ["/admin/gudang", "Gudang"],
       ["/admin/penugasan", "Penugasan"],

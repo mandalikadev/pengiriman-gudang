@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 
 // DESIGN §6: item hanya untuk halaman yang sudah ada.
 const itemUmum = [{ href: "/", label: "Beranda" }];
+// Semua pengguna yang sudah masuk (PRD A2, perencanaan M2–M3). Halaman memeriksa sesi di server (wajibMasuk).
+const itemMasuk = [{ href: "/ringkasan", label: "Ringkasan" }];
 // Hanya untuk admin. Penyembunyian ini tambahan; halaman memeriksa peran di server (wajibAdmin).
 const itemAdmin = [
   { href: "/admin/pengguna", label: "Pengguna" },
@@ -73,7 +75,7 @@ export function Navigasi({
   tampilkanAdmin?: boolean;
   sudahMasuk?: boolean;
 }) {
-  const itemNavigasi = tampilkanAdmin ? [...itemUmum, ...itemAdmin] : itemUmum;
+  const itemNavigasi = [...itemUmum, ...(sudahMasuk ? itemMasuk : []), ...(tampilkanAdmin ? itemAdmin : [])];
   const pathname = usePathname();
   const [menuTerbuka, setMenuTerbuka] = useState(false);
   const idMenu = useId();
