@@ -13,6 +13,8 @@ type MasukanBacaSheet = {
   tahunImpor: number;
   bulanImpor: number;
   namaTokoMaster: readonly string[];
+  /** Nama toko master berstatus nonaktif; bloknya tetap diterima dengan peringatan (PRD A1, Keputusan 2026-10-09). */
+  namaTokoNonaktif?: readonly string[];
 };
 
 type KodeMasalah =
@@ -20,6 +22,7 @@ type KodeMasalah =
   | "sheet-di-luar-cakupan"
   | "a1-bukan-sales"
   | "toko-tidak-dikenal"
+  | "toko-nonaktif"
   | "blok-toko-ganda"
   | "kode-produk-kosong"
   | "kode-produk-ganda"
@@ -220,6 +223,7 @@ export function bacaSheetPenjualan(masukan: MasukanBacaSheet): HasilBacaSheet {
     const kunci = kunciNamaToko(nama);
     if (!tokoMaster.has(kunci)) tokoMaster.set(kunci, nama.trim());
   }
+  const kunciTokoNonaktif = new Set((masukan.namaTokoNonaktif ?? []).map(kunciNamaToko));
   const tokoTerlihat = new Set<string>();
   const blokPerKolom: (BlokToko | undefined)[] = [];
   const kolomPerIndeks: (KolomTanggal | undefined)[] = [];
@@ -244,6 +248,14 @@ export function bacaSheetPenjualan(masukan: MasukanBacaSheet): HasilBacaSheet {
           alamat,
           `Toko "${namaDiSheet}" tidak ada di daftar toko.`,
           "Perbaiki nama toko di Excel agar sama dengan daftar toko, atau minta admin menambahkan toko ini.",
+        );
+      } else if (kunciTokoNonaktif.has(kunciToko)) {
+        lapor(
+          "peringatan",
+          "toko-nonaktif",
+          alamat,
+          `Toko "${namaToko}" berstatus nonaktif di daftar toko. Datanya tetap dibaca dan disimpan seperti toko lain.`,
+          "Tidak perlu tindakan; impor tetap bisa diaktifkan. Jika toko ini seharusnya aktif, periksa status toko di daftar toko.",
         );
       }
       if (tokoTerlihat.has(kunciToko)) {

@@ -1,10 +1,11 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { BadgeStatus } from "@/components/badge-status";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, parseTanggalBisnis } from "@/domain/kalender";
@@ -51,7 +52,18 @@ function RingkasanPerToko({ ringkasan }: { ringkasan: DataTinjauImpor["ringkasan
           <TableBody>
             {ringkasan.map((r) => (
               <TableRow key={r.namaToko}>
-                <TableCell className="font-semibold">{r.namaToko}</TableCell>
+                <TableCell className="font-semibold">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {r.namaToko}
+                    {r.tokoNonaktif ? (
+                      // DESIGN §7: peringatan impor = token warning + TriangleAlert, ikon + teks.
+                      <Badge variant="warning" data-penanda="toko-nonaktif">
+                        <TriangleAlert aria-hidden strokeWidth={2} className="size-5" />
+                        Toko nonaktif
+                      </Badge>
+                    ) : null}
+                  </div>
+                </TableCell>
                 <TableCell>
                   {tanggal(r.tanggalAwal)} s.d. {tanggal(r.tanggalAkhir)}
                 </TableCell>

@@ -391,3 +391,45 @@ describe("validasi pendaftaran impor", () => {
     await expect(aktifkanImpor({ idImpor: 2_000_000_000 })).resolves.toEqual({ keadaan: "gagal", pesan: "Impor tidak ditemukan." });
   });
 });
+
+describe("toko nonaktif di sheet (PRD A1, Keputusan 2026-10-09)", () => {
+  it("satu toko nonaktif → siap ditinjau dengan peringatan untuk toko itu, bisa diaktifkan, dan datanya tersimpan", async () => {
+    const tahun = tahunUji();
+    const toko = await buatTokoUji({ aktif: false });
+    const p = produkUji([4, 0]);
+    const idImpor = await unggahDanDaftarkan(
+      buatWorkbookUji({ "JUNI (S)": sheetPenjualanUji({ toko: toko.nama, bulan: JUNI, hari: [1, 2], produk: [p] }) }),
+      { tahunImpor: tahun },
+    );
+    await prosesImpor(idImpor);
+
+    const [baris] = await db.select().from(impor).where(eq(impor.id, idImpor));
+    expect(baris.status).toBe("siap-ditinjau");
+    expect(baris.masalah).toEqual([
+      expect.objectContaining({
+        tingkat: "peringatan",
+        kode: "toko-nonaktif",
+        lokasi: "JUNI (S)!F1",
+        pesan: expect.stringContaining(toko.nama),
+      }),
+    ]);
+
+    await expect(aktifkanImpor({ idImpor })).resolves.toEqual({ keadaan: "berhasil" });
+    expect(await statusImpor(idImpor)).toEqual({ [idImpor]: "aktif" });
+    const sel = await db
+      .select({ tokoId: selPenjualan.tokoId, kuantitas: selPenjualan.kuantitas, alamat: selPenjualan.alamat })
+      .from(selPenjualan)
+      .where(eq(selPenjualan.imporId, idImpor))
+      .orderBy(asc(selPenjualan.alamat));
+    expect(sel).toEqual([
+      { tokoId: toko.id, kuantitas: 4, alamat: "F4" },
+      { tokoId: toko.id, kuantitas: 0, alamat: "G4" },
+    ]);
+  });
+
+  it("toko aktif tidak menghasilkan peringatan toko nonaktif", async () => {
+    const idImpor = await imporSiapDitinjau(tahunUji());
+    const [baris] = await db.select().from(impor).where(eq(impor.id, idImpor));
+    expect(baris.masalah.filter((m) => m.kode === "toko-nonaktif")).toEqual([]);
+  });
+});

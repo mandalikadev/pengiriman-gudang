@@ -29,7 +29,10 @@ function sheetSatuBlok(toko: string, header: Sel[], produk: Sel[][]): Sel[][] {
   ];
 }
 
-function baca(baris: Sel[][], opsi: { namaSheet?: string; tahun?: number; bulan?: number; toko?: string[] } = {}) {
+function baca(
+  baris: Sel[][],
+  opsi: { namaSheet?: string; tahun?: number; bulan?: number; toko?: string[]; tokoNonaktif?: string[] } = {},
+) {
   const namaSheet = opsi.namaSheet ?? "JUNI (S)";
   return bacaSheetPenjualan({
     workbook: buatWorkbook({ [namaSheet]: baris }),
@@ -37,6 +40,7 @@ function baca(baris: Sel[][], opsi: { namaSheet?: string; tahun?: number; bulan?
     tahunImpor: opsi.tahun ?? 2026,
     bulanImpor: opsi.bulan ?? 6,
     namaTokoMaster: opsi.toko ?? ["PMS", "PMJ"],
+    namaTokoNonaktif: opsi.tokoNonaktif,
   });
 }
 
@@ -297,5 +301,36 @@ describe("bacaSheetPenjualan — normalisasi nama toko (keputusan T10)", () => {
       expect.objectContaining({ tingkat: "error", kode: "toko-tidak-dikenal", lokasi: "JUNI (S)!F1" }),
     ]);
     expect(hasil.blokToko.map((b) => b.namaToko)).toEqual(["PMSS"]);
+  });
+});
+
+describe("bacaSheetPenjualan — toko nonaktif (PRD A1, Keputusan 2026-10-09)", () => {
+  const duaBlok: Sel[][] = [
+    ["SALES", null, null, null, "TOKO :", "PMS", " pmj "],
+    [null, null, null, null, "TANGGAL :", 46174, 46174],
+    [...JUDUL_KOLOM, 0, 0],
+    [...PRODUK_A, 2, 3],
+  ];
+
+  it("blok toko nonaktif → peringatan (bukan error) dengan nama toko dan lokasi bloknya; datanya tetap dibaca", () => {
+    const hasil = baca(duaBlok, { toko: ["PMS", "PMJ"], tokoNonaktif: ["PMJ"] });
+    expect(hasil.masalah).toEqual([
+      expect.objectContaining({
+        tingkat: "peringatan",
+        kode: "toko-nonaktif",
+        lokasi: "JUNI (S)!G1",
+        pesan: expect.stringContaining("PMJ"),
+        perbaikan: expect.any(String),
+      }),
+    ]);
+    expect(hasil.selBernilai.map((s) => [s.namaToko, s.kuantitas])).toEqual([
+      ["PMS", 2],
+      ["PMJ", 3],
+    ]);
+  });
+
+  it("toko aktif tidak menghasilkan peringatan toko nonaktif", () => {
+    const hasil = baca(duaBlok, { toko: ["PMS", "PMJ"], tokoNonaktif: [] });
+    expect(hasil.masalah).toEqual([]);
   });
 });

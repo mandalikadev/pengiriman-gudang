@@ -39,7 +39,7 @@ export async function prosesImpor(idImpor: number): Promise<void> {
     if (!isi) throw new GagalProses("File tidak ditemukan di storage. Unggah ulang file-nya.");
     const sha256 = createHash("sha256").update(isi).digest("hex");
 
-    const daftarToko = await db.select({ id: toko.id, nama: toko.nama }).from(toko);
+    const daftarToko = await db.select({ id: toko.id, nama: toko.nama, aktif: toko.aktif }).from(toko);
     let hasil: ReturnType<typeof bacaSheetPenjualan>;
     try {
       hasil = bacaSheetPenjualan({
@@ -48,6 +48,7 @@ export async function prosesImpor(idImpor: number): Promise<void> {
         tahunImpor: klaim.tahunImpor,
         bulanImpor: klaim.bulanImpor,
         namaTokoMaster: daftarToko.map((t) => t.nama),
+        namaTokoNonaktif: daftarToko.filter((t) => !t.aktif).map((t) => t.nama),
       });
     } catch {
       throw new GagalProses("File tidak bisa dibaca sebagai workbook Excel. Periksa file-nya, lalu unggah ulang.");

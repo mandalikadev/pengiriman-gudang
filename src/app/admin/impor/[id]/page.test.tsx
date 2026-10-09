@@ -104,6 +104,38 @@ describe("/admin/impor/[id]", () => {
     expect(html).not.toContain("blur-3xl");
   });
 
+  it("toko nonaktif: peringatan di daftar masalah, penanda di ringkasan per toko, dan Aktifkan tetap bisa", async () => {
+    const tahun = tahunUji();
+    const nonaktif = await buatTokoUji({ aktif: false });
+    const aktif = await buatTokoUji();
+    const kode = kodeProdukUji();
+    const id = await imporUji({
+      isi: buatWorkbookUji({
+        "JUNI (S)": [
+          ["SALES", null, null, null, "TOKO :", aktif.nama, nonaktif.nama],
+          [null, null, null, null, "TANGGAL :", "1/6", "1/6"],
+          ["NO", "PRODUCT CODE", "PRODUCT NAME", "SIZE", "PRODUCT CATEGORY", null, null],
+          [1, kode, `NAMA ${kode}`, "15ML", "15ML GLITTER/LEATHER", 1, 2],
+        ],
+      }),
+      tahunImpor: tahun,
+      idPengguna: idAdmin,
+    });
+
+    const html = await tampil(id);
+    expect(html).toContain("0 error, 1 peringatan.");
+    expect(html).toContain("JUNI (S)!G1");
+    expect(html).toContain('data-status="peringatanImpor"');
+    // Ringkasan per toko: penanda ikon + teks hanya pada baris toko nonaktif.
+    const baris = html.match(/<tr[^>]*>.*?<\/tr>/g) ?? [];
+    const barisNonaktif = baris.find((b) => b.includes(nonaktif.nama) && b.includes("01-06-"));
+    const barisAktif = baris.find((b) => b.includes(aktif.nama) && b.includes("01-06-"));
+    expect(barisNonaktif).toMatch(/lucide-triangle-alert[^]*Toko nonaktif/);
+    expect(barisNonaktif).toContain("bg-warning/10");
+    expect(barisAktif).not.toContain("Toko nonaktif");
+    expect(html).not.toMatch(/<button[^>]*disabled=""[^>]*>Aktifkan<\/button>/);
+  });
+
   it("impor tanpa error bisa diaktifkan dan memberi tahu impor aktif yang akan diarsipkan", async () => {
     const tahun = tahunUji();
     const toko = await buatTokoUji();

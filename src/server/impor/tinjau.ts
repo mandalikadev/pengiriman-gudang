@@ -30,6 +30,7 @@ async function ringkasanPerToko(idImpor: number) {
     .select({
       idToko: toko.id,
       namaToko: toko.nama,
+      tokoAktif: toko.aktif,
       tanggalAwal: min(cakupanTanggalImpor.tanggal),
       tanggalAkhir: max(cakupanTanggalImpor.tanggal),
       jumlahTanggal: sql<number>`count(*)::int`,
@@ -37,7 +38,7 @@ async function ringkasanPerToko(idImpor: number) {
     .from(cakupanTanggalImpor)
     .innerJoin(toko, eq(toko.id, cakupanTanggalImpor.tokoId))
     .where(eq(cakupanTanggalImpor.imporId, idImpor))
-    .groupBy(toko.id, toko.nama)
+    .groupBy(toko.id, toko.nama, toko.aktif)
     .orderBy(asc(min(cakupanTanggalImpor.id)));
   const sel = await db
     .select({
@@ -51,6 +52,8 @@ async function ringkasanPerToko(idImpor: number) {
   const selPerToko = new Map(sel.map((s) => [s.idToko, s]));
   return cakupan.map((c) => ({
     namaToko: c.namaToko,
+    /** Status toko di master saat ini (PRD A1, Keputusan 2026-10-09: toko nonaktif diberi penanda). */
+    tokoNonaktif: !c.tokoAktif,
     tanggalAwal: c.tanggalAwal,
     tanggalAkhir: c.tanggalAkhir,
     jumlahTanggal: c.jumlahTanggal,
