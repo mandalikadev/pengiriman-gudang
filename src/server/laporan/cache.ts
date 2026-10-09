@@ -63,10 +63,10 @@ export async function naikkanRevisiKalender(tx: Tx): Promise<number> {
 }
 
 /**
- * Perubahan kategori yang berlaku untuk perhitungan. Belum ada perubahan kategori manual (T42), jadi kategori
- * efektif saat ini selalu kategori dasar.
+ * Perubahan kategori yang berlaku untuk perhitungan (juga dipakai penelusuran angka, T37). Belum ada perubahan
+ * kategori manual (T42), jadi kategori efektif saat ini selalu kategori dasar.
  */
-async function bacaPerubahanKategori(): Promise<PerubahanKategori[]> {
+export async function bacaPerubahanKategori(): Promise<PerubahanKategori[]> {
   return [];
 }
 

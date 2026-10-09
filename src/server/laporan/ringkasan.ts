@@ -7,11 +7,12 @@ import { hitungPerbandinganMingguSama, hitungRingkasan } from "@/domain/laporan"
 import { db } from "@/server/db";
 import { cacheNilaiMingguan, cacheRataRataBulanan, cacheTotalPenjualanMentah, produk, toko } from "@/server/db/schema";
 import { idVersiCacheAktif } from "@/server/laporan/cache";
+import { muatRincian, type RincianAngka } from "@/server/laporan/rincian";
 
 // Halaman Ringkasan (T34, PRD A2). Membaca cache rata-rata bulanan (T33) lalu menghitung tahap 3 lewat
 // `hitungRingkasan` (T32) untuk baris di halaman tabel yang dibuka saja. Tidak membaca Excel (PRD C1).
 // Perbandingan minggu sama (T36) untuk satu produk–toko terpilih dari cache nilai mingguan lewat
-// `hitungPerbandinganMingguSama` (T32).
+// `hitungPerbandinganMingguSama` (T32). Rincian satu angka sampai sel sumber (T37) dari `muatRincian`.
 
 export const UKURAN_HALAMAN = 50;
 const MAKS_BULAN = 12;
@@ -88,6 +89,8 @@ export type HasilRingkasan =
       baris: BarisRingkasan[];
       /** `null` = belum ada produk–toko yang dipilih untuk perbandingan minggu sama. */
       mingguSama: MingguSamaTerpilih | null;
+      /** `null` = belum ada angka Ringkasan yang dibuka rinciannya (T37). */
+      rincian: RincianAngka | null;
       jumlahBaris: number;
       halaman: number;
       jumlahHalaman: number;
@@ -128,18 +131,21 @@ export const KATEGORI: readonly KategoriDasar[] = ["Senin–Kamis", "Jumat", "Sa
  * Ringkasan per produk–toko untuk bulan pilihan, satu halaman tabel. Semua bacaan cache berada dalam satu
  * transaksi `repeatable read`, sehingga versi cache yang dibaca tidak berganti di tengah jalan (T33).
  * `bulanPilihan` kosong = belum ada pilihan yang diterapkan. `mingguSama` = nilai URL pasangan produk–toko
- * (lihat `nilaiPasanganMingguSama`) yang perbandingan minggu samanya ditampilkan.
+ * (lihat `nilaiPasanganMingguSama`) yang perbandingan minggu samanya ditampilkan. `rincian` = nilai URL angka
+ * Ringkasan (lihat `nilaiRincian`) yang ditelusuri sampai sel sumber.
  */
 export async function muatRingkasan({
   bulanPilihan,
   filter = { toko: [], kategoriProduk: [], produk: [] },
   halaman,
   mingguSama,
+  rincian,
 }: {
   bulanPilihan: readonly string[];
   filter?: FilterRingkasan;
   halaman: number;
   mingguSama?: string;
+  rincian?: string;
 }): Promise<HasilRingkasan> {
   return db.transaction(
     async (tx) => {
@@ -276,6 +282,8 @@ export async function muatRingkasan({
         };
       };
       const hasilMingguSama = mingguSama === undefined ? null : await muatMingguSama(mingguSama);
+      const hasilRincian =
+        rincian === undefined ? null : await muatRincian(tx, { versiId, bulanPilihan: pilihan, sesuaiFilter, nilai: rincian });
 
       const siap = (baris: BarisRingkasan[]): HasilRingkasan => ({
         keadaan: "siap",
@@ -285,6 +293,7 @@ export async function muatRingkasan({
         filterAktif,
         baris,
         mingguSama: hasilMingguSama,
+        rincian: hasilRincian,
         jumlahBaris: jumlah,
         halaman: halamanDibuka,
         jumlahHalaman,

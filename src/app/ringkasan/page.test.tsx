@@ -477,3 +477,215 @@ describe("/ringkasan: perbandingan minggu yang sama antarbulan (T36, PRD A2)", (
     }
   });
 });
+
+describe("/ringkasan: penelusuran angka sampai sel sumber (T37, PRD A1, A2)", () => {
+  type Golden = typeof golden;
+  const NAMA_FILE = "penjualan-uji.xlsx";
+  const KATEGORI_HARI = ["Senin–Kamis", "Jumat", "Sabtu", "Minggu"] as const;
+  const siap: { toko: { id: number; nama: string }; kode: string } = { toko: { id: 0, nama: "" }, kode: "" };
+
+  beforeAll(async () => {
+    const admin = await buatPenggunaUji("admin");
+    siap.toko = await buatTokoUji();
+    siap.kode = kodeProdukUji();
+    const perHari = new Map(golden.pengamatan.filter((p) => p.jenis === "terisi").map((p) => [Number(p.tanggal.slice(8)), p.qty]));
+    await imporAktif({
+      idAdmin: admin.id,
+      toko: siap.toko.nama,
+      tahun: golden.tahunImpor,
+      bulan: golden.bulanImpor,
+      hari: [...Array.from({ length: 30 }, (_, i) => i + 1), "31/6"],
+      produk: [produkUji(siap.kode, [...Array.from({ length: 30 }, (_, i) => perHari.get(i + 1) ?? null), null])],
+    });
+    await hitungUlangCacheLaporan();
+  }, 30_000);
+
+  const nilaiRincian = (kategori: string) => `${siap.toko.id}|${siap.kode}|${kategori}`;
+
+  const atribut = (tag: string, nama: string) => new RegExp(`${nama}="([^"]*)"`).exec(tag)?.[1];
+
+  /** Bagian rincian: tahap Ringkasan, rata-rata bulanan, nilai mingguan, dan daftar sumber per tanggal. */
+  function rincian(html: string) {
+    const bagian = /<section[^>]*id="rincian"[^>]*>(.*?)<\/section>/.exec(html)?.[1];
+    if (bagian === undefined) throw new Error("Bagian rincian tidak ada.");
+    const tahap = (nama: string) =>
+      [...bagian.matchAll(new RegExp(`<[a-z]+[^>]*data-tahap="${nama}"[^>]*>`, "g"))].map(([tag]) => ({
+        bulan: atribut(tag, "data-bulan"),
+        minggu: atribut(tag, "data-minggu"),
+        jumlah: atribut(tag, "data-jumlah"),
+        pembagi: atribut(tag, "data-pembagi"),
+        nilai: atribut(tag, "data-nilai"),
+        kelengkapan: atribut(tag, "data-kelengkapan"),
+      }));
+    const sumber = [...bagian.matchAll(/<li([^>]*data-sumber-tanggal="[^"]*"[^>]*)>(.*?)<\/li>/g)].map(([, tag, isi]) => ({
+      tanggal: atribut(tag, "data-sumber-tanggal"),
+      minggu: atribut(tag, "data-minggu"),
+      jenis: atribut(tag, "data-jenis"),
+      sel: atribut(tag, "data-sel"),
+      qty: atribut(tag, "data-qty"),
+      kategoriEfektif: atribut(tag, "data-kategori-efektif"),
+      sumberKategori: atribut(tag, "data-sumber-kategori"),
+      isi,
+    }));
+    return { bagian, ringkasan: tahap("ringkasan"), bulanan: tahap("bulanan"), mingguan: tahap("mingguan"), sumber };
+  }
+
+  /** Harapan golden untuk satu kategori di bulan laporan Juni. */
+  function harapanJuni(kategori: string) {
+    const mingguan = golden.harapan.nilaiMingguan.filter((n) => n.bulanLaporan === "2026-06" && n.kategori === kategori);
+    const bulanan = golden.harapan.rataRataBulananJuni.find((r) => r.kategori === kategori);
+    if (bulanan === undefined) throw new Error(`Golden tanpa rata-rata bulanan ${kategori}.`);
+    return { mingguan, bulanan };
+  }
+
+  const pengamatanGolden = (tanggal: string): Golden["pengamatan"][number] => {
+    const satu = golden.pengamatan.find((p) => p.tanggal === tanggal);
+    if (satu === undefined) throw new Error(`Golden tanpa pengamatan ${tanggal}.`);
+    return satu;
+  };
+
+  it("15GL-GOR PMS Juni: jumlah, pembagi, dan sel sumber setiap kategori sesuai golden (OD-09)", async () => {
+    for (const kategori of KATEGORI_HARI) {
+      const html = await buka("viewer", { bulan: "2026-06", rincian: nilaiRincian(kategori) });
+      const r = rincian(html);
+      const harapan = harapanJuni(kategori);
+
+      // Tahap 3: satu bulan pilihan → Σ rata-rata bulanan ÷ 1 bulan.
+      expect(r.ringkasan).toEqual([
+        expect.objectContaining({
+          jumlah: String(harapan.bulanan.rataRataBulanan),
+          pembagi: "1",
+          nilai: String(harapan.bulanan.rataRataBulanan),
+        }),
+      ]);
+      // Tahap 2.
+      expect(r.bulanan).toEqual([
+        expect.objectContaining({
+          bulan: "2026-06",
+          jumlah: String(harapan.bulanan.jumlahNilaiMingguan),
+          pembagi: String(harapan.bulanan.pembagiMinggu),
+          nilai: String(harapan.bulanan.rataRataBulanan),
+          kelengkapan: "lengkap",
+        }),
+      ]);
+      // Tahap 1: Senin–Kamis Σ ÷ tanggal; Jumat–Minggu total (tanpa pembagi).
+      expect(r.mingguan).toEqual(
+        harapan.mingguan.map((n) =>
+          expect.objectContaining({
+            bulan: n.bulanLaporan,
+            minggu: String(n.mingguLaporan),
+            jumlah: String(n.jumlahQty),
+            pembagi: n.pembagiTanggal === null ? "" : String(n.pembagiTanggal),
+            nilai: String(n.nilaiMingguan),
+            kelengkapan: "lengkap",
+          }),
+        ),
+      );
+      // Daftar sumber: setiap tanggal kelompok, dengan sel, kuantitas, jenis, dan kategori efektif.
+      expect(r.sumber).toEqual(
+        harapan.mingguan.flatMap((n) =>
+          n.tanggal.map((tanggal) => {
+            const p = pengamatanGolden(tanggal);
+            return expect.objectContaining({
+              tanggal,
+              minggu: `${n.bulanLaporan}|${n.mingguLaporan}`,
+              jenis: p.jenis === "terisi" ? "terisi" : "nol-tersirat",
+              sel: p.selSumber,
+              qty: String(p.qty),
+              kategoriEfektif: kategori,
+              sumberKategori: "dasar",
+            });
+          }),
+        ),
+      );
+      for (const s of r.sumber) {
+        expect(s.isi).toContain(NAMA_FILE);
+        expect(s.isi).toContain("Kategori dasar");
+        if (s.jenis === "nol-tersirat") expect(s.isi).toContain("Sel kosong (nol tersirat)");
+        else expect(s.isi).not.toContain("Sel kosong");
+      }
+      expect(r.bagian).toContain(siap.kode);
+      expect(r.bagian).toContain(siap.toko.nama);
+      expect(r.bagian).toContain(`Rata-rata ${kategori}`);
+    }
+  });
+
+  it("menampilkan perhitungan dengan format DESIGN §8 sampai sel sumber", async () => {
+    const seninKamis = rincian(await buka("viewer", { bulan: "2026-06", rincian: nilaiRincian("Senin–Kamis") }));
+    expect(seninKamis.bagian).toContain("Σ 1 ÷ 1 bulan = 1");
+    expect(seninKamis.bagian).toContain("Σ 2 ÷ 4 minggu = 0,5 → dibulatkan ke atas 1");
+    expect(seninKamis.bagian).toContain("Σ 1 ÷ 4 tanggal = 0,25 → dibulatkan ke atas 1");
+    expect(seninKamis.bagian).toContain("Σ 0 ÷ 4 tanggal = 0");
+    const h4 = seninKamis.sumber.find((s) => s.sel === "JUNI (S)!H4");
+    expect(h4?.isi).toContain("JUNI (S)!H4 · Rabu, 03-06-2026 · 1");
+    const f4 = seninKamis.sumber.find((s) => s.sel === "JUNI (S)!F4");
+    expect(f4?.isi).toContain("JUNI (S)!F4 · Senin, 01-06-2026 · 0");
+
+    const sabtu = rincian(await buka("viewer", { bulan: "2026-06", rincian: nilaiRincian("Sabtu") }));
+    expect(sabtu.bagian).toContain("Σ 2 ÷ 4 minggu = 0,5 → dibulatkan ke atas 1");
+    expect(sabtu.bagian).toContain("Σ 1 (total kuantitas, tanpa pembagi)");
+    expect(sabtu.sumber.find((s) => s.sel === "JUNI (S)!K4")?.isi).toContain("JUNI (S)!K4 · Sabtu, 06-06-2026 · 1");
+    // Zona kerja (DESIGN §1).
+    expect(sabtu.bagian).not.toContain("blur-3xl");
+  });
+
+  it("tanggal tidak teramati tidak tampil sebagai 0: tampil — (Tidak tersedia) dan kelompoknya parsial (OD-08)", async () => {
+    const html = await buka("viewer", { bulan: "2026-07", rincian: nilaiRincian("Senin–Kamis") });
+    const r = rincian(html);
+    expect(r.mingguan).toEqual([
+      expect.objectContaining({ bulan: "2026-07", minggu: "1", jumlah: "0", pembagi: "2", nilai: "0", kelengkapan: "parsial" }),
+    ]);
+    expect(r.bulanan).toEqual([expect.objectContaining({ bulan: "2026-07", kelengkapan: "parsial" })]);
+    expect(r.bagian).toMatch(/data-status="parsial".*Parsial/);
+
+    const perTanggal = Object.fromEntries(r.sumber.map((s) => [s.tanggal, s]));
+    expect(Object.keys(perTanggal).sort()).toEqual(["2026-06-29", "2026-06-30", "2026-07-01", "2026-07-02"]);
+    // 29–30 Juni: sel kosong pada tanggal valid → nol tersirat, teramati.
+    expect(perTanggal["2026-06-29"]).toMatchObject({ jenis: "nol-tersirat", sel: "JUNI (S)!AH4", qty: "0" });
+    expect(perTanggal["2026-06-29"].isi).toContain("JUNI (S)!AH4 · Senin, 29-06-2026 · 0");
+    // 1–2 Juli: tidak ada impor aktif Juli → tidak tersedia, bukan 0.
+    for (const tanggal of ["2026-07-01", "2026-07-02"]) {
+      const s = perTanggal[tanggal];
+      expect(s).toMatchObject({ jenis: "tidak-teramati", sel: undefined, qty: undefined, kategoriEfektif: "Senin–Kamis" });
+      expect(s.isi).toMatch(/data-status="tidakTersedia".*<svg[^>]*lucide-circle-dashed[^>]*>.*—/);
+      expect(s.isi).toContain("Tidak tersedia");
+      expect(s.isi).not.toMatch(/· 0/);
+      expect(s.isi).not.toContain(">0<");
+    }
+  });
+
+  it("tautan dari angka di Ringkasan membuka rincian; baris terpilih memakai accent-foreground (DESIGN §2)", async () => {
+    const html = await buka("viewer", { bulan: "2026-06", toko: String(siap.toko.id) });
+    expect(html).not.toContain('id="rincian"');
+    const { kategori } = baris(html, siap.toko.nama, siap.kode);
+    const harapanUrl = new URLSearchParams({ bulan: "2026-06", toko: String(siap.toko.id), rincian: nilaiRincian("Sabtu") }).toString();
+    expect(kategori.Sabtu.isi).toContain(`href="/ringkasan?${harapanUrl.replaceAll("&", "&amp;")}#rincian"`);
+    expect(/<a[^>]*data-tautan-rincian[^>]*>/.exec(kategori.Sabtu.isi)?.[0]).toContain("text-primary");
+
+    const terbuka = await buka("viewer", { bulan: "2026-06", rincian: nilaiRincian("Sabtu") });
+    const { tr } = baris(terbuka, siap.toko.nama, siap.kode);
+    expect(terbuka).toMatch(new RegExp(`<tr[^>]*data-baris="${siap.toko.nama}\\|${siap.kode}"[^>]*data-state="selected"`));
+    const tautan = /<a[^>]*data-tautan-rincian="[^"]*Sabtu"[^>]*>/.exec(tr)?.[0] ?? "";
+    expect(tautan).toContain('aria-current="true"');
+    expect(tautan).toContain("text-accent-foreground");
+    expect(tr.replace(/<svg[^>]*>.*?<\/svg>/g, "")).not.toMatch(/text-primary|text-muted-foreground/);
+  });
+
+  it("rincian di luar periode atau filter yang diterapkan, atau tidak dikenal: pesan, tanpa angka", async () => {
+    const daftarParameter: Record<string, string>[] = [
+      // Juli hanya punya Senin–Kamis untuk pasangan ini; Sabtu tidak punya hasil.
+      { bulan: "2026-07", rincian: nilaiRincian("Sabtu") },
+      // Toko lain yang tidak ada di cache.
+      { bulan: "2026-06", rincian: `999999999|${siap.kode}|Sabtu` },
+      { bulan: "2026-06", rincian: `${siap.toko.id}|${siap.kode}|Selasa` },
+      { bulan: "2026-06", rincian: "bukan-rincian" },
+    ];
+    for (const parameter of daftarParameter) {
+      const { bagian, ringkasan, sumber } = rincian(await buka("viewer", parameter));
+      expect(bagian).toContain('role="alert"');
+      expect(bagian).toContain("tidak ada pada periode dan filter yang diterapkan");
+      expect(ringkasan).toEqual([]);
+      expect(sumber).toEqual([]);
+    }
+  });
+});
