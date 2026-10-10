@@ -15,6 +15,13 @@ describe("usulanJenisLibur (PRD B2, ▶ Keputusan perencanaan M2–M3)", () => {
 });
 
 describe("periksaDaftarLibur (PRD B2: validasi tanggal, tahun, duplikasi)", () => {
+  it("daftar kosong → tidak valid (PRD B2, ▶ Keputusan 2026-10-10, T40)", () => {
+    expect(periksaDaftarLibur(2026, [])).toEqual({
+      keadaan: "tidakValid",
+      pesan: "Daftar libur tahun 2026 kosong; tidak ada tanggal libur yang bisa disimpan.",
+    });
+  });
+
   it("daftar valid → entri dengan usulan jenis, urutan dipertahankan", () => {
     expect(
       periksaDaftarLibur(2026, [

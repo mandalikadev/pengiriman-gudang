@@ -105,20 +105,6 @@ describe("admin menyinkronkan libur", () => {
     ]);
   });
 
-  it("respons dengan `data` kosong → snapshot menunggu persetujuan tanpa entri (perilaku saat ini)", async () => {
-    const tahun = await tahunLiburUji();
-    gantiApiHariLibur({ isi: { data: [] } });
-
-    await expect(sinkronkanLiburTahun({ tahun })).resolves.toEqual({ keadaan: "berhasil", tahun, jumlahLibur: 0 });
-    const [snapshot, ...lain] = await snapshotTahunUji(tahun);
-    expect(lain).toEqual([]);
-    expect(snapshot.status).toBe("menunggu-persetujuan");
-    expect(await entriSnapshotUji(snapshot.id)).toEqual([]);
-    expect(await kejadianTahunUji(tahun)).toEqual([
-      { jenis: "sinkronisasi-berhasil", snapshotId: snapshot.id, pesan: null, pelaku: idAdmin },
-    ]);
-  });
-
   it("sinkronisasi berhasil tidak mengganti snapshot aktif tahun itu", async () => {
     const tahun = await tahunLiburUji();
     const aktif = await buatSnapshotAktifUji(tahun, idAdmin);
@@ -149,6 +135,11 @@ describe("admin menyinkronkan libur", () => {
     ["API tidak dapat dihubungi", () => "putus", "API Hari Libur tidak dapat dihubungi atau tidak menjawab tepat waktu."],
     ["API menjawab error", () => ({ status: 503, isi: { message: "down" } }), "API Hari Libur menjawab dengan kode 503."],
     ["respons bukan JSON", () => ({ teks: "<html>galat</html>" }), "Respons API Hari Libur bukan JSON yang valid."],
+    [
+      "respons dengan `data` kosong (PRD B2, ▶ Keputusan 2026-10-10, T40)",
+      () => ({ isi: { data: [] } }),
+      "Daftar libur tahun {tahun} kosong; tidak ada tanggal libur yang bisa disimpan.",
+    ],
     [
       "respons tidak sesuai format (field provider lama)",
       (tahun) => ({ isi: { data: [{ tanggal: `${tahun}-01-01`, keterangan: "Tahun Baru", is_cuti: false }] } }),

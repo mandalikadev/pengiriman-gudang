@@ -70,4 +70,18 @@ describe("/admin/libur", () => {
     expect(html).toContain("text-2xl font-bold md:text-3xl");
     expect(html).not.toContain("blur-3xl");
   });
+
+  it("daftar libur kosong dari API tampil sebagai kegagalan sinkronisasi terakhir (PRD B2, ▶ Keputusan 2026-10-10, T40)", async () => {
+    const admin = await kepalaPenggunaUji("admin");
+    kepala.cookie = admin.cookie;
+    const tahun = await tahunLiburUji();
+    await buatSnapshotAktifUji(tahun, admin.id);
+    gantiApiHariLibur({ isi: { data: [] } });
+    await sinkronkanLibur(tahun, admin.id);
+
+    const html = renderToStaticMarkup(await HalamanLibur());
+    expect(html).toContain("Kegagalan sinkronisasi terakhir");
+    expect(html).toContain('data-status="gagal"');
+    expect(html).toContain(`Daftar libur tahun ${tahun} kosong; tidak ada tanggal libur yang bisa disimpan.`);
+  });
 });
