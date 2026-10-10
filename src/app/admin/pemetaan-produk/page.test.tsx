@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -118,5 +118,25 @@ describe("/admin/pemetaan-produk", () => {
     const riwayat = barisDengan(htmlTerpetakan, terpetakan).find((b) => b.includes("Uji admin"));
     expect(riwayat).toContain("Belum dipetakan");
     expect(riwayat).toContain(`Terpetakan: ${keluarga.nama}`);
+  });
+
+  it("keluarga nonaktif tidak diusulkan; produk terpetakan ke keluarga yang kemudian dinonaktifkan tetap tampil", async () => {
+    const admin = await kepalaPenggunaUji("admin");
+    kepala.cookie = admin.cookie;
+    const segmen = `NON${acak()}`;
+    const keluarga = await buatKeluargaDenganSegmen(segmen);
+    const lama = await buatProduk(`DW110E-${segmen}`);
+    const baru = await buatProduk(`DD-HAM120-${segmen}`);
+    await terapkanPemetaan(admin.id, [{ kodeProduk: lama, tujuan: { status: "terpetakan", idKeluarga: keluarga.id } }]);
+    await db.update(keluargaAroma).set({ aktif: false }).where(eq(keluargaAroma.id, keluarga.id));
+
+    const html = await render();
+    // Segmen milik keluarga nonaktif tidak menghasilkan usulan, di daftar usulan maupun kolom keluarga.
+    expect(barisDengan(html, baru).length).toBeGreaterThan(0);
+    expect(barisDengan(html, baru).some((b) => b.includes("Usulan:") || b.includes(keluarga.nama))).toBe(false);
+    // Pemetaan lama tetap: status terpetakan (DESIGN §7), nama keluarga, dan nilai terpilih di form.
+    const barisLama = barisDengan(html, lama).find((b) => b.includes('data-status-pemetaan="terpetakan"'));
+    expect(barisLama).toContain(`${keluarga.nama}</td>`);
+    expect(barisLama).toContain(`${keluarga.nama} (nonaktif)`);
   });
 });

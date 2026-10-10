@@ -10,7 +10,7 @@ import type { Pemetaan, TujuanPemetaan } from "@/server/keluarga-aroma/pemetaan"
 
 import { konfirmasiPemetaan } from "./aksi";
 
-type Keluarga = { id: number; nama: string; aktif: boolean };
+type Keluarga = { id: number; nama: string };
 
 const AWALAN_KELUARGA = "keluarga:";
 
@@ -26,8 +26,23 @@ function tujuanDari(nilai: string): TujuanPemetaan {
 }
 
 /**
+ * Pilihan konfirmasi satu produk: keluarga aktif, tanpa aroma, dan belum dipetakan (PRD A6 ▶ Keputusan 2026-10-10).
+ * Keluarga saat ini yang sudah nonaktif tetap dimuat, hanya untuk produk ini, agar pemetaan lamanya tetap tampil;
+ * memilihnya lagi berarti tidak berubah.
+ */
+export function pilihanPemetaan(pemetaan: Pemetaan, keluargaAktif: readonly Keluarga[]) {
+  const saatIni = pemetaan.keluarga;
+  const lamaNonaktif = saatIni && !keluargaAktif.some((k) => k.id === saatIni.id) ? saatIni : null;
+  return [
+    ...keluargaAktif.map((k) => ({ nilai: `${AWALAN_KELUARGA}${k.id}`, label: k.nama })),
+    ...(lamaNonaktif ? [{ nilai: `${AWALAN_KELUARGA}${lamaNonaktif.id}`, label: `${lamaNonaktif.nama} (nonaktif)` }] : []),
+    { nilai: "tanpa-aroma", label: "Tanpa aroma" },
+    { nilai: "belum-dipetakan", label: "Belum dipetakan" },
+  ];
+}
+
+/**
  * Konfirmasi satu produk: tetapkan keluarga, tandai tanpa aroma, atau kembalikan ke belum dipetakan (T45).
- * Pilihan keluarga = semua keluarga; status nonaktif hanya ditandai pada labelnya.
  */
 export function FormPemetaan({
   kode,
@@ -42,11 +57,7 @@ export function FormPemetaan({
   const [nilai, setNilai] = useState(nilaiDari(pemetaan));
   const { tampilan, menunggu, berubah, tandaiBerubah, simpan } = usePenyimpanan(`status produk ${kode}`);
 
-  const pilihan = [
-    ...keluarga.map((k) => ({ nilai: `${AWALAN_KELUARGA}${k.id}`, label: k.aktif ? k.nama : `${k.nama} (nonaktif)` })),
-    { nilai: "tanpa-aroma", label: "Tanpa aroma" },
-    { nilai: "belum-dipetakan", label: "Belum dipetakan" },
-  ];
+  const pilihan = pilihanPemetaan(pemetaan, keluarga);
 
   async function konfirmasi(): Promise<HasilSimpan> {
     const hasil = await konfirmasiPemetaan({ butir: [{ kodeProduk: kode, tujuan: tujuanDari(nilai) }] });

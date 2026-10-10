@@ -15,6 +15,8 @@ import {
 
 // Pemetaan produk ke keluarga aroma (issue T45, ADR-0006). Usulan dihitung dari segmen kode yang dicatat admin dan
 // hanya ditampilkan; status produk baru berubah lewat `terapkanPemetaan` (konfirmasi admin), yang juga mencatat riwayat.
+// Keluarga nonaktif tidak menjadi pilihan atau usulan untuk pemetaan baru; pemetaan lama ke keluarga yang kemudian
+// dinonaktifkan tetap berlaku (PRD A6 ▶ Keputusan 2026-10-10, T53/T45; issue T67).
 
 type Keluarga = { id: number; nama: string };
 
@@ -59,8 +61,8 @@ export type DataPemetaanProduk = {
   produk: BarisPemetaanProduk[];
   /** Produk `belum-dipetakan` yang punya usulan, tanpa memandang filter. */
   usulan: (BarisPemetaanProduk & { usulan: Keluarga })[];
-  /** Semua keluarga untuk pilihan konfirmasi; `aktif` hanya informasi tampilan. */
-  keluarga: (Keluarga & { aktif: boolean })[];
+  /** Keluarga aktif saja: pilihan untuk pemetaan baru. */
+  keluarga: Keluarga[];
   riwayat: RiwayatPemetaan[];
 };
 
@@ -78,6 +80,7 @@ function keluargaDari(id: number | null, nama: string | null): Keluarga | null {
 export async function muatPemetaanProduk(filterStatus: StatusKeluargaAroma | null): Promise<DataPemetaanProduk> {
   const semuaKeluarga = await db.select().from(keluargaAroma).orderBy(asc(keluargaAroma.nama), asc(keluargaAroma.id));
   const keluargaPerId = new Map(semuaKeluarga.map((k) => [k.id, { id: k.id, nama: k.nama }]));
+  const idKeluargaAktif = new Set(semuaKeluarga.filter((k) => k.aktif).map((k) => k.id));
   const daftarSegmen = (await db.select().from(segmenKodeKeluargaAroma)).map((s) => ({
     segmen: s.segmen,
     keluarga: s.keluargaId,
@@ -105,7 +108,9 @@ export async function muatPemetaanProduk(filterStatus: StatusKeluargaAroma | nul
     .orderBy(asc(produk.kode));
 
   const baris = semuaProduk.map((p): BarisPemetaanProduk => {
-    const idUsulan = p.status === "belum-dipetakan" ? usulkanKeluargaAroma(p.kode, daftarSegmen) : null;
+    const idCocok = p.status === "belum-dipetakan" ? usulkanKeluargaAroma(p.kode, daftarSegmen) : null;
+    // Keluarga nonaktif tidak diusulkan: usulan juga pilihan untuk pemetaan baru.
+    const idUsulan = idCocok !== null && idKeluargaAktif.has(idCocok) ? idCocok : null;
     return {
       kode: p.kode,
       nama: p.nama,
@@ -141,7 +146,7 @@ export async function muatPemetaanProduk(filterStatus: StatusKeluargaAroma | nul
     jumlahPerStatus,
     produk: filterStatus === null ? baris : baris.filter((b) => b.pemetaan.status === filterStatus),
     usulan: baris.filter((b): b is BarisPemetaanProduk & { usulan: Keluarga } => b.usulan !== null),
-    keluarga: semuaKeluarga.map((k) => ({ id: k.id, nama: k.nama, aktif: k.aktif })),
+    keluarga: semuaKeluarga.filter((k) => k.aktif).map((k) => ({ id: k.id, nama: k.nama })),
     riwayat: riwayat.map((r) => ({
       id: r.id,
       kodeProduk: r.kodeProduk,
@@ -182,6 +187,7 @@ export async function terapkanPemetaan(
       }
 
       let ke: Pemetaan = { status: tujuan.status, keluarga: null };
+      let keluargaNonaktif = false;
       if (tujuan.status === "terpetakan") {
         const keluarga = keluargaPerId.get(tujuan.idKeluarga);
         if (!keluarga) {
@@ -189,11 +195,21 @@ export async function terapkanPemetaan(
           continue;
         }
         ke = { status: "terpetakan", keluarga: { id: keluarga.id, nama: keluarga.nama } };
+        keluargaNonaktif = !keluarga.aktif;
       }
 
       const idKe = ke.keluarga?.id ?? null;
       if (saatIni.status === ke.status && saatIni.idKeluarga === idKe) {
         hasil.push({ kodeProduk, status: "tidakBerubah", ke });
+        continue;
+      }
+      // Penetapan baru ke keluarga nonaktif ditolak; konfirmasi ulang pemetaan lama sudah lolos sebagai tidak berubah.
+      if (keluargaNonaktif && ke.keluarga) {
+        hasil.push({
+          kodeProduk,
+          status: "gagal",
+          pesan: `Keluarga aroma ${ke.keluarga.nama} nonaktif. Pilih keluarga aroma yang aktif.`,
+        });
         continue;
       }
 

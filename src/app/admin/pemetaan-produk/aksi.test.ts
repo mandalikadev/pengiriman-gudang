@@ -7,6 +7,7 @@ import { AksesDitolakError } from "@/server/auth/kewenangan";
 import { kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
 import { keluargaAroma, produk, riwayatPemetaanProduk } from "@/server/db/schema";
+import { terapkanPemetaan } from "@/server/keluarga-aroma/pemetaan";
 
 const kepala = vi.hoisted(() => ({ cookie: "", muatUlangGagal: false }));
 vi.mock("next/headers", () => ({
@@ -201,6 +202,87 @@ describe("admin mengonfirmasi pemetaan", () => {
     const hasil = await konfirmasiPemetaan({ butir: [{ kodeProduk: kode, tujuan: { status: "tanpa-aroma" } }] });
     expect(hasil).toMatchObject({ keadaan: "tersimpanGagalMuatUlang", hasil: [{ kodeProduk: kode, status: "berhasil" }] });
     expect(await pemetaanProduk(kode)).toEqual({ status: "tanpa-aroma", idKeluarga: null });
+  });
+});
+
+describe("keluarga aroma nonaktif (PRD A6 ▶ Keputusan 2026-10-10)", () => {
+  let idAdmin: string;
+  beforeEach(async () => {
+    const admin = await kepalaPenggunaUji("admin");
+    kepala.cookie = admin.cookie;
+    idAdmin = admin.id;
+  });
+
+  async function nonaktifkan(id: number) {
+    await db.update(keluargaAroma).set({ aktif: false }).where(eq(keluargaAroma.id, id));
+  }
+
+  it("penetapan baru per produk ke keluarga nonaktif ditolak di server, tanpa riwayat", async () => {
+    const keluarga = await buatKeluarga();
+    await nonaktifkan(keluarga.id);
+    const kode = await buatProduk(kodeUnik("DW110E-X"));
+    expect(
+      await konfirmasiPemetaan({ butir: [{ kodeProduk: kode, tujuan: { status: "terpetakan", idKeluarga: keluarga.id } }] }),
+    ).toEqual({
+      keadaan: "berhasil",
+      hasil: [
+        { kodeProduk: kode, status: "gagal", pesan: `Keluarga aroma ${keluarga.nama} nonaktif. Pilih keluarga aroma yang aktif.` },
+      ],
+    });
+    expect(await pemetaanProduk(kode)).toEqual({ status: "belum-dipetakan", idKeluarga: null });
+    expect(await riwayatProduk(kode)).toEqual([]);
+  });
+
+  it("massal: penetapan baru ke keluarga nonaktif gagal per produk; yang lain tetap diproses", async () => {
+    const aktif = await buatKeluarga();
+    const nonaktif = await buatKeluarga();
+    await nonaktifkan(nonaktif.id);
+    const keAktif = await buatProduk(kodeUnik("DW110E-X"));
+    const keNonaktif = await buatProduk(kodeUnik("DW110E-X-R"));
+    const pindahKeNonaktif = await buatProduk(kodeUnik("DD-HAM120-X"));
+    await terapkanPemetaan(idAdmin, [{ kodeProduk: pindahKeNonaktif, tujuan: { status: "terpetakan", idKeluarga: aktif.id } }]);
+
+    const hasil = await konfirmasiPemetaan({
+      butir: [
+        { kodeProduk: keAktif, tujuan: { status: "terpetakan", idKeluarga: aktif.id } },
+        { kodeProduk: keNonaktif, tujuan: { status: "terpetakan", idKeluarga: nonaktif.id } },
+        { kodeProduk: pindahKeNonaktif, tujuan: { status: "terpetakan", idKeluarga: nonaktif.id } },
+      ],
+    });
+    const pesan = `Keluarga aroma ${nonaktif.nama} nonaktif. Pilih keluarga aroma yang aktif.`;
+    expect(hasil).toEqual({
+      keadaan: "berhasil",
+      hasil: [
+        {
+          kodeProduk: keAktif,
+          status: "berhasil",
+          dari: { status: "belum-dipetakan", keluarga: null },
+          ke: { status: "terpetakan", keluarga: { id: aktif.id, nama: aktif.nama } },
+        },
+        { kodeProduk: keNonaktif, status: "gagal", pesan },
+        { kodeProduk: pindahKeNonaktif, status: "gagal", pesan },
+      ],
+    });
+    expect(await pemetaanProduk(keAktif)).toEqual({ status: "terpetakan", idKeluarga: aktif.id });
+    expect(await pemetaanProduk(keNonaktif)).toEqual({ status: "belum-dipetakan", idKeluarga: null });
+    expect(await pemetaanProduk(pindahKeNonaktif)).toEqual({ status: "terpetakan", idKeluarga: aktif.id });
+    expect(await riwayatProduk(keNonaktif)).toEqual([]);
+    expect(await riwayatProduk(pindahKeNonaktif)).toHaveLength(1);
+  });
+
+  it("pemetaan lama ke keluarga yang kemudian dinonaktifkan tetap; konfirmasi ulang = tidak berubah", async () => {
+    const keluarga = await buatKeluarga();
+    const kode = await buatProduk(kodeUnik("DW110E-X"));
+    await terapkanPemetaan(idAdmin, [{ kodeProduk: kode, tujuan: { status: "terpetakan", idKeluarga: keluarga.id } }]);
+    await nonaktifkan(keluarga.id);
+    expect(await pemetaanProduk(kode)).toEqual({ status: "terpetakan", idKeluarga: keluarga.id });
+
+    const ke = { status: "terpetakan", keluarga: { id: keluarga.id, nama: keluarga.nama } };
+    expect(
+      await konfirmasiPemetaan({ butir: [{ kodeProduk: kode, tujuan: { status: "terpetakan", idKeluarga: keluarga.id } }] }),
+    ).toEqual({ keadaan: "berhasil", hasil: [{ kodeProduk: kode, status: "tidakBerubah", ke }] });
+    expect(await pemetaanProduk(kode)).toEqual({ status: "terpetakan", idKeluarga: keluarga.id });
+    expect(await riwayatProduk(kode)).toHaveLength(1);
   });
 });
 
