@@ -194,6 +194,10 @@ Saya ingin alur akhirnya terasa sederhana: data penjualan yang valid menghasilka
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): finalisasi dilakukan per toko per tanggal kirim, sehingga masalah di satu toko tidak menahan toko lain.
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): ekspor rencana hanya untuk rencana final, termasuk dari riwayat, dan membutuhkan hak tindakan `ekspor` di gudang itu.
 > ▶ Keputusan (2026-10-10, T61): stok untuk varian atau toko yang hilang dari draft setelah dihitung ulang tetap **disimpan** dan ditampilkan sebagai keterangan di draft. Jika varian atau toko itu muncul lagi di hitungan berikutnya, stoknya dipakai kembali.
+> ▶ Keputusan (2026-10-11, T62): finalisasi.
+> - **Finalisasi ulang boleh.** Finalisasi ulang toko yang sudah final untuk tanggal kirim yang sama menghasilkan versi baru; versi lama tetap utuh di riwayat. Alasan finalisasi ulang wajib diisi. Versi baru ditandai jelas, misalnya "Versi 2 menggantikan versi 1".
+> - **Toko yang hanya berisi produk manual boleh difinalisasi.** Toko tanpa varian sama sekali **tidak boleh** difinalisasi dan tampil sebagai masalah "Tidak ada varian dari periode sumber untuk toko ini".
+> - **Jika draft perlu dihitung ulang, hanya toko yang terdampak yang tertahan finalisasinya.** Toko lain di draft yang sama tetap bisa difinalisasi.
 
 ---
 
@@ -402,6 +406,10 @@ Diukur dengan data 12 bulan, 25 toko, ±360 produk, server database di region Si
 | Membuka halaman Pengiriman Gudang untuk satu gudang | p95 < 1,5 detik |
 
 Membaca Excel dan menghitung rata-rata bertahap tidak dilakukan saat halaman dibuka. Lihat ADR-0002.
+
+> ▶ Keputusan (2026-10-11, T65): uji performa.
+> - Draft rencana gudang besar di halaman Pengiriman Gudang ditampilkan sebagai **ringkasan per toko**; rincian baris dibuka per toko.
+> - Uji performa memakai **500 produk**. Workbook asli berisi 358–359 produk; angka sekitar 1.340 adalah jumlah baris termasuk baris kosong.
 
 ### C2. Bahasa dan tampilan
 
