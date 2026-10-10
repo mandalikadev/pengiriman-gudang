@@ -107,13 +107,19 @@ function seninPekanIni(tanggal: TanggalBisnis): TanggalBisnis {
   return geserHari(tanggal, -URUTAN_HARI_DARI_SENIN.indexOf(namaHari(tanggal)));
 }
 
+/** Sisa bagi yang selalu 0..pembagi-1, juga untuk bilangan negatif (`%` JavaScript bisa negatif). */
+function sisaBagiNonNegatif(bilangan: number, pembagi: number): number {
+  return ((bilangan % pembagi) + pembagi) % pembagi;
+}
+
 /**
- * Pekan dua mingguan: pekan Senin–Minggu yang memuat tanggal jangkar, lalu berulang setiap 14 hari
- * (PRD A5 ▶ Keputusan perencanaan M2–M3). Pekan sebelum pekan jangkar bukan pekan kirim.
+ * Pekan dua mingguan: pekan Senin–Minggu yang memuat tanggal jangkar, berulang setiap 14 hari
+ * ke depan dan ke belakang (PRD A5 ▶ Keputusan 2026-10-10). Jangkar hanya menentukan pekan kirim,
+ * bukan tanggal mulai jadwal.
  */
 function pekanKirimDuaMingguan(tanggalJangkar: TanggalBisnis, tanggal: TanggalBisnis): boolean {
   const selisih = selisihHari(seninPekanIni(tanggalJangkar), seninPekanIni(tanggal));
-  return selisih >= 0 && selisih % 14 === 0;
+  return sisaBagiNonNegatif(selisih, 14) === 0;
 }
 
 /** Apakah `tanggal` adalah tanggal kirim menurut jadwal, beserta p dan L-nya (PRD A5, A6). */

@@ -32,8 +32,14 @@ describe("tanggalKirimMenurutJadwal — dua mingguan (PRD A5 ▶ Keputusan pekan
     expect(cek(jadwal, "2026-06-29").kirim).toBe(false);
   });
 
-  it("pekan sebelum pekan jangkar bukan pekan kirim (berulang setelah jangkar)", () => {
-    expect(cek(jadwal, "2026-05-25").kirim).toBe(false);
+  it("pola berlaku ke belakang dari jangkar: 2026-05-25 kirim, 2026-06-01 tidak (PRD A5 ▶ Keputusan 2026-10-10)", () => {
+    expect(cek(jadwal, "2026-05-25")).toEqual({ kirim: true, persiapanHari: 1, panjangCakupan: 14 });
+    expect(cek(jadwal, "2026-06-01")).toEqual({ kirim: false });
+  });
+
+  it("jauh sebelum jangkar tetap mengikuti pola 14 hari: 2026-05-11 kirim, 2026-05-18 tidak", () => {
+    expect(cek(jadwal, "2026-05-11").kirim).toBe(true);
+    expect(cek(jadwal, "2026-05-18").kirim).toBe(false);
   });
 
   it("hari selain hari kirim di pekan jangkar bukan tanggal kirim", () => {
