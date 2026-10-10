@@ -8,9 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AksesDitolakError, wajibAksesLihatGudang } from "@/server/auth/kewenangan";
 import { tokoTerhubung } from "@/server/gudang/akses";
+import { jadwalTokoGudang } from "@/server/gudang/jadwal";
 import { bacaPeriodeSumber } from "@/server/gudang/periode-sumber";
+import { NAMA_GUDANG_PUSAT } from "@/server/gudang/seed-master";
 
 import { KeteranganHanyaBaca } from "../hanya-baca";
+import { BagianJadwal } from "./bagian-jadwal";
 import { KartuPeriodeSumber } from "./kartu-periode-sumber";
 
 export const metadata: Metadata = {
@@ -38,11 +41,17 @@ function BadgeStatusToko({ aktif }: { aktif: boolean }) {
   );
 }
 
-/** Zona kerja (DESIGN §1). Halaman Pengiriman Gudang satu gudang (T50) dengan kartu Periode sumber (T51). */
+/**
+ * Zona kerja (DESIGN §1). Halaman Pengiriman Gudang satu gudang (T50) dengan kartu Periode sumber (T51) dan bagian
+ * Jadwal (T55). Jadwal hanya bisa diubah langsung di gudang Pusat oleh operator dengan hak `kelola-usulan-jadwal`
+ * (PRD A5 ▶ OD-06); server action memeriksanya lagi.
+ */
 export default async function HalamanPengirimanGudang({ params }: { params: Promise<{ id: string }> }) {
   const gudang = await muatGudang((await params).id);
   const daftarToko = await tokoTerhubung(gudang.id);
   const periodeSumber = await bacaPeriodeSumber(gudang.id);
+  const daftarJadwal = await jadwalTokoGudang(gudang.id);
+  const bisaMengubahJadwal = gudang.nama === NAMA_GUDANG_PUSAT && gudang.hakTindakan.includes("kelola-usulan-jadwal");
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
@@ -91,6 +100,8 @@ export default async function HalamanPengirimanGudang({ params }: { params: Prom
           </TableBody>
         </Table>
       </section>
+
+      <BagianJadwal idGudang={gudang.id} daftarToko={daftarJadwal} bisaMengubah={bisaMengubahJadwal} />
     </main>
   );
 }

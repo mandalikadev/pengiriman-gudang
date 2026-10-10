@@ -4,7 +4,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
-import { hubunganTokoGudang, periodeSumberGudang, toko } from "@/server/db/schema";
+import { hubunganTokoGudang, jadwalToko, periodeSumberGudang, toko } from "@/server/db/schema";
 import { tugaskanOperator } from "@/server/gudang/penugasan";
 import { bacaPeriodeSumber, tetapkanPeriodeSumber } from "@/server/gudang/periode-sumber";
 import { buatTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
@@ -154,6 +154,112 @@ describe("/pengiriman-gudang/[id]: kartu Periode sumber", () => {
     expect(kartu).toContain("Ditetapkan oleh <span class=\"font-semibold text-foreground\">Uji admin</span> pada");
     expect(kartu).toMatch(/pada \w+, \d{2}-\d{2}-\d{4} pukul \d{2}\.\d{2} WIB/);
     // Hanya-baca: tanpa kontrol ubah di halaman.
+    expect(html).not.toMatch(/<(button|input|select|form)\b/);
+  });
+});
+
+describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
+  let pusat: number;
+
+  beforeAll(async () => {
+    pusat = await idGudangUji("Pusat");
+  });
+
+  /** Toko Pusat dengan jadwal aktif (dan satu jadwal lama nonaktif), serta toko Pusat tanpa jadwal. */
+  async function siapkanTokoPusat() {
+    const pembuat = await buatPenggunaUji("viewer");
+    const [berjadwal, tanpaJadwal] = [await buatTokoUji(), await buatTokoUji()];
+    await db.insert(hubunganTokoGudang).values([
+      { tokoId: berjadwal.id, gudangId: pusat },
+      { tokoId: tanpaJadwal.id, gudangId: pusat },
+    ]);
+    await db.insert(jadwalToko).values([
+      {
+        tokoId: berjadwal.id,
+        pola: "mingguan",
+        hariKirim: [{ hari: "Selasa", persiapanHari: 0 }],
+        status: "nonaktif",
+        dibuatOleh: pembuat.id,
+        dinonaktifkanOleh: pembuat.id,
+        dinonaktifkanPada: new Date(),
+      },
+      {
+        tokoId: berjadwal.id,
+        pola: "dua-mingguan",
+        hariKirim: [
+          { hari: "Senin", persiapanHari: 2 },
+          { hari: "Kamis", persiapanHari: 0 },
+        ],
+        tanggalJangkar: "2026-06-10",
+        dibuatOleh: pembuat.id,
+      },
+    ]);
+    return { berjadwal, tanpaJadwal };
+  }
+
+  const barisJadwal = (html: string, idToko: number) =>
+    new RegExp(`<tr[^>]*data-jadwal-toko="${idToko}".*?</tr>`).exec(html)?.[0] ?? "";
+
+  it("operator Pusat dengan kelola-usulan-jadwal melihat jadwal aktif setiap toko dan form ubah", async () => {
+    const { berjadwal, tanpaJadwal } = await siapkanTokoPusat();
+    const operator = await kepalaPenggunaUji("viewer");
+    await tugaskanOperator({ idPengguna: operator.id, idGudang: pusat, hakTindakan: ["kelola-usulan-jadwal"] });
+    kepala.cookie = operator.cookie;
+
+    const html = await buka(pusat);
+    expect(html).toMatch(/data-jadwal.*Jadwal.*Setiap toko punya paling banyak satu jadwal aktif/);
+
+    const aktif = barisJadwal(html, berjadwal.id);
+    expect(aktif).toContain(berjadwal.nama);
+    expect(aktif).toContain('data-status="aktif"');
+    expect(aktif).toContain("Dua mingguan");
+    expect(aktif).toContain("Senin (H−2), Kamis (H)");
+    expect(aktif).toContain("Rabu, 10-06-2026");
+    expect(aktif).toMatch(/Uji viewer, \w+, \d{2}-\d{2}-\d{4} pukul \d{2}\.\d{2} WIB/);
+    // Jadwal lama yang nonaktif tidak tampil sebagai jadwal aktif.
+    expect(aktif).not.toContain("Selasa");
+
+    const kosong = barisJadwal(html, tanpaJadwal.id);
+    expect(kosong).toContain('data-status="belumAdaJadwal"');
+    expect(kosong).toContain("Belum ada jadwal");
+    expect(kosong).toContain("lucide-circle-dashed");
+
+    expect(html).toContain("Atur jadwal toko");
+    expect(html).toMatch(/<form\b/);
+    expect(html).toContain("Simpan jadwal");
+  });
+
+  it("operator Pusat tanpa kelola-usulan-jadwal melihat jadwal hanya-baca", async () => {
+    const { berjadwal } = await siapkanTokoPusat();
+    const operator = await kepalaPenggunaUji("viewer");
+    await tugaskanOperator({ idPengguna: operator.id, idGudang: pusat, hakTindakan: ["input-stok", "hitung-kebutuhan"] });
+    kepala.cookie = operator.cookie;
+
+    const html = await buka(pusat);
+    expect(barisJadwal(html, berjadwal.id)).toContain("Senin (H−2), Kamis (H)");
+    expect(html).not.toContain("Atur jadwal toko");
+    expect(html).not.toMatch(/<(button|input|select|form)\b/);
+  });
+
+  it("admin tanpa penugasan melihat jadwal Pusat hanya-baca", async () => {
+    const { berjadwal } = await siapkanTokoPusat();
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+
+    const html = await buka(pusat);
+    expect(barisJadwal(html, berjadwal.id)).toContain("Dua mingguan");
+    expect(html).not.toMatch(/<(button|input|select|form)\b/);
+  });
+
+  it("gudang selain Pusat: operator dengan kelola-usulan-jadwal belum mendapat form ubah", async () => {
+    const t = await buatTokoUji();
+    await db.insert(hubunganTokoGudang).values({ tokoId: t.id, gudangId: cibubur });
+    const operator = await kepalaPenggunaUji("viewer");
+    await tugaskanOperator({ idPengguna: operator.id, idGudang: cibubur, hakTindakan: ["kelola-usulan-jadwal"] });
+    kepala.cookie = operator.cookie;
+
+    const html = await buka(cibubur);
+    expect(barisJadwal(html, t.id)).toContain("Belum ada jadwal");
+    expect(html).not.toContain("Atur jadwal toko");
     expect(html).not.toMatch(/<(button|input|select|form)\b/);
   });
 });

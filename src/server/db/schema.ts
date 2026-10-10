@@ -21,6 +21,7 @@ import { daftarKategoriDasar, type KategoriDasar } from "@/domain/kalender";
 import { daftarJenisLibur, type JenisLibur } from "@/domain/libur";
 import type { ErrorRanking } from "@/domain/ranking";
 import { daftarHakTindakan, type HakTindakan } from "@/server/gudang/hak-tindakan";
+import { daftarPolaJadwal, type HariKirim, type PolaJadwal } from "@/server/gudang/pilihan-jadwal";
 import type { Masalah, ProdukSheet } from "@/server/impor/sheet-penjualan";
 
 // --- Autentikasi (Better Auth + plugin admin, T20) ---
@@ -721,5 +722,53 @@ export const barisRanking = pgTable(
   (tabel) => [
     uniqueIndex("baris_ranking_versi_rank_unik").on(tabel.versiId, tabel.rank),
     index("baris_ranking_keluarga_aroma_id_idx").on(tabel.keluargaAromaId),
+  ],
+);
+
+// --- Jadwal toko (T55, PRD A5 ▶ OD-06) ---
+
+export const daftarStatusJadwal = ["aktif", "nonaktif"] as const;
+export type StatusJadwal = (typeof daftarStatusJadwal)[number];
+
+/**
+ * Jadwal satu toko (CONTEXT "Jadwal"): pola, hari kirim beserta persiapan per hari (hasil `periksaJadwal`, T54), dan
+ * tanggal jangkar (hanya dua mingguan). Paling banyak satu baris `aktif` per toko, ditegakkan unique index parsial.
+ * Mengubah = baris baru; baris aktif sebelumnya menjadi `nonaktif` (riwayat tidak dihapus). Menonaktifkan mencatat siapa
+ * dan kapan. Id baris aktif menjadi versi jadwal toko itu (sinyal perubahan jadwal).
+ */
+export const jadwalToko = pgTable(
+  "jadwal_toko",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    tokoId: integer("toko_id")
+      .notNull()
+      .references(() => toko.id),
+    pola: text("pola").$type<PolaJadwal>().notNull(),
+    hariKirim: jsonb("hari_kirim").$type<{ hari: HariKirim; persiapanHari: 0 | 1 | 2 }[]>().notNull(),
+    tanggalJangkar: date("tanggal_jangkar", { mode: "string" }),
+    status: text("status").$type<StatusJadwal>().notNull().default("aktif"),
+    dibuatOleh: text("dibuat_oleh")
+      .notNull()
+      .references(() => user.id),
+    dibuatPada: timestamp("dibuat_pada", { withTimezone: true }).notNull().defaultNow(),
+    dinonaktifkanOleh: text("dinonaktifkan_oleh").references(() => user.id),
+    dinonaktifkanPada: timestamp("dinonaktifkan_pada", { withTimezone: true }),
+  },
+  (tabel) => [
+    uniqueIndex("jadwal_toko_satu_aktif")
+      .on(tabel.tokoId)
+      .where(sql`${tabel.status} = 'aktif'`),
+    index("jadwal_toko_toko_id_idx").on(tabel.tokoId, tabel.id),
+    check("jadwal_toko_pola_dikenal", sql`${tabel.pola} in (${daftarSql(daftarPolaJadwal)})`),
+    check("jadwal_toko_status_dikenal", sql`${tabel.status} in (${daftarSql(daftarStatusJadwal)})`),
+    check("jadwal_toko_hari_kirim_array", sql`jsonb_typeof(${tabel.hariKirim}) = 'array'`),
+    check(
+      "jadwal_toko_jangkar_dua_mingguan",
+      sql`(${tabel.pola} = 'dua-mingguan') = (${tabel.tanggalJangkar} is not null)`,
+    ),
+    check(
+      "jadwal_toko_jejak_nonaktif",
+      sql`(${tabel.status} = 'nonaktif') = (${tabel.dinonaktifkanOleh} is not null and ${tabel.dinonaktifkanPada} is not null)`,
+    ),
   ],
 );
