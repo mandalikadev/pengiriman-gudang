@@ -519,7 +519,7 @@ describe("hitungDraftRencana", () => {
 });
 
 // T59: stok akhir per toko–varian. Kosong = belum diketahui (bukan nol); setelah disimpan, masalah dan jumlah kirim baris
-// diperbarui; menghitung ulang draft mempertahankan stok (PRD A7, B9).
+// diperbarui.
 describe("simpanStokToko", () => {
   const simpan = (stok: { kodeProduk: string; stokAkhir: number | null }[], tokoId = tokoContoh.id) =>
     simpanStokToko({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, tokoId, stok });
@@ -600,19 +600,6 @@ describe("simpanStokToko", () => {
     expect(baris?.find((b) => b.kodeProduk === kode.belumDipetakan)).toMatchObject({ stokAkhir: 20, masalah: ["belum-dipetakan"], jumlahKirim: null });
     // Baris yang tidak dikirim tidak berubah.
     expect(baris?.find((b) => b.kodeProduk === kode.luar)).toMatchObject({ stokAkhir: 20, jumlahKirim: golden.kasusJumlahKirim[1].jumlahKirim });
-  });
-
-  it("menghitung ulang draft mempertahankan stok akhir yang sudah disimpan (PRD A7, B9)", async () => {
-    const [contoh] = golden.kasusJumlahKirim;
-    await simpan([{ kodeProduk: kode.contoh, stokAkhir: contoh.stokAkhir }]);
-
-    await expect(hitungDraftRencana({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator })).resolves.toMatchObject({
-      keadaan: "berhasil",
-    });
-    const baris = (await barisContoh())?.baris;
-    expect(baris?.find((b) => b.kodeProduk === kode.contoh)).toMatchObject({ stokAkhir: contoh.stokAkhir, masalah: [], jumlahKirim: contoh.jumlahKirim });
-    expect(baris?.find((b) => b.kodeProduk === kode.manual)).toMatchObject({ stokAkhir: -3, masalah: [] });
-    expect(baris?.find((b) => b.kodeProduk === kode.nol)).toMatchObject({ stokAkhir: null, masalah: ["stok-belum-diisi"] });
   });
 
   it("draft, toko, atau produk yang tidak ada di draft → gagal dengan pesan, tanpa mengubah stok", async () => {

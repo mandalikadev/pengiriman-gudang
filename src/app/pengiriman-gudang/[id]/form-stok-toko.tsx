@@ -78,11 +78,12 @@ export function FormStokToko({
 }) {
   const router = useRouter();
   const kunci = kunciIsianLokal(idGudang, tanggalKirim, tokoId);
-  // Stok yang baru saja berhasil disimpan, sampai halaman selesai dimuat ulang dengan nilai dari server.
-  const [baruDisimpan, setBaruDisimpan] = useState<Record<string, string>>({});
+  // Stok yang baru saja berhasil disimpan, hanya berlaku selama data server yang dipakai saat menyimpan (`dasar`) belum
+  // berganti. Begitu data server baru tiba (mis. setelah `router.refresh()`), nilai dari server yang dipakai.
+  const [baruDisimpan, setBaruDisimpan] = useState<{ dasar: readonly StokTersimpan[]; nilai: Record<string, string> } | null>(null);
   const tersimpan: Record<string, string> = {
     ...Object.fromEntries(stokTersimpan.map((s) => [s.kodeProduk, teksStok(s.stokAkhir)])),
-    ...baruDisimpan,
+    ...(baruDisimpan?.dasar === stokTersimpan ? baruDisimpan.nilai : {}),
   };
   // Isian lokal dibaca setelah hidrasi (server dan render pertama memakai nilai tersimpan).
   const teksLokal = useSyncExternalStore(
@@ -124,7 +125,13 @@ export function FormStokToko({
           simpan(
             () => simpanStok({ idGudang, tanggalKirim, tokoId, stok }),
             () => {
-              setBaruDisimpan((lama) => ({ ...lama, ...Object.fromEntries(stok.map((s) => [s.kodeProduk, teksStok(s.stokAkhir)])) }));
+              setBaruDisimpan((lama) => ({
+                dasar: stokTersimpan,
+                nilai: {
+                  ...(lama?.dasar === stokTersimpan ? lama.nilai : {}),
+                  ...Object.fromEntries(stok.map((s) => [s.kodeProduk, teksStok(s.stokAkhir)])),
+                },
+              }));
               tulisIsianLokal(kunci, null);
               router.refresh();
             },

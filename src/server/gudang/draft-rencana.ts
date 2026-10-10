@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 
 import { tanggalKirimMenurutJadwal } from "@/domain/jadwal";
 import { parseTanggalBisnis, type KategoriDasar, type TanggalBisnis } from "@/domain/kalender";
@@ -30,7 +30,6 @@ import { bacaPeriodeSumberPerhitungan } from "./periode-sumber";
 // Kebutuhan lewat `hitungKebutuhanKirim` (T05) dengan Rata-rata Ringkasan per kategori hari (`hitungRingkasan`, T32)
 // atas bulan periode sumber dan kategori efektif per tanggal (T42). Buffer dari ranking pusat berlaku, jumlah kirim, dan
 // daftar masalah per baris lewat `nilaiBarisDraft` (T66); belum ada ranking dipublikasikan → perhitungan tidak berjalan.
-// Stok akhir yang sudah diisi operator (T59) dipertahankan saat draft dihitung ulang (PRD A7, B9).
 // Halaman hanya membaca draft yang tersimpan (PRD C1). Kewenangan diperiksa pemanggil (server action / halaman).
 
 export const PESAN_PERIODE_BELUM_DITETAPKAN = "Periode sumber belum ditetapkan admin";
@@ -206,7 +205,7 @@ async function hitungBaris(
             daftarPerubahan,
             rataRata,
             produk: { kode: kodeProduk, kategori: kategoriProduk ?? "" },
-            // Stok akhir yang sudah diisi diterapkan saat draft ditulis (dipertahankan, T59); di sini belum diketahui.
+            // Draft yang baru dihitung: stok akhir belum diketahui, bukan nol (diisi lewat T59).
             stokAkhir: null,
           },
           // Kode tanpa master produk tidak punya pemetaan yang dikonfirmasi admin.
@@ -262,13 +261,6 @@ export async function hitungDraftRencana({
       .values({ gudangId: idGudang, tanggalKirim, ...dasar })
       .onConflictDoUpdate({ target: [draftRencana.gudangId, draftRencana.tanggalKirim], set: dasar })
       .returning({ id: draftRencana.id });
-    // Stok akhir yang sudah diisi dipertahankan untuk toko–varian yang masih ada di draft (PRD A7, B9).
-    const stokLama = await tx
-      .select({ tokoId: tokoDraftRencana.tokoId, kodeProduk: barisDraftRencana.kodeProduk, stokAkhir: barisDraftRencana.stokAkhir })
-      .from(barisDraftRencana)
-      .innerJoin(tokoDraftRencana, eq(tokoDraftRencana.id, barisDraftRencana.tokoDraftId))
-      .where(and(eq(tokoDraftRencana.draftId, draft.id), isNotNull(barisDraftRencana.stokAkhir)));
-    const stokPerPasangan = new Map(stokLama.map((b) => [`${b.tokoId}|${b.kodeProduk}`, b.stokAkhir]));
     // Baris varian ikut terhapus (cascade).
     await tx.delete(tokoDraftRencana).where(eq(tokoDraftRencana.draftId, draft.id));
     if (daftarToko.length > 0) {
@@ -282,8 +274,7 @@ export async function hitungDraftRencana({
           baris.map(({ tokoId, ...b }) => {
             const tokoDraftId = idTokoDraft.get(tokoId);
             if (tokoDraftId === undefined) throw new Error(`Toko ${tokoId} tidak termasuk toko draft.`);
-            const stokAkhir = stokPerPasangan.get(`${tokoId}|${b.kodeProduk}`) ?? null;
-            return { ...b, tokoDraftId, stokAkhir, ...nilaiKirimBaris({ ...b, stokAkhir }) };
+            return { ...b, tokoDraftId };
           }),
         );
       }

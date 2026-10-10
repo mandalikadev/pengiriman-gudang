@@ -905,7 +905,7 @@ export const tokoDraftRencana = pgTable(
  * rata-rata. Buffer, daftar masalah (urutan tampilan), dan jumlah kirim dari `nilaiBarisDraft` (T66): `persenBuffer`
  * kosong untuk produk manual dan produk otomatis yang belum dipetakan; `jumlahKirim` kosong selama ada masalah.
  * `stokAkhir` diisi operator (T59): kosong = belum diketahui, bukan nol; boleh negatif (menjadi masalah produk otomatis).
- * Setelah stok disimpan, `masalah` dan `jumlahKirim` diperbarui; menghitung ulang draft mempertahankan stok (PRD A7, B9).
+ * Setelah stok disimpan, `masalah` dan `jumlahKirim` diperbarui (PRD A7).
  */
 export const barisDraftRencana = pgTable(
   "baris_draft_rencana",

@@ -28,12 +28,7 @@ const STOK_TERSIMPAN = [
 
 let terpasang: { wadah: HTMLElement; akar: Root } | null = null;
 
-/** Memasang form seperti saat halaman dibuka (atau dibuka lagi setelah muat ulang). */
-function buka(stokTersimpan = STOK_TERSIMPAN) {
-  tutup();
-  const wadah = document.createElement("div");
-  document.body.append(wadah);
-  const akar = createRoot(wadah);
+function tampilkan(akar: Root, stokTersimpan: typeof STOK_TERSIMPAN) {
   act(() =>
     akar.render(
       <FormStokToko idGudang={3} tanggalKirim="2026-06-08" tokoId={7} namaToko="TOKO UJI" stokTersimpan={stokTersimpan}>
@@ -43,8 +38,23 @@ function buka(stokTersimpan = STOK_TERSIMPAN) {
       </FormStokToko>,
     ),
   );
+}
+
+/** Memasang form seperti saat halaman dibuka (atau dibuka lagi setelah muat ulang). */
+function buka(stokTersimpan = STOK_TERSIMPAN) {
+  tutup();
+  const wadah = document.createElement("div");
+  document.body.append(wadah);
+  const akar = createRoot(wadah);
+  tampilkan(akar, stokTersimpan);
   terpasang = { wadah, akar };
   return wadah;
+}
+
+/** Data server baru tiba (mis. setelah `router.refresh()`) tanpa memasang ulang form. */
+function terimaDataServer(stokTersimpan: typeof STOK_TERSIMPAN) {
+  if (terpasang === null) throw new Error("Form belum dipasang.");
+  tampilkan(terpasang.akar, stokTersimpan);
 }
 
 /** Muat ulang: tampilan lama dibongkar seluruhnya; yang tersisa hanya penyimpanan peramban. */
@@ -146,6 +156,25 @@ describe("perlindungan draft input stok", () => {
     ]);
     expect(isian(setelahMuatUlang, "UJI-A").value).toBe("0");
     expect(status(setelahMuatUlang)).toBeNull();
+  });
+
+  it("setelah data server baru tiba, nilai dari server yang tampil walaupun berbeda dari yang baru disimpan", async () => {
+    tiruan.simpanStok.mockResolvedValue({ keadaan: "berhasil" });
+    const wadah = buka();
+    ketik(isian(wadah, "UJI-A"), "8");
+    await kirim(wadah);
+    // Sebelum data server baru tiba: nilai yang baru disimpan tetap tampil, bukan nilai lama.
+    expect(isian(wadah, "UJI-A").value).toBe("8");
+    expect(wadah.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
+
+    // Operator lain sudah mengubah stok yang sama: data server yang dimuat ulang memuat nilai terbarunya.
+    terimaDataServer([
+      { kodeProduk: "UJI-A", stokAkhir: 11 },
+      { kodeProduk: "UJI-B", stokAkhir: 5 },
+    ]);
+    expect(isian(wadah, "UJI-A").value).toBe("11");
+    expect(isian(wadah, "UJI-B").value).toBe("5");
+    expect(wadah.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
   });
 
   it("stok kosong dikirim sebagai belum diketahui (null), bukan 0", async () => {
