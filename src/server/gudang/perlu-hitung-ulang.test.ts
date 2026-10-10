@@ -2,14 +2,14 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { and, eq, inArray } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { parseTanggalBisnis, type KategoriDasar, type NamaHari } from "@/domain/kalender";
 import { buatPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
 import { draftRencana, hubunganTokoGudang, jadwalToko, perubahanKategori, produk } from "@/server/db/schema";
 import { kodeProdukUji, tahunUji } from "@/server/impor/uji-bantu";
-import { buatPerubahanKategori } from "@/server/kalender/perubahan-kategori";
+import { batalkanPerubahanKategori, buatPerubahanKategori, revisiPerubahanKategori } from "@/server/kalender/perubahan-kategori";
 import { terapkanPemetaan } from "@/server/keluarga-aroma/pemetaan";
 import { hitungUlangCacheLaporan } from "@/server/laporan/cache";
 import { aktifkanImporJuniUji, kuantitasJuniMenurutHari } from "@/server/laporan/uji-bantu";
@@ -21,9 +21,11 @@ import { simpanStokToko } from "./stok-draft";
 import { buatTokoUji, idGudangUji } from "./uji-bantu";
 
 // T61: draft ditandai "Perlu dihitung ulang" ketika dasar perhitungannya berubah (PRD A5, A7, B9; ADR-0003): periode
-// sumber, impor aktif, kategori efektif (revisi kalender), jadwal, ranking pusat, atau pemetaan keluarga aroma. Menghitung
-// ulang mempertahankan stok akhir yang sudah diisi; toko yang tidak lagi mengirim dikeluarkan dengan keterangan; varian
-// baru ditambahkan. Contoh PRD A6 / golden `jumlah-kirim.json`: kebutuhan 56, stok 20, tujuh besar → jumlah kirim 44.
+// sumber, impor aktif, kategori efektif (perubahan kalender yang mengenai cakupan draft), jadwal, ranking pusat, atau
+// pemetaan keluarga aroma. Menghitung ulang mempertahankan stok akhir yang sudah diisi; toko yang tidak lagi mengirim
+// dikeluarkan dengan keterangan; varian baru ditambahkan; stok varian atau toko yang hilang dari draft disimpan,
+// ditampilkan, dan dipakai kembali. Contoh PRD A6 / golden `jumlah-kirim.json`: kebutuhan 56, stok 20, tujuh besar →
+// jumlah kirim 44.
 
 type Golden = {
   rataRata: Record<KategoriDasar, number>;
@@ -72,6 +74,15 @@ let keluargaLain: number;
 const hitung = () => hitungDraftRencana({ idGudang: bandung, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator });
 const perlu = async () => (await bacaDraftRencana(bandung, TANGGAL_KIRIM))?.perluDihitungUlang;
 const periode = () => [`${tahunA}-06`, `${tahunB}-06`];
+const ALASAN_UJI = "Uji T61";
+const hapusPerubahanUji = async () => {
+  await db.delete(perubahanKategori).where(eq(perubahanKategori.alasan, ALASAN_UJI));
+};
+
+async function ubahKategori(tanggal: string, idToko: number | null) {
+  const hasil = await buatPerubahanKategori({ tanggal: parseTanggalBisnis(tanggal), idToko, kategoriBaru: "Minggu", alasan: ALASAN_UJI, idPengguna: idAdmin });
+  expect(hasil).toEqual({ keadaan: "berhasil" });
+}
 
 async function tetapkanPeriode(bulan: string[]) {
   const hasil = await tetapkanPeriodeSumber({ idGudang: bandung, bulan, idPengguna: idAdmin });
@@ -130,7 +141,7 @@ beforeAll(async () => {
 afterAll(async () => {
   // Draft merujuk periode sumber; berkas test lain menghapus periode sumber gudang.
   await db.delete(draftRencana).where(eq(draftRencana.gudangId, bandung));
-  await db.delete(perubahanKategori).where(eq(perubahanKategori.alasan, "Uji T61"));
+  await hapusPerubahanUji();
 });
 
 describe("draft perlu dihitung ulang saat dasar perhitungan berubah", () => {
@@ -165,22 +176,61 @@ describe("draft perlu dihitung ulang saat dasar perhitungan berubah", () => {
     expect(await perlu()).toEqual([]);
   });
 
-  it("kategori efektif berubah (revisi kalender) → ditandai; juga saat cache laporan selesai dihitung dengan kalender baru", async () => {
-    const hasil = await buatPerubahanKategori({
-      tanggal: parseTanggalBisnis("9501-01-02"),
-      idToko: null,
-      kategoriBaru: "Minggu",
-      alasan: "Uji T61",
-      idPengguna: idAdmin,
-    });
-    expect(hasil).toEqual({ keadaan: "berhasil" });
-    expect(await perlu()).toEqual(["kategori-efektif"]);
+  // PRD B9 ▶ Keputusan 2026-10-10 (T61): hanya perubahan kalender yang tanggalnya masuk cakupan draft dan cakupannya
+  // mengenai toko di draft (seluruh toko, atau toko itu sendiri). Cakupan contoh: Sabtu 06-06 s.d. Minggu 14-06-2026.
+  describe("kategori efektif", () => {
+    afterEach(hapusPerubahanUji);
 
-    // Dihitung ulang sebelum cache laporan memakai kalender baru: rata-rata yang dipakai masih dari kalender lama.
-    await hitung();
-    expect(await perlu()).toEqual([]);
-    await hitungUlangCacheLaporan();
-    expect(await perlu()).toEqual(["kategori-efektif"]);
+    it("perubahan seluruh toko pada tanggal cakupan draft → ditandai", async () => {
+      await ubahKategori("2026-06-10", null);
+      expect(await perlu()).toEqual(["kategori-efektif"]);
+      await hitung();
+      expect(await perlu()).toEqual([]);
+    });
+
+    it("perubahan khusus toko di draft pada tanggal cakupannya → ditandai", async () => {
+      await ubahKategori("2026-06-14", tokoB.id);
+      expect(await perlu()).toEqual(["kategori-efektif"]);
+    });
+
+    it("perubahan di luar tanggal cakupan, atau khusus toko di luar draft → tidak ditandai", async () => {
+      await ubahKategori("2026-06-05", null);
+      await ubahKategori("2026-06-15", null);
+      await ubahKategori("2026-06-10", tokoBaru.id);
+      expect(await perlu()).toEqual([]);
+      // Cache laporan yang dihitung ulang dengan kalender baru tidak menandai draft.
+      await hitungUlangCacheLaporan();
+      expect(await perlu()).toEqual([]);
+    });
+
+    it("revisi dan pembatalan perubahan pada tanggal cakupan → ditandai", async () => {
+      await ubahKategori("2026-06-10", tokoA.id);
+      await hitung();
+      expect(
+        await revisiPerubahanKategori({
+          tanggal: parseTanggalBisnis("2026-06-10"),
+          idToko: tokoA.id,
+          kategoriBaru: "Sabtu",
+          alasan: ALASAN_UJI,
+          idPengguna: idAdmin,
+        }),
+      ).toEqual({ keadaan: "berhasil" });
+      expect(await perlu()).toEqual(["kategori-efektif"]);
+
+      await hitung();
+      expect(
+        await batalkanPerubahanKategori({ tanggal: parseTanggalBisnis("2026-06-10"), idToko: tokoA.id, alasan: ALASAN_UJI, idPengguna: idAdmin }),
+      ).toEqual({ keadaan: "berhasil" });
+      expect(await perlu()).toEqual(["kategori-efektif"]);
+    });
+
+    it("draft yang dihitung setelah perubahan, sebelum cache laporan selesai dihitung ulang, tidak ditandai lagi", async () => {
+      await ubahKategori("2026-06-10", null);
+      await hitung();
+      expect(await perlu()).toEqual([]);
+      await hitungUlangCacheLaporan();
+      expect(await perlu()).toEqual([]);
+    });
   });
 
   it("jadwal toko di draft berubah, atau toko lain mulai mengirim pada tanggal itu → ditandai", async () => {
@@ -232,6 +282,13 @@ describe("draft perlu dihitung ulang saat dasar perhitungan berubah", () => {
 });
 
 describe("hitung ulang draft", () => {
+  /** Stok yang tersimpan tetapi tidak dipakai setelah varian kedua hilang dan toko B dikeluarkan; urut nama toko. */
+  const stokTidakDipakaiAwal = () =>
+    [
+      { toko: tokoA, kodeProduk: kode.kedua, stokAkhir: 0, alasan: "varian-tidak-di-draft" },
+      { toko: tokoB, kodeProduk: kode.tokoB, stokAkhir: 7, alasan: "toko-tidak-di-draft" },
+    ].sort((a, b) => a.toko.nama.localeCompare(b.toko.nama));
+
   it("stok yang sudah diisi dipertahankan; toko yang tidak lagi mengirim dikeluarkan dengan keterangan; varian baru ditambahkan", async () => {
     await terapkanPemetaan(idAdmin, [{ kodeProduk: kode.kedua, tujuan: { status: "terpetakan", idKeluarga: keluargaTujuhBesar } }]);
     await hitung();
@@ -286,13 +343,48 @@ describe("hitung ulang draft", () => {
     // Varian baru: stok belum diketahui.
     expect(baris.find((b) => b.kodeProduk === kode.baru)).toMatchObject({ stokAkhir: null, jumlahKirim: null });
     expect(baris.find((b) => b.kodeProduk === kode.baru)?.masalah).toContain("stok-belum-diisi");
+
+    // PRD A7 ▶ Keputusan 2026-10-10 (T61): stok varian dan toko yang hilang dari draft tetap disimpan dan ditampilkan.
+    expect(draft?.stokTidakDipakai).toMatchObject(stokTidakDipakaiAwal());
+  });
+
+  it("stok yang tidak dipakai tetap disimpan pada hitungan berikutnya, lalu dipakai kembali saat varian dan toko muncul lagi", async () => {
+    expect(await hitung()).toMatchObject({ keadaan: "berhasil" });
+    expect((await bacaDraftRencana(bandung, TANGGAL_KIRIM))?.stokTidakDipakai).toMatchObject(stokTidakDipakaiAwal());
+
+    // Varian kedua kembali di impor; toko B kembali mengirim hari Senin. Varian baru (stok belum diisi) hilang lagi.
+    await aktifkanImporJuniUji({
+      idAdmin,
+      tahun: tahunA,
+      namaToko: tokoA.nama,
+      hari: SEMUA_HARI_JUNI,
+      produk: [produkUji(kode.contoh, sesuaiContoh), produkUji(kode.kedua, sesuaiContoh)],
+    });
+    await hitungUlangCacheLaporan();
+    await db
+      .update(jadwalToko)
+      .set({ status: "nonaktif", dinonaktifkanOleh: idAdmin, dinonaktifkanPada: new Date() })
+      .where(and(eq(jadwalToko.tokoId, tokoB.id), eq(jadwalToko.status, "aktif")));
+    await db.insert(jadwalToko).values({ tokoId: tokoB.id, pola: "mingguan", hariKirim: [{ hari: "Senin", persiapanHari: 2 }], dibuatOleh: idAdmin });
+
+    expect(await hitung()).toMatchObject({ keadaan: "berhasil" });
+    const draft = await bacaDraftRencana(bandung, TANGGAL_KIRIM);
+    expect(draft?.stokTidakDipakai).toEqual([]);
+    expect(draft?.tokoDikeluarkan).toEqual([]);
+    const stok = (idToko: number, kodeProduk: string) =>
+      draft?.toko.find((t) => t.id === idToko)?.baris.find((b) => b.kodeProduk === kodeProduk)?.stokAkhir;
+    expect(stok(tokoA.id, kode.contoh)).toBe(golden.kasusJumlahKirim[0].stokAkhir);
+    expect(stok(tokoA.id, kode.kedua)).toBe(0);
+    expect(stok(tokoB.id, kode.tokoB)).toBe(7);
   });
 
   it("draft yang baru dibuat tidak punya toko yang dikeluarkan", async () => {
     const tanggalLain = parseTanggalBisnis("2026-06-15");
     try {
       await hitungDraftRencana({ idGudang: bandung, tanggalKirim: tanggalLain, idPengguna: idOperator });
-      expect((await bacaDraftRencana(bandung, tanggalLain))?.tokoDikeluarkan).toEqual([]);
+      const draft = await bacaDraftRencana(bandung, tanggalLain);
+      expect(draft?.tokoDikeluarkan).toEqual([]);
+      expect(draft?.stokTidakDipakai).toEqual([]);
     } finally {
       await db.delete(draftRencana).where(and(eq(draftRencana.gudangId, bandung), eq(draftRencana.tanggalKirim, tanggalLain)));
     }

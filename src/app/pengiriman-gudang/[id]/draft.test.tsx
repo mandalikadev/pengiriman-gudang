@@ -507,6 +507,9 @@ describe("draft perlu dihitung ulang (T61)", () => {
     expect(penanda(html)).toMatch(/data-status="perluDihitungUlang".*?lucide-triangle-alert.*?Perlu dihitung ulang/);
     expect(penanda(html)).toMatch(/data-alasan-hitung-ulang="jadwal"[^>]*>Jadwal toko</);
     expect(penanda(html)).not.toContain('data-alasan-hitung-ulang="ranking"');
+    expect(penanda(html)).toContain(
+      "Stok akhir yang sudah diisi tetap disimpan. Stok untuk toko atau varian yang tidak ada lagi di draft ditampilkan sebagai keterangan dan dipakai kembali jika toko atau varian itu muncul lagi.",
+    );
     expect(html).not.toContain("Hitung ulang</button>");
     expect(html).not.toMatch(/<(button|input|select|form)\b/);
   });
@@ -519,7 +522,7 @@ describe("draft perlu dihitung ulang (T61)", () => {
     expect(await buka(cibubur, TANGGAL_KIRIM)).not.toContain(">Hitung ulang</button>");
   });
 
-  it("setelah dihitung ulang: penanda hilang dan toko yang tidak lagi mengirim tampil dengan keterangan", async () => {
+  it("setelah dihitung ulang: penanda hilang; toko yang tidak lagi mengirim dan stoknya yang tidak dipakai tampil dengan keterangan", async () => {
     await masukOperator(cibubur, ["hitung-kebutuhan"]);
     await expect(hitungDraft({ idGudang: cibubur, tanggalKirim: TANGGAL_KIRIM })).resolves.toEqual({ keadaan: "berhasil" });
 
@@ -529,6 +532,13 @@ describe("draft perlu dihitung ulang (T61)", () => {
     expect(html).toMatch(
       new RegExp(
         `data-toko-dikeluarkan="${tokoContoh.id}"[^>]*>.*?lucide-triangle-alert.*?Toko ${tokoContoh.nama} dikeluarkan dari draft karena tidak lagi mengirim pada tanggal ini menurut jadwal aktif\\.<`,
+      ),
+    );
+    // Stok contoh (diisi di bagian T60) tetap disimpan dan ditampilkan (PRD A7 ▶ Keputusan 2026-10-10, T61).
+    const [contoh] = golden.kasusJumlahKirim;
+    expect(html).toMatch(
+      new RegExp(
+        `data-stok-tidak-dipakai="${tokoContoh.id}\\|${kode.contoh}"[^>]*>.*?lucide-triangle-alert.*?Stok ${kode.contoh} \\([^)]*\\) di Toko ${tokoContoh.nama} \\(${contoh.stokAkhir}\\) tidak dipakai karena toko ini tidak ada lagi di draft\\.<`,
       ),
     );
   });

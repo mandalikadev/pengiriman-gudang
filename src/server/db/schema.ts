@@ -851,7 +851,9 @@ export const usulanJadwal = pgTable(
  * berlaku yang dipakai untuk buffer (bulan ranking dan versinya, T66). `versiCacheId` dan `imporAktif` = versi cache
  * laporan yang dipakai beserta set impor aktifnya (T61; tanpa FK karena versi cache lama dihapus). Kosong = draft
  * dihitung sebelum T61. `tokoDikeluarkan` = toko yang dikeluarkan dari draft pada hitungan terakhir karena tidak lagi
- * mengirim pada tanggal itu (T61).
+ * mengirim pada tanggal itu (T61). `stokTidakDipakai` = stok akhir yang sudah diisi untuk toko–varian yang tidak ada lagi
+ * di draft setelah dihitung ulang; disimpan dan dipakai kembali bila toko–varian itu muncul lagi (PRD A7 ▶ Keputusan
+ * 2026-10-10, T61).
  */
 export const draftRencana = pgTable(
   "draft_rencana",
@@ -878,6 +880,7 @@ export const draftRencana = pgTable(
     /** Id impor aktif (urut naik) pembentuk versi cache laporan yang dipakai. */
     imporAktif: integer("impor_aktif").array(),
     tokoDikeluarkan: integer("toko_dikeluarkan").array().notNull().default(sql`'{}'::integer[]`),
+    stokTidakDipakai: jsonb("stok_tidak_dipakai").$type<{ tokoId: number; kodeProduk: string; stokAkhir: number }[]>().notNull().default([]),
   },
   (tabel) => [uniqueIndex("draft_rencana_gudang_tanggal_unik").on(tabel.gudangId, tabel.tanggalKirim)],
 );
@@ -903,6 +906,12 @@ export const tokoDraftRencana = pgTable(
     panjangCakupan: integer("panjang_cakupan").$type<7 | 14>().notNull(),
     /** Tanggal cakupan beserta kategori efektif dan sumbernya (T60). Kosong = draft dihitung sebelum T60. */
     cakupan: jsonb("cakupan").$type<TanggalCakupanDraft[]>(),
+    /**
+     * Id perubahan kategori aktif (urut naik) yang tanggalnya masuk cakupan toko ini dan mengenai toko ini (seluruh toko
+     * atau toko ini) saat dihitung; sinyal perubahan kalender (PRD B9 ▶ Keputusan 2026-10-10, T61). Kosong = draft
+     * dihitung sebelum T61.
+     */
+    perubahanKategori: integer("perubahan_kategori").array(),
   },
   (tabel) => [
     uniqueIndex("toko_draft_rencana_unik").on(tabel.draftId, tabel.tokoId),

@@ -1,5 +1,5 @@
 {
-  "id": "1a2d3c24-5f04-4534-ae68-173a640d36da",
+  "id": "14efcb1e-53b9-488b-a53a-2e2ec3ea5d53",
   "prevId": "2a5a6664-069f-485e-bd74-2bb9dc92979a",
   "version": "7",
   "dialect": "postgresql",
@@ -1155,6 +1155,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'{}'::integer[]"
+        },
+        "stok_tidak_dipakai": {
+          "name": "stok_tidak_dipakai",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
         }
       },
       "indexes": {
@@ -3272,6 +3279,12 @@
         "cakupan": {
           "name": "cakupan",
           "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "perubahan_kategori": {
+          "name": "perubahan_kategori",
+          "type": "integer[]",
           "primaryKey": false,
           "notNull": false
         }

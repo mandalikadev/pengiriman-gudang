@@ -1,10 +1,11 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { tanggalKirimMenurutJadwal } from "@/domain/jadwal";
 import type { TanggalBisnis } from "@/domain/kalender";
 import { db } from "@/server/db";
-import { barisDraftRencana, produk, tokoDraftRencana } from "@/server/db/schema";
-import { bacaKunciVersi, versiCacheAktif } from "@/server/laporan/cache";
+import { barisDraftRencana, perubahanKategori, produk, tokoDraftRencana } from "@/server/db/schema";
+import type { Tx } from "@/server/impor/antrean";
+import { bacaKunciVersi } from "@/server/laporan/cache";
 import { rankingBerlaku } from "@/server/ranking/ranking";
 
 import { jadwalTokoGudang } from "./jadwal";
@@ -16,7 +17,8 @@ import { bacaPeriodeSumber } from "./periode-sumber";
 
 /**
  * Dasar yang berubah sejak draft dihitung, dalam urutan tampilan (urutan issue T61): periode sumber gudang, impor aktif,
- * kategori efektif (revisi kalender), jadwal toko yang mengirim, ranking pusat berlaku, pemetaan keluarga aroma.
+ * kategori efektif (perubahan kalender yang mengenai cakupan draft), jadwal toko yang mengirim, ranking pusat berlaku,
+ * pemetaan keluarga aroma.
  */
 const URUTAN_ALASAN_HITUNG_ULANG = ["periode-sumber", "impor-aktif", "kategori-efektif", "jadwal", "ranking", "pemetaan"] as const;
 export type AlasanHitungUlang = (typeof URUTAN_ALASAN_HITUNG_ULANG)[number];
@@ -37,14 +39,12 @@ export async function tokoYangMengirim(idGudang: number, tanggalKirim: TanggalBi
   });
 }
 
-/** Dasar yang tersimpan di satu draft. `versiCacheId`/`imporAktif` kosong = draft dihitung sebelum T61. */
+/** Dasar yang tersimpan di satu draft. `imporAktif` kosong = draft dihitung sebelum T61. */
 export type DasarTersimpan = {
   idDraft: number;
   idGudang: number;
   tanggalKirim: TanggalBisnis;
   versiPeriodeSumber: number;
-  revisiKalender: number;
-  versiCacheId: number | null;
   imporAktif: number[] | null;
   versiRankingId: number;
 };
@@ -59,6 +59,54 @@ async function jadwalBerubah({ idDraft, idGudang, tanggalKirim }: DasarTersimpan
     .where(eq(tokoDraftRencana.draftId, idDraft));
   const berlaku = new Map((await tokoYangMengirim(idGudang, tanggalKirim)).map((t) => [t.tokoId, t.versiJadwal]));
   return tersimpan.length !== berlaku.size || tersimpan.some((t) => berlaku.get(t.tokoId) !== t.versiJadwal);
+}
+
+/**
+ * Id perubahan kategori aktif (urut naik) per toko yang tanggalnya masuk cakupan toko itu dan cakupan perubahannya
+ * mengenai toko itu: seluruh toko, atau toko itu sendiri (PRD B9 ▶ Keputusan 2026-10-10, T61). Dipakai saat menghitung
+ * draft (disimpan) dan saat mendeteksi perubahan kalender (dibandingkan).
+ */
+export async function perubahanKategoriMengenai(
+  klien: typeof db | Tx,
+  cakupanPerToko: ReadonlyMap<number, readonly string[]>,
+): Promise<Map<number, number[]>> {
+  const semuaTanggal = [...new Set([...cakupanPerToko.values()].flat())];
+  const daftar =
+    semuaTanggal.length === 0
+      ? []
+      : await klien
+          .select({ id: perubahanKategori.id, tanggal: perubahanKategori.tanggal, tokoId: perubahanKategori.tokoId })
+          .from(perubahanKategori)
+          .where(and(eq(perubahanKategori.status, "aktif"), inArray(perubahanKategori.tanggal, semuaTanggal)));
+  return new Map(
+    [...cakupanPerToko].map(([tokoId, tanggal]) => {
+      const cakupan = new Set(tanggal);
+      const id = daftar.filter((p) => cakupan.has(p.tanggal) && (p.tokoId === null || p.tokoId === tokoId)).map((p) => p.id);
+      return [tokoId, id.sort((a, b) => a - b)];
+    }),
+  );
+}
+
+/**
+ * Ada toko di draft yang perubahan kategori aktif pada tanggal cakupannya (seluruh toko atau toko itu) berbeda dari saat
+ * dihitung: perubahan baru, revisi, atau pembatalan. Perubahan di luar cakupan, atau khusus toko di luar draft, tidak
+ * terhitung. Toko yang dasarnya tidak tersimpan (draft sebelum T61) dianggap berubah.
+ */
+async function kategoriBerubah({ idDraft }: DasarTersimpan) {
+  const tersimpan = await db
+    .select({ tokoId: tokoDraftRencana.tokoId, cakupan: tokoDraftRencana.cakupan, idPerubahan: tokoDraftRencana.perubahanKategori })
+    .from(tokoDraftRencana)
+    .where(eq(tokoDraftRencana.draftId, idDraft));
+  const cakupanPerToko = new Map<number, string[]>();
+  for (const { tokoId, cakupan, idPerubahan } of tersimpan) {
+    if (cakupan === null || idPerubahan === null) return true;
+    cakupanPerToko.set(
+      tokoId,
+      cakupan.map((c) => c.tanggal),
+    );
+  }
+  const berlaku = await perubahanKategoriMengenai(db, cakupanPerToko);
+  return tersimpan.some((t) => !urutanSama(t.idPerubahan ?? [], berlaku.get(t.tokoId) ?? []));
 }
 
 /**
@@ -87,26 +135,24 @@ async function pemetaanBerubah({ idDraft }: DasarTersimpan) {
 /**
  * Dasar perhitungan yang berubah sejak draft dihitung, dalam urutan tampilan; kosong = draft masih memakai dasar yang
  * berlaku. Impor aktif dibandingkan dengan set impor aktif saat ini, jadi perubahan langsung terdeteksi walau cache
- * laporan belum selesai dihitung ulang. Kategori efektif berubah bila revisi kalender naik, atau bila cache laporan
- * dihitung ulang untuk set impor yang sama (artinya dengan kalender yang lebih baru dari rata-rata yang dipakai draft).
+ * laporan belum selesai dihitung ulang. Kategori efektif hanya untuk perubahan kalender yang mengenai draft
+ * (`kategoriBerubah`), tidak dari revisi kalender global maupun versi cache laporan.
  */
 export async function alasanHitungUlang(dasar: DasarTersimpan): Promise<AlasanHitungUlang[]> {
-  const [periode, kunci, cache, ranking, jadwal, pemetaan] = await Promise.all([
+  const [periode, kunci, ranking, kategori, jadwal, pemetaan] = await Promise.all([
     bacaPeriodeSumber(dasar.idGudang),
     bacaKunciVersi(db),
-    versiCacheAktif(),
     rankingBerlaku(),
+    kategoriBerubah(dasar),
     jadwalBerubah(dasar),
     pemetaanBerubah(dasar),
   ]);
-  const { imporAktif, versiCacheId } = dasar;
-  const cacheDihitungUlangUntukKalender =
-    cache !== null && imporAktif !== null && versiCacheId !== null && cache.id !== versiCacheId && urutanSama(cache.imporAktif, imporAktif);
+  const { imporAktif } = dasar;
 
   const berubah: Record<AlasanHitungUlang, boolean> = {
     "periode-sumber": periode?.versi !== dasar.versiPeriodeSumber,
     "impor-aktif": imporAktif === null || !urutanSama(imporAktif, kunci.imporAktif),
-    "kategori-efektif": dasar.revisiKalender !== kunci.revisiKalender || cacheDihitungUlangUntukKalender,
+    "kategori-efektif": kategori,
     jadwal,
     ranking: ranking?.idVersi !== dasar.versiRankingId,
     pemetaan,

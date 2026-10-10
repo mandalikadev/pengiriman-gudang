@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatTanggal, type TanggalBisnis } from "@/domain/kalender";
 import { cn } from "@/lib/utils";
 import type { AlasanHitungUlang } from "@/server/gudang/dasar-draft";
-import type { BarisDraft, DraftRencana, TokoDraft } from "@/server/gudang/draft-rencana";
+import type { BarisDraft, DraftRencana, StokTidakDipakai, TokoDraft } from "@/server/gudang/draft-rencana";
 import { labelPersiapan, persiapanDariHari } from "@/server/gudang/pilihan-jadwal";
 
 import { DaftarMasalah } from "./daftar-masalah";
@@ -195,7 +195,8 @@ function PenandaHitungUlang({ alasan, hitungUlang }: { alasan: readonly AlasanHi
       <BadgeStatus status="perluDihitungUlang" className="w-fit" />
       <p>
         Dasar perhitungan berubah sejak draft ini dihitung. Draft ini tidak bisa difinalisasi sebelum dihitung ulang.
-        Stok akhir yang sudah diisi tetap dipertahankan untuk toko dan varian yang masih ada di draft.
+        Stok akhir yang sudah diisi tetap disimpan. Stok untuk toko atau varian yang tidak ada lagi di draft ditampilkan
+        sebagai keterangan dan dipakai kembali jika toko atau varian itu muncul lagi.
       </p>
       <div className="flex flex-col gap-1">
         <span className="font-semibold">Yang berubah:</span>
@@ -227,6 +228,32 @@ function KeteranganTokoDikeluarkan({ daftarToko }: { daftarToko: readonly { id: 
   );
 }
 
+const keteranganAlasanStok: Record<StokTidakDipakai["alasan"], string> = {
+  "toko-tidak-di-draft": "toko ini tidak ada lagi di draft",
+  "varian-tidak-di-draft": "varian ini tidak ada lagi di draft",
+};
+
+/**
+ * Stok akhir yang sudah diisi tetapi tidak dipakai karena toko atau variannya tidak ada lagi di draft (PRD A7 ▶ Keputusan
+ * 2026-10-10, T61; ikon + teks, DESIGN §7). Stoknya tetap disimpan dan dipakai kembali bila toko atau varian itu muncul lagi.
+ */
+function KeteranganStokTidakDipakai({ daftarStok }: { daftarStok: readonly StokTidakDipakai[] }) {
+  if (daftarStok.length === 0) return null;
+  return (
+    <ul aria-label="Stok yang tidak dipakai" className="flex flex-col gap-2">
+      {daftarStok.map((s) => {
+        const produk = s.namaProduk === null ? s.kodeProduk : `${s.kodeProduk} (${s.namaProduk})`;
+        return (
+          <li key={`${s.toko.id}|${s.kodeProduk}`} data-stok-tidak-dipakai={`${s.toko.id}|${s.kodeProduk}`} className="flex items-start gap-2 font-semibold">
+            <TriangleAlert aria-hidden strokeWidth={2} className="size-5 shrink-0 text-warning" />
+            {`Stok ${produk} di Toko ${s.toko.nama} (${formatAngka(s.stokAkhir)}) tidak dipakai karena ${keteranganAlasanStok[s.alasan]}.`}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function IsiDraft({
   draft,
   inputStok,
@@ -252,6 +279,7 @@ function IsiDraft({
       </div>
       {draft.perluDihitungUlang.length > 0 ? <PenandaHitungUlang alasan={draft.perluDihitungUlang} hitungUlang={hitungUlang} /> : null}
       <KeteranganTokoDikeluarkan daftarToko={draft.tokoDikeluarkan} />
+      <KeteranganStokTidakDipakai daftarStok={draft.stokTidakDipakai} />
       {draft.toko.length === 0 ? (
         <p className="text-muted-foreground">Tidak ada toko yang mengirim pada tanggal ini menurut jadwal aktif.</p>
       ) : (
