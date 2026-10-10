@@ -33,7 +33,11 @@ import { NAMA_GUDANG_PUSAT } from "./seed-master";
 // langsung Pusat (`gantiJadwalAktif`/`nonaktifkanJadwalAktif`), dalam satu transaksi; versi jadwal toko (id jadwal
 // aktif) ikut berganti sebagai sinyal perubahan jadwal (T61). Kewenangan diperiksa pemanggil (server action).
 
-const PESAN_SUDAH_ADA_USULAN = "Toko ini masih punya usulan jadwal yang menunggu persetujuan admin.";
+const GAGAL_SUDAH_ADA_USULAN = {
+  keadaan: "gagal",
+  pesan: "Toko ini masih punya usulan jadwal yang menunggu persetujuan admin.",
+  sebab: "usulanMenunggu",
+} as const satisfies HasilJadwal;
 
 /** Usulan dengan status `menunggu` untuk toko ini sudah ada (dicek dalam transaksi setelah toko dikunci). */
 async function adaUsulanMenunggu(tx: Tx, idToko: number) {
@@ -65,7 +69,7 @@ export async function usulkanJadwalToko({
     const pesanTujuan = await periksaTujuan(tx, { idGudang, idToko, jalur: "usulan" });
     if (pesanTujuan !== null) return { keadaan: "gagal", pesan: pesanTujuan };
     if ("pesan" in hasil) return { keadaan: "gagal", pesan: hasil.pesan };
-    if (await adaUsulanMenunggu(tx, idToko)) return { keadaan: "gagal", pesan: PESAN_SUDAH_ADA_USULAN };
+    if (await adaUsulanMenunggu(tx, idToko)) return GAGAL_SUDAH_ADA_USULAN;
 
     const aktif = await bacaJadwalAktif(tx, idToko);
     if (aktif && jadwalSama(aktif, hasil.jadwal)) {
@@ -96,7 +100,7 @@ export async function usulkanNonaktifJadwalToko({
   return db.transaction(async (tx) => {
     const pesanTujuan = await periksaTujuan(tx, { idGudang, idToko, jalur: "usulan" });
     if (pesanTujuan !== null) return { keadaan: "gagal", pesan: pesanTujuan };
-    if (await adaUsulanMenunggu(tx, idToko)) return { keadaan: "gagal", pesan: PESAN_SUDAH_ADA_USULAN };
+    if (await adaUsulanMenunggu(tx, idToko)) return GAGAL_SUDAH_ADA_USULAN;
     if (!(await bacaJadwalAktif(tx, idToko))) return { keadaan: "gagal", pesan: PESAN_TANPA_JADWAL_AKTIF };
 
     await tx.insert(usulanJadwal).values({ tokoId: idToko, jenis: "nonaktifkan", diusulkanOleh: idPengguna });

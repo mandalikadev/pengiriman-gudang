@@ -10,7 +10,9 @@ import type { TokoDenganJadwal } from "@/server/gudang/jadwal";
 import { labelHariKirim, labelPola, persiapanDariHari } from "@/server/gudang/pilihan-jadwal";
 import type { UsulanTerakhir } from "@/server/gudang/usulan-jadwal";
 
-import { FormJadwal, type IsianJadwal, type JalurJadwal } from "./form-jadwal";
+import type { IsianJadwal } from "./bidang-jadwal";
+import { FormJadwal, type JalurJadwal } from "./form-jadwal";
+import { FormSalinJadwal } from "./form-salin-jadwal";
 import { BadgeStatusUsulan, labelJenisUsulan } from "./status-usulan";
 
 function BadgeTanpaJadwal() {
@@ -46,10 +48,10 @@ function SelUsulan({ usulan }: { usulan: UsulanTerakhir | undefined }) {
 }
 
 /**
- * Bagian Jadwal halaman Pengiriman Gudang (T55, T56; PRD A5 ▶ OD-06): setiap toko terhubung beserta jadwal aktifnya.
- * `usulanPerToko` (gudang selain Pusat) menambah kolom status usulan terakhir setiap toko. Form tampil hanya untuk
- * operator dengan hak `kelola-usulan-jadwal` (`jalur`: Pusat mengatur langsung, gudang lain mengusulkan; diperiksa lagi
- * di server); pengguna lain melihatnya hanya-baca.
+ * Bagian Jadwal halaman Pengiriman Gudang (T55, T56, T57; PRD A5 ▶ OD-06): setiap toko terhubung beserta jadwal
+ * aktifnya. `usulanPerToko` (gudang selain Pusat) menambah kolom status usulan terakhir setiap toko. Form satu toko dan
+ * form salin jadwal ke beberapa toko tampil hanya untuk operator dengan hak `kelola-usulan-jadwal` (`jalur`: Pusat
+ * mengatur langsung, gudang lain mengusulkan; diperiksa lagi di server); pengguna lain melihatnya hanya-baca.
  */
 export function BagianJadwal({
   idGudang,
@@ -122,16 +124,19 @@ export function BagianJadwal({
         </Table>
 
         {jalur !== null && daftarToko.length > 0 ? (
-          <FormJadwal
-            idGudang={idGudang}
-            jalur={jalur}
-            daftarToko={daftarToko.map((t) => ({
-              id: t.id,
-              nama: t.nama,
-              jadwal: t.jadwal ? keIsian(t.jadwal) : null,
-              adaUsulanMenunggu: usulanPerToko?.get(t.id)?.status === "menunggu",
-            }))}
-          />
+          <>
+            <FormJadwal
+              idGudang={idGudang}
+              jalur={jalur}
+              daftarToko={daftarToko.map((t) => ({
+                id: t.id,
+                nama: t.nama,
+                jadwal: t.jadwal ? keIsian(t.jadwal) : null,
+                adaUsulanMenunggu: usulanPerToko?.get(t.id)?.status === "menunggu",
+              }))}
+            />
+            <FormSalinJadwal idGudang={idGudang} jalur={jalur} daftarToko={daftarToko.map((t) => ({ id: t.id, nama: t.nama }))} />
+          </>
         ) : null}
       </CardContent>
     </Card>

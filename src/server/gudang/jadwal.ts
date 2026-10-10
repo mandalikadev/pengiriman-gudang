@@ -67,7 +67,8 @@ export async function jadwalTokoGudang(idGudang: number): Promise<TokoDenganJadw
   }));
 }
 
-export type HasilJadwal = { keadaan: "berhasil" } | { keadaan: "gagal"; pesan: string };
+/** `sebab` membedakan penolakan karena toko masih punya usulan menunggu (T56) dari penolakan validasi (salin jadwal, T57). */
+export type HasilJadwal = { keadaan: "berhasil" } | { keadaan: "gagal"; pesan: string; sebab?: "usulanMenunggu" };
 
 const PESAN_BUKAN_PUSAT = "Jadwal gudang ini tidak bisa diubah langsung. Ajukan usulan jadwal untuk disetujui admin.";
 const PESAN_PUSAT = "Jadwal gudang Pusat diatur langsung, tanpa usulan.";

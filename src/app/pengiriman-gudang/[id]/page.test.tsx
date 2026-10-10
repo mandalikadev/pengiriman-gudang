@@ -228,6 +228,16 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
     expect(html).toContain("Atur jadwal toko");
     expect(html).toMatch(/<form\b/);
     expect(html).toContain("Simpan jadwal");
+
+    // Salin jadwal (T57): pilih beberapa toko, satu pengaturan, satu tombol; di Pusat langsung berlaku.
+    const salin = /<form[^>]*data-salin-jadwal.*?<\/form>/.exec(html)?.[0] ?? "";
+    expect(salin).toContain("Salin jadwal ke beberapa toko");
+    expect(salin).toContain("Pengaturan yang sama langsung menjadi jadwal aktif setiap toko terpilih.");
+    expect(salin).toContain("Pilih semua toko");
+    expect(salin).toMatch(new RegExp(`type="checkbox"[^>]*value="${berjadwal.id}"`));
+    expect(salin).toMatch(new RegExp(`type="checkbox"[^>]*value="${tanpaJadwal.id}"`));
+    expect(salin).toContain("Hari kirim dan persiapan");
+    expect(salin).toContain("Terapkan ke toko terpilih");
   });
 
   it("operator Pusat tanpa kelola-usulan-jadwal melihat jadwal hanya-baca", async () => {
@@ -289,6 +299,13 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
     expect(html).toContain("Usulan berlaku setelah disetujui admin.");
     expect(html).toContain("Kirim usulan");
     expect(html).not.toContain("Atur jadwal toko");
+
+    // Salin jadwal (T57): di gudang selain Pusat setiap toko terpilih menjadi usulan tersendiri.
+    const salin = /<form[^>]*data-salin-jadwal.*?<\/form>/.exec(html)?.[0] ?? "";
+    expect(salin).toContain("Salin jadwal ke beberapa toko");
+    expect(salin).toContain("Setiap toko terpilih mendapat usulan tersendiri yang disetujui atau ditolak admin.");
+    for (const t of [menunggu, ditolak, tanpaUsulan]) expect(salin).toContain(t.nama);
+    expect(salin).toContain("Kirim usulan ke toko terpilih");
   });
 
   it("gudang selain Pusat: operator tanpa kelola-usulan-jadwal dan admin melihat status usulan hanya-baca", async () => {
