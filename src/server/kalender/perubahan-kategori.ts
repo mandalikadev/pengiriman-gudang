@@ -1,6 +1,6 @@
-import { and, asc, eq, isNull, max, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, max, or, sql } from "drizzle-orm";
 
-import type { KategoriDasar, TanggalBisnis } from "@/domain/kalender";
+import { parseTanggalBisnis, type KategoriDasar, type TanggalBisnis } from "@/domain/kalender";
 import { kategoriEfektif, type PerubahanKategori } from "@/domain/kategori";
 import { db } from "@/server/db";
 import { perubahanKategori, toko, user } from "@/server/db/schema";
@@ -178,4 +178,80 @@ export async function muatPerubahanKategoriTanggal(tanggal: TanggalBisnis): Prom
 /** Toko aktif untuk pilihan cakupan di form perubahan kategori. */
 export async function daftarTokoAktif(): Promise<{ id: number; nama: string }[]> {
   return db.select({ id: toko.id, nama: toko.nama }).from(toko).where(eq(toko.aktif, true)).orderBy(asc(toko.nama));
+}
+
+/** Kategori satu tanggal untuk cakupan yang sedang dilihat di Kalender (T43). */
+export type KategoriTanggalCakupan = {
+  kategoriEfektif: KategoriDasar;
+  /** Perubahan aktif yang menentukan kategori efektif, atau `null` bila kategori efektif = kategori dasar. */
+  perubahan: PerubahanKategoriBerlaku | null;
+};
+
+/**
+ * Kategori efektif setiap tanggal untuk satu cakupan tampilan Kalender (PRD B4). `idToko` `null` = "Semua toko": hanya
+ * perubahan seluruh toko yang dipakai. Satu toko: perubahan khusus toko itu → perubahan seluruh toko → kategori dasar.
+ * Perubahan khusus toko lain tidak pernah ikut dibaca. Urutannya ditentukan `kategoriEfektif` di domain.
+ */
+export async function muatKategoriEfektifCakupan(
+  daftarTanggal: readonly TanggalBisnis[],
+  idToko: number | null,
+): Promise<Map<TanggalBisnis, KategoriTanggalCakupan>> {
+  const hasil = new Map<TanggalBisnis, KategoriTanggalCakupan>();
+  if (daftarTanggal.length === 0) return hasil;
+
+  const baris = await db
+    .select({
+      id: perubahanKategori.id,
+      tanggal: perubahanKategori.tanggal,
+      idToko: perubahanKategori.tokoId,
+      namaToko: toko.nama,
+      kategoriSebelum: perubahanKategori.kategoriSebelum,
+      kategoriSesudah: perubahanKategori.kategoriSesudah,
+      alasan: perubahanKategori.alasan,
+      revisi: perubahanKategori.revisi,
+      dibuatOleh: user.name,
+      dibuatPada: perubahanKategori.dibuatPada,
+    })
+    .from(perubahanKategori)
+    .innerJoin(user, eq(user.id, perubahanKategori.dibuatOleh))
+    .leftJoin(toko, eq(toko.id, perubahanKategori.tokoId))
+    .where(
+      and(
+        inArray(perubahanKategori.tanggal, [...daftarTanggal]),
+        eq(perubahanKategori.status, "aktif"),
+        idToko === null ? isNull(perubahanKategori.tokoId) : or(isNull(perubahanKategori.tokoId), eq(perubahanKategori.tokoId, idToko)),
+      ),
+    )
+    .orderBy(asc(perubahanKategori.id));
+
+  const perId = new Map(baris.map((b) => [String(b.id), b]));
+  const daftar: PerubahanKategori[] = baris.map((b) => ({
+    id: String(b.id),
+    tanggal: parseTanggalBisnis(b.tanggal),
+    cakupan: b.idToko === null ? { jenis: "semua-toko" } : { jenis: "toko", toko: String(b.idToko) },
+    kategoriBaru: b.kategoriSesudah,
+    revisi: b.revisi,
+    status: "aktif",
+  }));
+
+  for (const tanggal of daftarTanggal) {
+    const { kategoriEfektif: kategori, sumberKategori } = kategoriEfektif(tanggal, idToko === null ? "" : String(idToko), daftar);
+    const sumber = perId.get(sumberKategori);
+    hasil.set(tanggal, {
+      kategoriEfektif: kategori,
+      perubahan: sumber
+        ? {
+            idToko: sumber.idToko,
+            namaToko: sumber.namaToko,
+            kategoriSebelum: sumber.kategoriSebelum,
+            kategoriSesudah: sumber.kategoriSesudah,
+            alasan: sumber.alasan,
+            revisi: sumber.revisi,
+            dibuatOleh: sumber.dibuatOleh,
+            dibuatPada: sumber.dibuatPada,
+          }
+        : null,
+    });
+  }
+  return hasil;
 }

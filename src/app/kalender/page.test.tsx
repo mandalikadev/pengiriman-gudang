@@ -298,3 +298,140 @@ describe("/kalender: perubahan kategori di detail tanggal (T42)", () => {
     expect(html).not.toMatch(/<form|<button|<input|<select|<textarea/);
   });
 });
+
+describe("/kalender: kategori efektif sesuai cakupan toko (T43, PRD B4, B6)", () => {
+  // Tahun 2427 (bukan data uji lain), tanggal berbeda dari blok T42 di atas karena database dipakai bersama satu putaran.
+  const selasa = parseTanggalBisnis("2427-05-04");
+  const rabu = parseTanggalBisnis("2427-05-05");
+  const kamis = parseTanggalBisnis("2427-05-06");
+
+  type Toko = { id: number; nama: string };
+  let tokoA: Toko;
+  let tokoB: Toko;
+  let tokoNonaktif: Toko;
+
+  beforeAll(async () => {
+    const idAdmin = (await buatPenggunaUji("admin")).id;
+    tokoA = await buatTokoUji();
+    tokoB = await buatTokoUji();
+    tokoNonaktif = await buatTokoUji({ aktif: false });
+    const isian = { idPengguna: idAdmin };
+    // Selasa: hanya perubahan khusus toko A.
+    await buatPerubahanKategori({ ...isian, tanggal: selasa, idToko: tokoA.id, kategoriBaru: "Minggu", alasan: "Promo" });
+    await revisiPerubahanKategori({ ...isian, tanggal: selasa, idToko: tokoA.id, kategoriBaru: "Sabtu", alasan: "Promo toko A" });
+    // Rabu: perubahan seluruh toko, lalu toko A punya perubahan sendiri.
+    await buatPerubahanKategori({ ...isian, tanggal: rabu, idToko: null, kategoriBaru: "Minggu", alasan: "Event seluruh toko" });
+    await buatPerubahanKategori({ ...isian, tanggal: rabu, idToko: tokoA.id, kategoriBaru: "Jumat", alasan: "Event khusus A" });
+    // Kamis: perubahan toko A yang sudah dibatalkan tidak berlaku.
+    await buatPerubahanKategori({ ...isian, tanggal: kamis, idToko: tokoA.id, kategoriBaru: "Sabtu", alasan: "Batal nanti" });
+    await batalkanPerubahanKategori({ ...isian, tanggal: kamis, idToko: tokoA.id, alasan: "Tidak jadi" });
+  });
+
+  const tampilan = (tanggal: string, toko?: Toko) => buka({ tanggal, ...(toko ? { toko: String(toko.id) } : {}) });
+
+  /** Tautan pemilih cakupan: teks → { href, terpilih }. */
+  function pemilihCakupan(html: string) {
+    const nav = /<nav[^>]*aria-label="Cakupan toko"[^>]*>(.*?)<\/nav>/.exec(html);
+    expect(nav, "pemilih cakupan").not.toBeNull();
+    return Object.fromEntries(
+      [...nav![1]!.matchAll(/<a ([^>]*)>(.*?)<\/a>/g)].map((m) => [
+        m[2]!.replace(/<[^>]+>/g, "").trim(),
+        { href: /href="([^"]*)"/.exec(m[1]!)?.[1]?.replaceAll("&amp;", "&"), terpilih: m[1]!.includes('aria-current="true"') },
+      ]),
+    );
+  }
+
+  it("perubahan khusus toko A tampil saat melihat toko A, dan tidak tampil saat melihat toko B atau Semua toko", async () => {
+    const lihatA = await tampilan(selasa, tokoA);
+    const selA = sel(lihatA, selasa);
+    expect(selA.tag).toContain('data-kategori-dasar="Senin–Kamis"');
+    expect(selA.tag).toContain('data-kategori-efektif="Sabtu"');
+    expect(selA.isi).toContain("Senin–Kamis");
+    expect(selA.isi).toContain("Efektif: Sabtu");
+    // Penanda perubahan: ikon + teks lewat BadgeStatus (DESIGN §7, T07).
+    expect(lihatA).toMatch(new RegExp(`data-tanggal="${selasa}".*?data-status="manual"[^>]*>.*?<svg[^>]*lucide-hand.*?Manual`));
+    const detailA = detail(lihatA)!.teks;
+    expect(detailA).toContain("Kategori dasar Senin–Kamis");
+    expect(detailA).toContain("Kategori efektif Sabtu");
+    expect(detailA).toContain(`Cakupan ${tokoA.nama}`);
+    expect(detailA).toContain("Alasan Promo toko A");
+    expect(detailA).toContain("Revisi 2");
+    expect(detailA).toMatch(/Oleh \S.*WIB/);
+    expect(detailA).toContain("Status Aktif");
+    expect(lihatA).toMatch(/data-detail-tanggal=.*?data-status="aktif"[^>]*>.*?<svg[^>]*lucide-circle-check.*?Aktif/);
+
+    for (const html of [await tampilan(selasa, tokoB), await tampilan(selasa)]) {
+      const s = sel(html, selasa);
+      expect(s.tag).toContain('data-kategori-efektif="Senin–Kamis"');
+      expect(s.isi).not.toContain("Efektif:");
+      expect(s.isi).not.toContain("Manual");
+      const d = detail(html)!.teks;
+      expect(d).toContain("Kategori efektif Senin–Kamis");
+      expect(d).not.toContain("Promo toko A");
+      expect(d).not.toContain(tokoA.nama);
+      expect(html).not.toContain("Promo toko A");
+    }
+  });
+
+  it("urutan cakupan: toko A memakai perubahannya sendiri, toko B dan Semua toko memakai perubahan seluruh toko", async () => {
+    const lihatA = await tampilan(rabu, tokoA);
+    expect(sel(lihatA, rabu).tag).toContain('data-kategori-efektif="Jumat"');
+    expect(detail(lihatA)!.teks).toContain("Alasan Event khusus A");
+
+    for (const html of [await tampilan(rabu, tokoB), await tampilan(rabu)]) {
+      expect(sel(html, rabu).tag).toContain('data-kategori-efektif="Minggu"');
+      expect(sel(html, rabu).isi).toContain("Efektif: Minggu");
+      const d = detail(html)!.teks;
+      expect(d).toContain("Cakupan Seluruh toko");
+      expect(d).toContain("Alasan Event seluruh toko");
+      expect(d).not.toContain("Event khusus A");
+    }
+  });
+
+  it("perubahan yang dibatalkan tidak menandai tanggal", async () => {
+    const html = await tampilan(kamis, tokoA);
+    expect(sel(html, kamis).tag).toContain('data-kategori-efektif="Senin–Kamis"');
+    expect(sel(html, kamis).isi).not.toContain("Manual");
+    expect(detail(html)!.teks).not.toContain("Batal nanti");
+  });
+
+  it("posisi minggu dan bulan laporan tidak berubah oleh kategori efektif (PRD B6: Selasa 30-06-2026 → Jumat tetap Juli Minggu 1)", async () => {
+    const idAdmin = (await buatPenggunaUji("admin")).id;
+    const tokoC = await buatTokoUji();
+    await buatPerubahanKategori({ tanggal: parseTanggalBisnis("2026-06-30"), idToko: tokoC.id, kategoriBaru: "Jumat", alasan: "Contoh B6", idPengguna: idAdmin });
+
+    const html = await tampilan("2026-06-30", tokoC);
+    expect(sel(html, "2026-06-30").tag).toContain('data-kategori-efektif="Jumat"');
+    // Baris 29-06 s.d. 05-07: Senin–Kamis ikut Kamis 2 Juli, Jumat–Minggu 3–5 Juli; semuanya Juli Minggu 1 (PRD B5).
+    const label = labelMinggu(html).filter((l) => l.dari <= "2026-06-30" && "2026-06-30" <= l.sampai);
+    expect(label).toEqual([
+      { dari: "2026-06-29", sampai: "2026-07-05", bulanLaporan: "2026-07", mingguLaporan: "1", teks: "Minggu 1 · Juli 2026" },
+    ]);
+    const d = detail(html)!.teks;
+    expect(d).toContain("Kategori dasar Senin–Kamis");
+    expect(d).toContain("Kategori efektif Jumat");
+    expect(d).toContain("Bulan laporan Juli 2026");
+    expect(d).toContain("Minggu laporan Minggu 1");
+  });
+
+  it("pemilih cakupan: Semua toko dan setiap toko aktif, sebagai tautan yang mempertahankan bulan dan tanggal", async () => {
+    const html = await buka({ bulan: "2427-05", tanggal: selasa, toko: String(tokoA.id) });
+    const pemilih = pemilihCakupan(html);
+    expect(pemilih["Semua toko"]).toEqual({ href: `/kalender?bulan=2427-05&tanggal=${selasa}`, terpilih: false });
+    expect(pemilih[tokoA.nama]).toEqual({ href: `/kalender?bulan=2427-05&tanggal=${selasa}&toko=${tokoA.id}`, terpilih: true });
+    expect(pemilih[tokoB.nama]).toEqual({ href: `/kalender?bulan=2427-05&tanggal=${selasa}&toko=${tokoB.id}`, terpilih: false });
+    expect(pemilih[tokoNonaktif.nama]).toBeUndefined();
+    // Navigasi bulan dan pilihan tanggal tetap di cakupan yang sama.
+    expect(html).toContain(`href="/kalender?bulan=2427-06&amp;toko=${tokoA.id}"`);
+    expect(html).toContain(`href="/kalender?bulan=2427-05&amp;tanggal=${rabu}&amp;toko=${tokoA.id}"`);
+    expect(html).not.toMatch(/<form|<button|<input|<select|<textarea/);
+  });
+
+  it("tanpa parameter atau toko tidak dikenal/nonaktif: cakupan Semua toko", async () => {
+    for (const toko of [undefined, "abc", "0", String(tokoNonaktif.id)]) {
+      const html = await buka({ tanggal: selasa, ...(toko ? { toko } : {}) });
+      expect(pemilihCakupan(html)["Semua toko"]?.terpilih).toBe(true);
+      expect(sel(html, selasa).tag).toContain('data-kategori-efektif="Senin–Kamis"');
+    }
+  });
+});

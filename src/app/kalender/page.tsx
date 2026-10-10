@@ -1,15 +1,22 @@
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { formatBulanImpor, formatWaktu, tanggalWib } from "@/app/admin/impor/format";
 import { labelJenisLibur } from "@/app/admin/libur/format";
+import { BadgeStatus } from "@/components/badge-status";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, kisiBulan, parseTanggalBisnis, posisiLaporan, type TanggalBisnis } from "@/domain/kalender";
 import { cn } from "@/lib/utils";
 import { wajibMasuk } from "@/server/auth/kewenangan";
-import { daftarTokoAktif, muatPerubahanKategoriTanggal } from "@/server/kalender/perubahan-kategori";
+import {
+  daftarTokoAktif,
+  muatKategoriEfektifCakupan,
+  muatPerubahanKategoriTanggal,
+  type KategoriTanggalCakupan,
+} from "@/server/kalender/perubahan-kategori";
 import { muatLiburAktif, type LiburAktif } from "@/server/libur/libur-aktif";
 
 import { PerubahanKategoriTanggal, type DataPerubahanBerlaku } from "./form-perubahan-kategori";
@@ -20,6 +27,9 @@ export const metadata: Metadata = {
 
 type ParameterUrl = Record<string, string | string[] | undefined>;
 type Bulan = { tahun: number; bulan: number };
+type Toko = { id: number; nama: string };
+/** Cakupan tampilan Kalender: `null` = "Semua toko". */
+type CakupanToko = Toko | null;
 
 const NAMA_KOLOM = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"] as const;
 
@@ -63,10 +73,17 @@ function geserBulan({ tahun, bulan }: Bulan, arah: -1 | 1): Bulan {
   return { tahun, bulan: bulan + arah };
 }
 
-function urlKalender(bulan: Bulan, tanggal?: TanggalBisnis) {
+function urlKalender(bulan: Bulan, cakupan: CakupanToko, tanggal?: TanggalBisnis | null) {
   const parameter = new URLSearchParams({ bulan: kodeBulan(bulan) });
   if (tanggal) parameter.set("tanggal", tanggal);
+  if (cakupan) parameter.set("toko", String(cakupan.id));
   return `/kalender?${parameter.toString()}`;
+}
+
+/** Toko aktif yang id-nya ada di parameter `toko`, atau `null` ("Semua toko") bila tidak ada atau tidak dikenal. */
+function bacaCakupan(teks: string | undefined, daftarToko: readonly Toko[]): CakupanToko {
+  if (teks === undefined || !/^\d+$/.test(teks)) return null;
+  return daftarToko.find((t) => String(t.id) === teks) ?? null;
 }
 
 /** `2026-05` → `Mei 2026`. */
@@ -95,13 +112,13 @@ function kelompokMinggu(baris: TanggalBisnis[]): KelompokMinggu[] {
   return hasil;
 }
 
-function Navigasi({ bulan }: { bulan: Bulan }) {
+function Navigasi({ bulan, cakupan }: { bulan: Bulan; cakupan: CakupanToko }) {
   const tautan = [
-    { href: urlKalender({ ...bulan, tahun: bulan.tahun - 1 }), label: "Tahun sebelumnya", Ikon: ChevronsLeft },
-    { href: urlKalender(geserBulan(bulan, -1)), label: "Bulan sebelumnya", Ikon: ChevronLeft },
-    { href: "/kalender", label: "Bulan ini", Ikon: null },
-    { href: urlKalender(geserBulan(bulan, 1)), label: "Bulan berikutnya", Ikon: ChevronRight },
-    { href: urlKalender({ ...bulan, tahun: bulan.tahun + 1 }), label: "Tahun berikutnya", Ikon: ChevronsRight },
+    { href: urlKalender({ ...bulan, tahun: bulan.tahun - 1 }, cakupan), label: "Tahun sebelumnya", Ikon: ChevronsLeft },
+    { href: urlKalender(geserBulan(bulan, -1), cakupan), label: "Bulan sebelumnya", Ikon: ChevronLeft },
+    { href: cakupan ? `/kalender?toko=${cakupan.id}` : "/kalender", label: "Bulan ini", Ikon: null },
+    { href: urlKalender(geserBulan(bulan, 1), cakupan), label: "Bulan berikutnya", Ikon: ChevronRight },
+    { href: urlKalender({ ...bulan, tahun: bulan.tahun + 1 }, cakupan), label: "Tahun berikutnya", Ikon: ChevronsRight },
   ];
   return (
     <nav aria-label="Navigasi bulan dan tahun">
@@ -119,20 +136,67 @@ function Navigasi({ bulan }: { bulan: Bulan }) {
   );
 }
 
+/**
+ * Pemilih cakupan (PRD B4): "Semua toko" hanya memakai perubahan seluruh toko; satu toko memakai perubahan khusus toko
+ * itu → perubahan seluruh toko → kategori dasar. Berupa tautan (navigasi tampilan), bukan kontrol ubah.
+ */
+function PemilihCakupan({
+  bulan,
+  tanggal,
+  cakupan,
+  daftarToko,
+}: {
+  bulan: Bulan;
+  tanggal: TanggalBisnis | null;
+  cakupan: CakupanToko;
+  daftarToko: readonly Toko[];
+}) {
+  const pilihan: { kunci: string; label: string; nilai: CakupanToko }[] = [
+    { kunci: "semua", label: "Semua toko", nilai: null },
+    ...daftarToko.map((t) => ({ kunci: String(t.id), label: t.nama, nilai: t })),
+  ];
+  return (
+    <nav aria-label="Cakupan toko" className="flex flex-col gap-2">
+      <p className="font-semibold">Cakupan toko</p>
+      <ul className="flex flex-wrap gap-1">
+        {pilihan.map(({ kunci, label, nilai }) => {
+          const terpilih = (nilai?.id ?? null) === (cakupan?.id ?? null);
+          return (
+            <li key={kunci}>
+              <Link
+                href={urlKalender(bulan, nilai, tanggal)}
+                aria-current={terpilih ? "true" : undefined}
+                className={cn(kelasTautan, "break-all", terpilih && "bg-accent text-accent-foreground hover:bg-accent")}
+              >
+                {label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
 function SelTanggal({
   tanggal,
   bulan,
   hariIni,
   terpilih,
   libur,
+  cakupan,
+  kategori,
 }: {
   tanggal: TanggalBisnis;
   bulan: Bulan;
   hariIni: boolean;
   terpilih: boolean;
   libur: LiburAktif | undefined;
+  cakupan: CakupanToko;
+  kategori: KategoriTanggalCakupan | undefined;
 }) {
   const { kategoriDasar } = posisiLaporan(tanggal);
+  const kategoriEfektif = kategori?.kategoriEfektif ?? kategoriDasar;
   const diLuarBulan = kodeBulan(bulanDari(tanggal)) !== kodeBulan(bulan);
   // DESIGN §2: teks di atas latar accent memakai accent-foreground, bukan muted-foreground/primary.
   const teksSekunder = terpilih ? "text-accent-foreground" : "text-muted-foreground";
@@ -140,6 +204,7 @@ function SelTanggal({
     <TableCell
       data-tanggal={tanggal}
       data-kategori-dasar={kategoriDasar}
+      data-kategori-efektif={kategoriEfektif}
       className={cn(
         "h-24 min-w-28 p-0 align-top whitespace-normal",
         terpilih && "bg-accent text-accent-foreground",
@@ -147,7 +212,7 @@ function SelTanggal({
       )}
     >
       <Link
-        href={urlKalender(bulan, tanggal)}
+        href={urlKalender(bulan, cakupan, tanggal)}
         aria-current={hariIni ? "date" : undefined}
         className="flex h-full min-h-24 flex-col gap-1 p-2 transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
       >
@@ -156,6 +221,13 @@ function SelTanggal({
           {Number(tanggal.slice(8, 10))}
         </span>
         <span className={cn("text-xs", teksSekunder)}>{kategoriDasar}</span>
+        {kategoriEfektif !== kategoriDasar ? (
+          <span className="text-xs font-semibold">Efektif: {kategoriEfektif}</span>
+        ) : null}
+        {kategori?.perubahan ? (
+          // Penanda perubahan kategori manual untuk cakupan yang dilihat (DESIGN §7: ikon + teks lewat BadgeStatus).
+          <BadgeStatus status="manual" className="self-start" title="Kategori diubah admin untuk cakupan ini" />
+        ) : null}
         {libur ? (
           // Informasi libur dari snapshot aktif; kategori di atasnya tetap kategori dasar (PRD B4).
           <span className="text-xs font-semibold" data-libur={libur.jenis}>
@@ -178,12 +250,16 @@ function KisiBulan({
   hariIni,
   terpilih,
   libur,
+  cakupan,
+  kategori,
 }: {
   bulan: Bulan;
   kisi: TanggalBisnis[][];
   hariIni: TanggalBisnis;
   terpilih: TanggalBisnis | null;
   libur: Map<string, LiburAktif>;
+  cakupan: CakupanToko;
+  kategori: Map<TanggalBisnis, KategoriTanggalCakupan>;
 }) {
   return (
     <Table className="table-fixed">
@@ -225,6 +301,8 @@ function KisiBulan({
                 hariIni={tanggal === hariIni}
                 terpilih={tanggal === terpilih}
                 libur={libur.get(tanggal)}
+                cakupan={cakupan}
+                kategori={kategori.get(tanggal)}
               />
             ))}
           </TableRow>
@@ -234,7 +312,30 @@ function KisiBulan({
   );
 }
 
-function DetailTanggal({ tanggal, libur }: { tanggal: TanggalBisnis | null; libur: LiburAktif | undefined }) {
+function DaftarIsian({ isian }: { isian: [string, ReactNode][] }) {
+  return (
+    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+      {isian.map(([label, nilai]) => (
+        <div key={label} className="contents">
+          <dt className="text-muted-foreground">{label}</dt>
+          <dd className="font-semibold break-words">{nilai}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function DetailTanggal({
+  tanggal,
+  libur,
+  cakupan,
+  kategori,
+}: {
+  tanggal: TanggalBisnis | null;
+  libur: LiburAktif | undefined;
+  cakupan: CakupanToko;
+  kategori: KategoriTanggalCakupan | undefined;
+}) {
   if (!tanggal) {
     return (
       <Card>
@@ -246,7 +347,8 @@ function DetailTanggal({ tanggal, libur }: { tanggal: TanggalBisnis | null; libu
     );
   }
   const posisi = posisiLaporan(tanggal);
-  const isian: [string, string][] = [
+  const perubahan = kategori?.perubahan ?? null;
+  const isian: [string, ReactNode][] = [
     ["Tanggal sebenarnya", formatTanggal(tanggal)],
     ...(libur
       ? ([
@@ -254,10 +356,22 @@ function DetailTanggal({ tanggal, libur }: { tanggal: TanggalBisnis | null; libu
           ["Jenis libur", labelJenisLibur(libur.jenis)],
         ] satisfies [string, string][])
       : []),
+    ["Cakupan tampilan", cakupan?.nama ?? "Semua toko"],
     ["Kategori dasar", posisi.kategoriDasar],
+    ["Kategori efektif", kategori?.kategoriEfektif ?? posisi.kategoriDasar],
+    // Posisi laporan selalu dari tanggal asli (PRD B6), tidak dari kategori efektif.
     ["Bulan laporan", labelBulanLaporan(posisi.bulanLaporan)],
     ["Minggu laporan", `Minggu ${posisi.mingguLaporan}`],
   ];
+  const isianPerubahan: [string, ReactNode][] = perubahan
+    ? [
+        ["Cakupan", perubahan.namaToko ?? "Seluruh toko"],
+        ["Alasan", perubahan.alasan],
+        ["Oleh", `${perubahan.dibuatOleh}, ${formatWaktu(perubahan.dibuatPada)}`],
+        ["Revisi", String(perubahan.revisi)],
+        ["Status", <BadgeStatus key="status" status="aktif" />],
+      ]
+    : [];
   return (
     <section data-detail-tanggal={tanggal} aria-labelledby="judul-detail-tanggal">
       <Card>
@@ -265,14 +379,13 @@ function DetailTanggal({ tanggal, libur }: { tanggal: TanggalBisnis | null; libu
           <CardTitle id="judul-detail-tanggal">Detail tanggal</CardTitle>
         </CardHeader>
         <CardContent>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-            {isian.map(([label, nilai]) => (
-              <div key={label} className="contents">
-                <dt className="text-muted-foreground">{label}</dt>
-                <dd className="font-semibold">{nilai}</dd>
-              </div>
-            ))}
-          </dl>
+          <DaftarIsian isian={isian} />
+          {perubahan ? (
+            <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4">
+              <h3 className="font-semibold">Perubahan kategori</h3>
+              <DaftarIsian isian={isianPerubahan} />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </section>
@@ -299,6 +412,8 @@ export default async function HalamanKalender({ searchParams }: { searchParams: 
   // Non-admin tidak mendapat kontrol ubah apa pun; aksi perubahan kategori diperiksa lagi di server.
   const pengguna = await wajibMasuk();
   const parameter = await searchParams;
+  const daftarToko = await daftarTokoAktif();
+  const cakupan = bacaCakupan(teksPertama(parameter.toko), daftarToko);
 
   const hariIni = tanggalWib(new Date());
   const tanggalUrl = bacaTanggal(teksPertama(parameter.tanggal));
@@ -306,7 +421,11 @@ export default async function HalamanKalender({ searchParams }: { searchParams: 
   const hariIniDiBulan = kodeBulan(bulanDari(hariIni)) === kodeBulan(bulan);
   const terpilih = tanggalUrl ?? (hariIniDiBulan ? hariIni : null);
   const kisi = kisiBulan(bulan.tahun, bulan.bulan);
-  const libur = await muatLiburAktif([...kisi.flat(), ...(terpilih ? [terpilih] : [])]);
+  const tanggalTampil = [...kisi.flat(), ...(terpilih ? [terpilih] : [])];
+  const [libur, kategori] = await Promise.all([
+    muatLiburAktif(tanggalTampil),
+    muatKategoriEfektifCakupan(tanggalTampil, cakupan?.id ?? null),
+  ]);
   const dataPerubahan = pengguna.peran === "admin" && terpilih ? await muatDataPerubahan(terpilih) : null;
 
   return (
@@ -316,19 +435,35 @@ export default async function HalamanKalender({ searchParams }: { searchParams: 
         <p className="text-muted-foreground">
           Kategori dasar setiap tanggal dan minggu laporannya. Label di atas setiap baris menunjukkan minggu dan bulan
           laporan; satu baris bisa memiliki dua label. Nama dan jenis libur berasal dari daftar libur aktif dan hanya
-          informasi: libur tidak mengubah kategori.
+          informasi: libur tidak mengubah kategori. Penanda Manual berarti admin mengubah kategori tanggal itu untuk
+          cakupan toko yang dilihat; kategori efektif dipakai untuk menghitung, sedangkan bulan dan minggu laporan tetap.
         </p>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-xl font-semibold">{formatBulanImpor(bulan.tahun, bulan.bulan)}</h2>
-        <Navigasi bulan={bulan} />
+        <Navigasi bulan={bulan} cakupan={cakupan} />
       </div>
 
+      <PemilihCakupan bulan={bulan} tanggal={tanggalUrl} cakupan={cakupan} daftarToko={daftarToko} />
+
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
-        <KisiBulan bulan={bulan} kisi={kisi} hariIni={hariIni} terpilih={terpilih} libur={libur} />
+        <KisiBulan
+          bulan={bulan}
+          kisi={kisi}
+          hariIni={hariIni}
+          terpilih={terpilih}
+          libur={libur}
+          cakupan={cakupan}
+          kategori={kategori}
+        />
         <div className="flex flex-col gap-6">
-          <DetailTanggal tanggal={terpilih} libur={terpilih ? libur.get(terpilih) : undefined} />
+          <DetailTanggal
+            tanggal={terpilih}
+            libur={terpilih ? libur.get(terpilih) : undefined}
+            cakupan={cakupan}
+            kategori={terpilih ? kategori.get(terpilih) : undefined}
+          />
           {terpilih && dataPerubahan ? (
             <PerubahanKategoriTanggal
               tanggal={terpilih}
