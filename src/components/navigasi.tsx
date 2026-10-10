@@ -26,6 +26,7 @@ const itemAdmin = [
   { href: "/admin/libur", label: "Libur" },
   { href: "/admin/keluarga-aroma", label: "Keluarga aroma" },
   { href: "/admin/pemetaan-produk", label: "Pemetaan produk" },
+  { href: "/admin/ranking", label: "Ranking" },
 ];
 
 const fokusTerlihat =

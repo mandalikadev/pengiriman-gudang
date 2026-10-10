@@ -22,7 +22,7 @@ type JenisErrorRanking =
   | "qty-sales-tidak-valid"
   | "qty-sales-negatif";
 
-type ErrorRanking = {
+export type ErrorRanking = {
   jenis: JenisErrorRanking;
   /** Nomor baris Excel (1 = header); `null` jika error tidak menunjuk satu baris. */
   baris: number | null;
