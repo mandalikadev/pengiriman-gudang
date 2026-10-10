@@ -81,10 +81,11 @@ export async function muatPemetaanProduk(filterStatus: StatusKeluargaAroma | nul
   const semuaKeluarga = await db.select().from(keluargaAroma).orderBy(asc(keluargaAroma.nama), asc(keluargaAroma.id));
   const keluargaPerId = new Map(semuaKeluarga.map((k) => [k.id, { id: k.id, nama: k.nama }]));
   const idKeluargaAktif = new Set(semuaKeluarga.filter((k) => k.aktif).map((k) => k.id));
-  const daftarSegmen = (await db.select().from(segmenKodeKeluargaAroma)).map((s) => ({
-    segmen: s.segmen,
-    keluarga: s.keluargaId,
-  }));
+  // Usulan hanya dari segmen milik keluarga aktif: kode yang juga cocok ke segmen keluarga nonaktif tetap mendapat
+  // usulan keluarga aktifnya (PRD A6 ▶ Keputusan 2026-10-10, T67; issue T70).
+  const daftarSegmenAktif = (await db.select().from(segmenKodeKeluargaAroma))
+    .filter((s) => idKeluargaAktif.has(s.keluargaId))
+    .map((s) => ({ segmen: s.segmen, keluarga: s.keluargaId }));
 
   const jumlah = await db
     .select({ status: produk.statusKeluargaAroma, jumlah: count() })
@@ -108,9 +109,7 @@ export async function muatPemetaanProduk(filterStatus: StatusKeluargaAroma | nul
     .orderBy(asc(produk.kode));
 
   const baris = semuaProduk.map((p): BarisPemetaanProduk => {
-    const idCocok = p.status === "belum-dipetakan" ? usulkanKeluargaAroma(p.kode, daftarSegmen) : null;
-    // Keluarga nonaktif tidak diusulkan: usulan juga pilihan untuk pemetaan baru.
-    const idUsulan = idCocok !== null && idKeluargaAktif.has(idCocok) ? idCocok : null;
+    const idUsulan = p.status === "belum-dipetakan" ? usulkanKeluargaAroma(p.kode, daftarSegmenAktif) : null;
     return {
       kode: p.kode,
       nama: p.nama,
