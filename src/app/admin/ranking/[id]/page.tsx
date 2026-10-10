@@ -12,7 +12,7 @@ import { muatTinjauRanking, type DataTinjauRanking } from "@/server/ranking/rank
 
 import { formatAngka, formatWaktu } from "../../impor/format";
 import { formatVersiRanking } from "../format";
-import { BadgeStatusRanking, BadgeTidakCocok } from "../status-ranking";
+import { BadgeKeluargaGanda, BadgeKeluargaNonaktif, BadgeStatusRanking, BadgeTidakCocok } from "../status-ranking";
 import { TombolCocokkanUlang, TombolPublikasikan } from "./tombol-ranking";
 
 export const metadata: Metadata = {
@@ -93,6 +93,42 @@ function BarisTidakCocok({ data }: { data: DataTinjauRanking }) {
   );
 }
 
+/** Satu keluarga aroma hanya boleh di satu baris ranking; keluarga ganda menahan publikasi (PRD A6 ▶ 2026-10-10). */
+function KeluargaGanda({ data }: { data: DataTinjauRanking }) {
+  if (data.keluargaGanda.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-4">
+      <h2 className="text-xl font-semibold">Keluarga aroma ganda</h2>
+      <p>
+        {formatAngka(data.keluargaGanda.length)} keluarga aroma muncul di lebih dari satu baris dan menahan publikasi.
+        Perbaiki aliasnya di halaman Keluarga aroma, lalu tekan Cocokkan ulang.
+      </p>
+      <ul className="flex flex-col gap-2" aria-label="Keluarga aroma ganda">
+        {data.keluargaGanda.map((k) => (
+          <li key={k.keluarga.id} className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold">{k.keluarga.nama}</span>
+            <BadgeKeluargaGanda />
+            <span>{k.baris.map((b) => `RANK ${b.rank} (${b.variant})`).join(", ")}</span>
+          </li>
+        ))}
+      </ul>
+      <Link href="/admin/keluarga-aroma" className={kelasTautan}>
+        Buka Keluarga aroma
+      </Link>
+    </section>
+  );
+}
+
+function KolomKeluarga({ keluarga }: { keluarga: DataTinjauRanking["baris"][number]["keluarga"] }) {
+  if (!keluarga) return <BadgeTidakCocok />;
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      {keluarga.nama}
+      {keluarga.aktif ? null : <BadgeKeluargaNonaktif />}
+    </span>
+  );
+}
+
 function TabelBaris({ judul, baris }: { judul: string; baris: DataTinjauRanking["baris"] }) {
   return (
     <Table aria-label={judul}>
@@ -110,7 +146,9 @@ function TabelBaris({ judul, baris }: { judul: string; baris: DataTinjauRanking[
             <TableCell className="text-right tabular-nums">{b.rank}</TableCell>
             <TableCell className="font-semibold whitespace-normal">{b.variant}</TableCell>
             <TableCell className="text-right tabular-nums">{formatAngka(b.qtySales)}</TableCell>
-            <TableCell className="whitespace-normal">{b.keluarga ? b.keluarga.nama : <BadgeTidakCocok />}</TableCell>
+            <TableCell className="whitespace-normal">
+              <KolomKeluarga keluarga={b.keluarga} />
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -185,6 +223,7 @@ export default async function HalamanTinjauRanking({ params }: { params: Promise
       ) : (
         <>
           <BarisTidakCocok data={data} />
+          <KeluargaGanda data={data} />
           <section className="flex flex-col gap-4">
             <h2 className="text-xl font-semibold">Tujuh besar</h2>
             <p className="text-muted-foreground">RANK 1–7 persis seperti di file.</p>

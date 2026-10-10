@@ -11,7 +11,7 @@ import { db } from "@/server/db";
 import { aliasKeluargaAroma, barisRanking, keluargaAroma, versiRanking } from "@/server/db/schema";
 import { pastikanBucket } from "@/server/impor/penyimpanan";
 import { buatWorkbookUji } from "@/server/impor/uji-bantu";
-import { rankingBerlaku } from "@/server/ranking/ranking";
+import { muatTinjauRanking, rankingBerlaku } from "@/server/ranking/ranking";
 
 const kepala = vi.hoisted(() => ({ cookie: "", muatUlangGagal: false }));
 vi.mock("next/headers", () => ({
@@ -195,6 +195,66 @@ describe("unggah → tinjau → publikasi (PRD A6 ▶ OD-05)", () => {
 
     expect(await publikasikanRanking({ idVersi })).toEqual({ keadaan: "berhasil" });
     expect((await rankingBerlaku())?.tujuhBesar[2]).toEqual({ rank: 3, variant: asing, keluarga });
+  });
+
+  it("baris yang cocok ke keluarga aroma nonaktif → ditandai peringatan di tinjau, tetapi tetap bisa dipublikasikan (PRD A6 ▶ 2026-10-10)", async () => {
+    await pastikanAliasGolden();
+    const nama = `NONAKTIF UJI ${randomUUID().slice(0, 8).toUpperCase()}`;
+    const [nonaktif] = await db.insert(keluargaAroma).values({ nama, aktif: false }).returning();
+    await db.insert(aliasKeluargaAroma).values({ keluargaId: nonaktif.id, alias: nama });
+    const idVersi = await unggahDanDaftarkan(workbookGolden({ 4: nama }));
+
+    const tinjau = await muatTinjauRanking(idVersi);
+    expect(tinjau!.baris[3]).toEqual({ rank: 4, variant: nama, qtySales: golden.baris[3].qtySales, keluarga: { id: nonaktif.id, nama, aktif: false } });
+    expect(tinjau!.baris.filter((b) => b.keluarga?.aktif === false).map((b) => b.rank)).toEqual([4]);
+    expect(tinjau!.alasanTidakBisaDipublikasikan).toBeNull();
+
+    expect(await publikasikanRanking({ idVersi })).toEqual({ keadaan: "berhasil" });
+    expect((await rankingBerlaku())?.tujuhBesar[3]).toEqual({ rank: 4, variant: nama, keluarga: { id: nonaktif.id, nama } });
+  });
+
+  it("dua baris cocok ke keluarga aroma yang sama → publikasi ditahan dengan nama keluarga dan baris-barisnya (PRD A6 ▶ 2026-10-10)", async () => {
+    await pastikanAliasGolden();
+    const k = randomUUID().slice(0, 8).toUpperCase();
+    const nama = `GANDA ${k}`;
+    const [keluarga] = await db.insert(keluargaAroma).values({ nama }).returning();
+    await db.insert(aliasKeluargaAroma).values([
+      { keluargaId: keluarga.id, alias: `GANDA A ${k}` },
+      { keluargaId: keluarga.id, alias: `GANDA B ${k}` },
+    ]);
+    const idVersi = await unggahDanDaftarkan(workbookGolden({ 2: `GANDA A ${k}`, 5: `GANDA B ${k}` }));
+    const berlakuSebelum = await rankingBerlaku();
+    const pesan = `Tidak bisa dipublikasikan: satu keluarga aroma hanya boleh muncul di satu baris ranking. ${nama} muncul di RANK 2 (GANDA A ${k}) dan RANK 5 (GANDA B ${k}). Perbaiki aliasnya di halaman Keluarga aroma, lalu cocokkan ulang.`;
+
+    const tinjau = await muatTinjauRanking(idVersi);
+    expect(tinjau!.keluargaGanda).toEqual([
+      { keluarga: { id: keluarga.id, nama, aktif: true }, baris: [{ rank: 2, variant: `GANDA A ${k}` }, { rank: 5, variant: `GANDA B ${k}` }] },
+    ]);
+    expect(tinjau!.alasanTidakBisaDipublikasikan).toBe(pesan);
+
+    expect(await publikasikanRanking({ idVersi })).toEqual({ keadaan: "gagal", pesan });
+    expect(await statusVersi(idVersi)).toEqual({ [idVersi]: "draft" });
+    expect((await rankingBerlaku())?.idVersi).toBe(berlakuSebelum?.idVersi);
+  });
+
+  it("keluarga ganda yang muncul karena alias ditambah setelah ditinjau tetap ditahan di dalam transaksi publikasi", async () => {
+    await pastikanAliasGolden();
+    const k = randomUUID().slice(0, 8).toUpperCase();
+    const nama = `GANDA ${k}`;
+    const [keluarga] = await db.insert(keluargaAroma).values({ nama }).returning();
+    await db.insert(aliasKeluargaAroma).values({ keluargaId: keluarga.id, alias: `GANDA A ${k}` });
+    const idVersi = await unggahDanDaftarkan(workbookGolden({ 1: `GANDA A ${k}`, 9: `GANDA B ${k}`, 12: `GANDA C ${k}` }));
+
+    // Saat ditinjau, RANK 9 dan 12 belum cocok. Alias ditambah ke keluarga yang sama tanpa mencocokkan ulang.
+    await db.insert(aliasKeluargaAroma).values([
+      { keluargaId: keluarga.id, alias: `GANDA B ${k}` },
+      { keluargaId: keluarga.id, alias: `GANDA C ${k}` },
+    ]);
+    expect(await publikasikanRanking({ idVersi })).toEqual({
+      keadaan: "gagal",
+      pesan: `Tidak bisa dipublikasikan: satu keluarga aroma hanya boleh muncul di satu baris ranking. ${nama} muncul di RANK 1 (GANDA A ${k}), RANK 9 (GANDA B ${k}), dan RANK 12 (GANDA C ${k}). Perbaiki aliasnya di halaman Keluarga aroma, lalu cocokkan ulang.`,
+    });
+    expect(await statusVersi(idVersi)).toEqual({ [idVersi]: "draft" });
   });
 
   it.each(golden.kasusError)("file dengan error validasi ($nama) → draft dengan error $jenis, tidak bisa dipublikasikan", async (kasus) => {

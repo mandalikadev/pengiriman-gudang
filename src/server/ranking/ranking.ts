@@ -37,6 +37,27 @@ type Klien = typeof db | Tx;
 export type HasilGagal = { keadaan: "gagal"; pesan: string };
 
 type Keluarga = { id: number; nama: string };
+type KeluargaTinjau = Keluarga & { aktif: boolean };
+
+/** Satu keluarga aroma yang cocok dengan lebih dari satu baris ranking (menahan publikasi, PRD A6 ▶ 2026-10-10). */
+export type KeluargaGanda = { keluarga: KeluargaTinjau; baris: { rank: number; variant: string }[] };
+
+/** Keluarga yang muncul di lebih dari satu baris, urut rank baris pertamanya; `baris` diharapkan urut rank. */
+function cariKeluargaGanda(baris: readonly { rank: number; variant: string; keluarga: KeluargaTinjau | null }[]): KeluargaGanda[] {
+  const perKeluarga = new Map<number, KeluargaGanda>();
+  for (const b of baris) {
+    if (b.keluarga === null) continue;
+    const kelompok = perKeluarga.get(b.keluarga.id) ?? { keluarga: b.keluarga, baris: [] };
+    kelompok.baris.push({ rank: b.rank, variant: b.variant });
+    perKeluarga.set(b.keluarga.id, kelompok);
+  }
+  return [...perKeluarga.values()].filter((k) => k.baris.length > 1);
+}
+
+function gabungDaftar(teks: readonly string[]) {
+  if (teks.length <= 2) return teks.join(" dan ");
+  return `${teks.slice(0, -1).join(", ")}, dan ${teks.at(-1)}`;
+}
 
 /** Kunci objek baru di storage untuk satu unggahan file ranking. */
 export function kunciObjekRankingBaru() {
@@ -50,10 +71,11 @@ export function kodeBulanRanking(tahun: number, bulan: number) {
 
 async function daftarAlias(klien: Klien) {
   const baris = await klien
-    .select({ alias: aliasKeluargaAroma.alias, id: keluargaAroma.id })
+    .select({ alias: aliasKeluargaAroma.alias, id: keluargaAroma.id, nama: keluargaAroma.nama, aktif: keluargaAroma.aktif })
     .from(aliasKeluargaAroma)
     .innerJoin(keluargaAroma, eq(keluargaAroma.id, aliasKeluargaAroma.keluargaId));
-  return baris.map((b) => ({ alias: b.alias, keluarga: b.id }));
+  // Keluarga nonaktif tetap boleh dicocokkan (PRD A6 ▶ 2026-10-10); di halaman tinjau barisnya diberi peringatan.
+  return baris.map((b) => ({ alias: b.alias, keluarga: { id: b.id, nama: b.nama, aktif: b.aktif } }));
 }
 
 type MasukanDaftar = { kunci: string; namaFile: string; bulanRanking: string; idPengguna: string };
@@ -109,7 +131,7 @@ export async function daftarkanRanking(masukan: MasukanDaftar): Promise<{ keadaa
           rank: b.rank,
           variant: b.variant,
           qtySales: b.qtySales,
-          keluargaAromaId: cocokkanKeluargaAroma(b.variant, alias),
+          keluargaAromaId: cocokkanKeluargaAroma(b.variant, alias)?.id ?? null,
         })),
       );
     }
@@ -122,11 +144,13 @@ function alasanTidakBisaDipublikasikan({
   status,
   jumlahError,
   tidakCocok,
+  keluargaGanda,
 }: {
   status: StatusVersiRanking;
   jumlahError: number;
   /** VARIANT baris yang tidak cocok dengan alias mana pun. */
   tidakCocok: readonly string[];
+  keluargaGanda: readonly KeluargaGanda[];
 }): string | null {
   if (status === "dipublikasikan") return "Ranking ini sudah dipublikasikan dan sedang berlaku.";
   if (status === "diarsipkan") return "Ranking ini sudah diarsipkan dan tidak bisa dipublikasikan lagi.";
@@ -135,6 +159,12 @@ function alasanTidakBisaDipublikasikan({
   }
   if (tidakCocok.length > 0) {
     return `Tidak bisa dipublikasikan: ${tidakCocok.length} baris tidak cocok dengan alias mana pun (${tidakCocok.join(", ")}). Tambahkan aliasnya di halaman Keluarga aroma, lalu cocokkan ulang.`;
+  }
+  if (keluargaGanda.length > 0) {
+    const rincian = keluargaGanda
+      .map((k) => `${k.keluarga.nama} muncul di ${gabungDaftar(k.baris.map((b) => `RANK ${b.rank} (${b.variant})`))}`)
+      .join("; ");
+    return `Tidak bisa dipublikasikan: satu keluarga aroma hanya boleh muncul di satu baris ranking. ${rincian}. Perbaiki aliasnya di halaman Keluarga aroma, lalu cocokkan ulang.`;
   }
   return null;
 }
@@ -170,7 +200,7 @@ export async function cocokkanUlangRanking(idVersi: number): Promise<{ keadaan: 
     const alias = await daftarAlias(tx);
     let jumlahTidakCocok = 0;
     for (const b of await bacaBaris(tx, idVersi)) {
-      const cocok = cocokkanKeluargaAroma(b.variant, alias);
+      const cocok = cocokkanKeluargaAroma(b.variant, alias)?.id ?? null;
       if (cocok === null) jumlahTidakCocok++;
       if (cocok !== b.keluargaAromaId) {
         await tx.update(barisRanking).set({ keluargaAromaId: cocok }).where(eq(barisRanking.id, b.id));
@@ -182,8 +212,8 @@ export async function cocokkanUlangRanking(idVersi: number): Promise<{ keadaan: 
 
 /**
  * Mempublikasikan versi `draft` dalam satu transaksi: versi ini menjadi ranking berlaku untuk semua gudang, versi
- * berlaku sebelumnya diarsipkan. Pencocokan diperiksa ulang dengan alias saat ini: baris yang tidak cocok menahan
- * publikasi (ADR-0006), dan hasil cocok yang berbeda dari yang ditinjau meminta admin mencocokkan ulang dulu.
+ * berlaku sebelumnya diarsipkan. Pencocokan diperiksa ulang dengan alias saat ini: baris yang tidak cocok dan keluarga
+ * yang muncul di lebih dari satu baris menahan publikasi (ADR-0006, PRD A6 ▶ 2026-10-10), dan hasil cocok yang berbeda dari yang ditinjau meminta admin mencocokkan ulang dulu.
  */
 export async function publikasikanRanking(idVersi: number, idPengguna: string): Promise<{ keadaan: "berhasil" } | HasilGagal> {
   return db.transaction(async (tx) => {
@@ -193,14 +223,15 @@ export async function publikasikanRanking(idVersi: number, idPengguna: string): 
     if (!target) return { keadaan: "gagal", pesan: "Ranking tidak ditemukan." } as const;
 
     const alias = await daftarAlias(tx);
-    const baris = (await bacaBaris(tx, idVersi)).map((b) => ({ ...b, cocok: cocokkanKeluargaAroma(b.variant, alias) }));
+    const baris = (await bacaBaris(tx, idVersi)).map((b) => ({ ...b, keluarga: cocokkanKeluargaAroma(b.variant, alias) }));
     const alasan = alasanTidakBisaDipublikasikan({
       status: target.status,
       jumlahError: target.errorValidasi.length,
-      tidakCocok: baris.filter((b) => b.cocok === null).map((b) => b.variant),
+      tidakCocok: baris.filter((b) => b.keluarga === null).map((b) => b.variant),
+      keluargaGanda: cariKeluargaGanda(baris),
     });
     if (alasan) return { keadaan: "gagal", pesan: alasan } as const;
-    if (baris.some((b) => b.cocok !== b.keluargaAromaId)) {
+    if (baris.some((b) => (b.keluarga?.id ?? null) !== b.keluargaAromaId)) {
       return {
         keadaan: "gagal",
         pesan: "Alias berubah sejak ranking ini dicocokkan. Tekan Cocokkan ulang, tinjau hasilnya, lalu publikasikan.",
@@ -292,7 +323,7 @@ export async function muatDaftarRanking() {
   return pilihIdentitas().orderBy(desc(versiRanking.id));
 }
 
-type BarisTinjau = { rank: number; variant: string; qtySales: number; keluarga: Keluarga | null };
+type BarisTinjau = { rank: number; variant: string; qtySales: number; keluarga: KeluargaTinjau | null };
 
 /** Data halaman tinjau satu versi ranking, atau `null` jika tidak ada. */
 export async function muatTinjauRanking(idVersi: number) {
@@ -300,7 +331,14 @@ export async function muatTinjauRanking(idVersi: number) {
   if (!identitas) return null;
 
   const daftarBaris = await db
-    .select({ rank: barisRanking.rank, variant: barisRanking.variant, qtySales: barisRanking.qtySales, keluargaId: keluargaAroma.id, keluargaNama: keluargaAroma.nama })
+    .select({
+      rank: barisRanking.rank,
+      variant: barisRanking.variant,
+      qtySales: barisRanking.qtySales,
+      keluargaId: keluargaAroma.id,
+      keluargaNama: keluargaAroma.nama,
+      keluargaAktif: keluargaAroma.aktif,
+    })
     .from(barisRanking)
     .leftJoin(keluargaAroma, eq(keluargaAroma.id, barisRanking.keluargaAromaId))
     .where(eq(barisRanking.versiId, idVersi))
@@ -309,9 +347,13 @@ export async function muatTinjauRanking(idVersi: number) {
     rank: b.rank,
     variant: b.variant,
     qtySales: b.qtySales,
-    keluarga: b.keluargaId === null || b.keluargaNama === null ? null : { id: b.keluargaId, nama: b.keluargaNama },
+    keluarga:
+      b.keluargaId === null || b.keluargaNama === null || b.keluargaAktif === null
+        ? null
+        : { id: b.keluargaId, nama: b.keluargaNama, aktif: b.keluargaAktif },
   }));
   const tidakCocok = baris.filter((b) => b.keluarga === null).map((b) => b.variant);
+  const keluargaGanda = cariKeluargaGanda(baris);
 
   const [berlakuLain] = await db
     .select({ bulanRanking: versiRanking.bulanRanking, versi: versiRanking.versi })
@@ -322,11 +364,13 @@ export async function muatTinjauRanking(idVersi: number) {
     ...identitas,
     baris,
     tidakCocok,
+    keluargaGanda,
     tujuhBesar: baris.filter((b) => b.rank <= JUMLAH_TUJUH_BESAR),
     alasanTidakBisaDipublikasikan: alasanTidakBisaDipublikasikan({
       status: identitas.status,
       jumlahError: identitas.errorValidasi.length,
       tidakCocok,
+      keluargaGanda,
     }),
     /** Ranking berlaku saat ini yang akan diarsipkan bila versi ini dipublikasikan. */
     rankingBerlakuLain: berlakuLain ?? null,
