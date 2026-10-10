@@ -1,4 +1,4 @@
-import { asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
 
 import { posisiLaporan, parseTanggalBisnis, type KategoriDasar, type TanggalBisnis } from "@/domain/kalender";
 import { kategoriEfektif, type PerubahanKategori } from "@/domain/kategori";
@@ -10,6 +10,7 @@ import {
   cacheTotalPenjualanMentah,
   cakupanTanggalImpor,
   impor,
+  perubahanKategori,
   revisiKalender,
   selPenjualan,
   versiCacheLaporan,
@@ -63,11 +64,34 @@ export async function naikkanRevisiKalender(tx: Tx): Promise<number> {
 }
 
 /**
- * Perubahan kategori yang berlaku untuk perhitungan (juga dipakai penelusuran angka, T37). Belum ada perubahan
- * kategori manual (T42), jadi kategori efektif saat ini selalu kategori dasar.
+ * Perubahan kategori aktif (T42) dalam bentuk masukan `kategoriEfektif` (domain). Identitas toko = `String(tokoId)`; `tokoId` kosong = seluruh toko. Perubahan yang dibatalkan tidak dibaca
+ * karena tidak pernah berlaku. `tanggal` membatasi pada satu tanggal.
  */
-export async function bacaPerubahanKategori(): Promise<PerubahanKategori[]> {
-  return [];
+export async function bacaPerubahanKategori(klien: Klien = db, tanggal?: TanggalBisnis): Promise<PerubahanKategori[]> {
+  const daftar = await klien
+    .select({
+      id: perubahanKategori.id,
+      tanggal: perubahanKategori.tanggal,
+      tokoId: perubahanKategori.tokoId,
+      kategoriBaru: perubahanKategori.kategoriSesudah,
+      revisi: perubahanKategori.revisi,
+    })
+    .from(perubahanKategori)
+    .where(
+      and(
+        eq(perubahanKategori.status, "aktif"),
+        tanggal === undefined ? undefined : eq(perubahanKategori.tanggal, tanggal),
+      ),
+    )
+    .orderBy(asc(perubahanKategori.id));
+  return daftar.map((p) => ({
+    id: String(p.id),
+    tanggal: parseTanggalBisnis(p.tanggal),
+    cakupan: p.tokoId === null ? { jenis: "semua-toko" } : { jenis: "toko", toko: String(p.tokoId) },
+    kategoriBaru: p.kategoriBaru,
+    revisi: p.revisi,
+    status: "aktif",
+  }));
 }
 
 /** Id versi cache yang dibaca: versi `selesai` terbaru, atau `null` bila belum ada. */

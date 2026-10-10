@@ -1,5 +1,5 @@
 {
-  "id": "c4f9e9a2-e1a9-4e3d-a426-28a1f69126d6",
+  "id": "c21ed832-886e-44a6-9110-78cda209d831",
   "prevId": "904e76ed-8d95-41dc-8f9d-57e6c7720ae0",
   "version": "7",
   "dialect": "postgresql",
@@ -203,130 +203,6 @@
           ]
         }
       },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.baris_ranking": {
-      "name": "baris_ranking",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "baris_ranking_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        },
-        "versi_id": {
-          "name": "versi_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "rank": {
-          "name": "rank",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "variant": {
-          "name": "variant",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "qty_sales": {
-          "name": "qty_sales",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "keluarga_aroma_id": {
-          "name": "keluarga_aroma_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "baris_ranking_versi_rank_unik": {
-          "name": "baris_ranking_versi_rank_unik",
-          "columns": [
-            {
-              "expression": "versi_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "rank",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "baris_ranking_keluarga_aroma_id_idx": {
-          "name": "baris_ranking_keluarga_aroma_id_idx",
-          "columns": [
-            {
-              "expression": "keluarga_aroma_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "baris_ranking_versi_id_versi_ranking_id_fk": {
-          "name": "baris_ranking_versi_id_versi_ranking_id_fk",
-          "tableFrom": "baris_ranking",
-          "tableTo": "versi_ranking",
-          "columnsFrom": [
-            "versi_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "baris_ranking_keluarga_aroma_id_keluarga_aroma_id_fk": {
-          "name": "baris_ranking_keluarga_aroma_id_keluarga_aroma_id_fk",
-          "tableFrom": "baris_ranking",
-          "tableTo": "keluarga_aroma",
-          "columnsFrom": [
-            "keluarga_aroma_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -1726,6 +1602,195 @@
       },
       "isRLSEnabled": false
     },
+    "public.perubahan_kategori": {
+      "name": "perubahan_kategori",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "perubahan_kategori_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "tanggal": {
+          "name": "tanggal",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "toko_id": {
+          "name": "toko_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kategori_sebelum": {
+          "name": "kategori_sebelum",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kategori_sesudah": {
+          "name": "kategori_sesudah",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "alasan": {
+          "name": "alasan",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revisi": {
+          "name": "revisi",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'aktif'"
+        },
+        "dibuat_oleh": {
+          "name": "dibuat_oleh",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dibuat_pada": {
+          "name": "dibuat_pada",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "dibatalkan_oleh": {
+          "name": "dibatalkan_oleh",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dibatalkan_pada": {
+          "name": "dibatalkan_pada",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "alasan_pembatalan": {
+          "name": "alasan_pembatalan",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "perubahan_kategori_status_tanggal_idx": {
+          "name": "perubahan_kategori_status_tanggal_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tanggal",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "perubahan_kategori_toko_id_toko_id_fk": {
+          "name": "perubahan_kategori_toko_id_toko_id_fk",
+          "tableFrom": "perubahan_kategori",
+          "tableTo": "toko",
+          "columnsFrom": [
+            "toko_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "perubahan_kategori_dibuat_oleh_user_id_fk": {
+          "name": "perubahan_kategori_dibuat_oleh_user_id_fk",
+          "tableFrom": "perubahan_kategori",
+          "tableTo": "user",
+          "columnsFrom": [
+            "dibuat_oleh"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "perubahan_kategori_dibatalkan_oleh_user_id_fk": {
+          "name": "perubahan_kategori_dibatalkan_oleh_user_id_fk",
+          "tableFrom": "perubahan_kategori",
+          "tableTo": "user",
+          "columnsFrom": [
+            "dibatalkan_oleh"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "perubahan_kategori_revisi_unik": {
+          "name": "perubahan_kategori_revisi_unik",
+          "nullsNotDistinct": true,
+          "columns": [
+            "tanggal",
+            "toko_id",
+            "revisi"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "perubahan_kategori_kategori_dikenal": {
+          "name": "perubahan_kategori_kategori_dikenal",
+          "value": "\"perubahan_kategori\".\"kategori_sebelum\" in ('Senin–Kamis', 'Jumat', 'Sabtu', 'Minggu') and \"perubahan_kategori\".\"kategori_sesudah\" in ('Senin–Kamis', 'Jumat', 'Sabtu', 'Minggu')"
+        },
+        "perubahan_kategori_status_dikenal": {
+          "name": "perubahan_kategori_status_dikenal",
+          "value": "\"perubahan_kategori\".\"status\" in ('aktif', 'dibatalkan')"
+        },
+        "perubahan_kategori_jejak_pembatalan": {
+          "name": "perubahan_kategori_jejak_pembatalan",
+          "value": "(\"perubahan_kategori\".\"status\" = 'dibatalkan') = (\"perubahan_kategori\".\"dibatalkan_oleh\" is not null and \"perubahan_kategori\".\"dibatalkan_pada\" is not null and \"perubahan_kategori\".\"alasan_pembatalan\" is not null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.produk": {
       "name": "produk",
       "schema": "",
@@ -2763,193 +2828,6 @@
         "versi_cache_laporan_status_dikenal": {
           "name": "versi_cache_laporan_status_dikenal",
           "value": "\"versi_cache_laporan\".\"status\" in ('sedang-dihitung', 'selesai', 'gagal')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.versi_ranking": {
-      "name": "versi_ranking",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "versi_ranking_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        },
-        "bulan_ranking": {
-          "name": "bulan_ranking",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "versi": {
-          "name": "versi",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "nama_file": {
-          "name": "nama_file",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ukuran_byte": {
-          "name": "ukuran_byte",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kunci_objek": {
-          "name": "kunci_objek",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'draft'"
-        },
-        "error_validasi": {
-          "name": "error_validasi",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "diunggah_oleh": {
-          "name": "diunggah_oleh",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "diunggah_pada": {
-          "name": "diunggah_pada",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "dipublikasikan_oleh": {
-          "name": "dipublikasikan_oleh",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "dipublikasikan_pada": {
-          "name": "dipublikasikan_pada",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "diarsipkan_pada": {
-          "name": "diarsipkan_pada",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "versi_ranking_bulan_versi_unik": {
-          "name": "versi_ranking_bulan_versi_unik",
-          "columns": [
-            {
-              "expression": "bulan_ranking",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "versi",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "versi_ranking_satu_dipublikasikan": {
-          "name": "versi_ranking_satu_dipublikasikan",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"versi_ranking\".\"status\" = 'dipublikasikan'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "versi_ranking_diunggah_oleh_user_id_fk": {
-          "name": "versi_ranking_diunggah_oleh_user_id_fk",
-          "tableFrom": "versi_ranking",
-          "tableTo": "user",
-          "columnsFrom": [
-            "diunggah_oleh"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "versi_ranking_dipublikasikan_oleh_user_id_fk": {
-          "name": "versi_ranking_dipublikasikan_oleh_user_id_fk",
-          "tableFrom": "versi_ranking",
-          "tableTo": "user",
-          "columnsFrom": [
-            "dipublikasikan_oleh"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "versi_ranking_kunci_objek_unique": {
-          "name": "versi_ranking_kunci_objek_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "kunci_objek"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "versi_ranking_status_dikenal": {
-          "name": "versi_ranking_status_dikenal",
-          "value": "\"versi_ranking\".\"status\" in ('draft', 'dipublikasikan', 'diarsipkan')"
-        },
-        "versi_ranking_bulan_valid": {
-          "name": "versi_ranking_bulan_valid",
-          "value": "\"versi_ranking\".\"bulan_ranking\" ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'"
         }
       },
       "isRLSEnabled": false

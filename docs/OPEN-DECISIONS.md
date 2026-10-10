@@ -69,3 +69,11 @@ Daftar hal yang **belum diputuskan pemilik**. Agen tidak mengimplementasikan per
 | Jenis libur diusulkan dari keterangan ("Cuti Bersama" → cuti bersama, selain itu libur nasional), hanya petunjuk untuk admin (2026-10-09) | PRD B2 |
 | Ekspor rencana hanya untuk rencana final (termasuk dari riwayat) dan membutuhkan hak tindakan `ekspor` di gudang itu (2026-10-09) | PRD A7 |
 | Seed UAT tidak menghubungkan toko ke gudang selama OD-12 terbuka; penguji menghubungkan lewat halaman admin (2026-10-09) | PRD A3; T99 |
+| T42: "kategori sebelum" = kategori yang berlaku untuk cakupan itu tepat sebelum perubahan dibuat (2026-10-10) | PRD B4; T42 |
+| T42: mengganti kategori = mengedit perubahan menjadi revisi baru; "Batalkan" membatalkan seluruh perubahan pada tanggal + cakupan itu sehingga tanggal kembali ke level berikutnya; riwayat semua revisi tetap tersimpan (2026-10-10) | PRD B4; T42 |
+| T42: pembatalan perubahan kategori wajib beralasan; cara penyimpanannya keputusan teknis (2026-10-10) | PRD B4; T42 |
+| T53/T45: baris ranking boleh cocok ke keluarga aroma nonaktif, dengan peringatan, tanpa menahan publikasi; di pemetaan produk keluarga nonaktif tidak muncul sebagai pilihan untuk pemetaan baru, pemetaan lama tetap berlaku (2026-10-10) | PRD A6; T53, T45 |
+| T53: satu keluarga aroma tidak boleh muncul di lebih dari satu baris ranking; jika terjadi, publikasi ditahan dengan pesan error (2026-10-10) | PRD A6; T53 |
+| T54: pola dua mingguan berlaku ke depan dan ke belakang dari tanggal jangkar; jangkar hanya menentukan pekan kirim (2026-10-10) | PRD A5; T54 |
+| T40: API libur yang mengembalikan daftar kosong dianggap sinkronisasi gagal; snapshot aktif dipertahankan (2026-10-10) | PRD B2; T40 |
+| T51: periode sumber yang memuat bulan tanpa data aktif tetap dihitung dengan bulan yang ada; bulan yang hilang ditandai jelas di kartu Periode sumber (2026-10-10) | PRD A4; T51 |

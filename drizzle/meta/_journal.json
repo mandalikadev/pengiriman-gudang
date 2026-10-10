@@ -75,8 +75,15 @@
     {
       "idx": 10,
       "version": "7",
-      "when": 1791568115644,
-      "tag": "0010_versi_ranking",
+      "when": 1791595428985,
+      "tag": "0010_perubahan_kategori",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791601039261,
+      "tag": "0011_versi_ranking",
       "breakpoints": true
     }
   ]

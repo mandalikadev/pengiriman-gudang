@@ -90,6 +90,7 @@ Halaman Pengiriman Gudang harus memiliki kartu Periode sumber penjualan yang jel
 Ada satu keputusan yang masih perlu saya tentukan: apakah admin menetapkan periode bersama untuk seluruh operator suatu gudang, atau operator boleh menentukan periodenya sendiri. Tanyakan keputusan ini sebelum menetapkan perilakunya. Jika dipilih pengaturan bersama, pilihan admin harus benar-benar digunakan operator, bukan hanya tersimpan pada tampilan admin.
 
 > ▶ Keputusan (ADR-0003): **admin menetapkan satu periode sumber untuk semua operator di satu gudang.** Operator melihatnya hanya-baca. Jika belum ditetapkan, perhitungan tidak berjalan dan pesan "Periode sumber belum ditetapkan admin" tampil.
+> ▶ Keputusan (2026-10-10, T51): jika periode sumber memuat bulan yang tidak lagi punya data aktif, perhitungan tetap berjalan dengan bulan yang masih ada. Bulan yang hilang ditandai jelas di kartu Periode sumber.
 
 Bedakan bulan sumber penjualan, bulan ranking, dan tanggal kirim. Ketiganya mempunyai fungsi berbeda.
 
@@ -105,6 +106,7 @@ Pembuatan, perubahan, dan penonaktifan jadwal empat gudang selain Pusat memerluk
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): usulan jadwal gudang non-Pusat dibuat oleh operator yang punya hak kelola-usulan-jadwal. Admin hanya menyetujui atau menolak.
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): menyalin template = menerapkan satu pengaturan jadwal ke beberapa toko sekaligus, tanpa entitas template tersimpan. Untuk gudang non-Pusat, setiap toko hasil salinan menjadi usulan tersendiri yang perlu disetujui admin.
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): pola dua mingguan: hari kirim berlaku di pekan (Senin–Minggu) yang memuat tanggal jangkar, lalu berulang setiap 14 hari.
+> ▶ Keputusan (2026-10-10, T54): pola dua mingguan berlaku ke depan **dan ke belakang** dari tanggal jangkar. Jangkar hanya menentukan pekan mana yang menjadi pekan kirim, bukan tanggal mulai jadwal. Contoh: jangkar Rabu 10-06-2026 dengan hari kirim Senin → 25-05, 08-06, dan 22-06-2026 adalah tanggal kirim; 01-06 dan 15-06-2026 bukan.
 
 Jika jadwal atau dasar perhitungan berubah, draft terkait harus dihitung ulang. Input stok tetap dipertahankan. Rencana yang sudah final tidak berubah mengikuti aturan baru.
 
@@ -135,6 +137,12 @@ Ranking pusat berasal dari file yang dipublikasikan admin dengan bulan dan versi
 > - Tujuh besar = baris dengan `RANK` 1–7, persis seperti di file. `RANK` harus bilangan bulat, unik, dan berurutan mulai dari 1; jika ganda atau loncat → error. `VARIANT` unik dan tidak kosong. `QTY SALES` bilangan bulat ≥ 0 (hanya informasi).
 > - Setiap baris ranking adalah satu kelompok ranking (keluarga aroma), termasuk `GIFT SET BOX` (produk kotak hadiah). Baris dicocokkan ke keluarga lewat alias, persis setelah normalisasi (ADR-0006).
 > - Ranking yang berlaku = ranking terakhir yang dipublikasikan admin, untuk semua gudang. Ranking lama diarsipkan. Rencana final menyimpan bulan dan versi ranking yang dipakai.
+
+> ▶ Keputusan (2026-10-10, T53/T45): keluarga aroma nonaktif.
+> - Baris ranking boleh cocok ke keluarga aroma yang nonaktif. Baris itu ditandai peringatan di halaman tinjau, tetapi tidak menahan publikasi.
+> - Di pemetaan produk, keluarga nonaktif tidak muncul sebagai pilihan untuk pemetaan baru. Pemetaan lama ke keluarga yang kemudian dinonaktifkan tetap berlaku.
+
+> ▶ Keputusan (2026-10-10, T53): satu keluarga aroma tidak boleh muncul di lebih dari satu baris ranking. Jika dua baris atau lebih cocok ke keluarga yang sama, publikasi ditahan dengan pesan error yang menyebut keluarga dan baris-barisnya.
 
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): draft rencana dan dasar perhitungannya.
 > - Draft dibuat per gudang dan tanggal kirim yang dipilih operator. Isinya semua toko gudang itu yang menurut jadwal aktifnya mengirim pada tanggal tersebut.
@@ -222,6 +230,7 @@ API hanya menyediakan informasi libur. Nama hari, nomor minggu, dan bulan lapora
 
 > ▶ Revisi (2026-10-08): "ASOY" adalah salah ketik pemilik. Maksudnya: aturan kalender pada §B5.
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): jenis libur diusulkan dari keterangan: berisi "Cuti Bersama" → "cuti bersama", selain itu → "libur nasional". Usulan ini hanya petunjuk untuk ditinjau admin.
+> ▶ Keputusan (2026-10-10, T40): respons API yang daftar liburnya kosong dianggap sinkronisasi gagal. Tidak ada snapshot baru yang dibuat, snapshot aktif dipertahankan, dan kegagalan tercatat serta tampil.
 
 ### B3. Peninjauan dan persetujuan hasil sinkronisasi
 
@@ -266,6 +275,12 @@ Perubahan khusus toko tidak boleh memengaruhi toko lain. Tampilan kalender harus
 Hanya admin yang boleh membuat atau membatalkan perubahan kategori. Simpan tanggal, cakupan, kategori sebelum/sesudah, alasan, pelaku, waktu, revisi, dan statusnya. Pembatalan mempertahankan jejak perubahan.
 
 Sinkronisasi daftar libur tidak boleh menimpa perubahan kategori manual.
+
+> ▶ Keputusan (2026-10-10, T42): perubahan kategori manual.
+> - "Kategori sebelum" = kategori yang berlaku untuk cakupan itu tepat sebelum perubahan dibuat (untuk satu toko: perubahan toko itu, lalu perubahan seluruh toko, lalu kategori dasar; untuk seluruh toko: perubahan seluruh toko, lalu kategori dasar).
+> - Untuk mengganti kategori, admin mengedit perubahan; hasilnya revisi baru pada tanggal dan cakupan yang sama.
+> - "Batalkan" membatalkan **seluruh** perubahan pada tanggal + cakupan itu, sehingga tanggal kembali ke level berikutnya (perubahan seluruh toko, atau kategori dasar). Riwayat semua revisi tetap tersimpan.
+> - Pembatalan wajib disertai alasan. Cara penyimpanannya adalah keputusan teknis.
 
 Bedakan tiga tindakan berikut:
 - Persetujuan snapshot hasil sinkronisasi libur.
