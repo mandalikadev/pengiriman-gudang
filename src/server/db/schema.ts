@@ -838,3 +838,68 @@ export const usulanJadwal = pgTable(
     ),
   ],
 );
+
+// --- Draft rencana (T58, PRD A6 ▶ Keputusan perencanaan M2–M3: draft rencana dan dasar perhitungannya) ---
+
+/**
+ * Draft rencana satu gudang untuk satu tanggal kirim (CONTEXT "Draft rencana"), dibuat operator dengan hak
+ * `hitung-kebutuhan`. Satu draft per gudang + tanggal kirim; menghitung lagi mengganti isi draft itu. Dasar yang dipakai
+ * disimpan sebagai sinyal perubahan (T61): versi periode sumber (id penetapan yang berlaku, T51) dan revisi kalender
+ * (T42). Versi jadwal disimpan per toko di baris draft.
+ */
+export const draftRencana = pgTable(
+  "draft_rencana",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    gudangId: integer("gudang_id")
+      .notNull()
+      .references(() => gudang.id),
+    tanggalKirim: date("tanggal_kirim", { mode: "string" }).notNull(),
+    dihitungOleh: text("dihitung_oleh")
+      .notNull()
+      .references(() => user.id),
+    dihitungPada: timestamp("dihitung_pada", { withTimezone: true }).notNull().defaultNow(),
+    versiPeriodeSumber: integer("versi_periode_sumber")
+      .notNull()
+      .references(() => periodeSumberGudang.id),
+    revisiKalender: integer("revisi_kalender").notNull(),
+  },
+  (tabel) => [uniqueIndex("draft_rencana_gudang_tanggal_unik").on(tabel.gudangId, tabel.tanggalKirim)],
+);
+
+/**
+ * Satu baris draft = satu toko–varian. Toko beserta p, L, dan versi jadwal (id jadwal aktif, T55) yang membuatnya mengirim
+ * pada tanggal draft (T54). Klasifikasi dan kebutuhan dari `hitungKebutuhanKirim` (T05). Kebutuhan tidak tersedia =
+ * `kebutuhan` kosong dan `tanpaRataRata` berisi tanggal cakupan beserta kategori efektif yang tidak punya rata-rata.
+ */
+export const barisDraftRencana = pgTable(
+  "baris_draft_rencana",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    draftId: integer("draft_id")
+      .notNull()
+      .references(() => draftRencana.id, { onDelete: "cascade" }),
+    tokoId: integer("toko_id")
+      .notNull()
+      .references(() => toko.id),
+    versiJadwal: integer("versi_jadwal")
+      .notNull()
+      .references(() => jadwalToko.id),
+    persiapanHari: integer("persiapan_hari").$type<0 | 1 | 2>().notNull(),
+    panjangCakupan: integer("panjang_cakupan").$type<7 | 14>().notNull(),
+    kodeProduk: text("kode_produk").notNull(),
+    klasifikasi: text("klasifikasi").$type<"manual" | "otomatis">().notNull(),
+    kebutuhan: integer("kebutuhan"),
+    tanpaRataRata: jsonb("tanpa_rata_rata").$type<{ tanggal: string; kategoriEfektif: KategoriDasar }[]>(),
+  },
+  (tabel) => [
+    uniqueIndex("baris_draft_rencana_unik").on(tabel.draftId, tabel.tokoId, tabel.kodeProduk),
+    check("baris_draft_rencana_persiapan", sql`${tabel.persiapanHari} in (0, 1, 2)`),
+    check("baris_draft_rencana_panjang_cakupan", sql`${tabel.panjangCakupan} in (7, 14)`),
+    check("baris_draft_rencana_klasifikasi_dikenal", sql`${tabel.klasifikasi} in ('manual', 'otomatis')`),
+    check(
+      "baris_draft_rencana_kebutuhan_atau_tanpa_rata_rata",
+      sql`(${tabel.kebutuhan} is null) = (${tabel.tanpaRataRata} is not null)`,
+    ),
+  ],
+);

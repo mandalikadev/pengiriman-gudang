@@ -1,7 +1,8 @@
+import { namaHari, parseTanggalBisnis, type NamaHari } from "@/domain/kalender";
 import { buatTokoUji } from "@/server/gudang/uji-bantu";
 import { aktifkanImpor } from "@/server/impor/impor";
 import { pastikanBucket } from "@/server/impor/penyimpanan";
-import { buatWorkbookUji, imporUji, kodeProdukUji, sheetPenjualanUji, tahunUji } from "@/server/impor/uji-bantu";
+import { buatWorkbookUji, imporUji, kodeProdukUji, sheetPenjualanUji, tahunUji, type ProdukUji } from "@/server/impor/uji-bantu";
 import { hitungUlangCacheLaporan } from "@/server/laporan/cache";
 
 // Bantuan khusus test.
@@ -40,4 +41,34 @@ export async function siapkanBulanTersediaUji(idAdmin: string, bulan: readonly n
   }
   await hitungUlangCacheLaporan();
   return bulan.map((b) => `${tahun}-${String(b).padStart(2, "0")}`);
+}
+
+/**
+ * Mengaktifkan satu impor kecil `JUNI (S)` untuk satu toko di `tahun` (pakai `tahunUji()`), tanpa menghitung ulang cache
+ * (pemanggil memanggil `hitungUlangCacheLaporan` sekali setelah semua impor).
+ */
+export async function aktifkanImporJuniUji({
+  idAdmin,
+  tahun,
+  namaToko,
+  hari,
+  produk,
+}: {
+  idAdmin: string;
+  tahun: number;
+  namaToko: string;
+  hari: number[];
+  produk: ProdukUji[];
+}): Promise<void> {
+  await pastikanBucket();
+  const namaSheet = "JUNI (S)";
+  const isi = buatWorkbookUji({ [namaSheet]: sheetPenjualanUji({ toko: namaToko, bulan: 6, hari, produk }) });
+  const idImpor = await imporUji({ isi, namaSheet, tahunImpor: tahun, bulanImpor: 6, idPengguna: idAdmin });
+  const hasil = await aktifkanImpor(idImpor, idAdmin);
+  if (hasil.keadaan !== "berhasil") throw new Error(`Aktivasi impor uji gagal: ${JSON.stringify(hasil)}`);
+}
+
+/** Kuantitas harian tanggal `hari` Juni `tahun` menurut nama harinya, untuk `ProdukUji.kuantitas`. */
+export function kuantitasJuniMenurutHari(tahun: number, hari: readonly number[], nilai: (nama: NamaHari) => number) {
+  return hari.map((h) => nilai(namaHari(parseTanggalBisnis(`${tahun}-06-${String(h).padStart(2, "0")}`))));
 }

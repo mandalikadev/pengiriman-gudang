@@ -15,6 +15,10 @@ const kepala = vi.hoisted(() => ({ cookie: "" }));
 vi.mock("next/headers", () => ({
   headers: async () => new Headers(kepala.cookie ? { cookie: kepala.cookie } : {}),
 }));
+vi.mock("next/navigation", async (asli) => ({
+  ...(await asli<typeof import("next/navigation")>()),
+  useRouter: () => ({ refresh: () => {}, push: () => {} }),
+}));
 
 import HalamanRingkasan from "../../ringkasan/page";
 import HalamanPengirimanGudang from "./page";
@@ -33,6 +37,9 @@ beforeEach(() => {
 
 const buka = async (id: number | string) =>
   renderToStaticMarkup(await HalamanPengirimanGudang({ params: Promise.resolve({ id: String(id) }) }));
+
+/** Isi halaman sebelum bagian Draft rencana (bagian terakhir halaman). */
+const sebelumBagianDraft = (html: string) => html.slice(0, html.indexOf("data-draft-rencana"));
 
 const ditolak = (id: number | string) =>
   expect(HalamanPengirimanGudang({ params: Promise.resolve({ id: String(id) }) })).rejects.toMatchObject({
@@ -154,8 +161,8 @@ describe("/pengiriman-gudang/[id]: kartu Periode sumber", () => {
     expect(kartu).toContain(`Oktober ${oktober.slice(0, 4)}`);
     expect(kartu).toContain("Ditetapkan oleh <span class=\"font-semibold text-foreground\">Uji admin</span> pada");
     expect(kartu).toMatch(/pada \w+, \d{2}-\d{2}-\d{4} pukul \d{2}\.\d{2} WIB/);
-    // Hanya-baca: tanpa kontrol ubah di halaman.
-    expect(html).not.toMatch(/<(button|input|select|form)\b/);
+    // Hanya-baca: tanpa kontrol ubah di halaman (form hitung draft untuk hak hitung-kebutuhan diuji di draft.test.tsx).
+    expect(sebelumBagianDraft(html)).not.toMatch(/<(button|input|select|form)\b/);
     // Semua bulan punya data aktif → tanpa penanda bulan hilang.
     expect(html).not.toContain("data-bulan-hilang");
     expect(html).not.toContain("Tidak ada data aktif");
@@ -274,7 +281,8 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
     const html = await buka(pusat);
     expect(barisJadwal(html, berjadwal.id)).toContain("Senin (H−2), Kamis (H)");
     expect(html).not.toContain("Atur jadwal toko");
-    expect(html).not.toMatch(/<(button|input|select|form)\b/);
+    // Form hitung draft untuk hak hitung-kebutuhan (T58) diuji di draft.test.tsx.
+    expect(sebelumBagianDraft(html)).not.toMatch(/<(button|input|select|form)\b/);
   });
 
   it("admin tanpa penugasan melihat jadwal Pusat hanya-baca", async () => {

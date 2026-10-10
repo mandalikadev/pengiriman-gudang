@@ -36,7 +36,8 @@ function kunciSama(a: KunciVersi, b: KunciVersi) {
   );
 }
 
-async function bacaRevisiKalender(klien: Klien): Promise<number> {
+/** Revisi kalender saat ini (naik setiap kali kategori efektif berubah, T42); 0 bila belum pernah berubah. */
+export async function bacaRevisiKalender(klien: Klien): Promise<number> {
   const [baris] = await klien.select({ revisi: revisiKalender.revisi }).from(revisiKalender).where(eq(revisiKalender.id, 1));
   return baris?.revisi ?? 0;
 }

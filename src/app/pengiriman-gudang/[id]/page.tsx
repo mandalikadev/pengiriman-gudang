@@ -6,14 +6,17 @@ import { notFound } from "next/navigation";
 import { BadgeStatus } from "@/components/badge-status";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { parseTanggalBisnis, type TanggalBisnis } from "@/domain/kalender";
 import { AksesDitolakError, wajibAksesLihatGudang } from "@/server/auth/kewenangan";
 import { tokoTerhubung } from "@/server/gudang/akses";
+import { bacaDraftRencana, daftarTanggalDraft } from "@/server/gudang/draft-rencana";
 import { jadwalTokoGudang } from "@/server/gudang/jadwal";
 import { bacaPeriodeSumberPerhitungan } from "@/server/gudang/periode-sumber";
 import { NAMA_GUDANG_PUSAT } from "@/server/gudang/seed-master";
 import { usulanTerakhirPerToko } from "@/server/gudang/usulan-jadwal";
 
 import { KeteranganHanyaBaca } from "../hanya-baca";
+import { BagianDraft } from "./bagian-draft";
 import { BagianJadwal } from "./bagian-jadwal";
 import { KartuPeriodeSumber } from "./kartu-periode-sumber";
 
@@ -32,6 +35,16 @@ async function muatGudang(id: string) {
   }
 }
 
+/** `?tanggal=YYYY-MM-DD` = draft yang dibuka; nilai lain diabaikan (draft terakhir dihitung yang tampil). */
+function bacaTanggalDiminta(nilai: string | string[] | undefined): TanggalBisnis | null {
+  if (typeof nilai !== "string") return null;
+  try {
+    return parseTanggalBisnis(nilai);
+  } catch {
+    return null;
+  }
+}
+
 function BadgeStatusToko({ aktif }: { aktif: boolean }) {
   if (aktif) return <BadgeStatus status="aktif" />;
   return (
@@ -45,15 +58,25 @@ function BadgeStatusToko({ aktif }: { aktif: boolean }) {
 /**
  * Zona kerja (DESIGN §1). Halaman Pengiriman Gudang satu gudang (T50) dengan kartu Periode sumber (T51) dan bagian
  * Jadwal (T55, T56). Operator dengan hak `kelola-usulan-jadwal` mengubah jadwal Pusat langsung dan mengusulkan jadwal
- * gudang lain untuk disetujui admin (PRD A5 ▶ OD-06); server action memeriksanya lagi.
+ * gudang lain untuk disetujui admin (PRD A5 ▶ OD-06); server action memeriksanya lagi. Bagian Draft rencana (T58)
+ * menampilkan draft yang tersimpan tanpa menghitung saat halaman dibuka (PRD C1).
  */
-export default async function HalamanPengirimanGudang({ params }: { params: Promise<{ id: string }> }) {
+export default async function HalamanPengirimanGudang({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const gudang = await muatGudang((await params).id);
+  const tanggalDiminta = bacaTanggalDiminta((await searchParams)?.tanggal);
   const daftarToko = await tokoTerhubung(gudang.id);
   const periodeSumber = await bacaPeriodeSumberPerhitungan(gudang.id);
   const daftarJadwal = await jadwalTokoGudang(gudang.id);
   const pusat = gudang.nama === NAMA_GUDANG_PUSAT;
   const usulanPerToko = pusat ? null : await usulanTerakhirPerToko(gudang.id);
+  const daftarTanggal = await daftarTanggalDraft(gudang.id);
+  const draft = await bacaDraftRencana(gudang.id, tanggalDiminta ?? undefined);
   const jalurJadwal = gudang.hakTindakan.includes("kelola-usulan-jadwal") ? (pusat ? "langsung" : "usulan") : null;
 
   return (
@@ -105,6 +128,14 @@ export default async function HalamanPengirimanGudang({ params }: { params: Prom
       </section>
 
       <BagianJadwal idGudang={gudang.id} daftarToko={daftarJadwal} usulanPerToko={usulanPerToko} jalur={jalurJadwal} />
+
+      <BagianDraft
+        idGudang={gudang.id}
+        bolehHitung={gudang.hakTindakan.includes("hitung-kebutuhan")}
+        daftarTanggal={daftarTanggal}
+        tanggalDiminta={tanggalDiminta}
+        draft={draft}
+      />
     </main>
   );
 }
