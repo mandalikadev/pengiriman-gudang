@@ -12,7 +12,13 @@ import { kodeProdukUji, tahunUji } from "@/server/impor/uji-bantu";
 import { bacaRevisiKalender, hitungUlangCacheLaporan } from "@/server/laporan/cache";
 import { aktifkanImporJuniUji, kuantitasJuniMenurutHari } from "@/server/laporan/uji-bantu";
 
-import { bacaDraftRencana, daftarTanggalDraft, hitungDraftRencana, PESAN_PERIODE_BELUM_DITETAPKAN } from "./draft-rencana";
+import {
+  bacaDraftRencana,
+  daftarTanggalDraft,
+  hitungDraftRencana,
+  PESAN_PERIODE_BELUM_DITETAPKAN,
+  PESAN_PERIODE_TANPA_DATA_AKTIF,
+} from "./draft-rencana";
 import { bacaPeriodeSumber, tetapkanPeriodeSumber } from "./periode-sumber";
 import { buatTokoUji, idGudangUji } from "./uji-bantu";
 
@@ -61,6 +67,8 @@ let tokoSelasa: { id: number; nama: string };
 let tokoTanpaJadwal: { id: number; nama: string };
 /** Toko dengan jadwal Senin H−1 tanpa penjualan di periode sumber. */
 let tokoTanpaVarian: { id: number; nama: string };
+/** Toko nonaktif dengan jadwal aktif Senin H−2 dan penjualan di periode sumber. */
+let tokoNonaktif: { id: number; nama: string };
 const kode = { contoh: kodeProdukUji("GOR"), nol: kodeProdukUji("HOL"), manual: kodeProdukUji("GOR-T"), tanpaMinggu: kodeProdukUji("GOR") };
 
 beforeAll(async () => {
@@ -74,8 +82,9 @@ beforeAll(async () => {
     await buatTokoUji(),
     await buatTokoUji(),
   ];
+  tokoNonaktif = await buatTokoUji({ aktif: false });
   await db.insert(hubunganTokoGudang).values(
-    [tokoContoh, tokoTanpaMinggu, tokoSelasa, tokoTanpaJadwal, tokoTanpaVarian].map((t) => ({ tokoId: t.id, gudangId: bali })),
+    [tokoContoh, tokoTanpaMinggu, tokoSelasa, tokoTanpaJadwal, tokoTanpaVarian, tokoNonaktif].map((t) => ({ tokoId: t.id, gudangId: bali })),
   );
   const jadwalSenin = { pola: "mingguan" as const, hariKirim: [{ hari: "Senin" as const, persiapanHari: 2 as const }], dibuatOleh: idAdmin };
   await db.insert(jadwalToko).values([
@@ -83,6 +92,7 @@ beforeAll(async () => {
     { ...jadwalSenin, tokoId: tokoTanpaMinggu.id },
     { ...jadwalSenin, tokoId: tokoSelasa.id, hariKirim: [{ hari: "Selasa", persiapanHari: 0 }] },
     { ...jadwalSenin, tokoId: tokoTanpaVarian.id, hariKirim: [{ hari: "Senin", persiapanHari: 1 }] },
+    { ...jadwalSenin, tokoId: tokoNonaktif.id },
   ]);
 
   const tahunContoh = tahunUji();
@@ -129,10 +139,19 @@ beforeAll(async () => {
     produk: [produkUji(kodeProdukUji("GOR"), SEMUA_HARI_JUNI.map(() => 2))],
   });
 
+  const tahunNonaktif = tahunUji();
+  await aktifkanImporJuniUji({
+    idAdmin,
+    tahun: tahunNonaktif,
+    namaToko: tokoNonaktif.nama,
+    hari: SEMUA_HARI_JUNI,
+    produk: [produkUji(kodeProdukUji("GOR"), SEMUA_HARI_JUNI.map(() => 2))],
+  });
+
   await hitungUlangCacheLaporan();
   const hasil = await tetapkanPeriodeSumber({
     idGudang: bali,
-    bulan: [tahunContoh, tahunTanpaMinggu, tahunSelasa, tahunTanpaJadwal].map((t) => `${t}-06`),
+    bulan: [tahunContoh, tahunTanpaMinggu, tahunSelasa, tahunTanpaJadwal, tahunNonaktif].map((t) => `${t}-06`),
     idPengguna: idAdmin,
   });
   if (hasil.keadaan !== "berhasil") throw new Error(hasil.pesan);
@@ -195,6 +214,14 @@ describe("hitungDraftRencana", () => {
     expect(baris?.find((b) => b.kodeProduk === kode.manual)).toMatchObject({ klasifikasi: "manual" });
   });
 
+  it("toko nonaktif tidak masuk draft walaupun masih punya jadwal aktif yang mengirim pada tanggal itu (PRD A6 ▶ T58)", async () => {
+    await hitungDraftRencana({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator });
+    const draft = await bacaDraftRencana(bali, TANGGAL_KIRIM);
+
+    expect(draft?.toko.map((t) => t.id)).toContain(tokoContoh.id);
+    expect(draft?.toko.map((t) => t.id)).not.toContain(tokoNonaktif.id);
+  });
+
   it("toko yang mengirim tetapi tidak punya varian di periode sumber tetap masuk draft beserta p dan L", async () => {
     await hitungDraftRencana({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator });
     const draft = await bacaDraftRencana(bali, TANGGAL_KIRIM);
@@ -252,5 +279,38 @@ describe("hitungDraftRencana", () => {
     });
     expect(PESAN_PERIODE_BELUM_DITETAPKAN).toBe("Periode sumber belum ditetapkan admin");
     expect(await db.select().from(draftRencana).where(eq(draftRencana.gudangId, bandung))).toEqual([]);
+  });
+
+  it("semua bulan periode sumber tanpa data aktif → pesan; draft yang sudah ada tidak diubah dan tidak ada draft baru (PRD A6 ▶ T58)", async () => {
+    const bandung = await idGudangUji("Gudang Bandung");
+    await db.delete(draftRencana).where(eq(draftRencana.gudangId, bandung));
+    await db.delete(periodeSumberGudang).where(eq(periodeSumberGudang.gudangId, bandung));
+    // Bulan yang tidak ada di cache laporan aktif (mis. impornya sudah diarsipkan).
+    const [periode] = await db
+      .insert(periodeSumberGudang)
+      .values({ gudangId: bandung, bulan: ["1900-01", "1900-02"], ditetapkanOleh: idAdmin })
+      .returning({ id: periodeSumberGudang.id });
+    const tanggalLama = parseTanggalBisnis("2026-06-01");
+    const dihitungPada = new Date("2026-05-30T03:00:00Z");
+    const [lama] = await db
+      .insert(draftRencana)
+      .values({ gudangId: bandung, tanggalKirim: tanggalLama, dihitungOleh: idAdmin, dihitungPada, versiPeriodeSumber: periode.id, revisiKalender: 0 })
+      .returning();
+
+    try {
+      for (const tanggalKirim of [TANGGAL_KIRIM, tanggalLama]) {
+        await expect(hitungDraftRencana({ idGudang: bandung, tanggalKirim, idPengguna: idOperator })).resolves.toEqual({
+          keadaan: "gagal",
+          pesan: PESAN_PERIODE_TANPA_DATA_AKTIF,
+        });
+      }
+      expect(PESAN_PERIODE_TANPA_DATA_AKTIF).toBe(
+        "Tidak ada bulan di periode sumber yang masih punya data aktif. Minta admin menetapkan ulang periode sumber.",
+      );
+      expect(await db.select().from(draftRencana).where(eq(draftRencana.gudangId, bandung))).toEqual([lama]);
+    } finally {
+      await db.delete(draftRencana).where(eq(draftRencana.gudangId, bandung));
+      await db.delete(periodeSumberGudang).where(eq(periodeSumberGudang.gudangId, bandung));
+    }
   });
 });

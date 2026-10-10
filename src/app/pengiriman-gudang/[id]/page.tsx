@@ -135,6 +135,7 @@ export default async function HalamanPengirimanGudang({
         daftarTanggal={daftarTanggal}
         tanggalDiminta={tanggalDiminta}
         draft={draft}
+        tokoNonaktifBerjadwal={daftarJadwal.filter((t) => !t.aktif && t.jadwal !== null)}
       />
     </main>
   );

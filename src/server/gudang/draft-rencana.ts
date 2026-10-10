@@ -20,16 +20,23 @@ import { bacaPeriodeSumberPerhitungan } from "./periode-sumber";
 
 export const PESAN_PERIODE_BELUM_DITETAPKAN = "Periode sumber belum ditetapkan admin";
 
+/** PRD A6 ▶ Keputusan 2026-10-10 (T58): semua bulan periode sumber tanpa data aktif → perhitungan ditolak. */
+export const PESAN_PERIODE_TANPA_DATA_AKTIF =
+  "Tidak ada bulan di periode sumber yang masih punya data aktif. Minta admin menetapkan ulang periode sumber.";
+
 export type HasilHitungDraft = { keadaan: "berhasil"; idDraft: number } | { keadaan: "gagal"; pesan: string };
 
 type TokoKirim = { tokoId: number; versiJadwal: number; persiapanHari: 0 | 1 | 2; panjangCakupan: 7 | 14 };
 
 type BarisBaru = Omit<typeof barisDraftRencana.$inferInsert, "tokoDraftId"> & { tokoId: number };
 
-/** Toko gudang yang menurut jadwal aktifnya mengirim pada `tanggalKirim`, beserta p, L, dan versi jadwal. */
+/**
+ * Toko aktif gudang yang menurut jadwal aktifnya mengirim pada `tanggalKirim`, beserta p, L, dan versi jadwal. Toko
+ * nonaktif tidak ikut walaupun masih punya jadwal aktif (PRD A6 ▶ Keputusan 2026-10-10, T58).
+ */
 async function tokoYangMengirim(idGudang: number, tanggalKirim: TanggalBisnis): Promise<TokoKirim[]> {
-  return (await jadwalTokoGudang(idGudang)).flatMap(({ id, jadwal }) => {
-    if (jadwal === null) return [];
+  return (await jadwalTokoGudang(idGudang)).flatMap(({ id, aktif, jadwal }) => {
+    if (!aktif || jadwal === null) return [];
     const hasil = tanggalKirimMenurutJadwal(jadwal, tanggalKirim);
     return hasil.kirim
       ? [{ tokoId: id, versiJadwal: jadwal.versi, persiapanHari: hasil.persiapanHari, panjangCakupan: hasil.panjangCakupan }]
@@ -45,12 +52,14 @@ async function hitungBaris(
   daftarToko: readonly TokoKirim[],
   bulanDipakai: readonly string[],
   tanggalKirim: TanggalBisnis,
-): Promise<{ baris: BarisBaru[]; revisiKalender: number }> {
+): Promise<{ baris: BarisBaru[]; revisiKalender: number } | null> {
   return db.transaction(
     async (tx) => {
       const revisiKalender = await bacaRevisiKalender(tx);
       const versiId = await idVersiCacheAktif(tx);
-      if (versiId === null || daftarToko.length === 0 || bulanDipakai.length === 0) return { baris: [], revisiKalender };
+      // Cache laporan hilang setelah periode dibaca: sama dengan semua bulan periode sumber tanpa data aktif.
+      if (versiId === null) return null;
+      if (daftarToko.length === 0) return { baris: [], revisiKalender };
 
       const daftarPerubahan = await bacaPerubahanKategori(tx);
       const bulanan = await tx
@@ -118,8 +127,10 @@ async function hitungBaris(
 }
 
 /**
- * Membuat draft rencana gudang `idGudang` untuk `tanggalKirim` dan menyimpannya. Periode sumber belum ditetapkan →
- * gagal dengan pesan, tanpa draft (ADR-0003). Draft yang sudah ada untuk gudang + tanggal yang sama diganti isinya.
+ * Membuat draft rencana gudang `idGudang` untuk `tanggalKirim` dan menyimpannya. Periode sumber belum ditetapkan, atau
+ * semua bulannya tanpa data aktif (termasuk cache laporan belum ada) → gagal dengan pesan, tanpa membuat atau mengubah
+ * draft (ADR-0003; PRD A6 ▶ Keputusan 2026-10-10, T58). Draft yang sudah ada untuk gudang + tanggal yang sama diganti
+ * isinya.
  */
 export async function hitungDraftRencana({
   idGudang,
@@ -132,9 +143,12 @@ export async function hitungDraftRencana({
 }): Promise<HasilHitungDraft> {
   const periode = await bacaPeriodeSumberPerhitungan(idGudang);
   if (periode === null) return { keadaan: "gagal", pesan: PESAN_PERIODE_BELUM_DITETAPKAN };
+  if (periode.bulanDipakai.length === 0) return { keadaan: "gagal", pesan: PESAN_PERIODE_TANPA_DATA_AKTIF };
 
   const daftarToko = await tokoYangMengirim(idGudang, tanggalKirim);
-  const { baris, revisiKalender } = await hitungBaris(daftarToko, periode.bulanDipakai, tanggalKirim);
+  const hasilBaris = await hitungBaris(daftarToko, periode.bulanDipakai, tanggalKirim);
+  if (hasilBaris === null) return { keadaan: "gagal", pesan: PESAN_PERIODE_TANPA_DATA_AKTIF };
+  const { baris, revisiKalender } = hasilBaris;
 
   return db.transaction(async (tx) => {
     // Mengunci baris gudang agar perhitungan bersamaan untuk gudang yang sama berjalan bergantian.

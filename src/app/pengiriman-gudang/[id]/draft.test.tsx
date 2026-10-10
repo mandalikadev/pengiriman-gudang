@@ -57,14 +57,21 @@ let cibubur: number;
 let tokoContoh: { id: number; nama: string };
 let tokoTanpaMinggu: { id: number; nama: string };
 let tokoTanpaVarian: { id: number; nama: string };
+/** Toko nonaktif yang masih punya jadwal aktif Senin. */
+let tokoNonaktif: { id: number; nama: string };
+/** Toko nonaktif tanpa jadwal aktif: tidak diberi peringatan. */
+let tokoNonaktifTanpaJadwal: { id: number; nama: string };
 const kode = { contoh: kodeProdukUji("GOR"), manual: kodeProdukUji("GOR-T"), tanpaMinggu: kodeProdukUji("GOR") };
 
 beforeAll(async () => {
   const idAdmin = (await buatPenggunaUji("admin")).id;
   cibubur = await idGudangUji("Gudang Cibubur");
   [tokoContoh, tokoTanpaMinggu, tokoTanpaVarian] = [await buatTokoUji(), await buatTokoUji(), await buatTokoUji()];
-  const semuaToko = [tokoContoh, tokoTanpaMinggu, tokoTanpaVarian];
-  await db.insert(hubunganTokoGudang).values(semuaToko.map((t) => ({ tokoId: t.id, gudangId: cibubur })));
+  [tokoNonaktif, tokoNonaktifTanpaJadwal] = [await buatTokoUji({ aktif: false }), await buatTokoUji({ aktif: false })];
+  const semuaToko = [tokoContoh, tokoTanpaMinggu, tokoTanpaVarian, tokoNonaktif];
+  await db
+    .insert(hubunganTokoGudang)
+    .values([...semuaToko, tokoNonaktifTanpaJadwal].map((t) => ({ tokoId: t.id, gudangId: cibubur })));
   await db.insert(jadwalToko).values(
     semuaToko.map((t) => ({
       tokoId: t.id,
@@ -201,8 +208,25 @@ describe("draft rencana di halaman Pengiriman Gudang", () => {
     expect(html).toMatch(
       new RegExp(`data-draft-toko="${tokoTanpaVarian.id}".*?Persiapan H−2 · Panjang cakupan 7 hari.*?data-tanpa-varian.*?Tidak ada varian di periode sumber untuk toko ini\\.`),
     );
+    // Toko nonaktif tidak ikut masuk draft walaupun masih punya jadwal aktif (PRD A6 ▶ T58).
+    expect(html).not.toContain(`data-draft-toko="${tokoNonaktif.id}"`);
     // Daftar draft tersimpan; draft yang dibuka ditandai.
     expect(html).toMatch(new RegExp(`<a aria-current="page"[^>]*href="/pengiriman-gudang/${cibubur}\\?tanggal=${TANGGAL_KIRIM}"`));
+  });
+
+  it("peringatan untuk setiap toko nonaktif yang masih punya jadwal aktif: ikon + teks (PRD A6 ▶ T58, DESIGN §7)", async () => {
+    for (const masuk of [() => masukOperator(cibubur, ["hitung-kebutuhan"]), async () => (kepala.cookie = (await kepalaPenggunaUji("admin")).cookie)]) {
+      await masuk();
+      const html = await buka(cibubur);
+      expect(html).toMatch(
+        new RegExp(
+          `data-toko-nonaktif-berjadwal="${tokoNonaktif.id}"[^>]*>.*?lucide-triangle-alert.*?Toko ${tokoNonaktif.nama} nonaktif tetapi masih punya jadwal aktif<`,
+        ),
+      );
+      expect(html).not.toContain(`data-toko-nonaktif-berjadwal="${tokoNonaktifTanpaJadwal.id}"`);
+      expect(html).not.toContain(`Toko ${tokoNonaktifTanpaJadwal.nama} nonaktif`);
+      expect(html).not.toContain(`Toko ${tokoContoh.nama} nonaktif`);
+    }
   });
 
   it("admin melihat draft tersimpan hanya-baca, tanpa form hitung", async () => {

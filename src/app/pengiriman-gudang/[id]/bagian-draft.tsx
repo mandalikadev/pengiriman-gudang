@@ -1,4 +1,4 @@
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 
 import { formatAngka, formatWaktu } from "@/app/admin/impor/format";
@@ -96,6 +96,24 @@ function IsiDraft({ draft }: { draft: DraftRencana }) {
 }
 
 /**
+ * Toko nonaktif yang masih punya jadwal aktif tidak ikut masuk draft; setiap toko diberi peringatan ikon + teks
+ * (PRD A6 ▶ Keputusan 2026-10-10, T58; DESIGN §7).
+ */
+function PeringatanTokoNonaktif({ daftarToko }: { daftarToko: readonly { id: number; nama: string }[] }) {
+  if (daftarToko.length === 0) return null;
+  return (
+    <ul aria-label="Toko nonaktif dengan jadwal aktif" className="flex flex-col gap-2">
+      {daftarToko.map((t) => (
+        <li key={t.id} data-toko-nonaktif-berjadwal={t.id} className="flex items-start gap-2 font-semibold">
+          <TriangleAlert aria-hidden strokeWidth={2} className="size-5 shrink-0 text-warning" />
+          Toko {t.nama} nonaktif tetapi masih punya jadwal aktif
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
  * Bagian Draft rencana halaman Pengiriman Gudang (T58, PRD A6 ▶ Keputusan perencanaan M2–M3). Menampilkan draft yang
  * tersimpan, tanpa menghitung saat halaman dibuka (PRD C1). Form hitung tampil hanya untuk operator dengan hak
  * `hitung-kebutuhan` (diperiksa lagi di server); pengguna lain, termasuk admin, hanya melihat.
@@ -106,6 +124,7 @@ export function BagianDraft({
   daftarTanggal,
   tanggalDiminta,
   draft,
+  tokoNonaktifBerjadwal,
 }: {
   idGudang: number;
   bolehHitung: boolean;
@@ -113,6 +132,8 @@ export function BagianDraft({
   daftarTanggal: TanggalBisnis[];
   tanggalDiminta: TanggalBisnis | null;
   draft: DraftRencana | null;
+  /** Toko nonaktif gudang ini yang masih punya jadwal aktif. */
+  tokoNonaktifBerjadwal: readonly { id: number; nama: string }[];
 }) {
   return (
     <Card role="region" aria-labelledby="draft-judul" data-draft-rencana>
@@ -129,6 +150,7 @@ export function BagianDraft({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
+        <PeringatanTokoNonaktif daftarToko={tokoNonaktifBerjadwal} />
         {bolehHitung ? <FormHitungDraft idGudang={idGudang} /> : null}
         {daftarTanggal.length > 0 ? (
           <nav aria-label="Draft tersimpan" className="flex flex-col gap-2">
