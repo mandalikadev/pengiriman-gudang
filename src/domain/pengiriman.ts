@@ -11,7 +11,7 @@ import { klasifikasiProduk } from "./produk";
 const URUTAN_KATEGORI: readonly KategoriDasar[] = ["Senin–Kamis", "Jumat", "Sabtu", "Minggu"];
 
 /** Urutan tampilan masalah produk otomatis (PRD A6 ▶ Keputusan 2026-10-09). */
-type MasalahKirim = "kebutuhan-tidak-tersedia" | "stok-negatif" | "stok-belum-diisi";
+export type MasalahKirim = "kebutuhan-tidak-tersedia" | "stok-negatif" | "stok-belum-diisi";
 
 export type MasukanKebutuhanKirim = {
   /** H. */

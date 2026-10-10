@@ -1,13 +1,15 @@
-import { ClipboardList, TriangleAlert } from "lucide-react";
+import { CircleCheck, CircleDashed, CircleX, ClipboardList, TriangleAlert, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 
 import { formatAngka, formatWaktu } from "@/app/admin/impor/format";
 import { BadgeStatus } from "@/components/badge-status";
+import { Badge, type NadaBadge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, type TanggalBisnis } from "@/domain/kalender";
 import { cn } from "@/lib/utils";
 import type { BarisDraft, DraftRencana, TokoDraft } from "@/server/gudang/draft-rencana";
+import type { MasalahBarisDraft } from "@/server/gudang/masalah-draft";
 import { labelPersiapan, persiapanDariHari } from "@/server/gudang/pilihan-jadwal";
 
 import { FormHitungDraft } from "./form-hitung-draft";
@@ -30,6 +32,45 @@ function SelKebutuhan({ baris }: { baris: BarisDraft }) {
   );
 }
 
+// DESIGN §7: masalah tampil sebagai ikon + teks. Token dan ikon mengikuti status yang sudah ada: tidak tersedia dan stok
+// belum diisi = belum diketahui, stok negatif = error, belum dipetakan = seperti di halaman Pemetaan produk.
+const tampilanMasalah = {
+  "kebutuhan-tidak-tersedia": { label: "Kebutuhan tidak tersedia", nada: "muted", ikon: CircleDashed },
+  "belum-dipetakan": { label: "Belum dipetakan", nada: "warning", ikon: TriangleAlert },
+  "stok-negatif": { label: "Stok negatif", nada: "destructive", ikon: CircleX },
+  "stok-belum-diisi": { label: "Stok belum diisi", nada: "muted", ikon: CircleDashed },
+} as const satisfies Record<MasalahBarisDraft, { label: string; nada: NadaBadge; ikon: LucideIcon }>;
+
+function DaftarMasalah({ masalah }: { masalah: readonly MasalahBarisDraft[] }) {
+  if (masalah.length === 0) return null;
+  return (
+    <ul aria-label="Masalah" className="flex flex-col gap-1">
+      {masalah.map((m) => {
+        const { label, nada, ikon: Ikon } = tampilanMasalah[m];
+        return (
+          <li key={m}>
+            <Badge variant={nada} data-masalah={m}>
+              <Ikon aria-hidden strokeWidth={2} />
+              {label}
+            </Badge>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Ringkasan masalah per toko: jumlah baris tertahan (ikon + teks, DESIGN §7). */
+function RingkasanTertahan({ jumlah }: { jumlah: number }) {
+  const Ikon = jumlah > 0 ? TriangleAlert : CircleCheck;
+  return (
+    <p data-jumlah-tertahan={jumlah} className="flex items-center gap-2 font-semibold">
+      <Ikon aria-hidden strokeWidth={2} className={cn("size-5 shrink-0", jumlah > 0 ? "text-warning" : "text-success")} />
+      {jumlah > 0 ? `${formatAngka(jumlah)} baris tertahan` : "Tidak ada baris tertahan"}
+    </p>
+  );
+}
+
 function TabelToko({ toko }: { toko: TokoDraft }) {
   return (
     <section aria-labelledby={`draft-toko-${toko.id}`} data-draft-toko={toko.id} className="flex flex-col gap-3">
@@ -40,6 +81,7 @@ function TabelToko({ toko }: { toko: TokoDraft }) {
         <p className="text-muted-foreground">
           Persiapan {labelPersiapan[persiapanDariHari[toko.persiapanHari]]} · Panjang cakupan {toko.panjangCakupan} hari
         </p>
+        <RingkasanTertahan jumlah={toko.jumlahTertahan} />
       </div>
       {toko.baris.length === 0 ? (
         <p data-tanpa-varian className="text-muted-foreground">
@@ -53,6 +95,9 @@ function TabelToko({ toko }: { toko: TokoDraft }) {
               <TableHead>Nama produk</TableHead>
               <TableHead>Klasifikasi</TableHead>
               <TableHead angka>Kebutuhan barang</TableHead>
+              <TableHead angka>Buffer</TableHead>
+              <TableHead angka>Jumlah kirim</TableHead>
+              <TableHead>Masalah</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -63,6 +108,15 @@ function TabelToko({ toko }: { toko: TokoDraft }) {
                 <TableCell>{b.klasifikasi === "manual" ? <BadgeStatus status="manual" /> : "Otomatis"}</TableCell>
                 <TableCell angka className="align-top" data-kebutuhan={b.kebutuhan ?? "tidak-tersedia"}>
                   <SelKebutuhan baris={b} />
+                </TableCell>
+                <TableCell angka className="align-top" data-buffer={b.persenBuffer ?? "kosong"}>
+                  {b.persenBuffer === null ? "—" : `${b.persenBuffer}%`}
+                </TableCell>
+                <TableCell angka className="align-top" data-jumlah-kirim={b.jumlahKirim ?? "kosong"}>
+                  {b.jumlahKirim === null ? "—" : formatAngka(b.jumlahKirim)}
+                </TableCell>
+                <TableCell className="align-top">
+                  <DaftarMasalah masalah={b.masalah} />
                 </TableCell>
               </TableRow>
             ))}
@@ -146,7 +200,7 @@ export function BagianDraft({
         </h2>
         <CardDescription>
           Toko yang mengirim pada tanggal kirim menurut jadwal aktifnya, beserta kebutuhan barang setiap varian dari
-          rata-rata periode sumber.
+          rata-rata periode sumber, buffer dari ranking pusat, jumlah kirim, dan masalah yang menahan finalisasi.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">

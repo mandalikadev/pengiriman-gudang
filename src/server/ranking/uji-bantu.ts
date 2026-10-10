@@ -1,3 +1,9 @@
+import { randomUUID } from "node:crypto";
+
+import { eq, max } from "drizzle-orm";
+
+import { db } from "@/server/db";
+import { barisRanking, keluargaAroma, versiRanking } from "@/server/db/schema";
 import { buatUrlUnggah } from "@/server/impor/penyimpanan";
 import { buatWorkbookUji } from "@/server/impor/uji-bantu";
 
@@ -20,4 +26,58 @@ export async function rankingUji({ isi, idPengguna, bulanRanking = "2026-09" }: 
   const hasil = await daftarkanRanking({ kunci, namaFile: "RANKING-UJI.xlsx", bulanRanking, idPengguna });
   if (hasil.keadaan !== "berhasil") throw new Error(hasil.pesan);
   return hasil.idVersi;
+}
+
+/** Keluarga aroma uji dengan nama unik. */
+export async function buatKeluargaUji() {
+  const [keluarga] = await db
+    .insert(keluargaAroma)
+    .values({ nama: `UJI-${randomUUID()}` })
+    .returning({ id: keluargaAroma.id, nama: keluargaAroma.nama });
+  return keluarga;
+}
+
+/**
+ * Menjadikan ranking berisi `keluarga` (urut RANK 1, 2, …) sebagai ranking berlaku, langsung di database (tanpa file):
+ * ranking berlaku sebelumnya diarsipkan. Mengembalikan id versi baru.
+ */
+export async function publikasikanRankingUji({
+  keluarga,
+  idPengguna,
+  bulanRanking = "2026-09",
+}: {
+  keluarga: readonly number[];
+  idPengguna: string;
+  bulanRanking?: string;
+}) {
+  return db.transaction(async (tx) => {
+    await tx
+      .update(versiRanking)
+      .set({ status: "diarsipkan", diarsipkanPada: new Date() })
+      .where(eq(versiRanking.status, "dipublikasikan"));
+    const [{ terakhir }] = await tx
+      .select({ terakhir: max(versiRanking.versi) })
+      .from(versiRanking)
+      .where(eq(versiRanking.bulanRanking, bulanRanking));
+    const [versi] = await tx
+      .insert(versiRanking)
+      .values({
+        bulanRanking,
+        versi: (terakhir ?? 0) + 1,
+        namaFile: "RANKING-UJI.xlsx",
+        ukuranByte: 1,
+        kunciObjek: kunciObjekRankingBaru(),
+        status: "dipublikasikan",
+        diunggahOleh: idPengguna,
+        dipublikasikanOleh: idPengguna,
+        dipublikasikanPada: new Date(),
+      })
+      .returning({ id: versiRanking.id, versi: versiRanking.versi });
+    if (keluarga.length > 0) {
+      await tx.insert(barisRanking).values(
+        keluarga.map((keluargaAromaId, i) => ({ versiId: versi.id, rank: i + 1, variant: `UJI-${randomUUID()}`, qtySales: 0, keluargaAromaId })),
+      );
+    }
+    return versi.id;
+  });
 }

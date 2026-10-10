@@ -22,6 +22,7 @@ import { daftarJenisLibur, type JenisLibur } from "@/domain/libur";
 import type { ErrorRanking } from "@/domain/ranking";
 import { daftarHakTindakan, type HakTindakan } from "@/server/gudang/hak-tindakan";
 import { daftarPolaJadwal, type HariKirim, type PolaJadwal } from "@/server/gudang/pilihan-jadwal";
+import type { MasalahBarisDraft } from "@/server/gudang/masalah-draft";
 import type { Masalah, ProdukSheet } from "@/server/impor/sheet-penjualan";
 
 // --- Autentikasi (Better Auth + plugin admin, T20) ---
@@ -845,7 +846,8 @@ export const usulanJadwal = pgTable(
  * Draft rencana satu gudang untuk satu tanggal kirim (CONTEXT "Draft rencana"), dibuat operator dengan hak
  * `hitung-kebutuhan`. Satu draft per gudang + tanggal kirim; menghitung lagi mengganti isi draft itu. Dasar yang dipakai
  * disimpan sebagai sinyal perubahan (T61): versi periode sumber (id penetapan yang berlaku, T51) dan revisi kalender
- * (T42). Toko beserta p, L, dan versi jadwal disimpan di `toko_draft_rencana`.
+ * (T42). Toko beserta p, L, dan versi jadwal disimpan di `toko_draft_rencana`. `versiRankingId` = versi ranking pusat
+ * berlaku yang dipakai untuk buffer (bulan ranking dan versinya, T66).
  */
 export const draftRencana = pgTable(
   "draft_rencana",
@@ -863,6 +865,9 @@ export const draftRencana = pgTable(
       .notNull()
       .references(() => periodeSumberGudang.id),
     revisiKalender: integer("revisi_kalender").notNull(),
+    versiRankingId: integer("versi_ranking_id")
+      .notNull()
+      .references(() => versiRanking.id),
   },
   (tabel) => [uniqueIndex("draft_rencana_gudang_tanggal_unik").on(tabel.gudangId, tabel.tanggalKirim)],
 );
@@ -897,7 +902,8 @@ export const tokoDraftRencana = pgTable(
 /**
  * Satu baris draft = satu toko–varian. Klasifikasi dan kebutuhan dari `hitungKebutuhanKirim` (T05). Kebutuhan tidak
  * tersedia = `kebutuhan` kosong dan `tanpaRataRata` berisi tanggal cakupan beserta kategori efektif yang tidak punya
- * rata-rata.
+ * rata-rata. Buffer, daftar masalah (urutan tampilan), dan jumlah kirim dari `nilaiBarisDraft` (T66): `persenBuffer`
+ * kosong untuk produk manual dan produk otomatis yang belum dipetakan; `jumlahKirim` kosong selama ada masalah.
  */
 export const barisDraftRencana = pgTable(
   "baris_draft_rencana",
@@ -910,6 +916,9 @@ export const barisDraftRencana = pgTable(
     klasifikasi: text("klasifikasi").$type<"manual" | "otomatis">().notNull(),
     kebutuhan: integer("kebutuhan"),
     tanpaRataRata: jsonb("tanpa_rata_rata").$type<{ tanggal: string; kategoriEfektif: KategoriDasar }[]>(),
+    persenBuffer: integer("persen_buffer"),
+    masalah: jsonb("masalah").$type<MasalahBarisDraft[]>().notNull().default([]),
+    jumlahKirim: integer("jumlah_kirim"),
   },
   (tabel) => [
     uniqueIndex("baris_draft_rencana_unik").on(tabel.tokoDraftId, tabel.kodeProduk),
@@ -918,5 +927,7 @@ export const barisDraftRencana = pgTable(
       "baris_draft_rencana_kebutuhan_atau_tanpa_rata_rata",
       sql`(${tabel.kebutuhan} is null) = (${tabel.tanpaRataRata} is not null)`,
     ),
+    check("baris_draft_rencana_persen_buffer_dikenal", sql`${tabel.persenBuffer} is null or ${tabel.persenBuffer} in (10, 20)`),
+    check("baris_draft_rencana_jumlah_kirim", sql`${tabel.jumlahKirim} is null or ${tabel.jumlahKirim} >= 0`),
   ],
 );

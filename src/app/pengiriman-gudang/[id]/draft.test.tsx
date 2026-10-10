@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,7 +9,7 @@ import type { KategoriDasar, NamaHari } from "@/domain/kalender";
 import { AksesDitolakError } from "@/server/auth/kewenangan";
 import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
-import { draftRencana, hubunganTokoGudang, jadwalToko, periodeSumberGudang } from "@/server/db/schema";
+import { draftRencana, hubunganTokoGudang, jadwalToko, periodeSumberGudang, produk, versiRanking } from "@/server/db/schema";
 import { daftarHakTindakan, type HakTindakan } from "@/server/gudang/hak-tindakan";
 import { tugaskanOperator } from "@/server/gudang/penugasan";
 import { tetapkanPeriodeSumber } from "@/server/gudang/periode-sumber";
@@ -17,6 +17,7 @@ import { buatTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
 import { kodeProdukUji, tahunUji } from "@/server/impor/uji-bantu";
 import { hitungUlangCacheLaporan } from "@/server/laporan/cache";
 import { aktifkanImporJuniUji, kuantitasJuniMenurutHari } from "@/server/laporan/uji-bantu";
+import { buatKeluargaUji, publikasikanRankingUji } from "@/server/ranking/uji-bantu";
 
 const kepala = vi.hoisted(() => ({ cookie: "", dimuatUlang: [] as string[] }));
 vi.mock("next/headers", () => ({
@@ -36,6 +37,7 @@ import { hitungDraft } from "./aksi-draft";
 import HalamanPengirimanGudang from "./page";
 
 // T58: hak `hitung-kebutuhan` diperiksa di server; admin hanya melihat. Halaman menampilkan draft yang tersimpan.
+// T66: buffer, jumlah kirim, daftar masalah per baris, dan ringkasan baris tertahan per toko.
 
 const golden = JSON.parse(readFileSync(join(import.meta.dirname, "../../../../tests/golden/jumlah-kirim.json"), "utf8")) as {
   rataRata: Record<KategoriDasar, number>;
@@ -61,7 +63,14 @@ let tokoTanpaVarian: { id: number; nama: string };
 let tokoNonaktif: { id: number; nama: string };
 /** Toko nonaktif tanpa jadwal aktif: tidak diberi peringatan. */
 let tokoNonaktifTanpaJadwal: { id: number; nama: string };
-const kode = { contoh: kodeProdukUji("GOR"), manual: kodeProdukUji("GOR-T"), tanpaMinggu: kodeProdukUji("GOR") };
+const kode = {
+  contoh: kodeProdukUji("GOR"),
+  manual: kodeProdukUji("GOR-T"),
+  tanpaMinggu: kodeProdukUji("GOR"),
+  belumDipetakan: kodeProdukUji("BLM"),
+  luar: kodeProdukUji("SAN"),
+};
+let idVersiRanking: number;
 
 beforeAll(async () => {
   const idAdmin = (await buatPenggunaUji("admin")).id;
@@ -88,7 +97,12 @@ beforeAll(async () => {
     tahun: tahunContoh,
     namaToko: tokoContoh.nama,
     hari: SEMUA_HARI_JUNI,
-    produk: [produkUji(kode.contoh, sesuaiContoh), produkUji(kode.manual, sesuaiContoh)],
+    produk: [
+      produkUji(kode.contoh, sesuaiContoh),
+      produkUji(kode.manual, sesuaiContoh),
+      produkUji(kode.belumDipetakan, sesuaiContoh),
+      produkUji(kode.luar, sesuaiContoh),
+    ],
   });
   const tahunTanpaMinggu = tahunUji();
   const hariTanpaMinggu = [8, 9, 10, 11, 12, 13, 14, 15, 16].filter(
@@ -109,6 +123,17 @@ beforeAll(async () => {
     idPengguna: idAdmin,
   });
   if (hasil.keadaan !== "berhasil") throw new Error(hasil.pesan);
+
+  const [tujuhBesar, luar] = [await buatKeluargaUji(), await buatKeluargaUji()];
+  // Keluarga tujuh besar di RANK 1, enam keluarga pengisi, lalu keluarga luar di RANK 8.
+  const pengisi = [];
+  for (let i = 0; i < 6; i++) pengisi.push((await buatKeluargaUji()).id);
+  idVersiRanking = await publikasikanRankingUji({ keluarga: [tujuhBesar.id, ...pengisi, luar.id], idPengguna: idAdmin });
+  await db
+    .update(produk)
+    .set({ statusKeluargaAroma: "terpetakan", keluargaAromaId: tujuhBesar.id })
+    .where(inArray(produk.kode, [kode.contoh, kode.tanpaMinggu]));
+  await db.update(produk).set({ statusKeluargaAroma: "terpetakan", keluargaAromaId: luar.id }).where(eq(produk.kode, kode.luar));
 }, 120_000);
 
 afterAll(async () => {
@@ -181,6 +206,20 @@ describe("kewenangan menghitung draft rencana (diperiksa di server)", () => {
     });
     expect(await draftGudang(jabodetabek)).toEqual([]);
   });
+
+  it("tanpa ranking dipublikasikan → pesan dan tidak ada draft (PRD A6)", async () => {
+    await masukOperator(cibubur, ["hitung-kebutuhan"]);
+    await db.update(versiRanking).set({ status: "diarsipkan" }).where(eq(versiRanking.id, idVersiRanking));
+    try {
+      await expect(hitungDraft({ idGudang: cibubur, tanggalKirim: TANGGAL_KIRIM })).resolves.toEqual({
+        keadaan: "gagal",
+        pesan: "Ranking pusat belum dipublikasikan",
+      });
+      expect(await draftGudang(cibubur)).toEqual([]);
+    } finally {
+      await db.update(versiRanking).set({ status: "dipublikasikan" }).where(eq(versiRanking.id, idVersiRanking));
+    }
+  });
 });
 
 describe("draft rencana di halaman Pengiriman Gudang", () => {
@@ -204,6 +243,22 @@ describe("draft rencana di halaman Pengiriman Gudang", () => {
           "Minggu, 07-06-2026 · kategori Minggu.*?Minggu, 14-06-2026 · kategori Minggu",
       ),
     );
+    // T66: buffer dari ranking, jumlah kirim, dan daftar masalah (ikon + teks, DESIGN §7). Stok belum bisa diisi (T59),
+    // jadi masalah produk otomatis hanya soal stok dan jumlah kirim tampil "—".
+    const baris = (k: string) => new RegExp(`<tr[^>]*data-kode-produk="${k}".*?</tr>`).exec(html)?.[0] ?? "";
+    expect(baris(kode.contoh)).toMatch(/data-buffer="20"[^>]*>20%<.*?data-jumlah-kirim="kosong"[^>]*>—<.*?data-masalah="stok-belum-diisi".*?lucide-circle-dashed.*?Stok belum diisi/);
+    expect(baris(kode.luar)).toMatch(/data-buffer="10"[^>]*>10%</);
+    expect(baris(kode.belumDipetakan)).toMatch(
+      /data-buffer="kosong"[^>]*>—<.*?data-jumlah-kirim="kosong"[^>]*>—<.*?data-masalah="belum-dipetakan".*?lucide-triangle-alert.*?Belum dipetakan.*?data-masalah="stok-belum-diisi"/,
+    );
+    expect(baris(kode.manual)).toMatch(/data-buffer="kosong"[^>]*>—<.*?data-jumlah-kirim="kosong"[^>]*>—</);
+    expect(baris(kode.manual)).not.toContain("data-masalah=");
+    expect(baris(kode.tanpaMinggu)).toMatch(
+      /data-masalah="kebutuhan-tidak-tersedia".*?Kebutuhan tidak tersedia.*?data-masalah="stok-belum-diisi".*?Stok belum diisi/,
+    );
+    // Ringkasan masalah per toko: jumlah baris tertahan (produk manual tidak tertahan).
+    expect(html).toMatch(new RegExp(`data-draft-toko="${tokoContoh.id}".*?data-jumlah-tertahan="3"[^>]*>.*?lucide-triangle-alert.*?3 baris tertahan<`));
+    expect(html).toMatch(new RegExp(`data-draft-toko="${tokoTanpaVarian.id}".*?data-jumlah-tertahan="0"[^>]*>.*?lucide-circle-check.*?Tidak ada baris tertahan<`));
     // Toko yang mengirim tanpa varian di periode sumber tetap tampil dengan keterangan.
     expect(html).toMatch(
       new RegExp(`data-draft-toko="${tokoTanpaVarian.id}".*?Persiapan H−2 · Panjang cakupan 7 hari.*?data-tanpa-varian.*?Tidak ada varian di periode sumber untuk toko ini\\.`),

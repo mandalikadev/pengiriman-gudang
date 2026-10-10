@@ -7,24 +7,38 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parseTanggalBisnis, type KategoriDasar, type NamaHari } from "@/domain/kalender";
 import { buatPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
-import { draftRencana, tokoDraftRencana, hubunganTokoGudang, jadwalToko, periodeSumberGudang, perubahanKategori } from "@/server/db/schema";
+import {
+  draftRencana,
+  hubunganTokoGudang,
+  jadwalToko,
+  periodeSumberGudang,
+  perubahanKategori,
+  produk,
+  tokoDraftRencana,
+  versiRanking,
+} from "@/server/db/schema";
 import { kodeProdukUji, tahunUji } from "@/server/impor/uji-bantu";
 import { bacaRevisiKalender, hitungUlangCacheLaporan } from "@/server/laporan/cache";
 import { aktifkanImporJuniUji, kuantitasJuniMenurutHari } from "@/server/laporan/uji-bantu";
+import { buatKeluargaUji, publikasikanRankingUji } from "@/server/ranking/uji-bantu";
 
 import {
   bacaDraftRencana,
   daftarTanggalDraft,
   hitungDraftRencana,
+  nilaiBarisDraft,
   PESAN_PERIODE_BELUM_DITETAPKAN,
   PESAN_PERIODE_TANPA_DATA_AKTIF,
+  PESAN_RANKING_BELUM_DIPUBLIKASIKAN,
 } from "./draft-rencana";
+import { URUTAN_MASALAH } from "./masalah-draft";
 import { bacaPeriodeSumber, tetapkanPeriodeSumber } from "./periode-sumber";
 import { buatTokoUji, idGudangUji } from "./uji-bantu";
 
 // T58: draft rencana per gudang dan tanggal kirim (PRD A6 ▶ Keputusan perencanaan M2–M3). Contoh PRD A6 / golden
 // `jumlah-kirim.json`: rata-rata Senin–Kamis 4, Jumat 4, Sabtu 10, Minggu 8; pengiriman Senin 2026-06-08 dengan
-// persiapan dua hari → kebutuhan 56.
+// persiapan dua hari → kebutuhan 56; stok 20 dan keluarga aroma tujuh besar → jumlah kirim 44.
+// T66: buffer dari ranking berlaku (20 tujuh besar, 10 produk otomatis lainnya), jumlah kirim, dan daftar masalah.
 
 type Golden = {
   rataRata: Record<KategoriDasar, number>;
@@ -35,6 +49,7 @@ type Golden = {
     tanggalCakupan: { tanggal: string; kategoriEfektif: KategoriDasar }[];
     kebutuhan: number;
   };
+  kasusJumlahKirim: { kebutuhan: number; stokAkhir: number; persenBuffer: number; jumlahKirim: number }[];
 };
 const golden = JSON.parse(
   readFileSync(join(import.meta.dirname, "../../../tests/golden/jumlah-kirim.json"), "utf8"),
@@ -69,7 +84,36 @@ let tokoTanpaJadwal: { id: number; nama: string };
 let tokoTanpaVarian: { id: number; nama: string };
 /** Toko nonaktif dengan jadwal aktif Senin H−2 dan penjualan di periode sumber. */
 let tokoNonaktif: { id: number; nama: string };
-const kode = { contoh: kodeProdukUji("GOR"), nol: kodeProdukUji("HOL"), manual: kodeProdukUji("GOR-T"), tanpaMinggu: kodeProdukUji("GOR") };
+const kode = {
+  contoh: kodeProdukUji("GOR"),
+  nol: kodeProdukUji("HOL"),
+  manual: kodeProdukUji("GOR-T"),
+  tanpaMinggu: kodeProdukUji("GOR"),
+  /** Rework dari keluarga tujuh besar. */
+  rework: kodeProdukUji("GOR-R"),
+  /** Keluarga di luar tujuh besar. */
+  luar: kodeProdukUji("SAN"),
+  tanpaAroma: kodeProdukUji("BOX"),
+  belumDipetakan: kodeProdukUji("BLM"),
+};
+/** Keluarga RANK 7 (masih tujuh besar) dan RANK 8 (di luar tujuh besar) di ranking berlaku. */
+let keluargaTujuhBesar: { id: number; nama: string };
+let keluargaLuar: { id: number; nama: string };
+let idVersiRanking: number;
+
+async function petakan(kodeProduk: string, keluargaAromaId: number) {
+  await db.update(produk).set({ statusKeluargaAroma: "terpetakan", keluargaAromaId }).where(eq(produk.kode, kodeProduk));
+}
+
+const MASUKAN_CONTOH = {
+  tanggalKirim: TANGGAL_KIRIM,
+  persiapanHari: 2,
+  panjangCakupan: 7,
+  toko: "1",
+  daftarPerubahan: [],
+  rataRata: golden.rataRata,
+  produk: { kode: "UJI-GOR", kategori: "15ML GLITTER/LEATHER" },
+} as const;
 
 beforeAll(async () => {
   idAdmin = (await buatPenggunaUji("admin")).id;
@@ -106,6 +150,10 @@ beforeAll(async () => {
       produkUji(kode.contoh, sesuaiContoh),
       produkUji(kode.nol, SEMUA_HARI_JUNI.map(() => 0)),
       produkUji(kode.manual, sesuaiContoh),
+      produkUji(kode.rework, sesuaiContoh),
+      produkUji(kode.luar, sesuaiContoh),
+      produkUji(kode.tanpaAroma, sesuaiContoh),
+      produkUji(kode.belumDipetakan, sesuaiContoh),
     ],
   });
 
@@ -155,6 +203,15 @@ beforeAll(async () => {
     idPengguna: idAdmin,
   });
   if (hasil.keadaan !== "berhasil") throw new Error(hasil.pesan);
+
+  // Ranking berlaku: enam keluarga pengisi, lalu keluarga tujuh besar di RANK 7 dan keluarga luar di RANK 8.
+  const pengisi = [];
+  for (let i = 0; i < 6; i++) pengisi.push((await buatKeluargaUji()).id);
+  [keluargaTujuhBesar, keluargaLuar] = [await buatKeluargaUji(), await buatKeluargaUji()];
+  idVersiRanking = await publikasikanRankingUji({ keluarga: [...pengisi, keluargaTujuhBesar.id, keluargaLuar.id], idPengguna: idAdmin });
+  for (const k of [kode.contoh, kode.tanpaMinggu, kode.rework, kode.manual]) await petakan(k, keluargaTujuhBesar.id);
+  for (const k of [kode.nol, kode.luar]) await petakan(k, keluargaLuar.id);
+  await db.update(produk).set({ statusKeluargaAroma: "tanpa-aroma" }).where(eq(produk.kode, kode.tanpaAroma));
 }, 120_000);
 
 afterAll(async () => {
@@ -178,7 +235,137 @@ describe("hitungDraftRencana", () => {
       klasifikasi: "otomatis",
       kebutuhan: golden.kasusCakupan.kebutuhan,
       tanpaRataRata: null,
+      // Keluarga aroma tujuh besar → buffer 20. Stok belum bisa diisi (T59): masalah hanya soal stok, jumlah kirim kosong.
+      persenBuffer: 20,
+      masalah: ["stok-belum-diisi"],
+      jumlahKirim: null,
     });
+  });
+
+  it("contoh PRD A6: kebutuhan 56, stok 20, keluarga tujuh besar → jumlah kirim 44 (golden jumlah-kirim.json)", () => {
+    const [contoh] = golden.kasusJumlahKirim;
+    expect(contoh).toMatchObject({ kebutuhan: golden.kasusCakupan.kebutuhan, stokAkhir: 20, persenBuffer: 20 });
+
+    const hasil = nilaiBarisDraft(
+      { ...MASUKAN_CONTOH, stokAkhir: contoh.stokAkhir },
+      { statusKeluargaAroma: "terpetakan", keluargaAromaId: keluargaTujuhBesar.id },
+      new Set([keluargaTujuhBesar.id]),
+    );
+    expect(hasil).toEqual({
+      klasifikasi: "otomatis",
+      kebutuhan: contoh.kebutuhan,
+      tanpaRataRata: null,
+      persenBuffer: contoh.persenBuffer,
+      masalah: [],
+      jumlahKirim: contoh.jumlahKirim,
+    });
+  });
+
+  it("keluarga di luar tujuh besar dan produk tanpa aroma memakai buffer 10; rework mengikuti keluarganya", async () => {
+    await hitungDraftRencana({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator });
+    const baris = (await bacaDraftRencana(bali, TANGGAL_KIRIM))?.toko.find((t) => t.id === tokoContoh.id)?.baris;
+    const buffer = (k: string) => baris?.find((b) => b.kodeProduk === k)?.persenBuffer;
+
+    expect(buffer(kode.luar)).toBe(10);
+    expect(buffer(kode.nol)).toBe(10);
+    expect(buffer(kode.tanpaAroma)).toBe(10);
+    expect(buffer(kode.rework)).toBe(20);
+
+    // Golden: kebutuhan 56, stok 20, buffer 10 → 40.
+    const luar = golden.kasusJumlahKirim[1];
+    expect(luar).toMatchObject({ kebutuhan: golden.kasusCakupan.kebutuhan, stokAkhir: 20, persenBuffer: 10 });
+    const tujuhBesar = new Set([keluargaTujuhBesar.id]);
+    for (const pemetaan of [
+      { statusKeluargaAroma: "terpetakan", keluargaAromaId: keluargaLuar.id },
+      { statusKeluargaAroma: "tanpa-aroma", keluargaAromaId: null },
+    ] as const) {
+      expect(nilaiBarisDraft({ ...MASUKAN_CONTOH, stokAkhir: luar.stokAkhir }, pemetaan, tujuhBesar)).toMatchObject({
+        persenBuffer: luar.persenBuffer,
+        masalah: [],
+        jumlahKirim: luar.jumlahKirim,
+      });
+    }
+  });
+
+  it("produk otomatis belum dipetakan tertahan tanpa buffer dan jumlah kirim; produk manual tetap manual", async () => {
+    await hitungDraftRencana({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator });
+    const baris = (await bacaDraftRencana(bali, TANGGAL_KIRIM))?.toko.find((t) => t.id === tokoContoh.id)?.baris;
+
+    expect(baris?.find((b) => b.kodeProduk === kode.belumDipetakan)).toMatchObject({
+      klasifikasi: "otomatis",
+      kebutuhan: golden.kasusCakupan.kebutuhan,
+      persenBuffer: null,
+      masalah: ["belum-dipetakan", "stok-belum-diisi"],
+      jumlahKirim: null,
+    });
+    expect(baris?.find((b) => b.kodeProduk === kode.manual)).toMatchObject({
+      klasifikasi: "manual",
+      persenBuffer: null,
+      masalah: [],
+      jumlahKirim: null,
+    });
+
+    // Stok sudah diketahui pun, produk belum dipetakan tetap tertahan; manual tetap manual walau belum dipetakan.
+    const belum = { statusKeluargaAroma: "belum-dipetakan", keluargaAromaId: null } as const;
+    expect(nilaiBarisDraft({ ...MASUKAN_CONTOH, stokAkhir: 20 }, belum, new Set())).toMatchObject({
+      persenBuffer: null,
+      masalah: ["belum-dipetakan"],
+      jumlahKirim: null,
+    });
+    expect(
+      nilaiBarisDraft({ ...MASUKAN_CONTOH, produk: { kode: "UJI-GOR-T", kategori: "15ML GLITTER/LEATHER" }, stokAkhir: -3 }, belum, new Set()),
+    ).toEqual({ klasifikasi: "manual", kebutuhan: 56, tanpaRataRata: null, persenBuffer: null, masalah: [], jumlahKirim: null });
+  });
+
+  it("semua masalah tampil sebagai daftar dalam urutan tampilan; belum dipetakan ikut bersama masalah T05", () => {
+    expect(URUTAN_MASALAH).toEqual(["kebutuhan-tidak-tersedia", "belum-dipetakan", "stok-negatif", "stok-belum-diisi"]);
+    const { Minggu: _, ...tanpaMinggu } = golden.rataRata;
+    const belum = { statusKeluargaAroma: "belum-dipetakan", keluargaAromaId: null } as const;
+
+    expect(nilaiBarisDraft({ ...MASUKAN_CONTOH, rataRata: tanpaMinggu, stokAkhir: -3 }, belum, new Set()).masalah).toEqual([
+      "kebutuhan-tidak-tersedia",
+      "belum-dipetakan",
+      "stok-negatif",
+    ]);
+    expect(nilaiBarisDraft({ ...MASUKAN_CONTOH, rataRata: tanpaMinggu, stokAkhir: null }, belum, new Set()).masalah).toEqual([
+      "kebutuhan-tidak-tersedia",
+      "belum-dipetakan",
+      "stok-belum-diisi",
+    ]);
+  });
+
+  it("draft menyimpan versi ranking yang dipakai (bulan dan versi); ringkasan masalah per toko = jumlah baris tertahan", async () => {
+    await hitungDraftRencana({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator });
+
+    const [draft] = await db.select().from(draftRencana).where(eq(draftRencana.gudangId, bali));
+    expect(draft.versiRankingId).toBe(idVersiRanking);
+    const baca = await bacaDraftRencana(bali, TANGGAL_KIRIM);
+    const [versi] = await db.select().from(versiRanking).where(eq(versiRanking.id, idVersiRanking));
+    expect(baca?.ranking).toEqual({ bulanRanking: versi.bulanRanking, versi: versi.versi });
+
+    // Enam produk otomatis (semua stoknya belum diisi) tertahan; produk manual tidak.
+    expect(baca?.toko.find((t) => t.id === tokoContoh.id)?.jumlahTertahan).toBe(6);
+    expect(baca?.toko.find((t) => t.id === tokoTanpaVarian.id)?.jumlahTertahan).toBe(0);
+  });
+
+  it("tanpa ranking dipublikasikan → pesan; draft tidak dibuat dan draft yang ada tidak berubah", async () => {
+    await hitungDraftRencana({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator });
+    const sebelum = await db.select().from(draftRencana).where(eq(draftRencana.gudangId, bali));
+    const tanggalLain = parseTanggalBisnis("2026-06-15");
+
+    await db.update(versiRanking).set({ status: "diarsipkan" }).where(eq(versiRanking.id, idVersiRanking));
+    try {
+      for (const tanggalKirim of [TANGGAL_KIRIM, tanggalLain]) {
+        await expect(hitungDraftRencana({ idGudang: bali, tanggalKirim, idPengguna: idOperator })).resolves.toEqual({
+          keadaan: "gagal",
+          pesan: PESAN_RANKING_BELUM_DIPUBLIKASIKAN,
+        });
+      }
+      expect(PESAN_RANKING_BELUM_DIPUBLIKASIKAN).toBe("Ranking pusat belum dipublikasikan");
+      expect(await db.select().from(draftRencana).where(eq(draftRencana.gudangId, bali))).toEqual(sebelum);
+    } finally {
+      await db.update(versiRanking).set({ status: "dipublikasikan" }).where(eq(versiRanking.id, idVersiRanking));
+    }
   });
 
   it("draft menyimpan gudang, tanggal kirim, waktu hitung, dan dasar: versi periode sumber, revisi kalender, versi jadwal", async () => {
@@ -209,7 +396,9 @@ describe("hitungDraftRencana", () => {
     expect(idToko).not.toContain(tokoTanpaJadwal.id);
 
     const baris = draft?.toko.find((t) => t.id === tokoContoh.id)?.baris;
-    expect(baris?.map((b) => b.kodeProduk).sort()).toEqual([kode.contoh, kode.nol, kode.manual].sort());
+    expect(baris?.map((b) => b.kodeProduk).sort()).toEqual(
+      [kode.contoh, kode.nol, kode.manual, kode.rework, kode.luar, kode.tanpaAroma, kode.belumDipetakan].sort(),
+    );
     expect(baris?.find((b) => b.kodeProduk === kode.nol)).toMatchObject({ klasifikasi: "otomatis", kebutuhan: 0 });
     expect(baris?.find((b) => b.kodeProduk === kode.manual)).toMatchObject({ klasifikasi: "manual" });
   });
@@ -231,6 +420,7 @@ describe("hitungDraftRencana", () => {
       nama: tokoTanpaVarian.nama,
       persiapanHari: 1,
       panjangCakupan: 7,
+      jumlahTertahan: 0,
       baris: [],
     });
   });
@@ -243,7 +433,16 @@ describe("hitungDraftRencana", () => {
       .filter((t) => t.kategoriEfektif === "Minggu")
       .map(({ tanggal, kategoriEfektif }) => ({ tanggal, kategoriEfektif }));
     expect(draft?.toko.find((t) => t.id === tokoTanpaMinggu.id)?.baris).toEqual([
-      { kodeProduk: kode.tanpaMinggu, namaProduk: "15ML GLITTER - GORGEOUS", klasifikasi: "otomatis", kebutuhan: null, tanpaRataRata: minggu },
+      {
+        kodeProduk: kode.tanpaMinggu,
+        namaProduk: "15ML GLITTER - GORGEOUS",
+        klasifikasi: "otomatis",
+        kebutuhan: null,
+        tanpaRataRata: minggu,
+        persenBuffer: 20,
+        masalah: ["kebutuhan-tidak-tersedia", "stok-belum-diisi"],
+        jumlahKirim: null,
+      },
     ]);
   });
 
@@ -294,7 +493,7 @@ describe("hitungDraftRencana", () => {
     const dihitungPada = new Date("2026-05-30T03:00:00Z");
     const [lama] = await db
       .insert(draftRencana)
-      .values({ gudangId: bandung, tanggalKirim: tanggalLama, dihitungOleh: idAdmin, dihitungPada, versiPeriodeSumber: periode.id, revisiKalender: 0 })
+      .values({ gudangId: bandung, tanggalKirim: tanggalLama, dihitungOleh: idAdmin, dihitungPada, versiPeriodeSumber: periode.id, revisiKalender: 0, versiRankingId: idVersiRanking })
       .returning();
 
     try {

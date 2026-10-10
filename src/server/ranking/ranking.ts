@@ -267,10 +267,11 @@ export type RankingBerlaku = {
 
 /**
  * Ranking yang berlaku (terakhir dipublikasikan), atau `null` jika belum ada ranking yang dipublikasikan (perhitungan
- * tidak berjalan, PRD A6). Pemeriksaan akses dilakukan pemanggil.
+ * tidak berjalan, PRD A6). `klien` = transaksi pemanggil bila ranking harus dibaca dalam snapshot yang sama. Pemeriksaan
+ * akses dilakukan pemanggil.
  */
-export async function rankingBerlaku(): Promise<RankingBerlaku | null> {
-  const [versi] = await db
+export async function rankingBerlaku(klien: Klien = db): Promise<RankingBerlaku | null> {
+  const [versi] = await klien
     .select({
       idVersi: versiRanking.id,
       bulanRanking: versiRanking.bulanRanking,
@@ -279,7 +280,7 @@ export async function rankingBerlaku(): Promise<RankingBerlaku | null> {
     .from(versiRanking)
     .where(eq(versiRanking.status, "dipublikasikan"));
   if (!versi) return null;
-  const tujuhBesar = await db
+  const tujuhBesar = await klien
     .select({
       rank: barisRanking.rank,
       variant: barisRanking.variant,
