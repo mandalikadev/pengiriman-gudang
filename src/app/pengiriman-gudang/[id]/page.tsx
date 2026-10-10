@@ -11,6 +11,7 @@ import { tokoTerhubung } from "@/server/gudang/akses";
 import { jadwalTokoGudang } from "@/server/gudang/jadwal";
 import { bacaPeriodeSumber } from "@/server/gudang/periode-sumber";
 import { NAMA_GUDANG_PUSAT } from "@/server/gudang/seed-master";
+import { usulanTerakhirPerToko } from "@/server/gudang/usulan-jadwal";
 
 import { KeteranganHanyaBaca } from "../hanya-baca";
 import { BagianJadwal } from "./bagian-jadwal";
@@ -43,15 +44,17 @@ function BadgeStatusToko({ aktif }: { aktif: boolean }) {
 
 /**
  * Zona kerja (DESIGN §1). Halaman Pengiriman Gudang satu gudang (T50) dengan kartu Periode sumber (T51) dan bagian
- * Jadwal (T55). Jadwal hanya bisa diubah langsung di gudang Pusat oleh operator dengan hak `kelola-usulan-jadwal`
- * (PRD A5 ▶ OD-06); server action memeriksanya lagi.
+ * Jadwal (T55, T56). Operator dengan hak `kelola-usulan-jadwal` mengubah jadwal Pusat langsung dan mengusulkan jadwal
+ * gudang lain untuk disetujui admin (PRD A5 ▶ OD-06); server action memeriksanya lagi.
  */
 export default async function HalamanPengirimanGudang({ params }: { params: Promise<{ id: string }> }) {
   const gudang = await muatGudang((await params).id);
   const daftarToko = await tokoTerhubung(gudang.id);
   const periodeSumber = await bacaPeriodeSumber(gudang.id);
   const daftarJadwal = await jadwalTokoGudang(gudang.id);
-  const bisaMengubahJadwal = gudang.nama === NAMA_GUDANG_PUSAT && gudang.hakTindakan.includes("kelola-usulan-jadwal");
+  const pusat = gudang.nama === NAMA_GUDANG_PUSAT;
+  const usulanPerToko = pusat ? null : await usulanTerakhirPerToko(gudang.id);
+  const jalurJadwal = gudang.hakTindakan.includes("kelola-usulan-jadwal") ? (pusat ? "langsung" : "usulan") : null;
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
@@ -101,7 +104,7 @@ export default async function HalamanPengirimanGudang({ params }: { params: Prom
         </Table>
       </section>
 
-      <BagianJadwal idGudang={gudang.id} daftarToko={daftarJadwal} bisaMengubah={bisaMengubahJadwal} />
+      <BagianJadwal idGudang={gudang.id} daftarToko={daftarJadwal} usulanPerToko={usulanPerToko} jalur={jalurJadwal} />
     </main>
   );
 }

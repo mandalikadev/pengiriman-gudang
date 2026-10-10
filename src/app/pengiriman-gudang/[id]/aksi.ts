@@ -7,9 +7,11 @@ import type { HasilSimpan } from "@/components/keadaan-simpan";
 import { wajibHakTindakan } from "@/server/auth/kewenangan";
 import { nonaktifkanJadwalToko, simpanJadwalToko, type HasilJadwal } from "@/server/gudang/jadwal";
 import { daftarPersiapan, daftarPolaJadwal } from "@/server/gudang/pilihan-jadwal";
+import { usulkanJadwalToko, usulkanNonaktifJadwalToko } from "@/server/gudang/usulan-jadwal";
 
-// Jadwal toko (T55, PRD A5 ▶ OD-06). Hak `kelola-usulan-jadwal` di gudang itu diperiksa di server sebelum membaca atau
-// menulis data; admin tanpa penugasan berhak ditolak. Aturan jadwal divalidasi domain (`periksaJadwal`, T54).
+// Jadwal toko (T55, PRD A5 ▶ OD-06) dan usulan jadwal gudang selain Pusat (T56). Hak `kelola-usulan-jadwal` di gudang
+// itu diperiksa di server sebelum membaca atau menulis data; admin tanpa penugasan berhak ditolak. Aturan jadwal
+// divalidasi domain (`periksaJadwal`, T54).
 
 const skemaGudang = z.object({ idGudang: z.number().int() });
 
@@ -66,4 +68,24 @@ export async function nonaktifkanJadwal(input: unknown): Promise<HasilSimpan> {
 
   const { idGudang, idToko } = isian.data;
   return selesai(idGudang, await nonaktifkanJadwalToko({ idGudang, idToko, idPengguna: operator.id }));
+}
+
+/** Mengusulkan jadwal baru atau perubahan jadwal satu toko gudang selain Pusat; jadwal aktif tidak berubah. */
+export async function usulkanJadwal(input: unknown): Promise<HasilSimpan> {
+  const operator = await wajibKelolaJadwal(input);
+  const isian = skemaJadwal.safeParse(input);
+  if (!isian.success) return { keadaan: "gagal", pesan: isian.error.issues[0].message };
+
+  const { idGudang, idToko, ...masukan } = isian.data;
+  return selesai(idGudang, await usulkanJadwalToko({ idGudang, idToko, masukan, idPengguna: operator.id }));
+}
+
+/** Mengusulkan penonaktifan jadwal aktif satu toko gudang selain Pusat; jadwal aktif tidak berubah. */
+export async function usulkanNonaktifJadwal(input: unknown): Promise<HasilSimpan> {
+  const operator = await wajibKelolaJadwal(input);
+  const isian = skemaToko.safeParse(input);
+  if (!isian.success) return { keadaan: "gagal", pesan: isian.error.issues[0].message };
+
+  const { idGudang, idToko } = isian.data;
+  return selesai(idGudang, await usulkanNonaktifJadwalToko({ idGudang, idToko, idPengguna: operator.id }));
 }

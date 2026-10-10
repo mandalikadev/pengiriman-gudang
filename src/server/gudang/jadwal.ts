@@ -9,8 +9,8 @@ import { daftarHariKirim } from "./pilihan-jadwal";
 import { NAMA_GUDANG_PUSAT } from "./seed-master";
 
 // Jadwal toko (T55, PRD A5 ▶ OD-06): setiap toko paling banyak satu jadwal aktif. Jadwal toko gudang Pusat diatur
-// langsung oleh operator Pusat yang berhak; gudang lain belum bisa mengubah jadwal di sini (usulan + persetujuan
-// menyusul, T56). Kewenangan (hak `kelola-usulan-jadwal`) diperiksa pemanggil (server action) sebelum fungsi ini.
+// langsung oleh operator Pusat yang berhak; jadwal gudang lain berganti hanya lewat usulan yang disetujui admin
+// (`usulan-jadwal.ts`, T56), memakai aturan penggantian yang sama. Kewenangan diperiksa pemanggil (server action).
 
 /** Jadwal aktif satu toko, siap tampil. */
 type JadwalAktif = Jadwal & {
@@ -26,7 +26,7 @@ type JadwalAktif = Jadwal & {
 
 export type TokoDenganJadwal = { id: number; nama: string; aktif: boolean; jadwal: JadwalAktif | null };
 
-const bacaJangkar = (tanggal: string | null) => (tanggal === null ? null : parseTanggalBisnis(tanggal));
+export const bacaJangkar = (tanggal: string | null) => (tanggal === null ? null : parseTanggalBisnis(tanggal));
 
 /** Toko yang terhubung ke gudang `idGudang` (urut nama) beserta jadwal aktifnya. Pemeriksaan akses oleh pemanggil. */
 export async function jadwalTokoGudang(idGudang: number): Promise<TokoDenganJadwal[]> {
@@ -69,19 +69,26 @@ export async function jadwalTokoGudang(idGudang: number): Promise<TokoDenganJadw
 
 export type HasilJadwal = { keadaan: "berhasil" } | { keadaan: "gagal"; pesan: string };
 
-const PESAN_BUKAN_PUSAT = "Jadwal gudang ini belum bisa diubah langsung. Hanya jadwal gudang Pusat yang bisa diatur di sini.";
+const PESAN_BUKAN_PUSAT = "Jadwal gudang ini tidak bisa diubah langsung. Ajukan usulan jadwal untuk disetujui admin.";
+const PESAN_PUSAT = "Jadwal gudang Pusat diatur langsung, tanpa usulan.";
 const PESAN_TOKO_TIDAK_TERHUBUNG = "Toko tidak terhubung ke gudang ini. Muat ulang halaman, lalu pilih lagi.";
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /**
- * Memastikan gudang adalah Pusat dan toko terhubung ke gudang itu, lalu mengunci baris toko agar perubahan jadwal
- * bersamaan untuk toko yang sama berjalan bergantian. `null` = boleh lanjut.
+ * Memastikan gudang sesuai jalurnya (`langsung` = Pusat, `usulan` = gudang selain Pusat; PRD A5 ▶ OD-06) dan toko
+ * terhubung ke gudang itu, lalu mengunci baris toko agar perubahan jadwal atau usulan bersamaan untuk toko yang sama
+ * berjalan bergantian. `null` = boleh lanjut.
  */
-async function periksaTujuan(tx: Tx, idGudang: number, idToko: number): Promise<string | null> {
+export async function periksaTujuan(
+  tx: Tx,
+  { idGudang, idToko, jalur }: { idGudang: number; idToko: number; jalur: "langsung" | "usulan" },
+): Promise<string | null> {
   const [tujuan] = await tx.select({ nama: gudang.nama }).from(gudang).where(eq(gudang.id, idGudang));
   if (!tujuan) return "Gudang tidak ditemukan.";
-  if (tujuan.nama !== NAMA_GUDANG_PUSAT) return PESAN_BUKAN_PUSAT;
+  const pusat = tujuan.nama === NAMA_GUDANG_PUSAT;
+  if (jalur === "langsung" && !pusat) return PESAN_BUKAN_PUSAT;
+  if (jalur === "usulan" && pusat) return PESAN_PUSAT;
 
   const [terhubung] = await tx
     .select({ idToko: toko.id })
@@ -97,9 +104,60 @@ function urutkanHari(hariKirim: Jadwal["hariKirim"]): Jadwal["hariKirim"] {
   return [...hariKirim].sort((a, b) => daftarHariKirim.indexOf(a.hari) - daftarHariKirim.indexOf(b.hari));
 }
 
-function jadwalSama(a: Jadwal, b: Jadwal) {
+/** Memvalidasi isian dengan `periksaJadwal` (T54); jadwal yang valid dikembalikan dengan hari kirim terurut. */
+export function jadwalDariMasukan(masukan: MasukanJadwal): { jadwal: Jadwal } | { pesan: string } {
+  const hasil = periksaJadwal(masukan);
+  if (hasil.keadaan === "tidakValid") return { pesan: hasil.pesan.join(" ") };
+  return { jadwal: { ...hasil.jadwal, hariKirim: urutkanHari(hasil.jadwal.hariKirim) } };
+}
+
+export function jadwalSama(a: Jadwal, b: Jadwal) {
   return a.pola === b.pola && a.tanggalJangkar === b.tanggalJangkar && JSON.stringify(a.hariKirim) === JSON.stringify(b.hariKirim);
 }
+
+/** Jadwal aktif satu toko di dalam transaksi, atau `null`. */
+export async function bacaJadwalAktif(tx: Tx, idToko: number): Promise<(Jadwal & { id: number }) | null> {
+  const [aktif] = await tx
+    .select({ id: jadwalToko.id, pola: jadwalToko.pola, hariKirim: jadwalToko.hariKirim, tanggalJangkar: jadwalToko.tanggalJangkar })
+    .from(jadwalToko)
+    .where(and(eq(jadwalToko.tokoId, idToko), eq(jadwalToko.status, "aktif")));
+  return aktif ? { ...aktif, tanggalJangkar: bacaJangkar(aktif.tanggalJangkar) } : null;
+}
+
+/**
+ * Menjadikan `baru` jadwal aktif toko (dipakai pengaturan langsung Pusat dan persetujuan usulan). Jadwal aktif lama
+ * dinonaktifkan atas nama `idPengguna` dan tetap tersimpan sebagai riwayat. Jadwal yang sama dengan jadwal aktif tidak
+ * membuat versi baru. Harus dipanggil di dalam transaksi setelah `periksaTujuan` mengunci toko.
+ */
+export async function gantiJadwalAktif(tx: Tx, { idToko, baru, idPengguna }: { idToko: number; baru: Jadwal; idPengguna: string }) {
+  const lama = await bacaJadwalAktif(tx, idToko);
+  if (lama) {
+    if (jadwalSama(lama, baru)) return;
+    await tx
+      .update(jadwalToko)
+      .set({ status: "nonaktif", dinonaktifkanOleh: idPengguna, dinonaktifkanPada: sql`now()` })
+      .where(eq(jadwalToko.id, lama.id));
+  }
+  await tx.insert(jadwalToko).values({
+    tokoId: idToko,
+    pola: baru.pola,
+    hariKirim: [...baru.hariKirim],
+    tanggalJangkar: baru.tanggalJangkar,
+    dibuatOleh: idPengguna,
+  });
+}
+
+/** Menonaktifkan jadwal aktif toko atas nama `idPengguna`. `false` = toko tidak punya jadwal aktif. */
+export async function nonaktifkanJadwalAktif(tx: Tx, { idToko, idPengguna }: { idToko: number; idPengguna: string }) {
+  const baris = await tx
+    .update(jadwalToko)
+    .set({ status: "nonaktif", dinonaktifkanOleh: idPengguna, dinonaktifkanPada: sql`now()` })
+    .where(and(eq(jadwalToko.tokoId, idToko), eq(jadwalToko.status, "aktif")))
+    .returning({ id: jadwalToko.id });
+  return baris.length > 0;
+}
+
+export const PESAN_TANPA_JADWAL_AKTIF = "Toko ini tidak punya jadwal aktif. Muat ulang halaman untuk melihat jadwal terbaru.";
 
 /**
  * Menyimpan jadwal toko gudang Pusat (PRD A5 ▶ OD-06). Isian divalidasi `periksaJadwal` (T54). Bila toko sudah punya
@@ -117,34 +175,14 @@ export async function simpanJadwalToko({
   masukan: MasukanJadwal;
   idPengguna: string;
 }): Promise<HasilJadwal> {
-  const hasil = periksaJadwal(masukan);
+  const hasil = jadwalDariMasukan(masukan);
 
   return db.transaction(async (tx) => {
-    const pesanTujuan = await periksaTujuan(tx, idGudang, idToko);
+    const pesanTujuan = await periksaTujuan(tx, { idGudang, idToko, jalur: "langsung" });
     if (pesanTujuan !== null) return { keadaan: "gagal", pesan: pesanTujuan };
-    if (hasil.keadaan === "tidakValid") return { keadaan: "gagal", pesan: hasil.pesan.join(" ") };
-    const baru: Jadwal = { ...hasil.jadwal, hariKirim: urutkanHari(hasil.jadwal.hariKirim) };
+    if ("pesan" in hasil) return { keadaan: "gagal", pesan: hasil.pesan };
 
-    const [lama] = await tx
-      .select({ id: jadwalToko.id, pola: jadwalToko.pola, hariKirim: jadwalToko.hariKirim, tanggalJangkar: jadwalToko.tanggalJangkar })
-      .from(jadwalToko)
-      .where(and(eq(jadwalToko.tokoId, idToko), eq(jadwalToko.status, "aktif")));
-    if (lama) {
-      if (jadwalSama({ ...lama, tanggalJangkar: bacaJangkar(lama.tanggalJangkar) }, baru)) {
-        return { keadaan: "berhasil" };
-      }
-      await tx
-        .update(jadwalToko)
-        .set({ status: "nonaktif", dinonaktifkanOleh: idPengguna, dinonaktifkanPada: sql`now()` })
-        .where(eq(jadwalToko.id, lama.id));
-    }
-    await tx.insert(jadwalToko).values({
-      tokoId: idToko,
-      pola: baru.pola,
-      hariKirim: [...baru.hariKirim],
-      tanggalJangkar: baru.tanggalJangkar,
-      dibuatOleh: idPengguna,
-    });
+    await gantiJadwalAktif(tx, { idToko, baru: hasil.jadwal, idPengguna });
     return { keadaan: "berhasil" };
   });
 }
@@ -160,16 +198,11 @@ export async function nonaktifkanJadwalToko({
   idPengguna: string;
 }): Promise<HasilJadwal> {
   return db.transaction(async (tx) => {
-    const pesanTujuan = await periksaTujuan(tx, idGudang, idToko);
+    const pesanTujuan = await periksaTujuan(tx, { idGudang, idToko, jalur: "langsung" });
     if (pesanTujuan !== null) return { keadaan: "gagal", pesan: pesanTujuan };
 
-    const baris = await tx
-      .update(jadwalToko)
-      .set({ status: "nonaktif", dinonaktifkanOleh: idPengguna, dinonaktifkanPada: sql`now()` })
-      .where(and(eq(jadwalToko.tokoId, idToko), eq(jadwalToko.status, "aktif")))
-      .returning({ id: jadwalToko.id });
-    if (baris.length === 0) {
-      return { keadaan: "gagal", pesan: "Toko ini tidak punya jadwal aktif. Muat ulang halaman untuk melihat jadwal terbaru." };
+    if (!(await nonaktifkanJadwalAktif(tx, { idToko, idPengguna }))) {
+      return { keadaan: "gagal", pesan: PESAN_TANPA_JADWAL_AKTIF };
     }
     return { keadaan: "berhasil" };
   });

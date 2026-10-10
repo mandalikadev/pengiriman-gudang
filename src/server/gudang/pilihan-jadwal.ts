@@ -25,3 +25,8 @@ export const persiapanDariHari: Record<0 | 1 | 2, Persiapan> = { 0: "H", 1: "H-1
 
 /** Teks tampil persiapan, mis. `H−2` (tanda minus seperti PRD A5). */
 export const labelPersiapan: Record<Persiapan, string> = { H: "H", "H-1": "H−1", "H-2": "H−2" };
+
+/** Teks hari kirim beserta persiapannya, mis. `Senin (H−2), Kamis (H)`. */
+export function labelHariKirim(hariKirim: Jadwal["hariKirim"]) {
+  return hariKirim.map((h) => `${h.hari} (${labelPersiapan[persiapanDariHari[h.persiapanHari]]})`).join(", ");
+}

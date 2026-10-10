@@ -125,13 +125,13 @@ describe("kewenangan menyimpan jadwal Pusat (diperiksa di server)", () => {
     expect(await riwayat(t.id)).toEqual([]);
   });
 
-  it("gudang selain Pusat belum bisa mengubah jadwal, walaupun operatornya berhak", async () => {
+  it("gudang selain Pusat tidak bisa mengubah jadwal langsung, walaupun operatornya berhak", async () => {
     const t = await tokoDiGudang(bali);
     await masukOperator(bali, ["kelola-usulan-jadwal"]);
 
     await expect(simpanJadwal({ ...seninKamis(t.id), idGudang: bali })).resolves.toEqual({
       keadaan: "gagal",
-      pesan: "Jadwal gudang ini belum bisa diubah langsung. Hanya jadwal gudang Pusat yang bisa diatur di sini.",
+      pesan: "Jadwal gudang ini tidak bisa diubah langsung. Ajukan usulan jadwal untuk disetujui admin.",
     });
     await expect(nonaktifkanJadwal({ idGudang: bali, idToko: t.id })).resolves.toMatchObject({ keadaan: "gagal" });
     expect(await riwayat(t.id)).toEqual([]);

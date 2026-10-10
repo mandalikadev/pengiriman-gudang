@@ -19,7 +19,7 @@ import {
   type PolaJadwal,
 } from "@/server/gudang/pilihan-jadwal";
 
-import { nonaktifkanJadwal, simpanJadwal } from "./aksi";
+import { nonaktifkanJadwal, simpanJadwal, usulkanJadwal, usulkanNonaktifJadwal } from "./aksi";
 
 /** Isian form jadwal satu toko; divalidasi domain (`periksaJadwal`, T54) di server. */
 export type IsianJadwal = {
@@ -28,22 +28,49 @@ export type IsianJadwal = {
   tanggalJangkar: string | null;
 };
 
-type TokoForm = { id: number; nama: string; jadwal: IsianJadwal | null };
+/** `langsung` = gudang Pusat (PRD A5 ▶ OD-06); `usulan` = gudang lain, perubahan menunggu persetujuan admin (T56). */
+export type JalurJadwal = "langsung" | "usulan";
+
+type TokoForm = { id: number; nama: string; jadwal: IsianJadwal | null; adaUsulanMenunggu: boolean };
+
+const teksJalur = {
+  langsung: {
+    judul: "Atur jadwal toko",
+    keterangan: null,
+    simpan: "Simpan jadwal",
+    nonaktifkan: "Nonaktifkan jadwal",
+    yangDiperiksa: "jadwal toko di daftar",
+    aksiSimpan: simpanJadwal,
+    aksiNonaktifkan: nonaktifkanJadwal,
+  },
+  usulan: {
+    judul: "Usulkan jadwal toko",
+    keterangan: "Usulan berlaku setelah disetujui admin. Sampai saat itu, jadwal aktif toko tetap dipakai.",
+    simpan: "Kirim usulan",
+    nonaktifkan: "Usulkan penonaktifan",
+    yangDiperiksa: "status usulan toko di daftar",
+    aksiSimpan: usulkanJadwal,
+    aksiNonaktifkan: usulkanNonaktifJadwal,
+  },
+} as const;
 
 const ISIAN_KOSONG: IsianJadwal = { pola: "mingguan", hariKirim: [], tanggalJangkar: null };
 
 const kelasLabel = "flex flex-col gap-2 font-semibold";
 
 /**
- * Form buat/ubah/nonaktifkan jadwal satu toko gudang Pusat (T55, PRD A5 ▶ OD-06). Memilih toko memuat jadwal aktifnya.
- * Hak `kelola-usulan-jadwal` dan aturan jadwal diperiksa lagi di server.
+ * Form buat/ubah/nonaktifkan jadwal satu toko (T55, T56; PRD A5 ▶ OD-06). Di gudang Pusat perubahan langsung menjadi
+ * jadwal aktif; di gudang lain menjadi usulan untuk disetujui admin. Memilih toko memuat jadwal aktifnya. Hak
+ * `kelola-usulan-jadwal`, satu usulan menunggu per toko, dan aturan jadwal diperiksa lagi di server.
  */
-export function FormJadwal({ idGudang, daftarToko }: { idGudang: number; daftarToko: TokoForm[] }) {
+export function FormJadwal({ idGudang, jalur, daftarToko }: { idGudang: number; jalur: JalurJadwal; daftarToko: TokoForm[] }) {
   const id = useId();
+  const teks = teksJalur[jalur];
   const [idToko, setIdToko] = useState("");
   const [isian, setIsian] = useState<IsianJadwal>(ISIAN_KOSONG);
-  const { tampilan, menunggu, tandaiBerubah, simpan } = usePenyimpanan("jadwal toko di daftar");
+  const { tampilan, menunggu, tandaiBerubah, simpan } = usePenyimpanan(teks.yangDiperiksa);
   const toko = daftarToko.find((t) => String(t.id) === idToko);
+  const tertahan = toko?.adaUsulanMenunggu === true;
   const persiapanHari = new Map(isian.hariKirim.map((h) => [h.hari, h.persiapan]));
 
   function ubah(baru: Partial<IsianJadwal>) {
@@ -77,12 +104,13 @@ export function FormJadwal({ idGudang, daftarToko }: { idGudang: number; daftarT
           return persiapan ? [{ hari, persiapan }] : [];
         });
         const tanggalJangkar = isian.pola === "dua-mingguan" ? isian.tanggalJangkar : null;
-        simpan(() => simpanJadwal({ idGudang, idToko: Number(idToko), pola: isian.pola, hariKirim, tanggalJangkar }));
+        simpan(() => teks.aksiSimpan({ idGudang, idToko: Number(idToko), pola: isian.pola, hariKirim, tanggalJangkar }));
       }}
     >
       <h3 id={`${id}-judul`} className="text-lg font-semibold">
-        Atur jadwal toko
+        {teks.judul}
       </h3>
+      {teks.keterangan ? <p className="text-muted-foreground">{teks.keterangan}</p> : null}
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className={kelasLabel}>
@@ -173,19 +201,35 @@ export function FormJadwal({ idGudang, daftarToko }: { idGudang: number; daftarT
       ) : null}
 
       <div className="flex flex-wrap items-center gap-4">
-        <Button type="submit" disabled={menunggu || !toko} className="active:scale-95">
-          Simpan jadwal
+        <Button
+          type="submit"
+          disabled={menunggu || !toko || tertahan}
+          aria-describedby={tertahan ? `${id}-tertahan` : undefined}
+          className="active:scale-95"
+        >
+          {teks.simpan}
         </Button>
         {toko?.jadwal ? (
           <Button
             type="button"
             variant="destructive"
-            disabled={menunggu}
+            disabled={menunggu || tertahan}
+            aria-describedby={tertahan ? `${id}-tertahan` : undefined}
             className="active:scale-95"
-            onClick={() => simpan(() => nonaktifkanJadwal({ idGudang, idToko: toko.id }), () => setIsian(ISIAN_KOSONG))}
+            onClick={() =>
+              simpan(
+                () => teks.aksiNonaktifkan({ idGudang, idToko: toko.id }),
+                jalur === "langsung" ? () => setIsian(ISIAN_KOSONG) : undefined,
+              )
+            }
           >
-            Nonaktifkan jadwal
+            {teks.nonaktifkan}
           </Button>
+        ) : null}
+        {tertahan ? (
+          <p id={`${id}-tertahan`} className="text-muted-foreground">
+            Toko ini masih punya usulan jadwal yang menunggu persetujuan admin.
+          </p>
         ) : null}
         {tampilan ? <PesanStatusSimpan keadaan={tampilan.keadaan} pesan={tampilan.pesan} /> : null}
       </div>

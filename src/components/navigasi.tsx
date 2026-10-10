@@ -27,6 +27,7 @@ const itemAdmin = [
   { href: "/admin/keluarga-aroma", label: "Keluarga aroma" },
   { href: "/admin/pemetaan-produk", label: "Pemetaan produk" },
   { href: "/admin/ranking", label: "Ranking" },
+  { href: "/admin/jadwal", label: "Persetujuan jadwal" },
 ];
 
 const fokusTerlihat =

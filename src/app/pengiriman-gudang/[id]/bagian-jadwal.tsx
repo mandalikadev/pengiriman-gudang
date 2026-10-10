@@ -7,9 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal } from "@/domain/kalender";
 import type { TokoDenganJadwal } from "@/server/gudang/jadwal";
-import { labelPersiapan, labelPola, persiapanDariHari } from "@/server/gudang/pilihan-jadwal";
+import { labelHariKirim, labelPola, persiapanDariHari } from "@/server/gudang/pilihan-jadwal";
+import type { UsulanTerakhir } from "@/server/gudang/usulan-jadwal";
 
-import { FormJadwal, type IsianJadwal } from "./form-jadwal";
+import { FormJadwal, type IsianJadwal, type JalurJadwal } from "./form-jadwal";
+import { BadgeStatusUsulan, labelJenisUsulan } from "./status-usulan";
 
 function BadgeTanpaJadwal() {
   return (
@@ -29,20 +31,38 @@ function keIsian(jadwal: NonNullable<TokoDenganJadwal["jadwal"]>): IsianJadwal {
   };
 }
 
+function SelUsulan({ usulan }: { usulan: UsulanTerakhir | undefined }) {
+  if (!usulan) return <span className="text-muted-foreground">—</span>;
+  return (
+    <div className="flex flex-col gap-1">
+      <BadgeStatusUsulan status={usulan.status} />
+      <span>{labelJenisUsulan[usulan.jenis]}</span>
+      <span className="text-muted-foreground">
+        Diusulkan {usulan.diusulkanOleh}, {formatWaktu(usulan.diusulkanPada)}
+      </span>
+      {usulan.alasanPenolakan !== null ? <span>Alasan penolakan: {usulan.alasanPenolakan}</span> : null}
+    </div>
+  );
+}
+
 /**
- * Bagian Jadwal halaman Pengiriman Gudang (T55, PRD A5 ▶ OD-06): setiap toko terhubung beserta jadwal aktifnya.
- * Form buat/ubah/nonaktifkan hanya tampil untuk operator Pusat dengan hak `kelola-usulan-jadwal` (diperiksa lagi di
- * server); pengguna lain melihatnya hanya-baca.
+ * Bagian Jadwal halaman Pengiriman Gudang (T55, T56; PRD A5 ▶ OD-06): setiap toko terhubung beserta jadwal aktifnya.
+ * `usulanPerToko` (gudang selain Pusat) menambah kolom status usulan terakhir setiap toko. Form tampil hanya untuk
+ * operator dengan hak `kelola-usulan-jadwal` (`jalur`: Pusat mengatur langsung, gudang lain mengusulkan; diperiksa lagi
+ * di server); pengguna lain melihatnya hanya-baca.
  */
 export function BagianJadwal({
   idGudang,
   daftarToko,
-  bisaMengubah,
+  usulanPerToko,
+  jalur,
 }: {
   idGudang: number;
   daftarToko: TokoDenganJadwal[];
-  bisaMengubah: boolean;
+  usulanPerToko: Map<number, UsulanTerakhir> | null;
+  jalur: JalurJadwal | null;
 }) {
+  const jumlahKolom = usulanPerToko ? 7 : 6;
   return (
     <Card role="region" aria-labelledby="jadwal-judul" data-jadwal>
       <CardHeader>
@@ -67,12 +87,13 @@ export function BagianJadwal({
               <TableHead>Hari kirim (persiapan)</TableHead>
               <TableHead>Tanggal jangkar</TableHead>
               <TableHead>Diatur</TableHead>
+              {usulanPerToko ? <TableHead>Usulan terakhir</TableHead> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
             {daftarToko.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-muted-foreground">
+                <TableCell colSpan={jumlahKolom} className="text-muted-foreground">
                   Belum ada toko yang terhubung ke gudang ini.
                 </TableCell>
               </TableRow>
@@ -83,26 +104,33 @@ export function BagianJadwal({
                   <TableCell>{t.jadwal ? <BadgeStatus status="aktif" /> : <BadgeTanpaJadwal />}</TableCell>
                   <TableCell>{t.jadwal ? labelPola[t.jadwal.pola] : "—"}</TableCell>
                   <TableCell className="whitespace-normal">
-                    {t.jadwal
-                      ? t.jadwal.hariKirim
-                          .map((h) => `${h.hari} (${labelPersiapan[persiapanDariHari[h.persiapanHari]]})`)
-                          .join(", ")
-                      : "—"}
+                    {t.jadwal ? labelHariKirim(t.jadwal.hariKirim) : "—"}
                   </TableCell>
                   <TableCell>{t.jadwal?.tanggalJangkar ? formatTanggal(t.jadwal.tanggalJangkar) : "—"}</TableCell>
                   <TableCell className="whitespace-normal text-muted-foreground">
                     {t.jadwal ? `${t.jadwal.diaturOleh}, ${formatWaktu(t.jadwal.diaturPada)}` : "—"}
                   </TableCell>
+                  {usulanPerToko ? (
+                    <TableCell className="whitespace-normal" data-usulan-toko={t.id}>
+                      <SelUsulan usulan={usulanPerToko.get(t.id)} />
+                    </TableCell>
+                  ) : null}
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
 
-        {bisaMengubah && daftarToko.length > 0 ? (
+        {jalur !== null && daftarToko.length > 0 ? (
           <FormJadwal
             idGudang={idGudang}
-            daftarToko={daftarToko.map((t) => ({ id: t.id, nama: t.nama, jadwal: t.jadwal ? keIsian(t.jadwal) : null }))}
+            jalur={jalur}
+            daftarToko={daftarToko.map((t) => ({
+              id: t.id,
+              nama: t.nama,
+              jadwal: t.jadwal ? keIsian(t.jadwal) : null,
+              adaUsulanMenunggu: usulanPerToko?.get(t.id)?.status === "menunggu",
+            }))}
           />
         ) : null}
       </CardContent>

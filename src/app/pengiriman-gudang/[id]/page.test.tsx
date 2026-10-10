@@ -4,10 +4,11 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
-import { hubunganTokoGudang, jadwalToko, periodeSumberGudang, toko } from "@/server/db/schema";
+import { hubunganTokoGudang, jadwalToko, periodeSumberGudang, toko, usulanJadwal } from "@/server/db/schema";
 import { tugaskanOperator } from "@/server/gudang/penugasan";
 import { bacaPeriodeSumber, tetapkanPeriodeSumber } from "@/server/gudang/periode-sumber";
 import { buatTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
+import { tolakUsulanJadwal, usulkanJadwalToko, usulkanNonaktifJadwalToko } from "@/server/gudang/usulan-jadwal";
 import { siapkanBulanTersediaUji } from "@/server/laporan/uji-bantu";
 
 const kepala = vi.hoisted(() => ({ cookie: "" }));
@@ -250,16 +251,71 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
     expect(html).not.toMatch(/<(button|input|select|form)\b/);
   });
 
-  it("gudang selain Pusat: operator dengan kelola-usulan-jadwal belum mendapat form ubah", async () => {
-    const t = await buatTokoUji();
-    await db.insert(hubunganTokoGudang).values({ tokoId: t.id, gudangId: cibubur });
+  it("gudang selain Pusat: operator dengan kelola-usulan-jadwal mendapat form usulan dan melihat status usulan per toko", async () => {
+    const [menunggu, ditolak, tanpaUsulan] = [await buatTokoUji(), await buatTokoUji(), await buatTokoUji()];
+    await db.insert(hubunganTokoGudang).values([
+      { tokoId: menunggu.id, gudangId: cibubur },
+      { tokoId: ditolak.id, gudangId: cibubur },
+      { tokoId: tanpaUsulan.id, gudangId: cibubur },
+    ]);
     const operator = await kepalaPenggunaUji("viewer");
     await tugaskanOperator({ idPengguna: operator.id, idGudang: cibubur, hakTindakan: ["kelola-usulan-jadwal"] });
+    const admin = await buatPenggunaUji("admin");
+    const masukan = { pola: "mingguan", hariKirim: [{ hari: "Rabu", persiapan: "H" }], tanggalJangkar: null } as const;
+    await usulkanJadwalToko({ idGudang: cibubur, idToko: menunggu.id, masukan, idPengguna: operator.id });
+    await usulkanJadwalToko({ idGudang: cibubur, idToko: ditolak.id, masukan, idPengguna: operator.id });
+    const [usulanDitolak] = await db.select().from(usulanJadwal).where(eq(usulanJadwal.tokoId, ditolak.id));
+    await tolakUsulanJadwal({ idUsulan: usulanDitolak.id, alasan: "Rabu armada penuh", idPengguna: admin.id });
     kepala.cookie = operator.cookie;
 
     const html = await buka(cibubur);
-    expect(barisJadwal(html, t.id)).toContain("Belum ada jadwal");
+    expect(html).toContain("Usulan terakhir");
+    // Usulan menunggu tidak menggantikan jadwal aktif.
+    const barisMenunggu = barisJadwal(html, menunggu.id);
+    expect(barisMenunggu).toContain("Belum ada jadwal");
+    expect(barisMenunggu).toContain('data-status-usulan="menunggu"');
+    expect(barisMenunggu).toContain("Menunggu persetujuan");
+    expect(barisMenunggu).toContain("Buat jadwal");
+    expect(barisMenunggu).toMatch(/Diusulkan Uji viewer, \w+, \d{2}-\d{2}-\d{4} pukul \d{2}\.\d{2} WIB/);
+
+    const barisDitolak = barisJadwal(html, ditolak.id);
+    expect(barisDitolak).toContain('data-status-usulan="ditolak"');
+    expect(barisDitolak).toContain("lucide-circle-x");
+    expect(barisDitolak).toContain("Alasan penolakan: Rabu armada penuh");
+
+    expect(barisJadwal(html, tanpaUsulan.id)).not.toContain("data-status-usulan");
+
+    expect(html).toContain("Usulkan jadwal toko");
+    expect(html).toContain("Usulan berlaku setelah disetujui admin.");
+    expect(html).toContain("Kirim usulan");
     expect(html).not.toContain("Atur jadwal toko");
-    expect(html).not.toMatch(/<(button|input|select|form)\b/);
+  });
+
+  it("gudang selain Pusat: operator tanpa kelola-usulan-jadwal dan admin melihat status usulan hanya-baca", async () => {
+    const t = await buatTokoUji();
+    await db.insert(hubunganTokoGudang).values({ tokoId: t.id, gudangId: cibubur });
+    const pengusul = await buatPenggunaUji("viewer");
+    await usulkanNonaktifJadwalToko({ idGudang: cibubur, idToko: t.id, idPengguna: pengusul.id });
+
+    const operator = await kepalaPenggunaUji("viewer");
+    await tugaskanOperator({ idPengguna: operator.id, idGudang: cibubur, hakTindakan: ["input-stok"] });
+    for (const cookie of [operator.cookie, (await kepalaPenggunaUji("admin")).cookie]) {
+      kepala.cookie = cookie;
+      const html = await buka(cibubur);
+      expect(html).toContain("Usulan terakhir");
+      expect(html).not.toContain("Usulkan jadwal toko");
+      expect(html).not.toMatch(/<(button|input|select|form)\b/);
+    }
+  });
+
+  it("gudang Pusat tidak menampilkan kolom usulan", async () => {
+    await siapkanTokoPusat();
+    const operator = await kepalaPenggunaUji("viewer");
+    await tugaskanOperator({ idPengguna: operator.id, idGudang: pusat, hakTindakan: ["kelola-usulan-jadwal"] });
+    kepala.cookie = operator.cookie;
+
+    const html = await buka(pusat);
+    expect(html).not.toContain("Usulan terakhir");
+    expect(html).not.toContain("Usulkan jadwal toko");
   });
 });

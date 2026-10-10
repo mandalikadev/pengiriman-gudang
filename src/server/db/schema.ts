@@ -772,3 +772,69 @@ export const jadwalToko = pgTable(
     ),
   ],
 );
+
+// --- Usulan jadwal (T56, PRD A5 ▶ OD-06 dan ▶ Keputusan perencanaan M2–M3) ---
+
+export const daftarJenisUsulanJadwal = ["buat", "ubah", "nonaktifkan"] as const;
+export type JenisUsulanJadwal = (typeof daftarJenisUsulanJadwal)[number];
+
+export const daftarStatusUsulanJadwal = ["menunggu", "disetujui", "ditolak"] as const;
+export type StatusUsulanJadwal = (typeof daftarStatusUsulanJadwal)[number];
+
+/**
+ * Usulan jadwal satu toko gudang selain Pusat (CONTEXT "Usulan jadwal"), dibuat operator dengan hak
+ * `kelola-usulan-jadwal` dan diputuskan admin. Isi jadwal (pola, hari kirim, tanggal jangkar; hasil `periksaJadwal`, T54)
+ * kosong untuk usulan `nonaktifkan`. Paling banyak satu usulan `menunggu` per toko, ditegakkan unique index parsial.
+ * Usulan tidak mengubah `jadwal_toko` sampai disetujui. `diputuskanOleh`/`diputuskanPada` = penyetuju (admin yang
+ * menyetujui atau menolak) dan waktunya; penolakan wajib beralasan.
+ */
+export const usulanJadwal = pgTable(
+  "usulan_jadwal",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    tokoId: integer("toko_id")
+      .notNull()
+      .references(() => toko.id),
+    jenis: text("jenis").$type<JenisUsulanJadwal>().notNull(),
+    pola: text("pola").$type<PolaJadwal>(),
+    hariKirim: jsonb("hari_kirim").$type<{ hari: HariKirim; persiapanHari: 0 | 1 | 2 }[]>(),
+    tanggalJangkar: date("tanggal_jangkar", { mode: "string" }),
+    status: text("status").$type<StatusUsulanJadwal>().notNull().default("menunggu"),
+    diusulkanOleh: text("diusulkan_oleh")
+      .notNull()
+      .references(() => user.id),
+    diusulkanPada: timestamp("diusulkan_pada", { withTimezone: true }).notNull().defaultNow(),
+    diputuskanOleh: text("diputuskan_oleh").references(() => user.id),
+    diputuskanPada: timestamp("diputuskan_pada", { withTimezone: true }),
+    alasanPenolakan: text("alasan_penolakan"),
+  },
+  (tabel) => [
+    uniqueIndex("usulan_jadwal_satu_menunggu")
+      .on(tabel.tokoId)
+      .where(sql`${tabel.status} = 'menunggu'`),
+    index("usulan_jadwal_toko_id_idx").on(tabel.tokoId, tabel.id),
+    check("usulan_jadwal_jenis_dikenal", sql`${tabel.jenis} in (${daftarSql(daftarJenisUsulanJadwal)})`),
+    check("usulan_jadwal_status_dikenal", sql`${tabel.status} in (${daftarSql(daftarStatusUsulanJadwal)})`),
+    check("usulan_jadwal_pola_dikenal", sql`${tabel.pola} in (${daftarSql(daftarPolaJadwal)})`),
+    check(
+      "usulan_jadwal_isi_sesuai_jenis",
+      sql`(${tabel.jenis} = 'nonaktifkan') = (${tabel.pola} is null and ${tabel.hariKirim} is null)`,
+    ),
+    check(
+      "usulan_jadwal_hari_kirim_array",
+      sql`${tabel.hariKirim} is null or jsonb_typeof(${tabel.hariKirim}) = 'array'`,
+    ),
+    check(
+      "usulan_jadwal_jangkar_dua_mingguan",
+      sql`(coalesce(${tabel.pola}, '') = 'dua-mingguan') = (${tabel.tanggalJangkar} is not null)`,
+    ),
+    check(
+      "usulan_jadwal_jejak_keputusan",
+      sql`(${tabel.status} <> 'menunggu') = (${tabel.diputuskanOleh} is not null and ${tabel.diputuskanPada} is not null)`,
+    ),
+    check(
+      "usulan_jadwal_alasan_penolakan",
+      sql`(${tabel.status} = 'ditolak') = (${tabel.alasanPenolakan} is not null)`,
+    ),
+  ],
+);

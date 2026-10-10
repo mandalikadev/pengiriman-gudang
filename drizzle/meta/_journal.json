@@ -92,6 +92,13 @@
       "when": 1791602876146,
       "tag": "0012_jadwal_toko",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791607716597,
+      "tag": "0013_usulan_jadwal",
+      "breakpoints": true
     }
   ]
 }
