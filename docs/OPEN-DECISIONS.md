@@ -81,3 +81,4 @@ Daftar hal yang **belum diputuskan pemilik**. Agen tidak mengimplementasikan per
 | T58: toko nonaktif tidak ikut masuk draft walaupun masih punya jadwal aktif; halaman Pengiriman Gudang menampilkan peringatan "Toko <nama> nonaktif tetapi masih punya jadwal aktif" (2026-10-10) | PRD A6; T58 |
 | T67: jika segmen kode cocok ke keluarga aktif dan nonaktif, keluarga aktif diusulkan; jika lebih dari satu keluarga aktif cocok, tidak ada usulan (2026-10-10) | PRD A6; T67 |
 | T43: detail tanggal di Kalender menampilkan perubahan kategori yang dibatalkan sebagai riwayat, berlabel "Dibatalkan", terpisah dari kategori efektif (2026-10-10) | PRD B4; T43 |
+| T66: urutan tampilan daftar masalah draft: kebutuhan tidak tersedia, belum dipetakan, stok negatif, stok belum diisi (2026-10-10) | PRD A6; T66 |

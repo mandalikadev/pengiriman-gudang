@@ -23,6 +23,7 @@ Satu tiket selesai = semua kriteria penerimaan tercentang, `pnpm verify` hijau, 
 - **Teknis** (struktur kode, pola, cara menguji): putuskan, lalu catat di PR sebagai `Keputusan teknis: <apa> — <alasan> — <risiko jika salah>`.
 - **Bisnis** (rumus, angka, kewenangan, apa yang dilihat pengguna, perilaku di luar issue/PRD) atau aturan yang tidak jelas/bertentangan: **jangan diputuskan.** Menebak dianggap gagal. Parkir tiket dengan label `needs-info` dan pertanyaan untuk pemilik, lalu lanjut ke tiket lain.
 - **Detail visual kecil** yang tidak diatur `docs/DESIGN.md` (warna, ikon, atau jarak untuk satu elemen) adalah keputusan **teknis**. Putuskan dengan token dan ikon yang sudah ada, lalu catat sebagai keputusan teknis. Tetap parkir jika menyangkut kontras di bawah standar `docs/DESIGN.md` atau menambah elemen/perilaku baru.
+- **Urutan tampil item dalam sebuah daftar** (status, masalah, kolom) yang tidak diatur PRD adalah keputusan **teknis**, selama semua item tetap ditampilkan. Putuskan, lalu catat sebagai keputusan teknis.
 
 ## Batas scope (pagar keras)
 
