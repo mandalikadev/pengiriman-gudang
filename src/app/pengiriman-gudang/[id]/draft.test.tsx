@@ -37,7 +37,7 @@ import { hitungDraft } from "./aksi-draft";
 import HalamanPengirimanGudang from "./page";
 
 // T58: hak `hitung-kebutuhan` diperiksa di server; admin hanya melihat. Halaman menampilkan draft yang tersimpan.
-// T66: buffer, jumlah kirim, daftar masalah per baris, dan ringkasan baris tertahan per toko.
+// T66: jumlah kirim, daftar masalah per baris, dan ringkasan baris tertahan per toko.
 
 const golden = JSON.parse(readFileSync(join(import.meta.dirname, "../../../../tests/golden/jumlah-kirim.json"), "utf8")) as {
   rataRata: Record<KategoriDasar, number>;
@@ -243,16 +243,16 @@ describe("draft rencana di halaman Pengiriman Gudang", () => {
           "Minggu, 07-06-2026 · kategori Minggu.*?Minggu, 14-06-2026 · kategori Minggu",
       ),
     );
-    // T66: buffer dari ranking, jumlah kirim, dan daftar masalah (ikon + teks, DESIGN §7). Stok belum bisa diisi (T59),
+    // T66: jumlah kirim dan daftar masalah (ikon + teks, DESIGN §7). Stok belum bisa diisi (T59),
     // jadi masalah produk otomatis hanya soal stok dan jumlah kirim tampil "—".
     const baris = (k: string) => new RegExp(`<tr[^>]*data-kode-produk="${k}".*?</tr>`).exec(html)?.[0] ?? "";
-    expect(baris(kode.contoh)).toMatch(/data-buffer="20"[^>]*>20%<.*?data-jumlah-kirim="kosong"[^>]*>—<.*?data-masalah="stok-belum-diisi".*?lucide-circle-dashed.*?Stok belum diisi/);
-    expect(baris(kode.luar)).toMatch(/data-buffer="10"[^>]*>10%</);
+    expect(baris(kode.contoh)).toMatch(/data-jumlah-kirim="kosong"[^>]*>—<.*?data-masalah="stok-belum-diisi".*?lucide-circle-dashed.*?Stok belum diisi/);
     expect(baris(kode.belumDipetakan)).toMatch(
-      /data-buffer="kosong"[^>]*>—<.*?data-jumlah-kirim="kosong"[^>]*>—<.*?data-masalah="belum-dipetakan".*?lucide-triangle-alert.*?Belum dipetakan.*?data-masalah="stok-belum-diisi"/,
+      /data-jumlah-kirim="kosong"[^>]*>—<.*?data-masalah="belum-dipetakan".*?lucide-triangle-alert.*?Belum dipetakan.*?data-masalah="stok-belum-diisi"/,
     );
-    expect(baris(kode.manual)).toMatch(/data-buffer="kosong"[^>]*>—<.*?data-jumlah-kirim="kosong"[^>]*>—</);
+    expect(baris(kode.manual)).toMatch(/data-jumlah-kirim="kosong"[^>]*>—</);
     expect(baris(kode.manual)).not.toContain("data-masalah=");
+    expect(html).not.toContain("data-buffer");
     expect(baris(kode.tanpaMinggu)).toMatch(
       /data-masalah="kebutuhan-tidak-tersedia".*?Kebutuhan tidak tersedia.*?data-masalah="stok-belum-diisi".*?Stok belum diisi/,
     );

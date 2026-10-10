@@ -9,8 +9,7 @@ import type { MasalahKirim } from "@/domain/pengiriman";
 export type MasalahBarisDraft = MasalahKirim | "belum-dipetakan";
 
 /**
- * Urutan tampilan masalah baris draft. Tiga masalah T05 mengikuti PRD A6 ▶ Keputusan 2026-10-09; letak
- * `belum-dipetakan` menunggu keputusan pemilik (issue T66).
+ * Urutan tampilan masalah baris draft, termasuk letak `belum-dipetakan`: PRD A6 ▶ Keputusan (2026-10-10, T66).
  */
 export const URUTAN_MASALAH = [
   "kebutuhan-tidak-tersedia",

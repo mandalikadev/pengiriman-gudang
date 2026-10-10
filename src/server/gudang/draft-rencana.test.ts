@@ -319,7 +319,8 @@ describe("hitungDraftRencana", () => {
 
   it("semua masalah tampil sebagai daftar dalam urutan tampilan; belum dipetakan ikut bersama masalah T05", () => {
     expect(URUTAN_MASALAH).toEqual(["kebutuhan-tidak-tersedia", "belum-dipetakan", "stok-negatif", "stok-belum-diisi"]);
-    const { Minggu: _, ...tanpaMinggu } = golden.rataRata;
+    const tanpaMinggu: Partial<typeof golden.rataRata> = { ...golden.rataRata };
+    delete tanpaMinggu.Minggu;
     const belum = { statusKeluargaAroma: "belum-dipetakan", keluargaAromaId: null } as const;
 
     expect(nilaiBarisDraft({ ...MASUKAN_CONTOH, rataRata: tanpaMinggu, stokAkhir: -3 }, belum, new Set()).masalah).toEqual([

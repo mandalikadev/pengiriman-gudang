@@ -95,7 +95,6 @@ function TabelToko({ toko }: { toko: TokoDraft }) {
               <TableHead>Nama produk</TableHead>
               <TableHead>Klasifikasi</TableHead>
               <TableHead angka>Kebutuhan barang</TableHead>
-              <TableHead angka>Buffer</TableHead>
               <TableHead angka>Jumlah kirim</TableHead>
               <TableHead>Masalah</TableHead>
             </TableRow>
@@ -108,9 +107,6 @@ function TabelToko({ toko }: { toko: TokoDraft }) {
                 <TableCell>{b.klasifikasi === "manual" ? <BadgeStatus status="manual" /> : "Otomatis"}</TableCell>
                 <TableCell angka className="align-top" data-kebutuhan={b.kebutuhan ?? "tidak-tersedia"}>
                   <SelKebutuhan baris={b} />
-                </TableCell>
-                <TableCell angka className="align-top" data-buffer={b.persenBuffer ?? "kosong"}>
-                  {b.persenBuffer === null ? "—" : `${b.persenBuffer}%`}
                 </TableCell>
                 <TableCell angka className="align-top" data-jumlah-kirim={b.jumlahKirim ?? "kosong"}>
                   {b.jumlahKirim === null ? "—" : formatAngka(b.jumlahKirim)}
@@ -200,7 +196,7 @@ export function BagianDraft({
         </h2>
         <CardDescription>
           Toko yang mengirim pada tanggal kirim menurut jadwal aktifnya, beserta kebutuhan barang setiap varian dari
-          rata-rata periode sumber, buffer dari ranking pusat, jumlah kirim, dan masalah yang menahan finalisasi.
+          rata-rata periode sumber, jumlah kirim, dan masalah yang menahan finalisasi.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
