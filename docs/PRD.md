@@ -172,6 +172,8 @@ Stok yang belum diisi berarti belum diketahui, bukan nol. Stok negatif untuk pro
 > - Jika masalahnya hanya soal stok, kebutuhan tetap ditampilkan beserta rinciannya, dan jumlah kirim tampil "—".
 > - Jika kebutuhan tidak tersedia, tampilkan tanggal dan kategori mana yang tidak punya rata-rata.
 
+> ▶ Keputusan (2026-10-10, T66): masalah `belum-dipetakan` (produk otomatis yang keluarga aromanya belum dipetakan) tampil di daftar masalah yang sama. Urutan tampilan menjadi: `kebutuhan-tidak-tersedia`, `belum-dipetakan`, `stok-negatif`, `stok-belum-diisi`.
+
 Display, display tester, dan kertas tester ditangani manual tanpa jumlah kirim atau buffer otomatis. Jangan menganggap semua produk dengan kata “tester” memiliki perlakuan yang sama tanpa konfirmasi.
 
 > ▶ Revisi (2026-10-08, ADR-0007): pemilik mengoreksi kalimat di atas. **Yang ditangani manual hanya display tester (kode berakhiran `-T`) dan kertas tester (kategori `KTP`/`KTL`).** Display biasa, display dummy, display rework, ATOMIZER, GIFT SET, HAMPERS, KEMASAN, VIAL, dan ALKOHOL dihitung otomatis. Golden: `tests/golden/klasifikasi-produk.json`.

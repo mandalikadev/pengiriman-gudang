@@ -1,4 +1,5 @@
-import { and, asc, eq, inArray, isNull, max, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, max, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { parseTanggalBisnis, type KategoriDasar, type TanggalBisnis } from "@/domain/kalender";
 import { kategoriEfektif, type PerubahanKategori } from "@/domain/kategori";
@@ -254,4 +255,57 @@ export async function muatKategoriEfektifCakupan(
     });
   }
   return hasil;
+}
+
+/** Satu revisi perubahan kategori yang sudah dibatalkan, untuk riwayat di detail tanggal Kalender (T71). */
+export type PerubahanKategoriDibatalkan = PerubahanKategoriBerlaku & {
+  id: number;
+  dibatalkanOleh: string;
+  dibatalkanPada: Date;
+  alasanPembatalan: string;
+};
+
+/**
+ * Riwayat perubahan kategori yang dibatalkan pada `tanggal` untuk satu cakupan tampilan (PRD B4 ▶ Keputusan
+ * 2026-10-10, T43). `idToko` `null` = "Semua toko": hanya pembatalan perubahan seluruh toko. Satu toko: pembatalan
+ * perubahan toko itu dan perubahan seluruh toko. Setiap revisi yang dibatalkan menjadi satu entri, terbaru dahulu.
+ * Riwayat ini tidak ikut menentukan kategori efektif.
+ */
+export async function muatRiwayatDibatalkanCakupan(
+  tanggal: TanggalBisnis,
+  idToko: number | null,
+): Promise<PerubahanKategoriDibatalkan[]> {
+  const pembatal = alias(user, "pembatal");
+  const baris = await db
+    .select({
+      id: perubahanKategori.id,
+      idToko: perubahanKategori.tokoId,
+      namaToko: toko.nama,
+      kategoriSebelum: perubahanKategori.kategoriSebelum,
+      kategoriSesudah: perubahanKategori.kategoriSesudah,
+      alasan: perubahanKategori.alasan,
+      revisi: perubahanKategori.revisi,
+      dibuatOleh: user.name,
+      dibuatPada: perubahanKategori.dibuatPada,
+      dibatalkanOleh: pembatal.name,
+      dibatalkanPada: perubahanKategori.dibatalkanPada,
+      alasanPembatalan: perubahanKategori.alasanPembatalan,
+    })
+    .from(perubahanKategori)
+    .innerJoin(user, eq(user.id, perubahanKategori.dibuatOleh))
+    .innerJoin(pembatal, eq(pembatal.id, perubahanKategori.dibatalkanOleh))
+    .leftJoin(toko, eq(toko.id, perubahanKategori.tokoId))
+    .where(
+      and(
+        eq(perubahanKategori.tanggal, tanggal),
+        eq(perubahanKategori.status, "dibatalkan"),
+        idToko === null ? isNull(perubahanKategori.tokoId) : or(isNull(perubahanKategori.tokoId), eq(perubahanKategori.tokoId, idToko)),
+      ),
+    )
+    .orderBy(desc(perubahanKategori.dibatalkanPada), desc(perubahanKategori.revisi), desc(perubahanKategori.id));
+
+  // Constraint tabel menjamin kolom pembatalan terisi untuk status `dibatalkan`; baris yang tidak lengkap dilewati.
+  return baris.flatMap(({ dibatalkanPada, alasanPembatalan, ...b }) =>
+    dibatalkanPada !== null && alasanPembatalan !== null ? [{ ...b, dibatalkanPada, alasanPembatalan }] : [],
+  );
 }

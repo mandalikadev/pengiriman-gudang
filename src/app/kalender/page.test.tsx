@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -6,6 +7,8 @@ import golden from "../../../tests/golden/kalender-minggu-laporan.json";
 import { formatBulanImpor } from "@/app/admin/impor/format";
 import { kisiBulan, parseTanggalBisnis } from "@/domain/kalender";
 import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
+import { db } from "@/server/db";
+import { user } from "@/server/db/schema";
 import { buatTokoUji } from "@/server/gudang/uji-bantu";
 import { batalkanPerubahanKategori, buatPerubahanKategori, revisiPerubahanKategori } from "@/server/kalender/perubahan-kategori";
 import { buatSnapshotUji, tahunLiburUji } from "@/server/libur/uji-bantu";
@@ -392,7 +395,10 @@ describe("/kalender: kategori efektif sesuai cakupan toko (T43, PRD B4, B6)", ()
     const html = await tampilan(kamis, tokoA);
     expect(sel(html, kamis).tag).toContain('data-kategori-efektif="Senin–Kamis"');
     expect(sel(html, kamis).isi).not.toContain("Manual");
-    expect(detail(html)!.teks).not.toContain("Batal nanti");
+    // Sejak T71 perubahan yang dibatalkan tampil sebagai riwayat, tetapi tidak sebagai perubahan yang berlaku.
+    const [berlaku, riwayat] = detail(html)!.teks.split("Riwayat perubahan dibatalkan");
+    expect(berlaku).not.toContain("Batal nanti");
+    expect(riwayat).toContain("Batal nanti");
   });
 
   it("posisi minggu dan bulan laporan tidak berubah oleh kategori efektif (PRD B6: Selasa 30-06-2026 → Jumat tetap Juli Minggu 1)", async () => {
@@ -432,6 +438,125 @@ describe("/kalender: kategori efektif sesuai cakupan toko (T43, PRD B4, B6)", ()
       const html = await buka({ tanggal: selasa, ...(toko ? { toko } : {}) });
       expect(pemilihCakupan(html)["Semua toko"]?.terpilih).toBe(true);
       expect(sel(html, selasa).tag).toContain('data-kategori-efektif="Senin–Kamis"');
+    }
+  });
+});
+
+describe("/kalender: riwayat perubahan kategori yang dibatalkan (T71, PRD B4 ▶ Keputusan 2026-10-10)", () => {
+  // Tahun 2427, tanggal berbeda dari blok T42/T43 karena database dipakai bersama satu putaran.
+  const senin = parseTanggalBisnis("2427-06-07");
+  const selasa = parseTanggalBisnis("2427-06-08");
+
+  type Toko = { id: number; nama: string };
+  let tokoA: Toko;
+  let tokoB: Toko;
+
+  /** Admin uji dengan nama unik agar pembuat dan pembatal bisa dibedakan di tampilan. */
+  async function adminBernama(nama: string) {
+    const { id } = await buatPenggunaUji("admin");
+    await db.update(user).set({ name: nama }).where(eq(user.id, id));
+    return id;
+  }
+
+  beforeAll(async () => {
+    const pembuat = await adminBernama("Pembuat Riwayat");
+    const pembatal = await adminBernama("Pembatal Riwayat");
+    tokoA = await buatTokoUji();
+    tokoB = await buatTokoUji();
+    // Senin: toko A diubah, direvisi, lalu dibatalkan; seluruh toko dibatalkan lalu dibuat lagi (aktif).
+    await buatPerubahanKategori({ tanggal: senin, idToko: tokoA.id, kategoriBaru: "Sabtu", alasan: "Promo A", idPengguna: pembuat });
+    await revisiPerubahanKategori({ tanggal: senin, idToko: tokoA.id, kategoriBaru: "Minggu", alasan: "Promo A diperpanjang", idPengguna: pembuat });
+    await batalkanPerubahanKategori({ tanggal: senin, idToko: tokoA.id, alasan: "Promo A dibatalkan pusat", idPengguna: pembatal });
+    await buatPerubahanKategori({ tanggal: senin, idToko: null, kategoriBaru: "Jumat", alasan: "Event lama", idPengguna: pembuat });
+    await batalkanPerubahanKategori({ tanggal: senin, idToko: null, alasan: "Event lama ditunda", idPengguna: pembatal });
+    await buatPerubahanKategori({ tanggal: senin, idToko: null, kategoriBaru: "Sabtu", alasan: "Event baru", idPengguna: pembuat });
+    // Selasa: hanya perubahan toko A yang dibatalkan.
+    await buatPerubahanKategori({ tanggal: selasa, idToko: tokoA.id, kategoriBaru: "Minggu", alasan: "Uji selasa", idPengguna: pembuat });
+    await batalkanPerubahanKategori({ tanggal: selasa, idToko: tokoA.id, alasan: "Selasa batal", idPengguna: pembatal });
+  });
+
+  const tampilan = (tanggal: string, toko?: Toko) => buka({ tanggal, ...(toko ? { toko: String(toko.id) } : {}) });
+
+  /** Bagian riwayat dibatalkan di detail tanggal: html dan entri (`data-riwayat-dibatalkan` = cakupan). */
+  function riwayat(html: string) {
+    const cocok = /<div[^>]*data-riwayat-dibatalkan-tanggal="[^"]+"[^>]*>(.*?)<\/ul><\/div>/.exec(html);
+    if (!cocok) return null;
+    const entri = [...cocok[1]!.matchAll(/<li[^>]*data-riwayat-dibatalkan="([^"]+)"[^>]*>(.*?)<\/li>/g)].map((m) => ({
+      cakupan: m[1]!,
+      html: m[2]!,
+      teks: m[2]!.replace(/<[^>]+>/g, " ").replace(/\s+/g, " "),
+    }));
+    return { html: cocok[1]!, teks: cocok[1]!.replace(/<[^>]+>/g, " ").replace(/\s+/g, " "), entri };
+  }
+
+  it("perubahan yang dibatalkan tampil di detail tanggal berlabel Dibatalkan (ikon + teks), terpisah dari kategori efektif", async () => {
+    const html = await tampilan(senin, tokoA);
+    const d = detail(html)!;
+    // Kategori efektif dan perubahan aktif tetap dari perubahan seluruh toko yang aktif.
+    expect(d.teks).toContain("Kategori efektif Sabtu");
+    expect(d.teks).toContain("Alasan Event baru");
+
+    const r = riwayat(html);
+    expect(r, "bagian riwayat dibatalkan").not.toBeNull();
+    expect(r!.teks).toContain("Riwayat perubahan dibatalkan");
+    // Riwayat berada di dalam detail tanggal, sesudah kategori efektif dan perubahan aktif.
+    const isiDetail = /<section[^>]*data-detail-tanggal="[^"]+"[^>]*>(.*?)<\/section>/.exec(html)![1]!;
+    expect(isiDetail.indexOf("data-riwayat-dibatalkan-tanggal")).toBeGreaterThan(isiDetail.indexOf("Kategori efektif"));
+    expect(isiDetail.indexOf("data-riwayat-dibatalkan-tanggal")).toBeGreaterThan(isiDetail.indexOf("Event baru"));
+    expect(r!.teks).not.toContain("Event baru");
+
+    // Toko A (revisi 1 dan 2) dan seluruh toko (revisi 1): setiap revisi yang dibatalkan adalah satu entri.
+    expect(r!.entri.map((e) => e.cakupan).sort()).toEqual([String(tokoA.id), String(tokoA.id), "semua"].sort());
+    for (const e of r!.entri) {
+      // DESIGN §7: ikon + teks lewat BadgeStatus (T07); token muted-foreground + Archive.
+      expect(e.html).toMatch(/data-status="dibatalkan"[^>]*>.*?<svg[^>]*lucide-archive.*?Dibatalkan/);
+      expect(e.teks).toMatch(/Dibuat oleh Pembuat Riwayat, .* WIB/);
+      expect(e.teks).toMatch(/Dibatalkan oleh Pembatal Riwayat, .* WIB/);
+    }
+
+    const revisi2 = r!.entri.find((e) => e.cakupan === String(tokoA.id) && e.teks.includes("Revisi 2"))!;
+    expect(revisi2.teks).toContain(`Cakupan ${tokoA.nama}`);
+    expect(revisi2.teks).toContain("Kategori Sabtu → Minggu");
+    expect(revisi2.teks).toContain("Alasan perubahan Promo A diperpanjang");
+    expect(revisi2.teks).toContain("Alasan pembatalan Promo A dibatalkan pusat");
+
+    const revisi1 = r!.entri.find((e) => e.cakupan === String(tokoA.id) && e.teks.includes("Revisi 1"))!;
+    expect(revisi1.teks).toContain("Kategori Senin–Kamis → Sabtu");
+    expect(revisi1.teks).toContain("Alasan perubahan Promo A");
+
+    const seluruh = r!.entri.find((e) => e.cakupan === "semua")!;
+    expect(seluruh.teks).toContain("Cakupan Seluruh toko");
+    expect(seluruh.teks).toContain("Kategori Senin–Kamis → Jumat");
+    expect(seluruh.teks).toContain("Alasan pembatalan Event lama ditunda");
+
+    // Hanya-baca untuk non-admin: tidak ada kontrol baru.
+    expect(html).not.toMatch(/<form|<button|<input|<select|<textarea/);
+  });
+
+  it("perubahan yang dibatalkan tidak mengubah kategori efektif maupun penanda di sel kalender", async () => {
+    const html = await tampilan(selasa, tokoA);
+    const s = sel(html, selasa);
+    expect(s.tag).toContain('data-kategori-efektif="Senin–Kamis"');
+    expect(s.isi).not.toContain("Efektif:");
+    expect(s.isi).not.toContain("Manual");
+    expect(s.isi).not.toContain("Dibatalkan");
+    const d = detail(html)!.teks;
+    expect(d).toContain("Kategori efektif Senin–Kamis");
+    expect(d).not.toContain("Perubahan kategori Cakupan");
+    expect(riwayat(html)?.entri.map((e) => e.teks)).toEqual([expect.stringContaining("Alasan pembatalan Selasa batal")]);
+  });
+
+  it("pembatalan perubahan khusus toko A tidak tampil saat melihat toko B atau Semua toko", async () => {
+    for (const html of [await tampilan(senin, tokoB), await tampilan(senin)]) {
+      const r = riwayat(html);
+      expect(r?.entri.map((e) => e.cakupan)).toEqual(["semua"]);
+      expect(html).not.toContain("Promo A");
+      // Nama toko A tetap ada di pemilih cakupan; yang diperiksa detail tanggalnya.
+      expect(detail(html)!.teks).not.toContain(tokoA.nama);
+    }
+    for (const html of [await tampilan(selasa, tokoB), await tampilan(selasa)]) {
+      expect(riwayat(html)).toBeNull();
+      expect(html).not.toContain("Selasa batal");
     }
   });
 });

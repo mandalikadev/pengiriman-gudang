@@ -15,7 +15,9 @@ import {
   daftarTokoAktif,
   muatKategoriEfektifCakupan,
   muatPerubahanKategoriTanggal,
+  muatRiwayatDibatalkanCakupan,
   type KategoriTanggalCakupan,
+  type PerubahanKategoriDibatalkan,
 } from "@/server/kalender/perubahan-kategori";
 import { muatLiburAktif, type LiburAktif } from "@/server/libur/libur-aktif";
 
@@ -325,16 +327,51 @@ function DaftarIsian({ isian }: { isian: [string, ReactNode][] }) {
   );
 }
 
+/**
+ * Riwayat perubahan kategori yang dibatalkan untuk cakupan yang dilihat (T71, PRD B4 ▶ Keputusan 2026-10-10): terpisah
+ * dari kategori efektif dan perubahan aktif, hanya-baca. Tidak dirender bila tidak ada pembatalan.
+ */
+function RiwayatDibatalkan({ tanggal, riwayat }: { tanggal: TanggalBisnis; riwayat: readonly PerubahanKategoriDibatalkan[] }) {
+  if (riwayat.length === 0) return null;
+  return (
+    <div data-riwayat-dibatalkan-tanggal={tanggal} className="mt-4 flex flex-col gap-2 border-t border-border pt-4">
+      <h3 className="font-semibold">Riwayat perubahan dibatalkan</h3>
+      <p className="text-muted-foreground">Perubahan ini sudah dibatalkan dan tidak memengaruhi kategori efektif.</p>
+      <ul className="flex flex-col gap-4">
+        {riwayat.map((p) => (
+          <li key={p.id} data-riwayat-dibatalkan={p.idToko ?? "semua"} className="flex flex-col gap-2">
+            {/* DESIGN §7: status ikon + teks lewat BadgeStatus (T07). */}
+            <BadgeStatus status="dibatalkan" className="self-start" />
+            <DaftarIsian
+              isian={[
+                ["Cakupan", p.namaToko ?? "Seluruh toko"],
+                ["Kategori", `${p.kategoriSebelum} → ${p.kategoriSesudah}`],
+                ["Revisi", String(p.revisi)],
+                ["Alasan perubahan", p.alasan],
+                ["Dibuat oleh", `${p.dibuatOleh}, ${formatWaktu(p.dibuatPada)}`],
+                ["Dibatalkan oleh", `${p.dibatalkanOleh}, ${formatWaktu(p.dibatalkanPada)}`],
+                ["Alasan pembatalan", p.alasanPembatalan],
+              ]}
+            />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function DetailTanggal({
   tanggal,
   libur,
   cakupan,
   kategori,
+  riwayatDibatalkan,
 }: {
   tanggal: TanggalBisnis | null;
   libur: LiburAktif | undefined;
   cakupan: CakupanToko;
   kategori: KategoriTanggalCakupan | undefined;
+  riwayatDibatalkan: readonly PerubahanKategoriDibatalkan[];
 }) {
   if (!tanggal) {
     return (
@@ -386,6 +423,7 @@ function DetailTanggal({
               <DaftarIsian isian={isianPerubahan} />
             </div>
           ) : null}
+          <RiwayatDibatalkan tanggal={tanggal} riwayat={riwayatDibatalkan} />
         </CardContent>
       </Card>
     </section>
@@ -422,9 +460,10 @@ export default async function HalamanKalender({ searchParams }: { searchParams: 
   const terpilih = tanggalUrl ?? (hariIniDiBulan ? hariIni : null);
   const kisi = kisiBulan(bulan.tahun, bulan.bulan);
   const tanggalTampil = [...kisi.flat(), ...(terpilih ? [terpilih] : [])];
-  const [libur, kategori] = await Promise.all([
+  const [libur, kategori, riwayatDibatalkan] = await Promise.all([
     muatLiburAktif(tanggalTampil),
     muatKategoriEfektifCakupan(tanggalTampil, cakupan?.id ?? null),
+    terpilih ? muatRiwayatDibatalkanCakupan(terpilih, cakupan?.id ?? null) : [],
   ]);
   const dataPerubahan = pengguna.peran === "admin" && terpilih ? await muatDataPerubahan(terpilih) : null;
 
@@ -463,6 +502,7 @@ export default async function HalamanKalender({ searchParams }: { searchParams: 
             libur={terpilih ? libur.get(terpilih) : undefined}
             cakupan={cakupan}
             kategori={terpilih ? kategori.get(terpilih) : undefined}
+            riwayatDibatalkan={riwayatDibatalkan}
           />
           {terpilih && dataPerubahan ? (
             <PerubahanKategoriTanggal
