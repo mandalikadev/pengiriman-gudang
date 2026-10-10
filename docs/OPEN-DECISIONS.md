@@ -82,3 +82,5 @@ Daftar hal yang **belum diputuskan pemilik**. Agen tidak mengimplementasikan per
 | T67: jika segmen kode cocok ke keluarga aktif dan nonaktif, keluarga aktif diusulkan; jika lebih dari satu keluarga aktif cocok, tidak ada usulan (2026-10-10) | PRD A6; T67 |
 | T43: detail tanggal di Kalender menampilkan perubahan kategori yang dibatalkan sebagai riwayat, berlabel "Dibatalkan", terpisah dari kategori efektif (2026-10-10) | PRD B4; T43 |
 | T66: urutan tampilan daftar masalah draft: kebutuhan tidak tersedia, belum dipetakan, stok negatif, stok belum diisi (2026-10-10) | PRD A6; T66 |
+| T61: stok untuk varian atau toko yang hilang dari draft setelah dihitung ulang tetap disimpan dan ditampilkan sebagai keterangan; dipakai kembali jika varian/toko itu muncul lagi (2026-10-10) | PRD A7; T61 |
+| T61: perubahan kalender hanya menandai draft yang terdampak: tanggal yang diubah masuk cakupan draft dan cakupan perubahannya mengenai toko di draft (semua toko atau toko itu) (2026-10-10) | PRD B9; T61 |
