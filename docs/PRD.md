@@ -142,6 +142,8 @@ Ranking pusat berasal dari file yang dipublikasikan admin dengan bulan dan versi
 > - Baris ranking boleh cocok ke keluarga aroma yang nonaktif. Baris itu ditandai peringatan di halaman tinjau, tetapi tidak menahan publikasi.
 > - Di pemetaan produk, keluarga nonaktif tidak muncul sebagai pilihan untuk pemetaan baru. Pemetaan lama ke keluarga yang kemudian dinonaktifkan tetap berlaku.
 
+> ▶ Keputusan (2026-10-10, T67): usulan pemetaan dari segmen kode. Jika segmen kode cocok ke keluarga aktif dan juga ke keluarga nonaktif, keluarga aktif diusulkan. Jika lebih dari satu keluarga aktif cocok, tidak ada usulan.
+
 > ▶ Keputusan (2026-10-10, T53): satu keluarga aroma tidak boleh muncul di lebih dari satu baris ranking. Jika dua baris atau lebih cocok ke keluarga yang sama, publikasi ditahan dengan pesan error yang menyebut keluarga dan baris-barisnya.
 
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): draft rencana dan dasar perhitungannya.
@@ -150,6 +152,10 @@ Ranking pusat berasal dari file yang dipublikasikan admin dengan bulan dan versi
 > - Rata-rata yang dipakai untuk kebutuhan = Rata-rata Ringkasan per kategori hari atas bulan periode sumber gudang (A4, ADR-0003).
 > - Jika belum ada ranking yang dipublikasikan, perhitungan tidak berjalan dan pesan "Ranking pusat belum dipublikasikan" tampil.
 > - Produk otomatis yang keluarga aromanya belum dipetakan tampil sebagai masalah dan menahan finalisasi (ADR-0006).
+
+> ▶ Keputusan (2026-10-10, T58): draft rencana.
+> - Jika **semua** bulan periode sumber tidak punya data aktif, perhitungan ditolak dengan pesan yang jelas dan draft tidak dibuat (sama seperti saat periode sumber belum ditetapkan).
+> - Toko nonaktif tidak ikut masuk draft walaupun masih punya jadwal aktif. Halaman Pengiriman Gudang menampilkan peringatan "Toko <nama> nonaktif tetapi masih punya jadwal aktif".
 
 Contoh: rata-rata Senin–Kamis adalah 4, Jumat 4, Sabtu 10, dan Minggu 8. Pengiriman Senin dengan persiapan dua hari mencakup Sabtu sebelumnya sampai Minggu berikutnya, sebanyak sembilan hari.
 Kebutuhan = (4 × 4) + (1 × 4) + (2 × 10) + (2 × 8) = 56 unit.
@@ -281,6 +287,8 @@ Sinkronisasi daftar libur tidak boleh menimpa perubahan kategori manual.
 > - Untuk mengganti kategori, admin mengedit perubahan; hasilnya revisi baru pada tanggal dan cakupan yang sama.
 > - "Batalkan" membatalkan **seluruh** perubahan pada tanggal + cakupan itu, sehingga tanggal kembali ke level berikutnya (perubahan seluruh toko, atau kategori dasar). Riwayat semua revisi tetap tersimpan.
 > - Pembatalan wajib disertai alasan. Cara penyimpanannya adalah keputusan teknis.
+
+> ▶ Keputusan (2026-10-10, T43): detail tanggal di Kalender menampilkan perubahan kategori yang sudah dibatalkan sebagai riwayat, berlabel "Dibatalkan", terpisah dari kategori efektif.
 
 Bedakan tiga tindakan berikut:
 - Persetujuan snapshot hasil sinkronisasi libur.
