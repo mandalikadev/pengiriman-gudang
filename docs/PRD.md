@@ -193,6 +193,7 @@ Saya ingin alur akhirnya terasa sederhana: data penjualan yang valid menghasilka
 > ▶ Keputusan (2026-10-09): ekspor rencana dalam format Excel (`.xlsx`).
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): finalisasi dilakukan per toko per tanggal kirim, sehingga masalah di satu toko tidak menahan toko lain.
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): ekspor rencana hanya untuk rencana final, termasuk dari riwayat, dan membutuhkan hak tindakan `ekspor` di gudang itu.
+> ▶ Keputusan (2026-10-10, T61): stok untuk varian atau toko yang hilang dari draft setelah dihitung ulang tetap **disimpan** dan ditampilkan sebagai keterangan di draft. Jika varian atau toko itu muncul lagi di hitungan berikutnya, stoknya dipakai kembali.
 
 ---
 
@@ -369,6 +370,8 @@ Jangan memindahkan angka tersebut ke bulan berikutnya atau mengabaikannya diam-d
 ### B9. Dampak terhadap laporan dan pengiriman
 
 Perubahan kategori memperbarui laporan dan draft perhitungan yang terdampak. Perhitungan pengiriman yang telah ditinjau perlu diperiksa atau dihitung ulang ketika aturan kalender relevannya berubah. Input stok tetap dipertahankan.
+
+> ▶ Keputusan (2026-10-10, T61): perubahan kalender hanya menandai draft yang **terdampak** sebagai perlu dihitung ulang. Draft terdampak jika tanggal yang diubah masuk cakupan draft **dan** cakupan perubahannya mengenai toko di draft itu (perubahan untuk semua toko, atau untuk toko itu sendiri).
 
 Rencana pengiriman yang sudah final tetap menggunakan snapshot kalender dan sumber pada saat finalisasi. Jangan mengubah hasil final secara retroaktif.
 
