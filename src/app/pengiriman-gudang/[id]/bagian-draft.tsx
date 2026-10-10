@@ -13,6 +13,7 @@ import type { BarisDraft, DraftRencana, StokTidakDipakai, TokoDraft } from "@/se
 import { labelPersiapan, persiapanDariHari } from "@/server/gudang/pilihan-jadwal";
 
 import { DaftarMasalah } from "./daftar-masalah";
+import { FormFinalisasi } from "./form-finalisasi";
 import { FormHitungDraft } from "./form-hitung-draft";
 import { FormHitungUlang } from "./form-hitung-ulang";
 import { FormStokToko, InputStok } from "./form-stok-toko";
@@ -140,13 +141,75 @@ function TabelVarian({ toko, inputStok, rincian }: { toko: TokoDraft; inputStok:
   );
 }
 
-function TabelToko({ toko, inputStok, rincian }: { toko: TokoDraft; inputStok: InputStokDraft; rincian: RincianDraft }) {
+/** Finalisasi per toko (T62): `null` = pengguna tanpa hak `finalisasi`. */
+type FinalisasiDraft = { idGudang: number; tanggalKirim: TanggalBisnis; perluDihitungUlang: boolean } | null;
+
+/**
+ * Status finalisasi satu toko (T62; DESIGN §7): toko yang sudah final menampilkan siapa dan kapan beserta tautan ke
+ * rencana finalnya (untuk semua yang bisa melihat halaman). Untuk operator dengan hak `finalisasi`: form finalisasi bila
+ * toko siap, atau alasan belum bisa difinalisasi (draft perlu dihitung ulang, atau ada baris tertahan).
+ */
+function FinalisasiToko({ idGudang, toko, finalisasi }: { idGudang: number; toko: TokoDraft; finalisasi: FinalisasiDraft }) {
+  if (toko.final !== null) {
+    return (
+      <div data-final-toko={toko.final.id} className="flex flex-col gap-2">
+        <p className="text-muted-foreground">
+          Difinalisasi oleh <span className="font-semibold text-foreground">{toko.final.difinalisasiOleh}</span> pada{" "}
+          {formatWaktu(toko.final.difinalisasiPada)}. Perubahan draft sesudah finalisasi tidak mengubah rencana final.
+        </p>
+        <Link
+          href={`/pengiriman-gudang/${idGudang}/rencana-final/${toko.final.id}`}
+          className="inline-flex min-h-11 w-fit items-center rounded-full px-4 font-semibold text-primary underline underline-offset-4 transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          Lihat rencana final
+        </Link>
+      </div>
+    );
+  }
+  if (finalisasi === null) return null;
+  const alasan = finalisasi.perluDihitungUlang
+    ? "draft perlu dihitung ulang."
+    : toko.jumlahTertahan > 0
+      ? `${formatAngka(toko.jumlahTertahan)} baris masih tertahan.`
+      : null;
+  if (alasan !== null) {
+    return (
+      <p data-finalisasi-tertahan={toko.id} className="flex items-start gap-2 font-semibold">
+        <TriangleAlert aria-hidden strokeWidth={2} className="size-5 shrink-0 text-warning" />
+        Belum bisa difinalisasi: {alasan}
+      </p>
+    );
+  }
+  return (
+    <FormFinalisasi
+      idGudang={finalisasi.idGudang}
+      tanggalKirim={finalisasi.tanggalKirim}
+      tokoId={toko.id}
+      namaToko={toko.nama}
+      versi={toko.versi}
+      stokTersimpan={toko.baris.map((b) => ({ kodeProduk: b.kodeProduk, stokAkhir: b.stokAkhir }))}
+    />
+  );
+}
+
+function TabelToko({
+  toko,
+  inputStok,
+  rincian,
+  finalisasi,
+}: {
+  toko: TokoDraft;
+  inputStok: InputStokDraft;
+  rincian: RincianDraft;
+  finalisasi: FinalisasiDraft;
+}) {
   return (
     <section aria-labelledby={`draft-toko-${toko.id}`} data-draft-toko={toko.id} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <h4 id={`draft-toko-${toko.id}`} className="text-lg font-semibold">
           {toko.nama}
         </h4>
+        {toko.final !== null ? <BadgeStatus status="final" className="self-center" /> : null}
         <p className="text-muted-foreground">
           Persiapan {labelPersiapan[persiapanDariHari[toko.persiapanHari]]} · Panjang cakupan {toko.panjangCakupan} hari
         </p>
@@ -169,6 +232,7 @@ function TabelToko({ toko, inputStok, rincian }: { toko: TokoDraft; inputStok: I
           <TabelVarian toko={toko} inputStok={inputStok} rincian={rincian} />
         </FormStokToko>
       )}
+      <FinalisasiToko idGudang={rincian.idGudang} toko={toko} finalisasi={finalisasi} />
     </section>
   );
 }
@@ -259,11 +323,13 @@ function IsiDraft({
   inputStok,
   rincian,
   hitungUlang,
+  finalisasi,
 }: {
   draft: DraftRencana;
   inputStok: InputStokDraft;
   rincian: RincianDraft;
   hitungUlang: HitungUlangDraft;
+  finalisasi: FinalisasiDraft;
 }) {
   return (
     <div data-draft-tanggal={draft.tanggalKirim} className="flex flex-col gap-6">
@@ -283,7 +349,7 @@ function IsiDraft({
       {draft.toko.length === 0 ? (
         <p className="text-muted-foreground">Tidak ada toko yang mengirim pada tanggal ini menurut jadwal aktif.</p>
       ) : (
-        draft.toko.map((t) => <TabelToko key={t.id} toko={t} inputStok={inputStok} rincian={rincian} />)
+        draft.toko.map((t) => <TabelToko key={t.id} toko={t} inputStok={inputStok} rincian={rincian} finalisasi={finalisasi} />)
       )}
     </div>
   );
@@ -312,12 +378,14 @@ function PeringatanTokoNonaktif({ daftarToko }: { daftarToko: readonly { id: num
  * tersimpan, tanpa menghitung saat halaman dibuka (PRD C1). Form hitung tampil hanya untuk operator dengan hak
  * `hitung-kebutuhan` (diperiksa lagi di server); pengguna lain, termasuk admin, hanya melihat. Isian stok akhir per toko
  * (T59) tampil hanya untuk operator dengan hak `input-stok` (diperiksa lagi di server). Draft yang dasar perhitungannya
- * berubah diberi penanda "Perlu dihitung ulang" (T61).
+ * berubah diberi penanda "Perlu dihitung ulang" (T61). Finalisasi per toko (T62) hanya untuk operator dengan hak
+ * `finalisasi` (diperiksa lagi di server); toko yang sudah final ditandai Final untuk semua yang bisa melihat halaman.
  */
 export function BagianDraft({
   idGudang,
   bolehHitung,
   bolehInputStok,
+  bolehFinalisasi,
   daftarTanggal,
   tanggalDiminta,
   draft,
@@ -327,6 +395,7 @@ export function BagianDraft({
   idGudang: number;
   bolehHitung: boolean;
   bolehInputStok: boolean;
+  bolehFinalisasi: boolean;
   /** Tanggal kirim draft yang tersimpan, terbaru di atas. */
   daftarTanggal: TanggalBisnis[];
   tanggalDiminta: TanggalBisnis | null;
@@ -384,6 +453,11 @@ export function BagianDraft({
             inputStok={bolehInputStok ? { idGudang, tanggalKirim: draft.tanggalKirim } : null}
             rincian={{ idGudang, draft, terbuka: rincianDiminta }}
             hitungUlang={bolehHitung ? { idGudang, tanggalKirim: draft.tanggalKirim } : null}
+            finalisasi={
+              bolehFinalisasi
+                ? { idGudang, tanggalKirim: draft.tanggalKirim, perluDihitungUlang: draft.perluDihitungUlang.length > 0 }
+                : null
+            }
           />
         ) : (
           <p className="text-muted-foreground">

@@ -60,7 +60,7 @@ function BadgeStatusToko({ aktif }: { aktif: boolean }) {
  * Jadwal (T55, T56). Operator dengan hak `kelola-usulan-jadwal` mengubah jadwal Pusat langsung dan mengusulkan jadwal
  * gudang lain untuk disetujui admin (PRD A5 ▶ OD-06); server action memeriksanya lagi. Bagian Draft rencana (T58)
  * menampilkan draft yang tersimpan tanpa menghitung saat halaman dibuka (PRD C1); `?rincian=<id toko>|<kode produk>`
- * membuka rincian perhitungan satu baris (T60).
+ * membuka rincian perhitungan satu baris (T60). Operator dengan hak `finalisasi` memfinalisasi rencana per toko (T62).
  */
 export default async function HalamanPengirimanGudang({
   params,
@@ -135,6 +135,7 @@ export default async function HalamanPengirimanGudang({
         idGudang={gudang.id}
         bolehHitung={gudang.hakTindakan.includes("hitung-kebutuhan")}
         bolehInputStok={gudang.hakTindakan.includes("input-stok")}
+        bolehFinalisasi={gudang.hakTindakan.includes("finalisasi")}
         daftarTanggal={daftarTanggal}
         tanggalDiminta={tanggalDiminta}
         draft={draft}

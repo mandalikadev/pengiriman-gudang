@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 
 import { parseTanggalBisnis, type KategoriDasar, type TanggalBisnis } from "@/domain/kalender";
@@ -12,6 +14,7 @@ import {
   draftRencana,
   gudang,
   produk,
+  rencanaFinal,
   toko,
   tokoDraftRencana,
   user,
@@ -384,7 +387,23 @@ export type TokoDraft = {
   /** Ringkasan masalah: jumlah baris yang tertahan (punya masalah). */
   jumlahTertahan: number;
   baris: BarisDraft[];
+  /** Versi isi toko ini di draft (`versiTokoDraft`), dikirim kembali saat finalisasi (T62). */
+  versi: string;
+  /** Rencana final toko ini untuk tanggal kirim draft (T62); `null` = belum difinalisasi. */
+  final: { id: number; difinalisasiOleh: string; difinalisasiPada: Date } | null;
 };
+
+/**
+ * Versi isi satu toko di draft: berubah bila draft dihitung ulang atau stok, jumlah kirim, atau masalah satu barisnya
+ * berubah. Finalisasi (T62) membandingkannya dengan versi yang dilihat pengguna. `baris` urut kode produk.
+ */
+export function versiTokoDraft(
+  dihitungPada: Date,
+  baris: readonly Pick<BarisDraft, "kodeProduk" | "stokAkhir" | "jumlahKirim" | "masalah">[],
+): string {
+  const isi = JSON.stringify([dihitungPada.toISOString(), baris.map((b) => [b.kodeProduk, b.stokAkhir, b.jumlahKirim, b.masalah])]);
+  return createHash("sha256").update(isi).digest("hex");
+}
 
 /** Stok akhir yang sudah diisi untuk toko–varian yang tidak ada lagi di draft (PRD A7 ▶ Keputusan 2026-10-10, T61). */
 export type StokTidakDipakai = {
@@ -520,6 +539,12 @@ export async function bacaDraftRencana(idGudang: number, tanggalKirim?: TanggalB
     draft.stokTidakDipakai,
     new Set(daftarToko.map((t) => t.id)),
   );
+  const daftarFinal = await db
+    .select({ id: rencanaFinal.id, tokoId: rencanaFinal.tokoId, difinalisasiOleh: user.name, difinalisasiPada: rencanaFinal.difinalisasiPada })
+    .from(rencanaFinal)
+    .innerJoin(user, eq(user.id, rencanaFinal.difinalisasiOleh))
+    .where(and(eq(rencanaFinal.gudangId, idGudang), eq(rencanaFinal.tanggalKirim, tanggalDraft)));
+  const finalPerToko = new Map(daftarFinal.map(({ tokoId, ...f }) => [tokoId, f]));
   return {
     tanggalKirim: tanggalDraft,
     dihitungOleh: draft.dihitungOleh,
@@ -533,6 +558,8 @@ export async function bacaDraftRencana(idGudang: number, tanggalKirim?: TanggalB
         cakupan: cakupan?.map((c) => ({ ...c, tanggal: parseTanggalBisnis(c.tanggal) })) ?? null,
         jumlahTertahan: barisToko.filter((b) => b.masalah.length > 0).length,
         baris: barisToko,
+        versi: versiTokoDraft(draft.dihitungPada, barisToko),
+        final: finalPerToko.get(t.id) ?? null,
       };
     }),
     perluDihitungUlang,
