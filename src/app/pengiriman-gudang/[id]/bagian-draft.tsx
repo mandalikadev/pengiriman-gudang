@@ -8,11 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, type TanggalBisnis } from "@/domain/kalender";
 import { cn } from "@/lib/utils";
+import type { AlasanHitungUlang } from "@/server/gudang/dasar-draft";
 import type { BarisDraft, DraftRencana, TokoDraft } from "@/server/gudang/draft-rencana";
 import { labelPersiapan, persiapanDariHari } from "@/server/gudang/pilihan-jadwal";
 
 import { DaftarMasalah } from "./daftar-masalah";
 import { FormHitungDraft } from "./form-hitung-draft";
+import { FormHitungUlang } from "./form-hitung-ulang";
 import { FormStokToko, InputStok } from "./form-stok-toko";
 import { ID_RINCIAN_BARIS, RincianBaris } from "./rincian-baris";
 
@@ -171,7 +173,71 @@ function TabelToko({ toko, inputStok, rincian }: { toko: TokoDraft; inputStok: I
   );
 }
 
-function IsiDraft({ draft, inputStok, rincian }: { draft: DraftRencana; inputStok: InputStokDraft; rincian: RincianDraft }) {
+/** Label dasar perhitungan yang berubah (istilah CONTEXT.md). */
+const labelAlasan: Record<AlasanHitungUlang, string> = {
+  "periode-sumber": "Periode sumber",
+  "impor-aktif": "Impor aktif",
+  "kategori-efektif": "Kategori efektif",
+  jadwal: "Jadwal toko",
+  ranking: "Ranking pusat",
+  pemetaan: "Pemetaan keluarga aroma",
+};
+
+type HitungUlangDraft = { idGudang: number; tanggalKirim: TanggalBisnis } | null;
+
+/**
+ * Penanda "Perlu dihitung ulang" (DESIGN §7: ikon + teks `warning`) beserta dasar yang berubah (T61). Tombol Hitung
+ * ulang hanya untuk operator dengan hak `hitung-kebutuhan` (diperiksa lagi di server).
+ */
+function PenandaHitungUlang({ alasan, hitungUlang }: { alasan: readonly AlasanHitungUlang[]; hitungUlang: HitungUlangDraft }) {
+  return (
+    <div data-perlu-dihitung-ulang className="flex flex-col gap-3">
+      <BadgeStatus status="perluDihitungUlang" className="w-fit" />
+      <p>
+        Dasar perhitungan berubah sejak draft ini dihitung. Draft ini tidak bisa difinalisasi sebelum dihitung ulang.
+        Stok akhir yang sudah diisi tetap dipertahankan untuk toko dan varian yang masih ada di draft.
+      </p>
+      <div className="flex flex-col gap-1">
+        <span className="font-semibold">Yang berubah:</span>
+        <ul aria-label="Dasar perhitungan yang berubah" className="flex list-disc flex-col pl-5">
+          {alasan.map((a) => (
+            <li key={a} data-alasan-hitung-ulang={a}>
+              {labelAlasan[a]}
+            </li>
+          ))}
+        </ul>
+      </div>
+      {hitungUlang === null ? null : <FormHitungUlang idGudang={hitungUlang.idGudang} tanggalKirim={hitungUlang.tanggalKirim} />}
+    </div>
+  );
+}
+
+/** Toko yang dikeluarkan pada hitungan terakhir karena tidak lagi mengirim pada tanggal itu (T61; ikon + teks, DESIGN §7). */
+function KeteranganTokoDikeluarkan({ daftarToko }: { daftarToko: readonly { id: number; nama: string }[] }) {
+  if (daftarToko.length === 0) return null;
+  return (
+    <ul aria-label="Toko yang dikeluarkan dari draft" className="flex flex-col gap-2">
+      {daftarToko.map((t) => (
+        <li key={t.id} data-toko-dikeluarkan={t.id} className="flex items-start gap-2 font-semibold">
+          <TriangleAlert aria-hidden strokeWidth={2} className="size-5 shrink-0 text-warning" />
+          Toko {t.nama} dikeluarkan dari draft karena tidak lagi mengirim pada tanggal ini menurut jadwal aktif.
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function IsiDraft({
+  draft,
+  inputStok,
+  rincian,
+  hitungUlang,
+}: {
+  draft: DraftRencana;
+  inputStok: InputStokDraft;
+  rincian: RincianDraft;
+  hitungUlang: HitungUlangDraft;
+}) {
   return (
     <div data-draft-tanggal={draft.tanggalKirim} className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -184,6 +250,8 @@ function IsiDraft({ draft, inputStok, rincian }: { draft: DraftRencana; inputSto
           {formatWaktu(draft.dihitungPada)}.
         </p>
       </div>
+      {draft.perluDihitungUlang.length > 0 ? <PenandaHitungUlang alasan={draft.perluDihitungUlang} hitungUlang={hitungUlang} /> : null}
+      <KeteranganTokoDikeluarkan daftarToko={draft.tokoDikeluarkan} />
       {draft.toko.length === 0 ? (
         <p className="text-muted-foreground">Tidak ada toko yang mengirim pada tanggal ini menurut jadwal aktif.</p>
       ) : (
@@ -215,7 +283,8 @@ function PeringatanTokoNonaktif({ daftarToko }: { daftarToko: readonly { id: num
  * Bagian Draft rencana halaman Pengiriman Gudang (T58, PRD A6 ▶ Keputusan perencanaan M2–M3). Menampilkan draft yang
  * tersimpan, tanpa menghitung saat halaman dibuka (PRD C1). Form hitung tampil hanya untuk operator dengan hak
  * `hitung-kebutuhan` (diperiksa lagi di server); pengguna lain, termasuk admin, hanya melihat. Isian stok akhir per toko
- * (T59) tampil hanya untuk operator dengan hak `input-stok` (diperiksa lagi di server).
+ * (T59) tampil hanya untuk operator dengan hak `input-stok` (diperiksa lagi di server). Draft yang dasar perhitungannya
+ * berubah diberi penanda "Perlu dihitung ulang" (T61).
  */
 export function BagianDraft({
   idGudang,
@@ -286,6 +355,7 @@ export function BagianDraft({
             draft={draft}
             inputStok={bolehInputStok ? { idGudang, tanggalKirim: draft.tanggalKirim } : null}
             rincian={{ idGudang, draft, terbuka: rincianDiminta }}
+            hitungUlang={bolehHitung ? { idGudang, tanggalKirim: draft.tanggalKirim } : null}
           />
         ) : (
           <p className="text-muted-foreground">

@@ -42,7 +42,8 @@ export async function bacaRevisiKalender(klien: Klien): Promise<number> {
   return baris?.revisi ?? 0;
 }
 
-async function bacaKunciVersi(klien: Klien): Promise<KunciVersi> {
+/** Kunci versi cache yang berlaku saat ini: set impor aktif (id urut naik) dan revisi kalender (dipakai juga T61). */
+export async function bacaKunciVersi(klien: Klien): Promise<KunciVersi> {
   const aktif = await klien.select({ id: impor.id }).from(impor).where(eq(impor.status, "aktif")).orderBy(asc(impor.id));
   return { imporAktif: aktif.map((i) => i.id), revisiKalender: await bacaRevisiKalender(klien) };
 }
@@ -97,13 +98,18 @@ export async function bacaPerubahanKategori(klien: Klien = db, tanggal?: Tanggal
 
 /** Id versi cache yang dibaca: versi `selesai` terbaru, atau `null` bila belum ada. */
 export async function idVersiCacheAktif(klien: Klien = db): Promise<number | null> {
+  return (await versiCacheAktif(klien))?.id ?? null;
+}
+
+/** Versi cache yang dibaca (lihat `idVersiCacheAktif`) beserta set impor aktif pembentuknya (id urut naik). */
+export async function versiCacheAktif(klien: Klien = db): Promise<{ id: number; imporAktif: number[] } | null> {
   const [baris] = await klien
-    .select({ id: versiCacheLaporan.id })
+    .select({ id: versiCacheLaporan.id, imporAktif: versiCacheLaporan.imporAktif })
     .from(versiCacheLaporan)
     .where(eq(versiCacheLaporan.status, "selesai"))
     .orderBy(desc(versiCacheLaporan.selesaiPada), desc(versiCacheLaporan.id))
     .limit(1);
-  return baris?.id ?? null;
+  return baris ?? null;
 }
 
 /** Bulan laporan (`YYYY-MM`, urut naik) yang ada di cache versi `versiId`: bulan yang tersedia di data. */
