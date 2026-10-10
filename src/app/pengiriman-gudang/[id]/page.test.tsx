@@ -156,6 +156,31 @@ describe("/pengiriman-gudang/[id]: kartu Periode sumber", () => {
     expect(kartu).toMatch(/pada \w+, \d{2}-\d{2}-\d{4} pukul \d{2}\.\d{2} WIB/);
     // Hanya-baca: tanpa kontrol ubah di halaman.
     expect(html).not.toMatch(/<(button|input|select|form)\b/);
+    // Semua bulan punya data aktif → tanpa penanda bulan hilang.
+    expect(html).not.toContain("data-bulan-hilang");
+    expect(html).not.toContain("Tidak ada data aktif");
+  });
+
+  it("bulan tanpa data aktif ditandai ikon + teks, terpisah dari bulan yang dipakai; siapa/kapan tetap tampil", async () => {
+    const admin = await buatPenggunaUji("admin");
+    // Disimpan langsung: meniru bulan yang dulu tersedia tetapi datanya kini tidak aktif.
+    const tanpaData = "2990-05";
+    await db.insert(periodeSumberGudang).values({ gudangId: cibubur, bulan: [tanpaData, april], ditetapkanOleh: admin.id });
+    const operator = await kepalaPenggunaUji("viewer");
+    await tugaskanOperator({ idPengguna: operator.id, idGudang: cibubur, hakTindakan: [] });
+    kepala.cookie = operator.cookie;
+
+    const html = await buka(cibubur);
+    const kartu = /data-periode-sumber.*?Ditetapkan oleh.*?<\/p>/.exec(html)?.[0] ?? "";
+    expect([...kartu.matchAll(/data-bulan="([^"]+)"/g)].map((m) => m[1])).toEqual([april]);
+    expect([...kartu.matchAll(/data-bulan-hilang="([^"]+)"/g)].map((m) => m[1])).toEqual([tanpaData]);
+    // Ikon + teks (DESIGN §7) pada bulan yang hilang, memakai Badge T07.
+    expect(kartu).toMatch(
+      /data-bulan-hilang="2990-05"[^>]*>.*?<span data-slot="badge"[^>]*>\s*<svg[^>]*lucide-triangle-alert.*?<\/svg>Mei 2990 — Tidak ada data aktif<\/span>/,
+    );
+    expect(kartu).toContain("Perhitungan memakai bulan yang masih punya data aktif.");
+    expect(kartu).toContain("Ditetapkan oleh <span class=\"font-semibold text-foreground\">Uji admin</span> pada");
+    expect(html).not.toMatch(/<(button|input|select|form)\b/);
   });
 });
 

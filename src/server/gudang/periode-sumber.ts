@@ -1,6 +1,7 @@
 import { asc, desc, eq, type SQL } from "drizzle-orm";
 
 import { db } from "@/server/db";
+import type { Tx } from "@/server/impor/antrean";
 import { gudang, periodeSumberGudang, user } from "@/server/db/schema";
 import { bulanLaporanTersedia, idVersiCacheAktif } from "@/server/laporan/cache";
 
@@ -26,9 +27,20 @@ export type PeriodeSumber = {
 
 export type PeriodeSumberPerGudang = PeriodeSumber & { idGudang: number };
 
+/**
+ * Periode sumber yang dipakai perhitungan (PRD A4 ▶ Keputusan 2026-10-10, T51): bulan periode yang tidak ada di bulan
+ * laporan cache aktif ("bulan tanpa data aktif") tidak ikut dipakai. Periode yang tersimpan tidak diubah.
+ */
+export type PeriodeSumberPerhitungan = Omit<PeriodeSumber, "bulan"> & {
+  /** Bulan periode yang masih punya data aktif, urut naik. Bisa kosong bila semua bulan hilang. */
+  bulanDipakai: string[];
+  /** Bulan periode yang tidak ada di bulan laporan cache aktif, urut naik. */
+  bulanHilang: string[];
+};
+
 /** Penetapan terbaru per gudang (yang berlaku), urut id gudang. */
-function periodeBerlaku(kondisi?: SQL) {
-  return db
+function periodeBerlaku(kondisi?: SQL, klien: typeof db | Tx = db) {
+  return klien
     .selectDistinctOn([periodeSumberGudang.gudangId], {
       idGudang: periodeSumberGudang.gudangId,
       versi: periodeSumberGudang.id,
@@ -50,6 +62,30 @@ export async function bacaPeriodeSumber(idGudang: number): Promise<PeriodeSumber
   const [baris] = await periodeBerlaku(eq(periodeSumberGudang.gudangId, idGudang));
   if (!baris) return null;
   return { versi: baris.versi, bulan: baris.bulan, ditetapkanOleh: baris.ditetapkanOleh, ditetapkanPada: baris.ditetapkanPada };
+}
+
+/**
+ * Periode sumber gudang `idGudang` untuk perhitungan: bulan dipakai (masih ada di bulan laporan cache aktif) dan bulan
+ * hilang, beserta versi dan siapa/kapan menetapkan. `null` bila admin belum menetapkan periode. Periode dan bulan cache
+ * aktif dibaca dalam satu snapshot agar keduanya konsisten. Pemeriksaan akses dilakukan pemanggil.
+ */
+export async function bacaPeriodeSumberPerhitungan(idGudang: number): Promise<PeriodeSumberPerhitungan | null> {
+  return db.transaction(
+    async (tx) => {
+      const [baris] = await periodeBerlaku(eq(periodeSumberGudang.gudangId, idGudang), tx);
+      if (!baris) return null;
+      const versiCache = await idVersiCacheAktif(tx);
+      const tersedia = new Set(versiCache === null ? [] : await bulanLaporanTersedia(tx, versiCache));
+      return {
+        versi: baris.versi,
+        bulanDipakai: baris.bulan.filter((b) => tersedia.has(b)),
+        bulanHilang: baris.bulan.filter((b) => !tersedia.has(b)),
+        ditetapkanOleh: baris.ditetapkanOleh,
+        ditetapkanPada: baris.ditetapkanPada,
+      };
+    },
+    { isolationLevel: "repeatable read", accessMode: "read only" },
+  );
 }
 
 /** Periode sumber yang berlaku untuk setiap gudang yang sudah ditetapkan (halaman admin). */

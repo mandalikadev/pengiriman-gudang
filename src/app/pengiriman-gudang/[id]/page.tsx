@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AksesDitolakError, wajibAksesLihatGudang } from "@/server/auth/kewenangan";
 import { tokoTerhubung } from "@/server/gudang/akses";
 import { jadwalTokoGudang } from "@/server/gudang/jadwal";
-import { bacaPeriodeSumber } from "@/server/gudang/periode-sumber";
+import { bacaPeriodeSumberPerhitungan } from "@/server/gudang/periode-sumber";
 import { NAMA_GUDANG_PUSAT } from "@/server/gudang/seed-master";
 import { usulanTerakhirPerToko } from "@/server/gudang/usulan-jadwal";
 
@@ -50,7 +50,7 @@ function BadgeStatusToko({ aktif }: { aktif: boolean }) {
 export default async function HalamanPengirimanGudang({ params }: { params: Promise<{ id: string }> }) {
   const gudang = await muatGudang((await params).id);
   const daftarToko = await tokoTerhubung(gudang.id);
-  const periodeSumber = await bacaPeriodeSumber(gudang.id);
+  const periodeSumber = await bacaPeriodeSumberPerhitungan(gudang.id);
   const daftarJadwal = await jadwalTokoGudang(gudang.id);
   const pusat = gudang.nama === NAMA_GUDANG_PUSAT;
   const usulanPerToko = pusat ? null : await usulanTerakhirPerToko(gudang.id);
