@@ -59,7 +59,8 @@ function BadgeStatusToko({ aktif }: { aktif: boolean }) {
  * Zona kerja (DESIGN §1). Halaman Pengiriman Gudang satu gudang (T50) dengan kartu Periode sumber (T51) dan bagian
  * Jadwal (T55, T56). Operator dengan hak `kelola-usulan-jadwal` mengubah jadwal Pusat langsung dan mengusulkan jadwal
  * gudang lain untuk disetujui admin (PRD A5 ▶ OD-06); server action memeriksanya lagi. Bagian Draft rencana (T58)
- * menampilkan draft yang tersimpan tanpa menghitung saat halaman dibuka (PRD C1).
+ * menampilkan draft yang tersimpan tanpa menghitung saat halaman dibuka (PRD C1); `?rincian=<id toko>|<kode produk>`
+ * membuka rincian perhitungan satu baris (T60).
  */
 export default async function HalamanPengirimanGudang({
   params,
@@ -69,7 +70,8 @@ export default async function HalamanPengirimanGudang({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const gudang = await muatGudang((await params).id);
-  const tanggalDiminta = bacaTanggalDiminta((await searchParams)?.tanggal);
+  const parameter = await searchParams;
+  const tanggalDiminta = bacaTanggalDiminta(parameter?.tanggal);
   const daftarToko = await tokoTerhubung(gudang.id);
   const periodeSumber = await bacaPeriodeSumberPerhitungan(gudang.id);
   const daftarJadwal = await jadwalTokoGudang(gudang.id);
@@ -136,6 +138,7 @@ export default async function HalamanPengirimanGudang({
         daftarTanggal={daftarTanggal}
         tanggalDiminta={tanggalDiminta}
         draft={draft}
+        rincianDiminta={typeof parameter?.rincian === "string" ? parameter.rincian : null}
         tokoNonaktifBerjadwal={daftarJadwal.filter((t) => !t.aktif && t.jadwal !== null)}
       />
     </main>

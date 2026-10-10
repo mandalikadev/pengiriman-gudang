@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { formatTanggal, parseTanggalBisnis, type KategoriDasar } from "./kalender";
 import type { PerubahanKategori } from "./kategori";
-import { hitungKebutuhanKirim, statusKirim, type MasukanKebutuhanKirim } from "./pengiriman";
+import { cakupanPengiriman, hitungKebutuhanKirim, statusKirim, type MasukanKebutuhanKirim } from "./pengiriman";
 
 type TanggalCakupanFixture = { tanggal: string; hari: string; kategoriEfektif: string };
 
@@ -129,6 +129,24 @@ describe("hitungKebutuhanKirim — cakupan (golden jumlah-kirim kasusCakupan)", 
     });
     // Rabu pindah dari Senin–Kamis (4) ke Minggu (8): 56 − 4 + 8.
     expect(hasilUbah.kebutuhan).toMatchObject({ tersedia: true, kebutuhan: 60 });
+  });
+});
+
+describe("cakupanPengiriman (golden jumlah-kirim kasusCakupan)", () => {
+  it("tanggal H−p sampai H+L−1 beserta kategori efektif dan sumbernya, tanpa rata-rata", () => {
+    const { tanggalKirim, persiapanHari, panjangCakupan } = masukan();
+    const cakupan = cakupanPengiriman({ tanggalKirim, persiapanHari, panjangCakupan, toko: "PMS", daftarPerubahan: [] });
+    expect(cakupan).toEqual(
+      kasusCakupan.tanggalCakupan.map(({ tanggal, kategoriEfektif }) => ({ tanggal, kategoriEfektif, sumberKategori: "dasar" })),
+    );
+  });
+
+  it("sumber kategori = id perubahan kategori yang dipakai", () => {
+    const daftarPerubahan: PerubahanKategori[] = [
+      { id: "7", tanggal: parseTanggalBisnis("2026-06-12"), cakupan: { jenis: "toko", toko: "PMS" }, kategoriBaru: "Sabtu", revisi: 1, status: "aktif" },
+    ];
+    const cakupan = cakupanPengiriman({ ...masukan(), daftarPerubahan });
+    expect(cakupan[6]).toEqual({ tanggal: "2026-06-12", kategoriEfektif: "Sabtu", sumberKategori: "7" });
   });
 });
 

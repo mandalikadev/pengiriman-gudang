@@ -32,16 +32,19 @@ export type MasukanKebutuhanKirim = {
   persenBuffer: number;
 };
 
-type TanggalCakupan = {
+type KategoriTanggalCakupan = {
   tanggal: TanggalBisnis;
   kategoriEfektif: KategoriDasar;
   /** `id` perubahan kategori yang dipakai, atau `'dasar'`. */
   sumberKategori: string;
+};
+
+type TanggalCakupan = KategoriTanggalCakupan & {
   /** Rata-rata kategori efektif tanggal ini; `null` jika kategori itu tidak punya rata-rata. */
   rataRata: number | null;
 };
 
-type RincianKebutuhan = {
+export type RincianKebutuhan = {
   kategori: KategoriDasar;
   jumlahHari: number;
   rataRata: number;
@@ -80,17 +83,28 @@ function pastikanRataRata(rataRata: MasukanKebutuhanKirim["rataRata"]): void {
   }
 }
 
-function hitungCakupan(masukan: MasukanKebutuhanKirim): TanggalCakupan[] {
-  const { tanggalKirim, persiapanHari, panjangCakupan, toko, daftarPerubahan, rataRata } = masukan;
+/**
+ * Tanggal cakupan H−p sampai H+L−1 (urut naik, panjangnya L+p) beserta kategori efektif dan sumbernya untuk satu toko
+ * (PRD A6, B4). Sama untuk semua varian toko itu.
+ */
+export function cakupanPengiriman({
+  tanggalKirim,
+  persiapanHari,
+  panjangCakupan,
+  toko,
+  daftarPerubahan,
+}: Pick<MasukanKebutuhanKirim, "tanggalKirim" | "persiapanHari" | "panjangCakupan" | "toko" | "daftarPerubahan">): KategoriTanggalCakupan[] {
   const awal = geserHari(tanggalKirim, -persiapanHari);
-
-  const cakupan: TanggalCakupan[] = [];
+  const cakupan: KategoriTanggalCakupan[] = [];
   for (let i = 0; i < panjangCakupan + persiapanHari; i++) {
     const tanggal = geserHari(awal, i);
-    const efektif = kategoriEfektif(tanggal, toko, daftarPerubahan);
-    cakupan.push({ tanggal, ...efektif, rataRata: rataRata[efektif.kategoriEfektif] ?? null });
+    cakupan.push({ tanggal, ...kategoriEfektif(tanggal, toko, daftarPerubahan) });
   }
   return cakupan;
+}
+
+function hitungCakupan(masukan: MasukanKebutuhanKirim): TanggalCakupan[] {
+  return cakupanPengiriman(masukan).map((t) => ({ ...t, rataRata: masukan.rataRata[t.kategoriEfektif] ?? null }));
 }
 
 function hitungKebutuhan(cakupan: readonly TanggalCakupan[]): Kebutuhan {

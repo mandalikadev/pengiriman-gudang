@@ -36,10 +36,12 @@ vi.mock("next/navigation", async (asli) => ({
 import { hitungDraft } from "./aksi-draft";
 import { simpanStok } from "./aksi-stok";
 import HalamanPengirimanGudang from "./page";
+import HalamanRingkasan from "../../ringkasan/page";
 
 // T58: hak `hitung-kebutuhan` diperiksa di server; admin hanya melihat. Halaman menampilkan draft yang tersimpan.
 // T66: jumlah kirim, daftar masalah per baris, dan ringkasan baris tertahan per toko.
 // T59: hak `input-stok` diperiksa di server; stok kosong tampil "—" belum diketahui; setelah disimpan jumlah kirim tampil.
+// T60: rincian perhitungan per baris draft (DESIGN §8), dibuka lewat `?rincian=<id toko>|<kode produk>`.
 
 const golden = JSON.parse(readFileSync(join(import.meta.dirname, "../../../../tests/golden/jumlah-kirim.json"), "utf8")) as {
   rataRata: Record<KategoriDasar, number>;
@@ -74,6 +76,7 @@ const kode = {
   luar: kodeProdukUji("SAN"),
 };
 let idVersiRanking: number;
+let bulanPeriode: string[];
 
 beforeAll(async () => {
   const idAdmin = (await buatPenggunaUji("admin")).id;
@@ -120,9 +123,10 @@ beforeAll(async () => {
   });
   await hitungUlangCacheLaporan();
 
+  bulanPeriode = [`${tahunContoh}-06`, `${tahunTanpaMinggu}-06`].sort();
   const hasil = await tetapkanPeriodeSumber({
     idGudang: cibubur,
-    bulan: [`${tahunContoh}-06`, `${tahunTanpaMinggu}-06`],
+    bulan: bulanPeriode,
     idPengguna: idAdmin,
   });
   if (hasil.keadaan !== "berhasil") throw new Error(hasil.pesan);
@@ -158,11 +162,11 @@ async function masukOperator(idGudang: number, hakTindakan: HakTindakan[]) {
 
 const draftGudang = (idGudang: number) => db.select().from(draftRencana).where(eq(draftRencana.gudangId, idGudang));
 
-const buka = async (id: number, tanggal?: string) =>
+const buka = async (id: number, tanggal?: string, tambahan: Record<string, string> = {}) =>
   renderToStaticMarkup(
     await HalamanPengirimanGudang({
       params: Promise.resolve({ id: String(id) }),
-      searchParams: Promise.resolve(tanggal === undefined ? {} : { tanggal }),
+      searchParams: Promise.resolve({ ...(tanggal === undefined ? {} : { tanggal }), ...tambahan }),
     }),
   );
 
@@ -382,5 +386,112 @@ describe("input stok di draft rencana (T59)", () => {
     await masukOperator(cibubur, ["input-stok"]);
     await expect(simpanStok(isian(null))).resolves.toEqual({ keadaan: "berhasil" });
     expect(await stokContoh()).toBeNull();
+  });
+});
+
+// Berjalan setelah bagian sebelumnya: draft tanggal contoh tersimpan dan stok kode.contoh kosong lagi.
+describe("rincian perhitungan per baris draft (T60)", () => {
+  const nilaiRincian = (tokoId: number, kodeProduk: string) => `${tokoId}|${kodeProduk}`;
+  const bagianRincian = (html: string, tokoId: number, kodeProduk: string) =>
+    new RegExp(`<section[^>]*data-rincian-baris="${nilaiRincian(tokoId, kodeProduk)}".*?</section>`).exec(html)?.[0] ?? "";
+  const hrefDari = (teks: string) => (/href="([^"]*)"/.exec(teks)?.[1] ?? "").replaceAll("&amp;", "&");
+
+  it("contoh PRD A6: rincian menampilkan cakupan, kategori efektif, rata-rata, 4×4, 1×4, 2×10, 2×8 = 56, buffer, dan jumlah kirim 44", async () => {
+    const [contoh] = golden.kasusJumlahKirim;
+    await masukOperator(cibubur, ["input-stok"]);
+    await expect(
+      simpanStok({ idGudang: cibubur, tanggalKirim: TANGGAL_KIRIM, tokoId: tokoContoh.id, stok: [{ kodeProduk: kode.contoh, stokAkhir: contoh.stokAkhir }] }),
+    ).resolves.toEqual({ keadaan: "berhasil" });
+
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+    // Rincian tertutup: setiap baris punya tautan untuk membukanya; buffer belum tampil.
+    const tertutup = await buka(cibubur, TANGGAL_KIRIM);
+    const barisContoh = new RegExp(`<tr[^>]*data-kode-produk="${kode.contoh}".*?</tr>`).exec(tertutup)?.[0] ?? "";
+    const tautan = /<a[^>]*data-tautan-rincian-baris[^>]*>.*?<\/a>/.exec(barisContoh)?.[0] ?? "";
+    expect(tautan).toContain("Rincian");
+    const urlTautan = new URL(hrefDari(tautan), "http://lokal");
+    expect(urlTautan.pathname).toBe(`/pengiriman-gudang/${cibubur}`);
+    expect(urlTautan.searchParams.get("tanggal")).toBe(TANGGAL_KIRIM);
+    expect(urlTautan.searchParams.get("rincian")).toBe(nilaiRincian(tokoContoh.id, kode.contoh));
+    expect(tertutup).not.toContain("data-rincian-baris=");
+    expect(tertutup).not.toContain("data-buffer");
+
+    const html = await buka(cibubur, TANGGAL_KIRIM, { rincian: nilaiRincian(tokoContoh.id, kode.contoh) });
+    const rincian = bagianRincian(html, tokoContoh.id, kode.contoh);
+    expect(rincian).not.toBe("");
+
+    // Tanggal cakupan Sabtu 06-06 sampai Minggu 14-06-2026 (sembilan hari) dengan kategori efektif dan sumbernya.
+    const tanggalCakupan = [...rincian.matchAll(/<li[^>]*data-tanggal-cakupan="([^"]+)"[^>]*>(.*?)<\/li>/g)];
+    expect(tanggalCakupan.map((t) => t[1])).toEqual([
+      "2026-06-06",
+      "2026-06-07",
+      "2026-06-08",
+      "2026-06-09",
+      "2026-06-10",
+      "2026-06-11",
+      "2026-06-12",
+      "2026-06-13",
+      "2026-06-14",
+    ]);
+    expect(tanggalCakupan[0][2]).toMatch(/Sabtu, 06-06-2026.*?Sabtu.*?Kategori dasar/);
+    expect(tanggalCakupan[2][2]).toMatch(/Senin, 08-06-2026.*?Senin–Kamis.*?Kategori dasar/);
+    expect(rincian).toContain("9 hari");
+
+    // Rata-rata per kategori, masing-masing menautkan ke penelusuran Ringkasan toko–varian dan periode sumber.
+    for (const [kategori, nilai] of Object.entries(golden.rataRata) as [KategoriDasar, number][]) {
+      const tautanRataRata = new RegExp(`<a[^>]*data-tautan-ringkasan="${kategori}"[^>]*>.*?</a>`).exec(rincian)?.[0] ?? "";
+      expect(tautanRataRata).toContain(`>${nilai}<`);
+      const url = new URL(hrefDari(tautanRataRata), "http://lokal");
+      expect(url.pathname).toBe("/ringkasan");
+      expect(url.searchParams.getAll("bulan")).toEqual(bulanPeriode);
+      expect(url.searchParams.getAll("toko")).toEqual([String(tokoContoh.id)]);
+      expect(url.searchParams.getAll("produk")).toEqual([kode.contoh]);
+      expect(url.searchParams.get("rincian")).toBe(`${tokoContoh.id}|${kode.contoh}|${kategori}`);
+    }
+
+    // Kebutuhan = jumlah hari × rata-rata per kategori (PRD A6).
+    expect(rincian).toContain("(4 × 4) + (1 × 4) + (2 × 10) + (2 × 8) = 56");
+    expect(rincian).toMatch(/data-stok-rincian="20"/);
+    // Buffer dan asalnya: keluarga tujuh besar ranking pusat berlaku (bulan dan versi).
+    const [versi] = await db.select().from(versiRanking).where(eq(versiRanking.id, idVersiRanking));
+    expect(versi.bulanRanking).toBe("2026-09");
+    expect(rincian).toMatch(new RegExp(`data-buffer="20".*?20%.*?tujuh besar ranking pusat September 2026 versi ${versi.versi}`));
+    expect(rincian).toContain("(56 − 20) × 120% = 43,2 → dibulatkan ke atas 44");
+    expect(rincian).toMatch(new RegExp(`data-jumlah-kirim-rincian="${contoh.jumlahKirim}"`));
+  });
+
+  it("tautan rata-rata membuka penelusuran Ringkasan dengan angka yang sama", async () => {
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+    const html = await buka(cibubur, TANGGAL_KIRIM, { rincian: nilaiRincian(tokoContoh.id, kode.contoh) });
+    const tautanRataRata = /<a[^>]*data-tautan-ringkasan="Sabtu"[^>]*>.*?<\/a>/.exec(bagianRincian(html, tokoContoh.id, kode.contoh))?.[0] ?? "";
+    const url = new URL(hrefDari(tautanRataRata), "http://lokal");
+    const parameter: Record<string, string[]> = {};
+    for (const [k, v] of url.searchParams) parameter[k] = [...(parameter[k] ?? []), v];
+
+    const ringkasan = renderToStaticMarkup(await HalamanRingkasan({ searchParams: Promise.resolve(parameter) }));
+    expect(ringkasan).toMatch(
+      new RegExp(`data-rincian="${tokoContoh.id}\\|${kode.contoh}\\|Sabtu".*?data-tahap="ringkasan"[^>]*data-nilai="${golden.rataRata.Sabtu}"`),
+    );
+  });
+
+  it("kebutuhan tidak tersedia: rincian menampilkan tanggal dan kategori yang tidak punya rata-rata", async () => {
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+    const html = await buka(cibubur, TANGGAL_KIRIM, { rincian: nilaiRincian(tokoTanpaMinggu.id, kode.tanpaMinggu) });
+    const rincian = bagianRincian(html, tokoTanpaMinggu.id, kode.tanpaMinggu);
+
+    expect(rincian).toMatch(/data-tanggal-cakupan="2026-06-07"[^>]*>.*?Minggu, 07-06-2026.*?Minggu.*?data-status="tidakTersedia".*?Tidak tersedia/);
+    expect(rincian).toMatch(/data-kebutuhan-rincian="tidak-tersedia".*?Tanpa rata-rata:.*?Minggu, 07-06-2026 · kategori Minggu.*?Minggu, 14-06-2026 · kategori Minggu/);
+    expect(rincian).not.toContain('data-tautan-ringkasan="Minggu"');
+    expect(rincian).toContain('data-tautan-ringkasan="Sabtu"');
+    // Kebutuhan tidak tersedia: jumlah kirim "—" dengan masalah yang menahan finalisasi.
+    expect(rincian).toMatch(/data-jumlah-kirim-rincian="kosong".*?data-masalah="kebutuhan-tidak-tersedia"/);
+  });
+
+  it("produk manual: tanpa buffer dan jumlah kirim otomatis", async () => {
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+    const html = await buka(cibubur, TANGGAL_KIRIM, { rincian: nilaiRincian(tokoContoh.id, kode.manual) });
+    const rincian = bagianRincian(html, tokoContoh.id, kode.manual);
+    expect(rincian).toMatch(/data-buffer="kosong".*?data-status="manual"/);
+    expect(rincian).toMatch(/data-jumlah-kirim-rincian="kosong"/);
   });
 });

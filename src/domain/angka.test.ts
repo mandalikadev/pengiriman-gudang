@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { bagiBulatAtas, bagiBulatBawah, hitungJumlahKirim } from "./angka";
+import { bagiBulatAtas, bagiBulatBawah, hitungJumlahKirim, rincianJumlahKirim } from "./angka";
 
 type KasusJumlahKirim = {
   kebutuhan: number;
@@ -84,5 +84,37 @@ describe("hitungJumlahKirim", () => {
     ["hasil kali di luar bilangan bulat aman", Number.MAX_SAFE_INTEGER, 0, 20],
   ])("menolak %s", (_nama, kebutuhan, stokAkhir, persenBuffer) => {
     expect(() => hitungJumlahKirim(kebutuhan, stokAkhir, persenBuffer)).toThrow(RangeError);
+  });
+});
+
+describe("rincianJumlahKirim", () => {
+  it("contoh PRD A6: (56 − 20) × 120% = 43,2 → dibulatkan ke atas 44 (golden jumlah-kirim.json)", () => {
+    const [contoh] = fixture.kasusJumlahKirim;
+    expect(contoh).toMatchObject({ kebutuhan: 56, stokAkhir: 20, persenBuffer: 20, jumlahKirim: 44 });
+    expect(rincianJumlahKirim(contoh.kebutuhan, contoh.stokAkhir, contoh.persenBuffer)).toEqual({
+      kebutuhan: 56,
+      stokAkhir: 20,
+      persenPengali: 120,
+      // 43,2 dalam perseratus.
+      hasilKaliPerseratus: 4320,
+      jumlahKirim: contoh.jumlahKirim,
+    });
+  });
+
+  it.each(fixture.kasusJumlahKirim)(
+    "jumlah kirim sama dengan hitungJumlahKirim: kebutuhan $kebutuhan, stok $stokAkhir, buffer $persenBuffer% → $jumlahKirim",
+    ({ kebutuhan, stokAkhir, persenBuffer, jumlahKirim }) => {
+      expect(rincianJumlahKirim(kebutuhan, stokAkhir, persenBuffer).jumlahKirim).toBe(jumlahKirim);
+    },
+  );
+
+  it("stok melebihi kebutuhan: hasil kali negatif, jumlah kirim 0", () => {
+    expect(rincianJumlahKirim(56, 60, 20)).toEqual({
+      kebutuhan: 56,
+      stokAkhir: 60,
+      persenPengali: 120,
+      hasilKaliPerseratus: -480,
+      jumlahKirim: 0,
+    });
   });
 });

@@ -67,3 +67,18 @@ export function hitungJumlahKirim(
   }
   return bagiBulatAtas(kekuranganBerbuffer, 100);
 }
+
+/**
+ * Asal jumlah kirim untuk ditampilkan (DESIGN §8), mis. `(56 − 20) × 120% = 43,2 → dibulatkan ke atas 44`.
+ * `hasilKaliPerseratus` = (kebutuhan − stokAkhir) × (100 + persenBuffer), yaitu hasil kali sebelum pembulatan dalam
+ * perseratus (bilangan bulat; negatif bila stok melebihi kebutuhan). `jumlahKirim` dari `hitungJumlahKirim`.
+ */
+export function rincianJumlahKirim(kebutuhan: number, stokAkhir: number, persenBuffer: number) {
+  const jumlahKirim = hitungJumlahKirim(kebutuhan, stokAkhir, persenBuffer);
+  const persenPengali = 100 + persenBuffer;
+  const hasilKaliPerseratus = (kebutuhan - stokAkhir) * persenPengali;
+  if (!Number.isSafeInteger(hasilKaliPerseratus)) {
+    throw new RangeError(`(kebutuhan − stokAkhir) × (100 + persenBuffer) di luar rentang bilangan bulat aman: ${hasilKaliPerseratus}`);
+  }
+  return { kebutuhan, stokAkhir, persenPengali, hasilKaliPerseratus, jumlahKirim };
+}

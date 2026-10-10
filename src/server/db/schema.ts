@@ -23,6 +23,7 @@ import type { ErrorRanking } from "@/domain/ranking";
 import { daftarHakTindakan, type HakTindakan } from "@/server/gudang/hak-tindakan";
 import { daftarPolaJadwal, type HariKirim, type PolaJadwal } from "@/server/gudang/pilihan-jadwal";
 import type { MasalahBarisDraft } from "@/server/gudang/masalah-draft";
+import type { RincianBarisDraft, TanggalCakupanDraft } from "@/server/gudang/rincian-draft";
 import type { Masalah, ProdukSheet } from "@/server/impor/sheet-penjualan";
 
 // --- Autentikasi (Better Auth + plugin admin, T20) ---
@@ -868,6 +869,8 @@ export const draftRencana = pgTable(
     versiRankingId: integer("versi_ranking_id")
       .notNull()
       .references(() => versiRanking.id),
+    /** Bulan periode sumber yang dipakai (`YYYY-MM`, urut naik; T60). Kosong = draft dihitung sebelum T60. */
+    bulanSumber: jsonb("bulan_sumber").$type<string[]>(),
   },
   (tabel) => [uniqueIndex("draft_rencana_gudang_tanggal_unik").on(tabel.gudangId, tabel.tanggalKirim)],
 );
@@ -891,6 +894,8 @@ export const tokoDraftRencana = pgTable(
       .references(() => jadwalToko.id),
     persiapanHari: integer("persiapan_hari").$type<0 | 1 | 2>().notNull(),
     panjangCakupan: integer("panjang_cakupan").$type<7 | 14>().notNull(),
+    /** Tanggal cakupan beserta kategori efektif dan sumbernya (T60). Kosong = draft dihitung sebelum T60. */
+    cakupan: jsonb("cakupan").$type<TanggalCakupanDraft[]>(),
   },
   (tabel) => [
     uniqueIndex("toko_draft_rencana_unik").on(tabel.draftId, tabel.tokoId),
@@ -905,7 +910,8 @@ export const tokoDraftRencana = pgTable(
  * rata-rata. Buffer, daftar masalah (urutan tampilan), dan jumlah kirim dari `nilaiBarisDraft` (T66): `persenBuffer`
  * kosong untuk produk manual dan produk otomatis yang belum dipetakan; `jumlahKirim` kosong selama ada masalah.
  * `stokAkhir` diisi operator (T59): kosong = belum diketahui, bukan nol; boleh negatif (menjadi masalah produk otomatis).
- * Setelah stok disimpan, `masalah` dan `jumlahKirim` diperbarui (PRD A7).
+ * Setelah stok disimpan, `masalah` dan `jumlahKirim` diperbarui (PRD A7). `rincian` menyimpan dasar kebutuhan untuk
+ * rincian perhitungan (T60).
  */
 export const barisDraftRencana = pgTable(
   "baris_draft_rencana",
@@ -922,6 +928,8 @@ export const barisDraftRencana = pgTable(
     masalah: jsonb("masalah").$type<MasalahBarisDraft[]>().notNull().default([]),
     jumlahKirim: integer("jumlah_kirim"),
     stokAkhir: integer("stok_akhir"),
+    /** Rata-rata per kategori dan kebutuhan per kategori efektif (T60). Kosong = draft dihitung sebelum T60. */
+    rincian: jsonb("rincian").$type<RincianBarisDraft>(),
   },
   (tabel) => [
     uniqueIndex("baris_draft_rencana_unik").on(tabel.tokoDraftId, tabel.kodeProduk),

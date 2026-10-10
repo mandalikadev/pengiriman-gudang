@@ -120,6 +120,13 @@
       "when": 1791639416853,
       "tag": "0016_stok_akhir_draft",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791641836281,
+      "tag": "0017_rincian_draft",
+      "breakpoints": true
     }
   ]
 }
