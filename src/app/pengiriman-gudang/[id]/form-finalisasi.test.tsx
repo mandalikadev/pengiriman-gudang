@@ -95,7 +95,10 @@ describe("FormFinalisasi", () => {
     tulisIsianLokal(KUNCI, { "UJI-A": "25" });
     const wadah = buka();
     expect(tombol(wadah).disabled).toBe(true);
-    expect(wadah.textContent).toContain("Ada stok yang belum disimpan. Simpan stok lebih dulu, lalu finalisasi.");
+    const penahan = wadah.querySelector("[data-finalisasi-stok-belum-disimpan]");
+    expect(penahan?.getAttribute("data-keadaan")).toBe("belumDisimpan");
+    expect(penahan?.querySelector("svg")?.classList.contains("lucide-pencil-line")).toBe(true);
+    expect(penahan?.textContent).toBe("Ada perubahan yang belum disimpan — Simpan stok lebih dulu, lalu finalisasi.");
 
     // Isian yang sama dengan stok tersimpan tidak dihitung belum disimpan.
     act(() => tulisIsianLokal(KUNCI, { "UJI-A": "20" }));

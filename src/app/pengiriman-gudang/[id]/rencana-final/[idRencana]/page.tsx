@@ -47,7 +47,7 @@ export default async function HalamanRencanaFinal({ params }: { params: Promise<
       </div>
       <div className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-16 text-base sm:px-6 md:py-24 lg:px-8">
         <span aria-hidden className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-success">
-          <CircleCheck strokeWidth={2} className="size-5" />
+          <CircleCheck strokeWidth={2} className="size-7" />
         </span>
         <div className="flex flex-col gap-4">
           <BadgeStatus status="final" className="w-fit" />
@@ -75,7 +75,7 @@ export default async function HalamanRencanaFinal({ params }: { params: Promise<
           href={`/pengiriman-gudang/${idGudang}?tanggal=${rencana.tanggalKirim}`}
           className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary transition-all duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 motion-safe:hover:scale-105 motion-safe:active:scale-95"
         >
-          <ArrowLeft aria-hidden strokeWidth={2} className="size-5" />
+          <ArrowLeft aria-hidden strokeWidth={2} className="size-7" />
           Kembali ke draft rencana
         </Link>
       </div>

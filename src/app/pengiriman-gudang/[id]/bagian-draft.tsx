@@ -145,28 +145,12 @@ function TabelVarian({ toko, inputStok, rincian }: { toko: TokoDraft; inputStok:
 type FinalisasiDraft = { idGudang: number; tanggalKirim: TanggalBisnis; perluDihitungUlang: boolean } | null;
 
 /**
- * Status finalisasi satu toko (T62; DESIGN §7): toko yang sudah final menampilkan siapa dan kapan beserta tautan ke
- * rencana finalnya (untuk semua yang bisa melihat halaman). Untuk operator dengan hak `finalisasi`: form finalisasi bila
- * toko siap, atau alasan belum bisa difinalisasi (draft perlu dihitung ulang, atau ada baris tertahan).
+ * Finalisasi satu toko (T62) untuk operator dengan hak `finalisasi`: form finalisasi bila toko siap, atau alasan belum
+ * bisa difinalisasi (draft perlu dihitung ulang, atau ada baris tertahan). Toko yang sudah final hanya ditandai badge
+ * Final di judulnya (DESIGN §7); siapa/kapan dan rincian rencana final adalah bagian riwayat (T63).
  */
-function FinalisasiToko({ idGudang, toko, finalisasi }: { idGudang: number; toko: TokoDraft; finalisasi: FinalisasiDraft }) {
-  if (toko.final !== null) {
-    return (
-      <div data-final-toko={toko.final.id} className="flex flex-col gap-2">
-        <p className="text-muted-foreground">
-          Difinalisasi oleh <span className="font-semibold text-foreground">{toko.final.difinalisasiOleh}</span> pada{" "}
-          {formatWaktu(toko.final.difinalisasiPada)}. Perubahan draft sesudah finalisasi tidak mengubah rencana final.
-        </p>
-        <Link
-          href={`/pengiriman-gudang/${idGudang}/rencana-final/${toko.final.id}`}
-          className="inline-flex min-h-11 w-fit items-center rounded-full px-4 font-semibold text-primary underline underline-offset-4 transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        >
-          Lihat rencana final
-        </Link>
-      </div>
-    );
-  }
-  if (finalisasi === null) return null;
+function FinalisasiToko({ toko, finalisasi }: { toko: TokoDraft; finalisasi: FinalisasiDraft }) {
+  if (toko.final || finalisasi === null) return null;
   const alasan = finalisasi.perluDihitungUlang
     ? "draft perlu dihitung ulang."
     : toko.jumlahTertahan > 0
@@ -209,7 +193,7 @@ function TabelToko({
         <h4 id={`draft-toko-${toko.id}`} className="text-lg font-semibold">
           {toko.nama}
         </h4>
-        {toko.final !== null ? <BadgeStatus status="final" className="self-center" /> : null}
+        {toko.final ? <BadgeStatus status="final" className="self-center" /> : null}
         <p className="text-muted-foreground">
           Persiapan {labelPersiapan[persiapanDariHari[toko.persiapanHari]]} · Panjang cakupan {toko.panjangCakupan} hari
         </p>
@@ -232,7 +216,7 @@ function TabelToko({
           <TabelVarian toko={toko} inputStok={inputStok} rincian={rincian} />
         </FormStokToko>
       )}
-      <FinalisasiToko idGudang={rincian.idGudang} toko={toko} finalisasi={finalisasi} />
+      <FinalisasiToko toko={toko} finalisasi={finalisasi} />
     </section>
   );
 }

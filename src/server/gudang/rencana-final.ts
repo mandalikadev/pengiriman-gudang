@@ -125,15 +125,19 @@ export async function finalisasiRencanaToko({
       .orderBy(asc(barisDraftRencana.kodeProduk));
     if (versiTokoDraft(draft.dihitungPada, baris) !== versiDilihat) return gagal(PESAN_DRAFT_BERUBAH_FINALISASI);
 
-    // Draft tidak bisa ditulis selama kunci gudang dipegang, jadi dasar yang dibandingkan tetap milik draft ini.
-    const alasan = await alasanHitungUlang({
-      idDraft: draft.id,
-      idGudang,
-      tanggalKirim,
-      versiPeriodeSumber: draft.versiPeriodeSumber,
-      imporAktif: draft.imporAktif,
-      versiRankingId: draft.versiRankingId,
-    });
+    // Draft tidak bisa ditulis selama kunci gudang dipegang, jadi dasar yang dibandingkan tetap milik draft ini. Dasar
+    // yang berlaku dibaca di transaksi yang sama.
+    const alasan = await alasanHitungUlang(
+      {
+        idDraft: draft.id,
+        idGudang,
+        tanggalKirim,
+        versiPeriodeSumber: draft.versiPeriodeSumber,
+        imporAktif: draft.imporAktif,
+        versiRankingId: draft.versiRankingId,
+      },
+      tx,
+    );
     const { bulanSumber, imporAktif } = draft;
     const { cakupan, perubahanKategori } = tokoDraft;
     // Draft dari sebelum T60/T61 tidak menyimpan dasar lengkap; T61 juga menandainya perlu dihitung ulang.
@@ -170,6 +174,10 @@ export async function finalisasiRencanaToko({
       .from(versiRanking)
       .where(eq(versiRanking.id, draft.versiRankingId));
     if (!jadwal || !ranking) return gagal(PESAN_PERLU_DIHITUNG_ULANG);
+    // Nama toko dan nama pemfinalisasi disalin agar tampilan rencana final tidak ikut berubah bila master diubah.
+    const [namaToko] = await tx.select({ nama: toko.nama }).from(toko).where(eq(toko.id, tokoId));
+    const [pemfinalisasi] = await tx.select({ nama: user.name }).from(user).where(eq(user.id, idPengguna));
+    if (!namaToko || !pemfinalisasi) return gagal(PESAN_DRAFT_BERUBAH_FINALISASI);
 
     // Sumber penjualan: impor aktif pembentuk cache yang dipakai draft, untuk bulan impor yang masuk bulan periode sumber.
     const bulanImpor = bulanImporUntuk(bulanSumber);
@@ -196,8 +204,10 @@ export async function finalisasiRencanaToko({
       .values({
         gudangId: idGudang,
         tokoId,
+        namaToko: namaToko.nama,
         tanggalKirim,
         difinalisasiOleh: idPengguna,
+        namaPemfinalisasi: pemfinalisasi.nama,
         bulanSumber,
         versiPeriodeSumber: draft.versiPeriodeSumber,
         impor: daftarImpor,
@@ -237,8 +247,10 @@ type BarisRencanaFinal = {
 
 export type RencanaFinal = {
   id: number;
+  /** Nama toko saat difinalisasi. */
   toko: { id: number; nama: string };
   tanggalKirim: TanggalBisnis;
+  /** Nama pengguna yang memfinalisasi, saat difinalisasi. */
   difinalisasiOleh: string;
   difinalisasiPada: Date;
   sumber: { bulanSumber: string[]; versiPeriodeSumber: number; impor: ImporRencanaFinal[] };
@@ -251,14 +263,11 @@ export type RencanaFinal = {
 
 /** Rencana final `idRencana` milik gudang `idGudang`, dibaca dari snapshot; `null` bila tidak ada di gudang itu. */
 export async function bacaRencanaFinal(idGudang: number, idRencana: number): Promise<RencanaFinal | null> {
-  const [rencana] = await db
-    .select({ rencana: rencanaFinal, namaToko: toko.nama, difinalisasiOleh: user.name })
+  const [r] = await db
+    .select()
     .from(rencanaFinal)
-    .innerJoin(toko, eq(toko.id, rencanaFinal.tokoId))
-    .innerJoin(user, eq(user.id, rencanaFinal.difinalisasiOleh))
     .where(and(eq(rencanaFinal.id, idRencana), eq(rencanaFinal.gudangId, idGudang)));
-  if (!rencana) return null;
-  const r = rencana.rencana;
+  if (!r) return null;
   const baris = await db
     .select()
     .from(barisRencanaFinal)
@@ -266,9 +275,9 @@ export async function bacaRencanaFinal(idGudang: number, idRencana: number): Pro
     .orderBy(asc(barisRencanaFinal.kodeProduk));
   return {
     id: r.id,
-    toko: { id: r.tokoId, nama: rencana.namaToko },
+    toko: { id: r.tokoId, nama: r.namaToko },
     tanggalKirim: parseTanggalBisnis(r.tanggalKirim),
-    difinalisasiOleh: rencana.difinalisasiOleh,
+    difinalisasiOleh: r.namaPemfinalisasi,
     difinalisasiPada: r.difinalisasiPada,
     sumber: { bulanSumber: r.bulanSumber, versiPeriodeSumber: r.versiPeriodeSumber, impor: r.impor },
     ranking: { id: r.versiRankingId, bulanRanking: r.bulanRanking, versi: r.versiRanking },

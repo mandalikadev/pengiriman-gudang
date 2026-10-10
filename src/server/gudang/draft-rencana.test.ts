@@ -472,7 +472,7 @@ describe("hitungDraftRencana", () => {
       jumlahTertahan: 0,
       baris: [],
       versi: expect.any(String),
-      final: null,
+      final: false,
     });
   });
 

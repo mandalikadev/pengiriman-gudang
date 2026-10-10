@@ -389,8 +389,8 @@ export type TokoDraft = {
   baris: BarisDraft[];
   /** Versi isi toko ini di draft (`versiTokoDraft`), dikirim kembali saat finalisasi (T62). */
   versi: string;
-  /** Rencana final toko ini untuk tanggal kirim draft (T62); `null` = belum difinalisasi. */
-  final: { id: number; difinalisasiOleh: string; difinalisasiPada: Date } | null;
+  /** Toko ini sudah punya rencana final untuk tanggal kirim draft (T62). */
+  final: boolean;
 };
 
 /**
@@ -540,11 +540,10 @@ export async function bacaDraftRencana(idGudang: number, tanggalKirim?: TanggalB
     new Set(daftarToko.map((t) => t.id)),
   );
   const daftarFinal = await db
-    .select({ id: rencanaFinal.id, tokoId: rencanaFinal.tokoId, difinalisasiOleh: user.name, difinalisasiPada: rencanaFinal.difinalisasiPada })
+    .select({ tokoId: rencanaFinal.tokoId })
     .from(rencanaFinal)
-    .innerJoin(user, eq(user.id, rencanaFinal.difinalisasiOleh))
     .where(and(eq(rencanaFinal.gudangId, idGudang), eq(rencanaFinal.tanggalKirim, tanggalDraft)));
-  const finalPerToko = new Map(daftarFinal.map(({ tokoId, ...f }) => [tokoId, f]));
+  const tokoFinal = new Set(daftarFinal.map((f) => f.tokoId));
   return {
     tanggalKirim: tanggalDraft,
     dihitungOleh: draft.dihitungOleh,
@@ -559,7 +558,7 @@ export async function bacaDraftRencana(idGudang: number, tanggalKirim?: TanggalB
         jumlahTertahan: barisToko.filter((b) => b.masalah.length > 0).length,
         baris: barisToko,
         versi: versiTokoDraft(draft.dihitungPada, barisToko),
-        final: finalPerToko.get(t.id) ?? null,
+        final: tokoFinal.has(t.id),
       };
     }),
     perluDihitungUlang,

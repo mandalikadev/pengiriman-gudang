@@ -1,6 +1,5 @@
 "use client";
 
-import { PencilLine } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSyncExternalStore } from "react";
 
@@ -69,10 +68,11 @@ export function FormFinalisasi({
         pengiriman fisik atau penerimaan barang.
       </p>
       {stokBelumDisimpan ? (
-        <p data-finalisasi-stok-belum-disimpan className="flex items-start gap-2">
-          <PencilLine aria-hidden strokeWidth={2} className="size-5 shrink-0 text-muted-foreground" />
-          Ada stok yang belum disimpan. Simpan stok lebih dulu, lalu finalisasi.
-        </p>
+        <PesanStatusSimpan
+          data-finalisasi-stok-belum-disimpan
+          keadaan="belumDisimpan"
+          pesan="Simpan stok lebih dulu, lalu finalisasi."
+        />
       ) : null}
       <Button type="submit" disabled={menunggu || stokBelumDisimpan} className="w-fit active:scale-95">
         Finalisasi rencana

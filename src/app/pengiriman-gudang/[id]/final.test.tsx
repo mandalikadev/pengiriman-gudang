@@ -205,7 +205,7 @@ describe("finalisasi di halaman Pengiriman Gudang", () => {
     expect(tanpaHak).not.toContain("data-finalisasi-tertahan");
   });
 
-  it("operator berhak memfinalisasi toko yang siap; toko itu tampil Final dengan tautan ke rencana final; toko tertahan ditolak", async () => {
+  it("operator berhak memfinalisasi toko yang siap; toko itu tampil Final tanpa form finalisasi; toko tertahan ditolak", async () => {
     await masukOperator(jabodetabek, ["finalisasi"]);
     await expect(finalisasiRencana(await isian(tokoTertahan.id))).resolves.toEqual({
       keadaan: "gagal",
@@ -222,8 +222,6 @@ describe("finalisasi di halaman Pengiriman Gudang", () => {
       await masuk();
       const siap = bagianToko(await bukaDraft(), tokoSiap.id);
       expect(siap).toMatch(/data-status="final".*?lucide-circle-check.*?Final/);
-      expect(siap).toContain("Difinalisasi oleh <span class=\"font-semibold text-foreground\">Uji viewer</span>");
-      expect(siap).toContain(`href="/pengiriman-gudang/${jabodetabek}/rencana-final/${rencana.id}"`);
       expect(siap).not.toContain("data-finalisasi-toko");
     }
   });
@@ -234,6 +232,8 @@ describe("finalisasi di halaman Pengiriman Gudang", () => {
       await masuk();
       const html = await bukaFinal(rencana.id);
       expect(html).toContain("blur-3xl");
+      // DESIGN §6: ikon 28 px di zona suasana.
+      expect(html).toMatch(/<svg[^>]*lucide-circle-check[^>]*size-7/);
       expect(html).toMatch(/<h1[^>]*class="[^"]*text-4xl[^"]*md:text-5xl[^"]*"[^>]*>Rencana final tersimpan<\/h1>/);
       expect(html).toMatch(/data-status="final".*?lucide-circle-check.*?Final/);
       expect(html).toContain(`Toko ${tokoSiap.nama}`);

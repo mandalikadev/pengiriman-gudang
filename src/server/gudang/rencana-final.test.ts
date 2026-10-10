@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parseTanggalBisnis, type KategoriDasar, type NamaHari } from "@/domain/kalender";
 import { buatPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
-import { draftRencana, hubunganTokoGudang, impor, jadwalToko, perubahanKategori, produk, rencanaFinal } from "@/server/db/schema";
+import { draftRencana, hubunganTokoGudang, impor, jadwalToko, perubahanKategori, produk, rencanaFinal, toko, user } from "@/server/db/schema";
 import { kodeProdukUji, tahunUji } from "@/server/impor/uji-bantu";
 import { buatPerubahanKategori } from "@/server/kalender/perubahan-kategori";
 import { terapkanPemetaan } from "@/server/keluarga-aroma/pemetaan";
@@ -275,6 +275,22 @@ describe("rencana final tidak berubah oleh pembaruan data berikutnya (PRD A5, A7
     expect(barisDraft?.kebutuhan).not.toBe(CONTOH.kebutuhan);
 
     expect(await bacaRencanaFinal(bandung, rencanaA.id)).toEqual(sebelum);
+  });
+
+  it("nama toko dan nama pemfinalisasi diubah → rencana final tetap menampilkan nama saat difinalisasi", async () => {
+    const [rencanaA] = (await rencanaGudang()).filter((r) => r.tokoId === tokoA.id);
+    const sebelum = await bacaRencanaFinal(bandung, rencanaA.id);
+    expect(sebelum).toMatchObject({ toko: tokoA, difinalisasiOleh: "Uji viewer" });
+
+    const [{ nama: namaPemfinalisasi }] = await db.select({ nama: user.name }).from(user).where(eq(user.id, idOperator));
+    try {
+      await db.update(toko).set({ nama: `${tokoA.nama} BARU` }).where(eq(toko.id, tokoA.id));
+      await db.update(user).set({ name: "Nama baru operator" }).where(eq(user.id, idOperator));
+      expect(await bacaRencanaFinal(bandung, rencanaA.id)).toEqual(sebelum);
+    } finally {
+      await db.update(toko).set({ nama: tokoA.nama }).where(eq(toko.id, tokoA.id));
+      await db.update(user).set({ name: namaPemfinalisasi }).where(eq(user.id, idOperator));
+    }
   });
 
   it("rencana final gudang lain tidak terbaca lewat gudang ini", async () => {

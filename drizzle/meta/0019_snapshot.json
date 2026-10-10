@@ -1,5 +1,5 @@
 {
-  "id": "04615554-5f90-4aa2-bf64-8f06f39bcd5a",
+  "id": "c9544a8a-579f-4c34-aad3-69a62b02000e",
   "prevId": "14efcb1e-53b9-488b-a53a-2e2ec3ea5d53",
   "version": "7",
   "dialect": "postgresql",
@@ -2753,6 +2753,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "nama_toko": {
+          "name": "nama_toko",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "tanggal_kirim": {
           "name": "tanggal_kirim",
           "type": "date",
@@ -2761,6 +2767,12 @@
         },
         "difinalisasi_oleh": {
           "name": "difinalisasi_oleh",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nama_pemfinalisasi": {
+          "name": "nama_pemfinalisasi",
           "type": "text",
           "primaryKey": false,
           "notNull": true

@@ -989,6 +989,7 @@ export type JadwalRencanaFinal = {
  * (draft, periode sumber, jadwal, cache laporan, master produk; PRD A7, B9): bulan periode sumber dan versi periodenya,
  * impor beserta identitas file + SHA-256, bulan dan versi ranking pusat, versi dan isi jadwal beserta p dan L, revisi
  * kalender, id perubahan kategori yang mengenai cakupan, serta tanggal cakupan beserta kategori efektif dan sumbernya.
+ * Nama toko dan nama pemfinalisasi juga disalin agar tampilan rencana final tidak ikut berubah bila master diubah.
  */
 export const rencanaFinal = pgTable(
   "rencana_final",
@@ -1000,10 +1001,14 @@ export const rencanaFinal = pgTable(
     tokoId: integer("toko_id")
       .notNull()
       .references(() => toko.id),
+    /** Nama toko saat difinalisasi (snapshot). */
+    namaToko: text("nama_toko").notNull(),
     tanggalKirim: date("tanggal_kirim", { mode: "string" }).notNull(),
     difinalisasiOleh: text("difinalisasi_oleh")
       .notNull()
       .references(() => user.id),
+    /** Nama pengguna yang memfinalisasi saat difinalisasi (snapshot). */
+    namaPemfinalisasi: text("nama_pemfinalisasi").notNull(),
     difinalisasiPada: timestamp("difinalisasi_pada", { withTimezone: true }).notNull().defaultNow(),
     /** Bulan periode sumber yang dipakai (`YYYY-MM`, urut naik). */
     bulanSumber: jsonb("bulan_sumber").$type<string[]>().notNull(),
