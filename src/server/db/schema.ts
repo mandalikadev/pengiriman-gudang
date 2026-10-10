@@ -904,6 +904,8 @@ export const tokoDraftRencana = pgTable(
  * tersedia = `kebutuhan` kosong dan `tanpaRataRata` berisi tanggal cakupan beserta kategori efektif yang tidak punya
  * rata-rata. Buffer, daftar masalah (urutan tampilan), dan jumlah kirim dari `nilaiBarisDraft` (T66): `persenBuffer`
  * kosong untuk produk manual dan produk otomatis yang belum dipetakan; `jumlahKirim` kosong selama ada masalah.
+ * `stokAkhir` diisi operator (T59): kosong = belum diketahui, bukan nol; boleh negatif (menjadi masalah produk otomatis).
+ * Setelah stok disimpan, `masalah` dan `jumlahKirim` diperbarui; menghitung ulang draft mempertahankan stok (PRD A7, B9).
  */
 export const barisDraftRencana = pgTable(
   "baris_draft_rencana",
@@ -919,6 +921,7 @@ export const barisDraftRencana = pgTable(
     persenBuffer: integer("persen_buffer"),
     masalah: jsonb("masalah").$type<MasalahBarisDraft[]>().notNull().default([]),
     jumlahKirim: integer("jumlah_kirim"),
+    stokAkhir: integer("stok_akhir"),
   },
   (tabel) => [
     uniqueIndex("baris_draft_rencana_unik").on(tabel.tokoDraftId, tabel.kodeProduk),

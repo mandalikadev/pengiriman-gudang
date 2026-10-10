@@ -13,6 +13,7 @@ import type { MasalahBarisDraft } from "@/server/gudang/masalah-draft";
 import { labelPersiapan, persiapanDariHari } from "@/server/gudang/pilihan-jadwal";
 
 import { FormHitungDraft } from "./form-hitung-draft";
+import { FormStokToko, InputStok } from "./form-stok-toko";
 
 function SelKebutuhan({ baris }: { baris: BarisDraft }) {
   if (baris.kebutuhan !== null) return <>{formatAngka(baris.kebutuhan)}</>;
@@ -60,6 +61,17 @@ function DaftarMasalah({ masalah }: { masalah: readonly MasalahBarisDraft[] }) {
   );
 }
 
+/** Stok akhir tersimpan untuk pengguna tanpa hak `input-stok`: kosong tampil "—" belum diketahui (DESIGN §7). */
+function SelStok({ stokAkhir }: { stokAkhir: number | null }) {
+  if (stokAkhir !== null) return <>{formatAngka(stokAkhir)}</>;
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <span aria-hidden>—</span>
+      <BadgeStatus status="belumDiketahui" />
+    </div>
+  );
+}
+
 /** Ringkasan masalah per toko: jumlah baris tertahan (ikon + teks, DESIGN §7). */
 function RingkasanTertahan({ jumlah }: { jumlah: number }) {
   const Ikon = jumlah > 0 ? TriangleAlert : CircleCheck;
@@ -71,7 +83,48 @@ function RingkasanTertahan({ jumlah }: { jumlah: number }) {
   );
 }
 
-function TabelToko({ toko }: { toko: TokoDraft }) {
+type InputStokDraft = { idGudang: number; tanggalKirim: TanggalBisnis } | null;
+
+function TabelVarian({ toko, inputStok }: { toko: TokoDraft; inputStok: InputStokDraft }) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Kode produk</TableHead>
+          <TableHead>Nama produk</TableHead>
+          <TableHead>Klasifikasi</TableHead>
+          <TableHead angka>Kebutuhan barang</TableHead>
+          <TableHead angka>Stok akhir</TableHead>
+          <TableHead angka>Jumlah kirim</TableHead>
+          <TableHead>Masalah</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {toko.baris.map((b) => (
+          <TableRow key={b.kodeProduk} data-kode-produk={b.kodeProduk}>
+            <TableCell className="font-semibold">{b.kodeProduk}</TableCell>
+            <TableCell>{b.namaProduk ?? "—"}</TableCell>
+            <TableCell>{b.klasifikasi === "manual" ? <BadgeStatus status="manual" /> : "Otomatis"}</TableCell>
+            <TableCell angka className="align-top" data-kebutuhan={b.kebutuhan ?? "tidak-tersedia"}>
+              <SelKebutuhan baris={b} />
+            </TableCell>
+            <TableCell angka className="align-top" data-stok-akhir={b.stokAkhir ?? "kosong"}>
+              {inputStok === null ? <SelStok stokAkhir={b.stokAkhir} /> : <InputStok kodeProduk={b.kodeProduk} />}
+            </TableCell>
+            <TableCell angka className="align-top" data-jumlah-kirim={b.jumlahKirim ?? "kosong"}>
+              {b.jumlahKirim === null ? "—" : formatAngka(b.jumlahKirim)}
+            </TableCell>
+            <TableCell className="align-top">
+              <DaftarMasalah masalah={b.masalah} />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+function TabelToko({ toko, inputStok }: { toko: TokoDraft; inputStok: InputStokDraft }) {
   return (
     <section aria-labelledby={`draft-toko-${toko.id}`} data-draft-toko={toko.id} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -87,43 +140,24 @@ function TabelToko({ toko }: { toko: TokoDraft }) {
         <p data-tanpa-varian className="text-muted-foreground">
           Tidak ada varian di periode sumber untuk toko ini.
         </p>
+      ) : inputStok === null ? (
+        <TabelVarian toko={toko} inputStok={null} />
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Kode produk</TableHead>
-              <TableHead>Nama produk</TableHead>
-              <TableHead>Klasifikasi</TableHead>
-              <TableHead angka>Kebutuhan barang</TableHead>
-              <TableHead angka>Jumlah kirim</TableHead>
-              <TableHead>Masalah</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {toko.baris.map((b) => (
-              <TableRow key={b.kodeProduk} data-kode-produk={b.kodeProduk}>
-                <TableCell className="font-semibold">{b.kodeProduk}</TableCell>
-                <TableCell>{b.namaProduk ?? "—"}</TableCell>
-                <TableCell>{b.klasifikasi === "manual" ? <BadgeStatus status="manual" /> : "Otomatis"}</TableCell>
-                <TableCell angka className="align-top" data-kebutuhan={b.kebutuhan ?? "tidak-tersedia"}>
-                  <SelKebutuhan baris={b} />
-                </TableCell>
-                <TableCell angka className="align-top" data-jumlah-kirim={b.jumlahKirim ?? "kosong"}>
-                  {b.jumlahKirim === null ? "—" : formatAngka(b.jumlahKirim)}
-                </TableCell>
-                <TableCell className="align-top">
-                  <DaftarMasalah masalah={b.masalah} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <FormStokToko
+          idGudang={inputStok.idGudang}
+          tanggalKirim={inputStok.tanggalKirim}
+          tokoId={toko.id}
+          namaToko={toko.nama}
+          stokTersimpan={toko.baris.map((b) => ({ kodeProduk: b.kodeProduk, stokAkhir: b.stokAkhir }))}
+        >
+          <TabelVarian toko={toko} inputStok={inputStok} />
+        </FormStokToko>
       )}
     </section>
   );
 }
 
-function IsiDraft({ draft }: { draft: DraftRencana }) {
+function IsiDraft({ draft, inputStok }: { draft: DraftRencana; inputStok: InputStokDraft }) {
   return (
     <div data-draft-tanggal={draft.tanggalKirim} className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -139,7 +173,7 @@ function IsiDraft({ draft }: { draft: DraftRencana }) {
       {draft.toko.length === 0 ? (
         <p className="text-muted-foreground">Tidak ada toko yang mengirim pada tanggal ini menurut jadwal aktif.</p>
       ) : (
-        draft.toko.map((t) => <TabelToko key={t.id} toko={t} />)
+        draft.toko.map((t) => <TabelToko key={t.id} toko={t} inputStok={inputStok} />)
       )}
     </div>
   );
@@ -166,11 +200,13 @@ function PeringatanTokoNonaktif({ daftarToko }: { daftarToko: readonly { id: num
 /**
  * Bagian Draft rencana halaman Pengiriman Gudang (T58, PRD A6 ▶ Keputusan perencanaan M2–M3). Menampilkan draft yang
  * tersimpan, tanpa menghitung saat halaman dibuka (PRD C1). Form hitung tampil hanya untuk operator dengan hak
- * `hitung-kebutuhan` (diperiksa lagi di server); pengguna lain, termasuk admin, hanya melihat.
+ * `hitung-kebutuhan` (diperiksa lagi di server); pengguna lain, termasuk admin, hanya melihat. Isian stok akhir per toko
+ * (T59) tampil hanya untuk operator dengan hak `input-stok` (diperiksa lagi di server).
  */
 export function BagianDraft({
   idGudang,
   bolehHitung,
+  bolehInputStok,
   daftarTanggal,
   tanggalDiminta,
   draft,
@@ -178,6 +214,7 @@ export function BagianDraft({
 }: {
   idGudang: number;
   bolehHitung: boolean;
+  bolehInputStok: boolean;
   /** Tanggal kirim draft yang tersimpan, terbaru di atas. */
   daftarTanggal: TanggalBisnis[];
   tanggalDiminta: TanggalBisnis | null;
@@ -196,7 +233,7 @@ export function BagianDraft({
         </h2>
         <CardDescription>
           Toko yang mengirim pada tanggal kirim menurut jadwal aktifnya, beserta kebutuhan barang setiap varian dari
-          rata-rata periode sumber, jumlah kirim, dan masalah yang menahan finalisasi.
+          rata-rata periode sumber, stok akhir, jumlah kirim, dan masalah yang menahan finalisasi.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
@@ -227,7 +264,7 @@ export function BagianDraft({
           </nav>
         ) : null}
         {draft !== null ? (
-          <IsiDraft draft={draft} />
+          <IsiDraft draft={draft} inputStok={bolehInputStok ? { idGudang, tanggalKirim: draft.tanggalKirim } : null} />
         ) : (
           <p className="text-muted-foreground">
             {tanggalDiminta === null

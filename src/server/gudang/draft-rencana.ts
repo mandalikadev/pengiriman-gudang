@@ -1,9 +1,9 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
 
 import { tanggalKirimMenurutJadwal } from "@/domain/jadwal";
 import { parseTanggalBisnis, type KategoriDasar, type TanggalBisnis } from "@/domain/kalender";
 import { hitungRingkasan } from "@/domain/laporan";
-import { hitungKebutuhanKirim, type MasukanKebutuhanKirim } from "@/domain/pengiriman";
+import { hitungKebutuhanKirim, statusKirim, type MasukanKebutuhanKirim } from "@/domain/pengiriman";
 import { db } from "@/server/db";
 import {
   barisDraftRencana,
@@ -30,6 +30,7 @@ import { bacaPeriodeSumberPerhitungan } from "./periode-sumber";
 // Kebutuhan lewat `hitungKebutuhanKirim` (T05) dengan Rata-rata Ringkasan per kategori hari (`hitungRingkasan`, T32)
 // atas bulan periode sumber dan kategori efektif per tanggal (T42). Buffer dari ranking pusat berlaku, jumlah kirim, dan
 // daftar masalah per baris lewat `nilaiBarisDraft` (T66); belum ada ranking dipublikasikan → perhitungan tidak berjalan.
+// Stok akhir yang sudah diisi operator (T59) dipertahankan saat draft dihitung ulang (PRD A7, B9).
 // Halaman hanya membaca draft yang tersimpan (PRD C1). Kewenangan diperiksa pemanggil (server action / halaman).
 
 export const PESAN_PERIODE_BELUM_DITETAPKAN = "Periode sumber belum ditetapkan admin";
@@ -49,8 +50,6 @@ export type HasilHitungDraft = { keadaan: "berhasil"; idDraft: number } | { kead
 
 type TokoKirim = { tokoId: number; versiJadwal: number; persiapanHari: 0 | 1 | 2; panjangCakupan: 7 | 14 };
 
-type BarisBaru = Omit<typeof barisDraftRencana.$inferInsert, "tokoDraftId"> & { tokoId: number };
-
 /**
  * Toko aktif gudang yang menurut jadwal aktifnya mengirim pada `tanggalKirim`, beserta p, L, dan versi jadwal. Toko
  * nonaktif tidak ikut walaupun masih punya jadwal aktif (PRD A6 ▶ Keputusan 2026-10-10, T58).
@@ -64,6 +63,8 @@ async function tokoYangMengirim(idGudang: number, tanggalKirim: TanggalBisnis): 
       : [];
   });
 }
+
+type BarisBaru = { tokoId: number; kodeProduk: string } & NilaiBarisDraft;
 
 /** Status keluarga aroma produk (ADR-0006); `keluargaAromaId` terisi persis saat `terpetakan`. */
 type PemetaanProduk = { statusKeluargaAroma: StatusKeluargaAroma; keluargaAromaId: number | null };
@@ -81,6 +82,29 @@ type NilaiBarisDraft = {
   jumlahKirim: number | null;
 };
 
+type NilaiKirimBaris = Pick<NilaiBarisDraft, "masalah" | "jumlahKirim">;
+
+/**
+ * Daftar masalah dan jumlah kirim satu baris draft dari klasifikasi, kebutuhan, buffer, dan stok akhir (PRD A6; T66).
+ * Masalah T05 dan jumlah kirim dari `statusKirim`; buffer `null` pada produk otomatis = belum dipetakan (ADR-0006).
+ * Dipakai saat menghitung draft dan setelah stok akhir disimpan (T59).
+ */
+export function nilaiKirimBaris({
+  klasifikasi,
+  kebutuhan,
+  persenBuffer,
+  stokAkhir,
+}: Pick<NilaiBarisDraft, "klasifikasi" | "kebutuhan" | "persenBuffer"> & { stokAkhir: number | null }): NilaiKirimBaris {
+  // Buffer tidak diketahui (belum dipetakan): jumlah kirim mesin tidak dipakai, jadi buffer 0 hanya pengisi.
+  const hasil = statusKirim({ klasifikasi, kebutuhan, stokAkhir, persenBuffer: persenBuffer ?? 0 });
+  if (hasil.status === "manual") return { masalah: [], jumlahKirim: null };
+
+  const ada = new Set<MasalahBarisDraft>(hasil.status === "tertahan" ? hasil.masalah : []);
+  if (persenBuffer === null) ada.add("belum-dipetakan");
+  const masalah = URUTAN_MASALAH.filter((m) => ada.has(m));
+  return { masalah, jumlahKirim: hasil.status === "siap" && masalah.length === 0 ? hasil.jumlahKirim : null };
+}
+
 function persenBuffer({ statusKeluargaAroma, keluargaAromaId }: PemetaanProduk, keluargaTujuhBesar: ReadonlySet<number>) {
   if (statusKeluargaAroma === "belum-dipetakan") return null;
   return keluargaAromaId !== null && keluargaTujuhBesar.has(keluargaAromaId) ? PERSEN_BUFFER_TUJUH_BESAR : PERSEN_BUFFER_LAINNYA;
@@ -97,26 +121,17 @@ export function nilaiBarisDraft(
   pemetaan: PemetaanProduk,
   keluargaTujuhBesar: ReadonlySet<number>,
 ): NilaiBarisDraft {
-  const buffer = persenBuffer(pemetaan, keluargaTujuhBesar);
-  // Buffer tidak diketahui (belum dipetakan): jumlah kirim mesin tidak dipakai, jadi buffer 0 hanya pengisi.
-  const hasil = hitungKebutuhanKirim({ ...masukan, persenBuffer: buffer ?? 0 });
-  const kebutuhan = {
-    kebutuhan: hasil.kebutuhan.tersedia ? hasil.kebutuhan.kebutuhan : null,
-    tanpaRataRata: hasil.kebutuhan.tersedia ? null : hasil.kebutuhan.tanpaRataRata,
-  };
-  if (hasil.status === "manual") {
-    return { klasifikasi: "manual", ...kebutuhan, persenBuffer: null, masalah: [], jumlahKirim: null };
-  }
-
-  const ada = new Set<MasalahBarisDraft>(hasil.status === "tertahan" ? hasil.masalah : []);
-  if (buffer === null) ada.add("belum-dipetakan");
-  const masalah = URUTAN_MASALAH.filter((m) => ada.has(m));
+  const hasil = hitungKebutuhanKirim({ ...masukan, persenBuffer: 0 });
+  const klasifikasi = hasil.klasifikasi;
+  const kebutuhan = hasil.kebutuhan.tersedia ? hasil.kebutuhan.kebutuhan : null;
+  const tanpaRataRata = hasil.kebutuhan.tersedia ? null : hasil.kebutuhan.tanpaRataRata;
+  const buffer = klasifikasi === "manual" ? null : persenBuffer(pemetaan, keluargaTujuhBesar);
   return {
-    klasifikasi: "otomatis",
-    ...kebutuhan,
+    klasifikasi,
+    kebutuhan,
+    tanpaRataRata,
     persenBuffer: buffer,
-    masalah,
-    jumlahKirim: hasil.status === "siap" && masalah.length === 0 ? hasil.jumlahKirim : null,
+    ...nilaiKirimBaris({ klasifikasi, kebutuhan, persenBuffer: buffer, stokAkhir: masukan.stokAkhir }),
   };
 }
 
@@ -191,7 +206,7 @@ async function hitungBaris(
             daftarPerubahan,
             rataRata,
             produk: { kode: kodeProduk, kategori: kategoriProduk ?? "" },
-            // Stok akhir belum bisa diisi (T59): belum diketahui, bukan nol.
+            // Stok akhir yang sudah diisi diterapkan saat draft ditulis (dipertahankan, T59); di sini belum diketahui.
             stokAkhir: null,
           },
           // Kode tanpa master produk tidak punya pemetaan yang dikonfirmasi admin.
@@ -247,6 +262,13 @@ export async function hitungDraftRencana({
       .values({ gudangId: idGudang, tanggalKirim, ...dasar })
       .onConflictDoUpdate({ target: [draftRencana.gudangId, draftRencana.tanggalKirim], set: dasar })
       .returning({ id: draftRencana.id });
+    // Stok akhir yang sudah diisi dipertahankan untuk toko–varian yang masih ada di draft (PRD A7, B9).
+    const stokLama = await tx
+      .select({ tokoId: tokoDraftRencana.tokoId, kodeProduk: barisDraftRencana.kodeProduk, stokAkhir: barisDraftRencana.stokAkhir })
+      .from(barisDraftRencana)
+      .innerJoin(tokoDraftRencana, eq(tokoDraftRencana.id, barisDraftRencana.tokoDraftId))
+      .where(and(eq(tokoDraftRencana.draftId, draft.id), isNotNull(barisDraftRencana.stokAkhir)));
+    const stokPerPasangan = new Map(stokLama.map((b) => [`${b.tokoId}|${b.kodeProduk}`, b.stokAkhir]));
     // Baris varian ikut terhapus (cascade).
     await tx.delete(tokoDraftRencana).where(eq(tokoDraftRencana.draftId, draft.id));
     if (daftarToko.length > 0) {
@@ -260,7 +282,8 @@ export async function hitungDraftRencana({
           baris.map(({ tokoId, ...b }) => {
             const tokoDraftId = idTokoDraft.get(tokoId);
             if (tokoDraftId === undefined) throw new Error(`Toko ${tokoId} tidak termasuk toko draft.`);
-            return { ...b, tokoDraftId };
+            const stokAkhir = stokPerPasangan.get(`${tokoId}|${b.kodeProduk}`) ?? null;
+            return { ...b, tokoDraftId, stokAkhir, ...nilaiKirimBaris({ ...b, stokAkhir }) };
           }),
         );
       }
@@ -279,7 +302,12 @@ export async function daftarTanggalDraft(idGudang: number): Promise<TanggalBisni
   return baris.map((b) => parseTanggalBisnis(b.tanggalKirim));
 }
 
-export type BarisDraft = { kodeProduk: string; namaProduk: string | null } & NilaiBarisDraft;
+export type BarisDraft = {
+  kodeProduk: string;
+  namaProduk: string | null;
+  /** Stok akhir yang diisi operator; `null` = belum diketahui, bukan nol (T59). */
+  stokAkhir: number | null;
+} & NilaiBarisDraft;
 
 export type TokoDraft = {
   id: number;
@@ -354,6 +382,7 @@ export async function bacaDraftRencana(idGudang: number, tanggalKirim?: TanggalB
             persenBuffer: barisDraftRencana.persenBuffer,
             masalah: barisDraftRencana.masalah,
             jumlahKirim: barisDraftRencana.jumlahKirim,
+            stokAkhir: barisDraftRencana.stokAkhir,
           })
           .from(barisDraftRencana)
           .leftJoin(produk, eq(produk.kode, barisDraftRencana.kodeProduk))

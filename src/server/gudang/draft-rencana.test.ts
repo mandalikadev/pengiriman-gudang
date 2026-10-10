@@ -8,6 +8,7 @@ import { parseTanggalBisnis, type KategoriDasar, type NamaHari } from "@/domain/
 import { buatPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
 import {
+  barisDraftRencana,
   draftRencana,
   hubunganTokoGudang,
   jadwalToko,
@@ -33,6 +34,7 @@ import {
 } from "./draft-rencana";
 import { URUTAN_MASALAH } from "./masalah-draft";
 import { bacaPeriodeSumber, tetapkanPeriodeSumber } from "./periode-sumber";
+import { PESAN_DRAFT_BERUBAH, simpanStokToko } from "./stok-draft";
 import { buatTokoUji, idGudangUji } from "./uji-bantu";
 
 // T58: draft rencana per gudang dan tanggal kirim (PRD A6 ▶ Keputusan perencanaan M2–M3). Contoh PRD A6 / golden
@@ -443,6 +445,7 @@ describe("hitungDraftRencana", () => {
         persenBuffer: 20,
         masalah: ["kebutuhan-tidak-tersedia", "stok-belum-diisi"],
         jumlahKirim: null,
+        stokAkhir: null,
       },
     ]);
   });
@@ -512,5 +515,120 @@ describe("hitungDraftRencana", () => {
       await db.delete(draftRencana).where(eq(draftRencana.gudangId, bandung));
       await db.delete(periodeSumberGudang).where(eq(periodeSumberGudang.gudangId, bandung));
     }
+  });
+});
+
+// T59: stok akhir per toko–varian. Kosong = belum diketahui (bukan nol); setelah disimpan, masalah dan jumlah kirim baris
+// diperbarui; menghitung ulang draft mempertahankan stok (PRD A7, B9).
+describe("simpanStokToko", () => {
+  const simpan = (stok: { kodeProduk: string; stokAkhir: number | null }[], tokoId = tokoContoh.id) =>
+    simpanStokToko({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, tokoId, stok });
+  const barisContoh = async () => (await bacaDraftRencana(bali, TANGGAL_KIRIM))?.toko.find((t) => t.id === tokoContoh.id);
+  const stokTersimpan = async () =>
+    Object.fromEntries(
+      (await db.select({ kodeProduk: barisDraftRencana.kodeProduk, stokAkhir: barisDraftRencana.stokAkhir }).from(barisDraftRencana)).map((b) => [
+        b.kodeProduk,
+        b.stokAkhir,
+      ]),
+    );
+
+  beforeAll(async () => {
+    await hitungDraftRencana({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator });
+  });
+
+  it("stok kosong tersimpan sebagai belum diketahui (null), bukan 0; stok 0 tersimpan sebagai 0", async () => {
+    await expect(
+      simpan([
+        { kodeProduk: kode.contoh, stokAkhir: 0 },
+        { kodeProduk: kode.luar, stokAkhir: null },
+      ]),
+    ).resolves.toEqual({ keadaan: "berhasil" });
+
+    const tersimpan = await stokTersimpan();
+    expect(tersimpan[kode.contoh]).toBe(0);
+    expect(tersimpan[kode.luar]).toBeNull();
+    const baris = (await barisContoh())?.baris;
+    expect(baris?.find((b) => b.kodeProduk === kode.contoh)).toMatchObject({ stokAkhir: 0, masalah: [] });
+    expect(baris?.find((b) => b.kodeProduk === kode.contoh)?.jumlahKirim).not.toBeNull();
+    expect(baris?.find((b) => b.kodeProduk === kode.luar)).toMatchObject({ stokAkhir: null, masalah: ["stok-belum-diisi"], jumlahKirim: null });
+  });
+
+  it("contoh PRD A6 ujung-ke-ujung: kebutuhan 56, stok 20 → jumlah kirim 44 (tujuh besar) dan 40 (di luar tujuh besar)", async () => {
+    const [tujuhBesar, luar] = golden.kasusJumlahKirim;
+    expect(tujuhBesar).toMatchObject({ kebutuhan: golden.kasusCakupan.kebutuhan, stokAkhir: 20, persenBuffer: 20 });
+    expect(luar).toMatchObject({ kebutuhan: golden.kasusCakupan.kebutuhan, stokAkhir: 20, persenBuffer: 10 });
+    const sebelum = (await barisContoh())?.jumlahTertahan ?? 0;
+
+    await expect(
+      simpan([
+        { kodeProduk: kode.contoh, stokAkhir: tujuhBesar.stokAkhir },
+        { kodeProduk: kode.luar, stokAkhir: luar.stokAkhir },
+      ]),
+    ).resolves.toEqual({ keadaan: "berhasil" });
+
+    const toko = await barisContoh();
+    expect(toko?.baris.find((b) => b.kodeProduk === kode.contoh)).toMatchObject({
+      kebutuhan: tujuhBesar.kebutuhan,
+      stokAkhir: tujuhBesar.stokAkhir,
+      persenBuffer: tujuhBesar.persenBuffer,
+      masalah: [],
+      jumlahKirim: tujuhBesar.jumlahKirim,
+    });
+    expect(toko?.baris.find((b) => b.kodeProduk === kode.luar)).toMatchObject({
+      kebutuhan: luar.kebutuhan,
+      stokAkhir: luar.stokAkhir,
+      persenBuffer: luar.persenBuffer,
+      masalah: [],
+      jumlahKirim: luar.jumlahKirim,
+    });
+    // kode.luar tidak lagi tertahan; kode.contoh sudah tidak tertahan sejak stok 0.
+    expect(toko?.jumlahTertahan).toBe(sebelum - 1);
+  });
+
+  it("stok negatif tersimpan dan menjadi masalah produk otomatis; produk manual tetap manual dengan stoknya", async () => {
+    await expect(
+      simpan([
+        { kodeProduk: kode.contoh, stokAkhir: -3 },
+        { kodeProduk: kode.manual, stokAkhir: -3 },
+        { kodeProduk: kode.belumDipetakan, stokAkhir: 20 },
+      ]),
+    ).resolves.toEqual({ keadaan: "berhasil" });
+
+    const baris = (await barisContoh())?.baris;
+    expect(baris?.find((b) => b.kodeProduk === kode.contoh)).toMatchObject({ stokAkhir: -3, masalah: ["stok-negatif"], jumlahKirim: null });
+    expect(baris?.find((b) => b.kodeProduk === kode.manual)).toMatchObject({ klasifikasi: "manual", stokAkhir: -3, masalah: [], jumlahKirim: null });
+    expect(baris?.find((b) => b.kodeProduk === kode.belumDipetakan)).toMatchObject({ stokAkhir: 20, masalah: ["belum-dipetakan"], jumlahKirim: null });
+    // Baris yang tidak dikirim tidak berubah.
+    expect(baris?.find((b) => b.kodeProduk === kode.luar)).toMatchObject({ stokAkhir: 20, jumlahKirim: golden.kasusJumlahKirim[1].jumlahKirim });
+  });
+
+  it("menghitung ulang draft mempertahankan stok akhir yang sudah disimpan (PRD A7, B9)", async () => {
+    const [contoh] = golden.kasusJumlahKirim;
+    await simpan([{ kodeProduk: kode.contoh, stokAkhir: contoh.stokAkhir }]);
+
+    await expect(hitungDraftRencana({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator })).resolves.toMatchObject({
+      keadaan: "berhasil",
+    });
+    const baris = (await barisContoh())?.baris;
+    expect(baris?.find((b) => b.kodeProduk === kode.contoh)).toMatchObject({ stokAkhir: contoh.stokAkhir, masalah: [], jumlahKirim: contoh.jumlahKirim });
+    expect(baris?.find((b) => b.kodeProduk === kode.manual)).toMatchObject({ stokAkhir: -3, masalah: [] });
+    expect(baris?.find((b) => b.kodeProduk === kode.nol)).toMatchObject({ stokAkhir: null, masalah: ["stok-belum-diisi"] });
+  });
+
+  it("draft, toko, atau produk yang tidak ada di draft → gagal dengan pesan, tanpa mengubah stok", async () => {
+    const sebelum = await stokTersimpan();
+
+    await expect(simpan([{ kodeProduk: kode.contoh, stokAkhir: 1 }, { kodeProduk: "TIDAK-ADA", stokAkhir: 1 }])).resolves.toEqual({
+      keadaan: "gagal",
+      pesan: PESAN_DRAFT_BERUBAH,
+    });
+    await expect(simpan([{ kodeProduk: kode.contoh, stokAkhir: 1 }], tokoSelasa.id)).resolves.toEqual({
+      keadaan: "gagal",
+      pesan: PESAN_DRAFT_BERUBAH,
+    });
+    await expect(
+      simpanStokToko({ idGudang: bali, tanggalKirim: parseTanggalBisnis("2026-06-15"), tokoId: tokoContoh.id, stok: [{ kodeProduk: kode.contoh, stokAkhir: 1 }] }),
+    ).resolves.toEqual({ keadaan: "gagal", pesan: PESAN_DRAFT_BERUBAH });
+    expect(await stokTersimpan()).toEqual(sebelum);
   });
 });

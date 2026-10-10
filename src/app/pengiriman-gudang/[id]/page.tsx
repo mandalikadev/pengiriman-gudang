@@ -132,6 +132,7 @@ export default async function HalamanPengirimanGudang({
       <BagianDraft
         idGudang={gudang.id}
         bolehHitung={gudang.hakTindakan.includes("hitung-kebutuhan")}
+        bolehInputStok={gudang.hakTindakan.includes("input-stok")}
         daftarTanggal={daftarTanggal}
         tanggalDiminta={tanggalDiminta}
         draft={draft}

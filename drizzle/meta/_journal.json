@@ -113,6 +113,13 @@
       "when": 1791634142629,
       "tag": "0015_buffer_jumlah_kirim",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791639416853,
+      "tag": "0016_stok_akhir_draft",
+      "breakpoints": true
     }
   ]
 }

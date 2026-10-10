@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { formatTanggal, parseTanggalBisnis, type KategoriDasar } from "./kalender";
 import type { PerubahanKategori } from "./kategori";
-import { hitungKebutuhanKirim, type MasukanKebutuhanKirim } from "./pengiriman";
+import { hitungKebutuhanKirim, statusKirim, type MasukanKebutuhanKirim } from "./pengiriman";
 
 type TanggalCakupanFixture = { tanggal: string; hari: string; kategoriEfektif: string };
 
@@ -216,6 +216,45 @@ describe("hitungKebutuhanKirim — keputusan pemilik T05 (PRD A6)", () => {
 
   it("stok 0 adalah stok yang diketahui, bukan belum diisi", () => {
     expect(hitungKebutuhanKirim(masukan({ stokAkhir: 0, persenBuffer: 10 }))).toMatchObject({
+      status: "siap",
+      // ⌈56 × 1,10⌉ = ⌈61,6⌉ = 62
+      jumlahKirim: 62,
+    });
+  });
+});
+
+// T59: status dan jumlah kirim dihitung ulang dari kebutuhan tersimpan setelah stok akhir diisi.
+describe("statusKirim — dari kebutuhan, stok akhir, dan buffer", () => {
+  it.each(fixture.kasusJumlahKirim)(
+    "kebutuhan $kebutuhan, stok $stokAkhir, buffer $persenBuffer → $jumlahKirim",
+    ({ kebutuhan, stokAkhir, persenBuffer, jumlahKirim }) => {
+      expect(statusKirim({ klasifikasi: "otomatis", kebutuhan, stokAkhir, persenBuffer })).toEqual({
+        status: "siap",
+        persenBuffer,
+        jumlahKirim,
+      });
+    },
+  );
+
+  it.each(fixture.kasusStatus)("$status: $catatan", (kasus) => {
+    const hasil = statusKirim({
+      klasifikasi: kasus.klasifikasi ?? "otomatis",
+      kebutuhan: kasusCakupan.kebutuhan,
+      stokAkhir: kasus.stokAkhir === undefined ? 20 : kasus.stokAkhir,
+      persenBuffer: 20,
+    });
+    expect(hasil).toEqual(kasus.status === "manual" ? { status: "manual" } : { status: "tertahan", masalah: [kasus.status] });
+  });
+
+  it("kebutuhan tidak tersedia dan stok belum diisi dikembalikan berurutan", () => {
+    expect(statusKirim({ klasifikasi: "otomatis", kebutuhan: null, stokAkhir: null, persenBuffer: 20 })).toEqual({
+      status: "tertahan",
+      masalah: ["kebutuhan-tidak-tersedia", "stok-belum-diisi"],
+    });
+  });
+
+  it("stok 0 adalah stok yang diketahui, bukan belum diisi", () => {
+    expect(statusKirim({ klasifikasi: "otomatis", kebutuhan: kasusCakupan.kebutuhan, stokAkhir: 0, persenBuffer: 10 })).toMatchObject({
       status: "siap",
       // ⌈56 × 1,10⌉ = ⌈61,6⌉ = 62
       jumlahKirim: 62,

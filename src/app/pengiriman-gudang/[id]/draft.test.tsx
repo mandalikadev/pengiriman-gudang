@@ -9,7 +9,7 @@ import type { KategoriDasar, NamaHari } from "@/domain/kalender";
 import { AksesDitolakError } from "@/server/auth/kewenangan";
 import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
-import { draftRencana, hubunganTokoGudang, jadwalToko, periodeSumberGudang, produk, versiRanking } from "@/server/db/schema";
+import { barisDraftRencana, draftRencana, hubunganTokoGudang, jadwalToko, periodeSumberGudang, produk, versiRanking } from "@/server/db/schema";
 import { daftarHakTindakan, type HakTindakan } from "@/server/gudang/hak-tindakan";
 import { tugaskanOperator } from "@/server/gudang/penugasan";
 import { tetapkanPeriodeSumber } from "@/server/gudang/periode-sumber";
@@ -34,14 +34,17 @@ vi.mock("next/navigation", async (asli) => ({
 }));
 
 import { hitungDraft } from "./aksi-draft";
+import { simpanStok } from "./aksi-stok";
 import HalamanPengirimanGudang from "./page";
 
 // T58: hak `hitung-kebutuhan` diperiksa di server; admin hanya melihat. Halaman menampilkan draft yang tersimpan.
 // T66: jumlah kirim, daftar masalah per baris, dan ringkasan baris tertahan per toko.
+// T59: hak `input-stok` diperiksa di server; stok kosong tampil "—" belum diketahui; setelah disimpan jumlah kirim tampil.
 
 const golden = JSON.parse(readFileSync(join(import.meta.dirname, "../../../../tests/golden/jumlah-kirim.json"), "utf8")) as {
   rataRata: Record<KategoriDasar, number>;
   kasusCakupan: { tanggalKirim: string; kebutuhan: number };
+  kasusJumlahKirim: { kebutuhan: number; stokAkhir: number; persenBuffer: number; jumlahKirim: number }[];
 };
 const TANGGAL_KIRIM = golden.kasusCakupan.tanggalKirim;
 const SEMUA_HARI_JUNI = Array.from({ length: 30 }, (_, i) => i + 1);
@@ -304,5 +307,80 @@ describe("draft rencana di halaman Pengiriman Gudang", () => {
     expect(html).toContain(`data-draft-toko="${tokoContoh.id}"`);
     expect(html).toContain(`data-kebutuhan="${golden.kasusCakupan.kebutuhan}"`);
     expect(await buka(cibubur, "2026-06-15")).toContain("Belum ada draft rencana untuk Senin, 15-06-2026.");
+  });
+});
+
+// Berjalan setelah draft dibuat di bagian sebelumnya (draft tanggal contoh tetap tersimpan).
+describe("input stok di draft rencana (T59)", () => {
+  const isian = (stokAkhir: number | null, kodeProduk = kode.contoh) => ({
+    idGudang: cibubur,
+    tanggalKirim: TANGGAL_KIRIM,
+    tokoId: tokoContoh.id,
+    stok: [{ kodeProduk, stokAkhir }],
+  });
+  const stokContoh = async () =>
+    (await db.select({ kodeProduk: barisDraftRencana.kodeProduk, stokAkhir: barisDraftRencana.stokAkhir }).from(barisDraftRencana)).find(
+      (b) => b.kodeProduk === kode.contoh,
+    )?.stokAkhir;
+
+  it("tanpa hak input-stok ditolak di server tanpa mengubah stok", async () => {
+    await masukOperator(
+      cibubur,
+      daftarHakTindakan.filter((h) => h !== "input-stok"),
+    );
+    await expect(simpanStok(isian(20))).rejects.toBeInstanceOf(AksesDitolakError);
+
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+    await expect(simpanStok(isian(20))).rejects.toBeInstanceOf(AksesDitolakError);
+
+    await masukOperator(await idGudangUji("Gudang Bali"), ["input-stok"]);
+    await expect(simpanStok(isian(20))).rejects.toBeInstanceOf(AksesDitolakError);
+
+    expect(await stokContoh()).toBeNull();
+    expect(kepala.dimuatUlang).toEqual([]);
+  });
+
+  it("isian stok yang bukan bilangan bulat ditolak dengan pesan", async () => {
+    await masukOperator(cibubur, ["input-stok"]);
+    await expect(simpanStok(isian(1.5))).resolves.toEqual({ keadaan: "gagal", pesan: "Stok harus bilangan bulat." });
+    expect(await stokContoh()).toBeNull();
+  });
+
+  it("stok kosong tampil \"—\" belum diketahui; operator berhak mengisi stok → simpan → jumlah kirim tampil", async () => {
+    // Pengguna tanpa hak input-stok melihat "—" dengan status belum diketahui (DESIGN §7), tanpa isian stok.
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+    const baris = (html: string, k: string) => new RegExp(`<tr[^>]*data-kode-produk="${k}".*?</tr>`).exec(html)?.[0] ?? "";
+    const hanyaBaca = await buka(cibubur, TANGGAL_KIRIM);
+    expect(baris(hanyaBaca, kode.contoh)).toMatch(/data-stok-akhir="kosong"[^>]*>.*?—.*?data-status="belumDiketahui".*?lucide-circle-dashed.*?Belum diketahui/);
+    expect(hanyaBaca).not.toContain("Simpan stok");
+
+    await masukOperator(cibubur, ["input-stok"]);
+    const sebelum = await buka(cibubur, TANGGAL_KIRIM);
+    expect(baris(sebelum, kode.contoh)).toMatch(new RegExp(`<input[^>]*aria-label="Stok akhir ${kode.contoh}"`));
+    expect(sebelum).toMatch(new RegExp(`data-draft-toko="${tokoContoh.id}".*?<button[^>]*type="submit"[^>]*>Simpan stok<`));
+
+    const [contoh] = golden.kasusJumlahKirim;
+    await expect(simpanStok(isian(contoh.stokAkhir))).resolves.toEqual({ keadaan: "berhasil" });
+    expect(kepala.dimuatUlang).toEqual([`/pengiriman-gudang/${cibubur}`]);
+    expect(await stokContoh()).toBe(contoh.stokAkhir);
+
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+    const sesudah = await buka(cibubur, TANGGAL_KIRIM);
+    expect(baris(sesudah, kode.contoh)).toMatch(new RegExp(`data-stok-akhir="${contoh.stokAkhir}"[^>]*>${contoh.stokAkhir}<`));
+    expect(baris(sesudah, kode.contoh)).toMatch(new RegExp(`data-jumlah-kirim="${contoh.jumlahKirim}"[^>]*>${contoh.jumlahKirim}<`));
+    expect(baris(sesudah, kode.contoh)).not.toContain("data-masalah=");
+  });
+
+  it("stok negatif tampil sebagai masalah; stok kosong disimpan lagi sebagai belum diketahui", async () => {
+    await masukOperator(cibubur, ["input-stok"]);
+    await expect(simpanStok(isian(-3))).resolves.toEqual({ keadaan: "berhasil" });
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+    expect(await buka(cibubur, TANGGAL_KIRIM)).toMatch(
+      new RegExp(`data-kode-produk="${kode.contoh}".*?data-stok-akhir="-3".*?data-masalah="stok-negatif".*?lucide-circle-x.*?Stok negatif`),
+    );
+
+    await masukOperator(cibubur, ["input-stok"]);
+    await expect(simpanStok(isian(null))).resolves.toEqual({ keadaan: "berhasil" });
+    expect(await stokContoh()).toBeNull();
   });
 });

@@ -57,6 +57,11 @@ type Kebutuhan =
       tanpaRataRata: { tanggal: TanggalBisnis; kategoriEfektif: KategoriDasar }[];
     };
 
+type StatusKirim =
+  | { status: "manual" }
+  | { status: "siap"; persenBuffer: number; jumlahKirim: number }
+  | { status: "tertahan"; masalah: MasalahKirim[] };
+
 type HasilKebutuhanKirim = {
   tanggalKirim: TanggalBisnis;
   klasifikasi: "manual" | "otomatis";
@@ -64,11 +69,7 @@ type HasilKebutuhanKirim = {
   cakupan: TanggalCakupan[];
   kebutuhan: Kebutuhan;
   stokAkhir: number | null;
-} & (
-  | { status: "manual" }
-  | { status: "siap"; persenBuffer: number; jumlahKirim: number }
-  | { status: "tertahan"; masalah: MasalahKirim[] }
-);
+} & StatusKirim;
 
 function pastikanRataRata(rataRata: MasukanKebutuhanKirim["rataRata"]): void {
   for (const kategori of URUTAN_KATEGORI) {
@@ -145,25 +146,43 @@ export function hitungKebutuhanKirim(masukan: MasukanKebutuhanKirim): HasilKebut
 
   const cakupan = hitungCakupan(masukan);
   const kebutuhan = hitungKebutuhan(cakupan);
-  const umum = { tanggalKirim, cakupan, kebutuhan, stokAkhir };
-
-  if (klasifikasiProduk(produk.kode, produk.kategori).klasifikasi === "manual") {
-    return { ...umum, klasifikasi: "manual", status: "manual" };
-  }
-
-  const masalah: MasalahKirim[] = [
-    ...(kebutuhan.tersedia ? [] : (["kebutuhan-tidak-tersedia"] as const)),
-    ...masalahStok(stokAkhir),
-  ];
-  if (masalah.length > 0 || !kebutuhan.tersedia || stokAkhir === null) {
-    return { ...umum, klasifikasi: "otomatis", status: "tertahan", masalah };
-  }
-
+  const { klasifikasi } = klasifikasiProduk(produk.kode, produk.kategori);
   return {
-    ...umum,
-    klasifikasi: "otomatis",
-    status: "siap",
-    persenBuffer,
-    jumlahKirim: hitungJumlahKirim(kebutuhan.kebutuhan, stokAkhir, persenBuffer),
+    tanggalKirim,
+    cakupan,
+    kebutuhan,
+    stokAkhir,
+    klasifikasi,
+    ...statusKirim({ klasifikasi, kebutuhan: kebutuhan.tersedia ? kebutuhan.kebutuhan : null, stokAkhir, persenBuffer }),
   };
+}
+
+/**
+ * Status dan jumlah kirim satu toko–varian dari klasifikasi, kebutuhan (`null` = tidak tersedia), stok akhir (`null` =
+ * belum diisi), dan buffer (PRD A6 ▶ Keputusan 2026-10-09 T05). Dipakai `hitungKebutuhanKirim`, dan untuk menghitung
+ * ulang jumlah kirim dari kebutuhan tersimpan setelah stok akhir diisi (T59).
+ */
+export function statusKirim({
+  klasifikasi,
+  kebutuhan,
+  stokAkhir,
+  persenBuffer,
+}: {
+  klasifikasi: "manual" | "otomatis";
+  kebutuhan: number | null;
+  stokAkhir: number | null;
+  persenBuffer: number;
+}): StatusKirim {
+  if (stokAkhir !== null && !Number.isSafeInteger(stokAkhir)) {
+    throw new RangeError(`stokAkhir harus bilangan bulat, diterima: ${stokAkhir}`);
+  }
+  if (klasifikasi === "manual") {
+    return { status: "manual" };
+  }
+
+  const masalah: MasalahKirim[] = [...(kebutuhan === null ? (["kebutuhan-tidak-tersedia"] as const) : []), ...masalahStok(stokAkhir)];
+  if (masalah.length > 0 || kebutuhan === null || stokAkhir === null) {
+    return { status: "tertahan", masalah };
+  }
+  return { status: "siap", persenBuffer, jumlahKirim: hitungJumlahKirim(kebutuhan, stokAkhir, persenBuffer) };
 }
