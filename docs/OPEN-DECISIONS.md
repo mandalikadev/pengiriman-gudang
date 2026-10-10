@@ -77,3 +77,7 @@ Daftar hal yang **belum diputuskan pemilik**. Agen tidak mengimplementasikan per
 | T54: pola dua mingguan berlaku ke depan dan ke belakang dari tanggal jangkar; jangkar hanya menentukan pekan kirim (2026-10-10) | PRD A5; T54 |
 | T40: API libur yang mengembalikan daftar kosong dianggap sinkronisasi gagal; snapshot aktif dipertahankan (2026-10-10) | PRD B2; T40 |
 | T51: periode sumber yang memuat bulan tanpa data aktif tetap dihitung dengan bulan yang ada; bulan yang hilang ditandai jelas di kartu Periode sumber (2026-10-10) | PRD A4; T51 |
+| T58: jika semua bulan periode sumber tidak punya data aktif, perhitungan ditolak dengan pesan yang jelas dan draft tidak dibuat (2026-10-10) | PRD A6; T58 |
+| T58: toko nonaktif tidak ikut masuk draft walaupun masih punya jadwal aktif; halaman Pengiriman Gudang menampilkan peringatan "Toko <nama> nonaktif tetapi masih punya jadwal aktif" (2026-10-10) | PRD A6; T58 |
+| T67: jika segmen kode cocok ke keluarga aktif dan nonaktif, keluarga aktif diusulkan; jika lebih dari satu keluarga aktif cocok, tidak ada usulan (2026-10-10) | PRD A6; T67 |
+| T43: detail tanggal di Kalender menampilkan perubahan kategori yang dibatalkan sebagai riwayat, berlabel "Dibatalkan", terpisah dari kategori efektif (2026-10-10) | PRD B4; T43 |
