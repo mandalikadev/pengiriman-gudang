@@ -64,8 +64,7 @@ export async function naikkanRevisiKalender(tx: Tx): Promise<number> {
 }
 
 /**
- * Perubahan kategori aktif (T42) dalam bentuk masukan `kategoriEfektif` (domain); juga dipakai penelusuran angka
- * (T37). Identitas toko = `String(tokoId)`; `tokoId` kosong = seluruh toko. Perubahan yang dibatalkan tidak dibaca
+ * Perubahan kategori aktif (T42) dalam bentuk masukan `kategoriEfektif` (domain). Identitas toko = `String(tokoId)`; `tokoId` kosong = seluruh toko. Perubahan yang dibatalkan tidak dibaca
  * karena tidak pernah berlaku. `tanggal` membatasi pada satu tanggal.
  */
 export async function bacaPerubahanKategori(klien: Klien = db, tanggal?: TanggalBisnis): Promise<PerubahanKategori[]> {

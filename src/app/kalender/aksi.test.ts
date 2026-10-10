@@ -63,10 +63,10 @@ describe("non-admin ditolak di server", () => {
     const revisiAwal = await revisiKalenderSaatIni();
 
     const viewer = await kepalaPenggunaUji("viewer");
-    const operator = await kepalaPenggunaUji("viewer");
-    await tugaskanOperator({ idPengguna: operator.id, idGudang: await idGudangUji("Gudang Bali"), hakTindakan: [...daftarHakTindakan] });
+    const viewerOperator = await kepalaPenggunaUji("viewer");
+    await tugaskanOperator({ idPengguna: viewerOperator.id, idGudang: await idGudangUji("Gudang Bali"), hakTindakan: [...daftarHakTindakan] });
 
-    for (const cookie of [viewer.cookie, operator.cookie]) {
+    for (const cookie of [viewer.cookie, viewerOperator.cookie]) {
       kepala.cookie = cookie;
       const isian = { tanggal: TANGGAL, idToko: toko.id, kategoriBaru: "Jumat", alasan: "Coba" };
       await expect(buatPerubahanKategori({ ...isian, idToko: null })).rejects.toBeInstanceOf(AksesDitolakError);

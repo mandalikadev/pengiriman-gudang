@@ -1,11 +1,9 @@
 import { and, asc, eq, inArray, type SQL } from "drizzle-orm";
 
-import { parseTanggalBisnis, type KategoriDasar, type TanggalBisnis } from "@/domain/kalender";
-import { kategoriEfektif } from "@/domain/kategori";
+import { parseTanggalBisnis, posisiLaporan, type KategoriDasar, type TanggalBisnis } from "@/domain/kalender";
 import { hitungRingkasan } from "@/domain/laporan";
 import { cacheNilaiMingguan, cacheRataRataBulanan, impor, produk, selPenjualan, toko } from "@/server/db/schema";
 import type { Tx } from "@/server/impor/antrean";
-import { bacaPerubahanKategori } from "@/server/laporan/cache";
 
 // Penelusuran angka Ringkasan (T37, PRD A1, A2): Ringkasan → rata-rata bulanan → nilai mingguan → tanggal dan
 // sel sumber. Dimuat dari cache hasil hitung (T33) dan sel penjualan (ADR-0002), bukan dari Excel. Sel yang tidak
@@ -19,7 +17,10 @@ type Kelengkapan = "lengkap" | "parsial";
 export type SumberTanggal = {
   tanggal: TanggalBisnis;
   kategoriEfektif: KategoriDasar;
-  /** `dasar` = kategori dasar; `perubahan` = dari perubahan kategori (PRD B4). */
+  /**
+   * `dasar` = kategori efektif sama dengan kategori dasar; `perubahan` = berbeda, jadi berasal dari perubahan
+   * kategori (PRD B4) yang berlaku saat cache versi ini dihitung.
+   */
   sumberKategori: "dasar" | "perubahan";
   /** `null` = tanggal tidak teramati (tidak tersedia, bukan 0). */
   pengamatan: { jenis: "terisi" | "nol-tersirat"; qty: number; selSumber: string; namaFile: string } | null;
@@ -171,14 +172,13 @@ export async function muatRincian(
         ).map((s) => [kunciSel(s.imporId, s.tanggal), s.kuantitas]),
   );
 
-  const perubahan = await bacaPerubahanKategori();
-  const kategoriPada = (tanggal: TanggalBisnis) => {
-    const hasil = kategoriEfektif(tanggal, String(tokoId), perubahan);
-    return {
-      kategoriEfektif: hasil.kategoriEfektif,
-      sumberKategori: hasil.sumberKategori === "dasar" ? ("dasar" as const) : ("perubahan" as const),
-    };
-  };
+  // Kategori efektif diturunkan dari cache versi yang sama, bukan dari perubahan kategori saat ini: semua tanggal
+  // anggota kelompok (teramati maupun tidak) berkategori efektif sama dengan kelompoknya (`hitungLaporan`). Dengan
+  // begitu rincian tetap cocok dengan Ringkasan walaupun perubahan kategori baru belum masuk cache.
+  const kategoriPada = (tanggal: TanggalBisnis) => ({
+    kategoriEfektif: kategori,
+    sumberKategori: kategori === posisiLaporan(tanggal).kategoriDasar ? ("dasar" as const) : ("perubahan" as const),
+  });
 
   const rinciMingguan = (m: (typeof mingguan)[number]): NilaiMingguanRinci => {
     const teramati = m.tanggal.map((teks, i): SumberTanggal => {
