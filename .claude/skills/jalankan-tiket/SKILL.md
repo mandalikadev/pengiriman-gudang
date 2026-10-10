@@ -23,6 +23,7 @@ Keadaan pekerjaan tersimpan di GitHub (issue terbuka/tertutup, label, PR). Jadi 
    - `LULUS` → langkah 6.
    - `PERBAIKI` → kirim temuannya ke `pelaksana`, lalu tinjau ulang dengan `peninjau` baru. Maksimal 3 putaran; masih `PERBAIKI` → **Parkir**.
 6. **PR.** Push branch, lalu `gh pr create` dengan template. Isi: `Closes #<n>`, kriteria yang dicentang, bagian "Keputusan teknis" dari pelaksana, dan ringkasan hasil peninjau.
+   - **PR sudah ada (diparkir atau masih draft):** jangan edit deskripsi PR. Push branch, lalu tulis pembaruannya sebagai komentar PR (`gh pr comment <pr> --body-file <berkas>`): keputusan pemilik yang diterapkan, keputusan teknis baru atau yang tidak berlaku lagi, dan hasil peninjau terbaru. Setelah itu jadikan siap dengan perintah tunggal `gh pr ready <pr>`.
 7. **CI.** Jalankan `gh pr checks <pr> --watch`.
    - Hijau → langkah 8.
    - Merah karena test, lint, atau build → ambil log (`gh run view <run> --log-failed`), kirim ke `pelaksana`, lalu push perbaikan dan pantau lagi. Maksimal 2 putaran; masih merah → **Parkir**.
@@ -50,3 +51,4 @@ Beri label `needs-info` pada issue. Tulis komentar dalam bahasa Indonesia sederh
 - Perubahan masuk ke `main` hanya lewat PR yang CI-nya hijau.
 - Berkas terlindungi (daftar di AGENTS.md) dan `.github/dependency-allowlist.txt` tidak diubah. Label `disetujui-pemilik` adalah milik pemilik.
 - Issue tertutup lewat merge PR (`Closes #n`), bukan ditutup manual.
+- Jalankan perintah `gh` satu per satu; jangan digabung dalam satu baris (`&&`, `;`, atau pipa).
