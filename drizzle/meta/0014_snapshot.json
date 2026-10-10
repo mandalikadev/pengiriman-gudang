@@ -1,5 +1,5 @@
 {
-  "id": "0ca4a1e0-38c5-40f7-9e4c-6284ce665bf1",
+  "id": "66a468a7-2bc0-44ce-8435-b7cc9963d4a7",
   "prevId": "877cba06-cda5-47a7-b472-4786e053503c",
   "version": "7",
   "dialect": "postgresql",
@@ -228,32 +228,8 @@
             "cycle": false
           }
         },
-        "draft_id": {
-          "name": "draft_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "toko_id": {
-          "name": "toko_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "versi_jadwal": {
-          "name": "versi_jadwal",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "persiapan_hari": {
-          "name": "persiapan_hari",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "panjang_cakupan": {
-          "name": "panjang_cakupan",
+        "toko_draft_id": {
+          "name": "toko_draft_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
@@ -288,13 +264,7 @@
           "name": "baris_draft_rencana_unik",
           "columns": [
             {
-              "expression": "draft_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "toko_id",
+              "expression": "toko_draft_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -313,43 +283,17 @@
         }
       },
       "foreignKeys": {
-        "baris_draft_rencana_draft_id_draft_rencana_id_fk": {
-          "name": "baris_draft_rencana_draft_id_draft_rencana_id_fk",
+        "baris_draft_rencana_toko_draft_id_toko_draft_rencana_id_fk": {
+          "name": "baris_draft_rencana_toko_draft_id_toko_draft_rencana_id_fk",
           "tableFrom": "baris_draft_rencana",
-          "tableTo": "draft_rencana",
+          "tableTo": "toko_draft_rencana",
           "columnsFrom": [
-            "draft_id"
+            "toko_draft_id"
           ],
           "columnsTo": [
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "baris_draft_rencana_toko_id_toko_id_fk": {
-          "name": "baris_draft_rencana_toko_id_toko_id_fk",
-          "tableFrom": "baris_draft_rencana",
-          "tableTo": "toko",
-          "columnsFrom": [
-            "toko_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "baris_draft_rencana_versi_jadwal_jadwal_toko_id_fk": {
-          "name": "baris_draft_rencana_versi_jadwal_jadwal_toko_id_fk",
-          "tableFrom": "baris_draft_rencana",
-          "tableTo": "jadwal_toko",
-          "columnsFrom": [
-            "versi_jadwal"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -357,14 +301,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "baris_draft_rencana_persiapan": {
-          "name": "baris_draft_rencana_persiapan",
-          "value": "\"baris_draft_rencana\".\"persiapan_hari\" in (0, 1, 2)"
-        },
-        "baris_draft_rencana_panjang_cakupan": {
-          "name": "baris_draft_rencana_panjang_cakupan",
-          "value": "\"baris_draft_rencana\".\"panjang_cakupan\" in (7, 14)"
-        },
         "baris_draft_rencana_klasifikasi_dikenal": {
           "name": "baris_draft_rencana_klasifikasi_dikenal",
           "value": "\"baris_draft_rencana\".\"klasifikasi\" in ('manual', 'otomatis')"
@@ -3185,6 +3121,137 @@
       },
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.toko_draft_rencana": {
+      "name": "toko_draft_rencana",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "toko_draft_rencana_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "draft_id": {
+          "name": "draft_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "toko_id": {
+          "name": "toko_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "versi_jadwal": {
+          "name": "versi_jadwal",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "persiapan_hari": {
+          "name": "persiapan_hari",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "panjang_cakupan": {
+          "name": "panjang_cakupan",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "toko_draft_rencana_unik": {
+          "name": "toko_draft_rencana_unik",
+          "columns": [
+            {
+              "expression": "draft_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "toko_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "toko_draft_rencana_draft_id_draft_rencana_id_fk": {
+          "name": "toko_draft_rencana_draft_id_draft_rencana_id_fk",
+          "tableFrom": "toko_draft_rencana",
+          "tableTo": "draft_rencana",
+          "columnsFrom": [
+            "draft_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "toko_draft_rencana_toko_id_toko_id_fk": {
+          "name": "toko_draft_rencana_toko_id_toko_id_fk",
+          "tableFrom": "toko_draft_rencana",
+          "tableTo": "toko",
+          "columnsFrom": [
+            "toko_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "toko_draft_rencana_versi_jadwal_jadwal_toko_id_fk": {
+          "name": "toko_draft_rencana_versi_jadwal_jadwal_toko_id_fk",
+          "tableFrom": "toko_draft_rencana",
+          "tableTo": "jadwal_toko",
+          "columnsFrom": [
+            "versi_jadwal"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "toko_draft_rencana_persiapan": {
+          "name": "toko_draft_rencana_persiapan",
+          "value": "\"toko_draft_rencana\".\"persiapan_hari\" in (0, 1, 2)"
+        },
+        "toko_draft_rencana_panjang_cakupan": {
+          "name": "toko_draft_rencana_panjang_cakupan",
+          "value": "\"toko_draft_rencana\".\"panjang_cakupan\" in (7, 14)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.user": {

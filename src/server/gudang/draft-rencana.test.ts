@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parseTanggalBisnis, type KategoriDasar, type NamaHari } from "@/domain/kalender";
 import { buatPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
-import { barisDraftRencana, draftRencana, hubunganTokoGudang, jadwalToko, periodeSumberGudang, perubahanKategori } from "@/server/db/schema";
+import { draftRencana, tokoDraftRencana, hubunganTokoGudang, jadwalToko, periodeSumberGudang, perubahanKategori } from "@/server/db/schema";
 import { kodeProdukUji, tahunUji } from "@/server/impor/uji-bantu";
 import { bacaRevisiKalender, hitungUlangCacheLaporan } from "@/server/laporan/cache";
 import { aktifkanImporJuniUji, kuantitasJuniMenurutHari } from "@/server/laporan/uji-bantu";
@@ -59,21 +59,30 @@ let tokoTanpaMinggu: { id: number; nama: string };
 let tokoSelasa: { id: number; nama: string };
 /** Toko dengan penjualan tetapi tanpa jadwal aktif. */
 let tokoTanpaJadwal: { id: number; nama: string };
+/** Toko dengan jadwal Senin H−1 tanpa penjualan di periode sumber. */
+let tokoTanpaVarian: { id: number; nama: string };
 const kode = { contoh: kodeProdukUji("GOR"), nol: kodeProdukUji("HOL"), manual: kodeProdukUji("GOR-T"), tanpaMinggu: kodeProdukUji("GOR") };
 
 beforeAll(async () => {
   idAdmin = (await buatPenggunaUji("admin")).id;
   idOperator = (await buatPenggunaUji("viewer")).id;
   bali = await idGudangUji("Gudang Bali");
-  [tokoContoh, tokoTanpaMinggu, tokoSelasa, tokoTanpaJadwal] = [await buatTokoUji(), await buatTokoUji(), await buatTokoUji(), await buatTokoUji()];
+  [tokoContoh, tokoTanpaMinggu, tokoSelasa, tokoTanpaJadwal, tokoTanpaVarian] = [
+    await buatTokoUji(),
+    await buatTokoUji(),
+    await buatTokoUji(),
+    await buatTokoUji(),
+    await buatTokoUji(),
+  ];
   await db.insert(hubunganTokoGudang).values(
-    [tokoContoh, tokoTanpaMinggu, tokoSelasa, tokoTanpaJadwal].map((t) => ({ tokoId: t.id, gudangId: bali })),
+    [tokoContoh, tokoTanpaMinggu, tokoSelasa, tokoTanpaJadwal, tokoTanpaVarian].map((t) => ({ tokoId: t.id, gudangId: bali })),
   );
   const jadwalSenin = { pola: "mingguan" as const, hariKirim: [{ hari: "Senin" as const, persiapanHari: 2 as const }], dibuatOleh: idAdmin };
   await db.insert(jadwalToko).values([
     { ...jadwalSenin, tokoId: tokoContoh.id },
     { ...jadwalSenin, tokoId: tokoTanpaMinggu.id },
     { ...jadwalSenin, tokoId: tokoSelasa.id, hariKirim: [{ hari: "Selasa", persiapanHari: 0 }] },
+    { ...jadwalSenin, tokoId: tokoTanpaVarian.id, hariKirim: [{ hari: "Senin", persiapanHari: 1 }] },
   ]);
 
   const tahunContoh = tahunUji();
@@ -166,8 +175,8 @@ describe("hitungDraftRencana", () => {
     expect(draft.dihitungPada).toBeInstanceOf(Date);
 
     const [jadwal] = await db.select({ id: jadwalToko.id }).from(jadwalToko).where(eq(jadwalToko.tokoId, tokoContoh.id));
-    const baris = await db.select().from(barisDraftRencana).where(eq(barisDraftRencana.draftId, draft.id));
-    expect(baris.filter((b) => b.tokoId === tokoContoh.id).map((b) => b.versiJadwal)).toEqual([jadwal.id, jadwal.id, jadwal.id]);
+    const tokoDraft = await db.select().from(tokoDraftRencana).where(eq(tokoDraftRencana.draftId, draft.id));
+    expect(tokoDraft.find((t) => t.tokoId === tokoContoh.id)).toMatchObject({ versiJadwal: jadwal.id, persiapanHari: 2, panjangCakupan: 7 });
   });
 
   it("toko tanpa jadwal pada tanggal itu tidak masuk draft; produk dengan penjualan nol tetap masuk; produk manual berstatus manual", async () => {
@@ -184,6 +193,19 @@ describe("hitungDraftRencana", () => {
     expect(baris?.map((b) => b.kodeProduk).sort()).toEqual([kode.contoh, kode.nol, kode.manual].sort());
     expect(baris?.find((b) => b.kodeProduk === kode.nol)).toMatchObject({ klasifikasi: "otomatis", kebutuhan: 0 });
     expect(baris?.find((b) => b.kodeProduk === kode.manual)).toMatchObject({ klasifikasi: "manual" });
+  });
+
+  it("toko yang mengirim tetapi tidak punya varian di periode sumber tetap masuk draft beserta p dan L", async () => {
+    await hitungDraftRencana({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator });
+    const draft = await bacaDraftRencana(bali, TANGGAL_KIRIM);
+
+    expect(draft?.toko.find((t) => t.id === tokoTanpaVarian.id)).toEqual({
+      id: tokoTanpaVarian.id,
+      nama: tokoTanpaVarian.nama,
+      persiapanHari: 1,
+      panjangCakupan: 7,
+      baris: [],
+    });
   });
 
   it("kebutuhan tidak tersedia menyimpan tanggal dan kategori yang tidak punya rata-rata", async () => {

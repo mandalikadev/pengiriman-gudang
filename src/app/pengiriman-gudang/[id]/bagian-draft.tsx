@@ -41,28 +41,34 @@ function TabelToko({ toko }: { toko: TokoDraft }) {
           Persiapan {labelPersiapan[persiapanDariHari[toko.persiapanHari]]} · Panjang cakupan {toko.panjangCakupan} hari
         </p>
       </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Kode produk</TableHead>
-            <TableHead>Nama produk</TableHead>
-            <TableHead>Klasifikasi</TableHead>
-            <TableHead angka>Kebutuhan barang</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {toko.baris.map((b) => (
-            <TableRow key={b.kodeProduk} data-kode-produk={b.kodeProduk}>
-              <TableCell className="font-semibold">{b.kodeProduk}</TableCell>
-              <TableCell>{b.namaProduk ?? "—"}</TableCell>
-              <TableCell>{b.klasifikasi === "manual" ? <BadgeStatus status="manual" /> : "Otomatis"}</TableCell>
-              <TableCell angka className="align-top" data-kebutuhan={b.kebutuhan ?? "tidak-tersedia"}>
-                <SelKebutuhan baris={b} />
-              </TableCell>
+      {toko.baris.length === 0 ? (
+        <p data-tanpa-varian className="text-muted-foreground">
+          Tidak ada varian di periode sumber untuk toko ini.
+        </p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Kode produk</TableHead>
+              <TableHead>Nama produk</TableHead>
+              <TableHead>Klasifikasi</TableHead>
+              <TableHead angka>Kebutuhan barang</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {toko.baris.map((b) => (
+              <TableRow key={b.kodeProduk} data-kode-produk={b.kodeProduk}>
+                <TableCell className="font-semibold">{b.kodeProduk}</TableCell>
+                <TableCell>{b.namaProduk ?? "—"}</TableCell>
+                <TableCell>{b.klasifikasi === "manual" ? <BadgeStatus status="manual" /> : "Otomatis"}</TableCell>
+                <TableCell angka className="align-top" data-kebutuhan={b.kebutuhan ?? "tidak-tersedia"}>
+                  <SelKebutuhan baris={b} />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </section>
   );
 }
@@ -81,7 +87,7 @@ function IsiDraft({ draft }: { draft: DraftRencana }) {
         </p>
       </div>
       {draft.toko.length === 0 ? (
-        <p className="text-muted-foreground">Tidak ada toko–varian di draft ini.</p>
+        <p className="text-muted-foreground">Tidak ada toko yang mengirim pada tanggal ini menurut jadwal aktif.</p>
       ) : (
         draft.toko.map((t) => <TabelToko key={t.id} toko={t} />)
       )}

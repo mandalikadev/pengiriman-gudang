@@ -5,7 +5,7 @@ import { parseTanggalBisnis, type KategoriDasar, type TanggalBisnis } from "@/do
 import { hitungRingkasan } from "@/domain/laporan";
 import { hitungKebutuhanKirim } from "@/domain/pengiriman";
 import { db } from "@/server/db";
-import { barisDraftRencana, cacheRataRataBulanan, draftRencana, gudang, produk, toko, user } from "@/server/db/schema";
+import { barisDraftRencana, cacheRataRataBulanan, draftRencana, gudang, produk, toko, tokoDraftRencana, user } from "@/server/db/schema";
 import { bacaPerubahanKategori, bacaRevisiKalender, idVersiCacheAktif } from "@/server/laporan/cache";
 
 import { jadwalTokoGudang } from "./jadwal";
@@ -24,7 +24,7 @@ export type HasilHitungDraft = { keadaan: "berhasil"; idDraft: number } | { kead
 
 type TokoKirim = { tokoId: number; versiJadwal: number; persiapanHari: 0 | 1 | 2; panjangCakupan: 7 | 14 };
 
-type BarisBaru = typeof barisDraftRencana.$inferInsert;
+type BarisBaru = Omit<typeof barisDraftRencana.$inferInsert, "tokoDraftId"> & { tokoId: number };
 
 /** Toko gudang yang menurut jadwal aktifnya mengirim pada `tanggalKirim`, beserta p, L, dan versi jadwal. */
 async function tokoYangMengirim(idGudang: number, tanggalKirim: TanggalBisnis): Promise<TokoKirim[]> {
@@ -45,7 +45,7 @@ async function hitungBaris(
   daftarToko: readonly TokoKirim[],
   bulanDipakai: readonly string[],
   tanggalKirim: TanggalBisnis,
-): Promise<{ baris: Omit<BarisBaru, "draftId">[]; revisiKalender: number }> {
+): Promise<{ baris: BarisBaru[]; revisiKalender: number }> {
   return db.transaction(
     async (tx) => {
       const revisiKalender = await bacaRevisiKalender(tx);
@@ -104,7 +104,7 @@ async function hitungBaris(
           persenBuffer: 0,
         });
         return {
-          ...tokoKirim,
+          tokoId,
           kodeProduk,
           klasifikasi: hasil.klasifikasi,
           kebutuhan: hasil.kebutuhan.tersedia ? hasil.kebutuhan.kebutuhan : null,
@@ -147,8 +147,24 @@ export async function hitungDraftRencana({
       .values({ gudangId: idGudang, tanggalKirim, ...dasar })
       .onConflictDoUpdate({ target: [draftRencana.gudangId, draftRencana.tanggalKirim], set: dasar })
       .returning({ id: draftRencana.id });
-    await tx.delete(barisDraftRencana).where(eq(barisDraftRencana.draftId, draft.id));
-    if (baris.length > 0) await tx.insert(barisDraftRencana).values(baris.map((b) => ({ ...b, draftId: draft.id })));
+    // Baris varian ikut terhapus (cascade).
+    await tx.delete(tokoDraftRencana).where(eq(tokoDraftRencana.draftId, draft.id));
+    if (daftarToko.length > 0) {
+      const tokoDraft = await tx
+        .insert(tokoDraftRencana)
+        .values(daftarToko.map((t) => ({ ...t, draftId: draft.id })))
+        .returning({ id: tokoDraftRencana.id, tokoId: tokoDraftRencana.tokoId });
+      const idTokoDraft = new Map(tokoDraft.map((t) => [t.tokoId, t.id]));
+      if (baris.length > 0) {
+        await tx.insert(barisDraftRencana).values(
+          baris.map(({ tokoId, ...b }) => {
+            const tokoDraftId = idTokoDraft.get(tokoId);
+            if (tokoDraftId === undefined) throw new Error(`Toko ${tokoId} tidak termasuk toko draft.`);
+            return { ...b, tokoDraftId };
+          }),
+        );
+      }
+    }
     return { keadaan: "berhasil", idDraft: draft.id };
   });
 }
@@ -184,7 +200,7 @@ export type DraftRencana = {
   tanggalKirim: TanggalBisnis;
   dihitungOleh: string;
   dihitungPada: Date;
-  /** Urut nama toko, lalu kode produk. */
+  /** Urut nama toko; baris urut kode produk. Toko tanpa varian di periode sumber punya `baris` kosong. */
   toko: TokoDraft[];
 };
 
@@ -212,43 +228,52 @@ export async function bacaDraftRencana(idGudang: number, tanggalKirim?: TanggalB
     .limit(1);
   if (!draft) return null;
 
-  const baris = await db
+  const daftarToko = await db
     .select({
-      tokoId: barisDraftRencana.tokoId,
-      namaToko: toko.nama,
-      persiapanHari: barisDraftRencana.persiapanHari,
-      panjangCakupan: barisDraftRencana.panjangCakupan,
-      kodeProduk: barisDraftRencana.kodeProduk,
-      namaProduk: produk.nama,
-      klasifikasi: barisDraftRencana.klasifikasi,
-      kebutuhan: barisDraftRencana.kebutuhan,
-      tanpaRataRata: barisDraftRencana.tanpaRataRata,
+      idTokoDraft: tokoDraftRencana.id,
+      id: tokoDraftRencana.tokoId,
+      nama: toko.nama,
+      persiapanHari: tokoDraftRencana.persiapanHari,
+      panjangCakupan: tokoDraftRencana.panjangCakupan,
     })
-    .from(barisDraftRencana)
-    .innerJoin(toko, eq(toko.id, barisDraftRencana.tokoId))
-    .leftJoin(produk, eq(produk.kode, barisDraftRencana.kodeProduk))
-    .where(eq(barisDraftRencana.draftId, draft.id))
-    .orderBy(asc(toko.nama), asc(barisDraftRencana.tokoId), asc(barisDraftRencana.kodeProduk));
+    .from(tokoDraftRencana)
+    .innerJoin(toko, eq(toko.id, tokoDraftRencana.tokoId))
+    .where(eq(tokoDraftRencana.draftId, draft.id))
+    .orderBy(asc(toko.nama), asc(tokoDraftRencana.tokoId));
 
-  const daftarToko: TokoDraft[] = [];
-  for (const b of baris) {
-    let entri = daftarToko.at(-1);
-    if (entri?.id !== b.tokoId) {
-      entri = { id: b.tokoId, nama: b.namaToko, persiapanHari: b.persiapanHari, panjangCakupan: b.panjangCakupan, baris: [] };
-      daftarToko.push(entri);
-    }
-    entri.baris.push({
-      kodeProduk: b.kodeProduk,
-      namaProduk: b.namaProduk,
-      klasifikasi: b.klasifikasi,
-      kebutuhan: b.kebutuhan,
-      tanpaRataRata: b.tanpaRataRata?.map((t) => ({ ...t, tanggal: parseTanggalBisnis(t.tanggal) })) ?? null,
-    });
+  const baris =
+    daftarToko.length === 0
+      ? []
+      : await db
+          .select({
+            tokoDraftId: barisDraftRencana.tokoDraftId,
+            kodeProduk: barisDraftRencana.kodeProduk,
+            namaProduk: produk.nama,
+            klasifikasi: barisDraftRencana.klasifikasi,
+            kebutuhan: barisDraftRencana.kebutuhan,
+            tanpaRataRata: barisDraftRencana.tanpaRataRata,
+          })
+          .from(barisDraftRencana)
+          .leftJoin(produk, eq(produk.kode, barisDraftRencana.kodeProduk))
+          .where(
+            inArray(
+              barisDraftRencana.tokoDraftId,
+              daftarToko.map((t) => t.idTokoDraft),
+            ),
+          )
+          .orderBy(asc(barisDraftRencana.kodeProduk));
+
+  const barisPerToko = new Map<number, BarisDraft[]>();
+  for (const { tokoDraftId, tanpaRataRata, ...b } of baris) {
+    barisPerToko.set(tokoDraftId, [
+      ...(barisPerToko.get(tokoDraftId) ?? []),
+      { ...b, tanpaRataRata: tanpaRataRata?.map((t) => ({ ...t, tanggal: parseTanggalBisnis(t.tanggal) })) ?? null },
+    ]);
   }
   return {
     tanggalKirim: parseTanggalBisnis(draft.tanggalKirim),
     dihitungOleh: draft.dihitungOleh,
     dihitungPada: draft.dihitungPada,
-    toko: daftarToko,
+    toko: daftarToko.map(({ idTokoDraft, ...t }) => ({ ...t, baris: barisPerToko.get(idTokoDraft) ?? [] })),
   };
 }

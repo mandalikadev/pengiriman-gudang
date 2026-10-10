@@ -39,7 +39,11 @@ const buka = async (id: number | string) =>
   renderToStaticMarkup(await HalamanPengirimanGudang({ params: Promise.resolve({ id: String(id) }) }));
 
 /** Isi halaman sebelum bagian Draft rencana (bagian terakhir halaman). */
-const sebelumBagianDraft = (html: string) => html.slice(0, html.indexOf("data-draft-rencana"));
+function sebelumBagianDraft(html: string) {
+  const posisi = html.indexOf("data-draft-rencana");
+  if (posisi === -1) throw new Error("Penanda bagian Draft rencana (data-draft-rencana) tidak ditemukan di halaman.");
+  return html.slice(0, posisi);
+}
 
 const ditolak = (id: number | string) =>
   expect(HalamanPengirimanGudang({ params: Promise.resolve({ id: String(id) }) })).rejects.toMatchObject({

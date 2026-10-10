@@ -845,7 +845,7 @@ export const usulanJadwal = pgTable(
  * Draft rencana satu gudang untuk satu tanggal kirim (CONTEXT "Draft rencana"), dibuat operator dengan hak
  * `hitung-kebutuhan`. Satu draft per gudang + tanggal kirim; menghitung lagi mengganti isi draft itu. Dasar yang dipakai
  * disimpan sebagai sinyal perubahan (T61): versi periode sumber (id penetapan yang berlaku, T51) dan revisi kalender
- * (T42). Versi jadwal disimpan per toko di baris draft.
+ * (T42). Toko beserta p, L, dan versi jadwal disimpan di `toko_draft_rencana`.
  */
 export const draftRencana = pgTable(
   "draft_rencana",
@@ -868,12 +868,11 @@ export const draftRencana = pgTable(
 );
 
 /**
- * Satu baris draft = satu toko–varian. Toko beserta p, L, dan versi jadwal (id jadwal aktif, T55) yang membuatnya mengirim
- * pada tanggal draft (T54). Klasifikasi dan kebutuhan dari `hitungKebutuhanKirim` (T05). Kebutuhan tidak tersedia =
- * `kebutuhan` kosong dan `tanpaRataRata` berisi tanggal cakupan beserta kategori efektif yang tidak punya rata-rata.
+ * Toko di draft: setiap toko gudang yang menurut jadwal aktifnya mengirim pada tanggal draft (T54), beserta p, L, dan versi
+ * jadwal (id jadwal aktif, T55). Toko tetap tercatat walau tidak punya varian di periode sumber.
  */
-export const barisDraftRencana = pgTable(
-  "baris_draft_rencana",
+export const tokoDraftRencana = pgTable(
+  "toko_draft_rencana",
   {
     id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
     draftId: integer("draft_id")
@@ -887,15 +886,33 @@ export const barisDraftRencana = pgTable(
       .references(() => jadwalToko.id),
     persiapanHari: integer("persiapan_hari").$type<0 | 1 | 2>().notNull(),
     panjangCakupan: integer("panjang_cakupan").$type<7 | 14>().notNull(),
+  },
+  (tabel) => [
+    uniqueIndex("toko_draft_rencana_unik").on(tabel.draftId, tabel.tokoId),
+    check("toko_draft_rencana_persiapan", sql`${tabel.persiapanHari} in (0, 1, 2)`),
+    check("toko_draft_rencana_panjang_cakupan", sql`${tabel.panjangCakupan} in (7, 14)`),
+  ],
+);
+
+/**
+ * Satu baris draft = satu toko–varian. Klasifikasi dan kebutuhan dari `hitungKebutuhanKirim` (T05). Kebutuhan tidak
+ * tersedia = `kebutuhan` kosong dan `tanpaRataRata` berisi tanggal cakupan beserta kategori efektif yang tidak punya
+ * rata-rata.
+ */
+export const barisDraftRencana = pgTable(
+  "baris_draft_rencana",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    tokoDraftId: integer("toko_draft_id")
+      .notNull()
+      .references(() => tokoDraftRencana.id, { onDelete: "cascade" }),
     kodeProduk: text("kode_produk").notNull(),
     klasifikasi: text("klasifikasi").$type<"manual" | "otomatis">().notNull(),
     kebutuhan: integer("kebutuhan"),
     tanpaRataRata: jsonb("tanpa_rata_rata").$type<{ tanggal: string; kategoriEfektif: KategoriDasar }[]>(),
   },
   (tabel) => [
-    uniqueIndex("baris_draft_rencana_unik").on(tabel.draftId, tabel.tokoId, tabel.kodeProduk),
-    check("baris_draft_rencana_persiapan", sql`${tabel.persiapanHari} in (0, 1, 2)`),
-    check("baris_draft_rencana_panjang_cakupan", sql`${tabel.panjangCakupan} in (7, 14)`),
+    uniqueIndex("baris_draft_rencana_unik").on(tabel.tokoDraftId, tabel.kodeProduk),
     check("baris_draft_rencana_klasifikasi_dikenal", sql`${tabel.klasifikasi} in ('manual', 'otomatis')`),
     check(
       "baris_draft_rencana_kebutuhan_atau_tanpa_rata_rata",

@@ -56,15 +56,17 @@ const produkUji = (kode: string, kuantitas: number[]) => ({
 let cibubur: number;
 let tokoContoh: { id: number; nama: string };
 let tokoTanpaMinggu: { id: number; nama: string };
+let tokoTanpaVarian: { id: number; nama: string };
 const kode = { contoh: kodeProdukUji("GOR"), manual: kodeProdukUji("GOR-T"), tanpaMinggu: kodeProdukUji("GOR") };
 
 beforeAll(async () => {
   const idAdmin = (await buatPenggunaUji("admin")).id;
   cibubur = await idGudangUji("Gudang Cibubur");
-  [tokoContoh, tokoTanpaMinggu] = [await buatTokoUji(), await buatTokoUji()];
-  await db.insert(hubunganTokoGudang).values([tokoContoh, tokoTanpaMinggu].map((t) => ({ tokoId: t.id, gudangId: cibubur })));
+  [tokoContoh, tokoTanpaMinggu, tokoTanpaVarian] = [await buatTokoUji(), await buatTokoUji(), await buatTokoUji()];
+  const semuaToko = [tokoContoh, tokoTanpaMinggu, tokoTanpaVarian];
+  await db.insert(hubunganTokoGudang).values(semuaToko.map((t) => ({ tokoId: t.id, gudangId: cibubur })));
   await db.insert(jadwalToko).values(
-    [tokoContoh, tokoTanpaMinggu].map((t) => ({
+    semuaToko.map((t) => ({
       tokoId: t.id,
       pola: "mingguan" as const,
       hariKirim: [{ hari: "Senin" as const, persiapanHari: 2 as const }],
@@ -194,6 +196,10 @@ describe("draft rencana di halaman Pengiriman Gudang", () => {
         `data-kode-produk="${kode.tanpaMinggu}".*?data-kebutuhan="tidak-tersedia".*?—.*?data-status="tidakTersedia".*?Tidak tersedia.*?` +
           "Minggu, 07-06-2026 · kategori Minggu.*?Minggu, 14-06-2026 · kategori Minggu",
       ),
+    );
+    // Toko yang mengirim tanpa varian di periode sumber tetap tampil dengan keterangan.
+    expect(html).toMatch(
+      new RegExp(`data-draft-toko="${tokoTanpaVarian.id}".*?Persiapan H−2 · Panjang cakupan 7 hari.*?data-tanpa-varian.*?Tidak ada varian di periode sumber untuk toko ini\\.`),
     );
     // Daftar draft tersimpan; draft yang dibuka ditandai.
     expect(html).toMatch(new RegExp(`<a aria-current="page"[^>]*href="/pengiriman-gudang/${cibubur}\\?tanggal=${TANGGAL_KIRIM}"`));
