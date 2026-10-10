@@ -13,9 +13,11 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+import { daftarKategoriDasar, type KategoriDasar } from "@/domain/kalender";
 import { daftarJenisLibur, type JenisLibur } from "@/domain/libur";
 import { daftarHakTindakan, type HakTindakan } from "@/server/gudang/hak-tindakan";
 import type { Masalah, ProdukSheet } from "@/server/impor/sheet-penjualan";
@@ -301,7 +303,7 @@ export const revisiKalender = pgTable(
 export const daftarStatusVersiCache = ["sedang-dihitung", "selesai", "gagal"] as const;
 export type StatusVersiCache = (typeof daftarStatusVersiCache)[number];
 
-const daftarKategoriHari = ["Senin–Kamis", "Jumat", "Sabtu", "Minggu"] as const;
+const daftarKategoriHari = daftarKategoriDasar;
 const daftarKelengkapan = ["lengkap", "parsial"] as const;
 
 /**
@@ -610,5 +612,50 @@ export const periodeSumberGudang = pgTable(
   (tabel) => [
     index("periode_sumber_gudang_gudang_id_idx").on(tabel.gudangId, tabel.id),
     check("periode_sumber_gudang_jumlah_bulan", sql`cardinality(${tabel.bulan}) between 1 and 12`),
+  ],
+);
+
+// --- Perubahan kategori manual (T42, PRD B4) ---
+
+export const daftarStatusPerubahanKategori = ["aktif", "dibatalkan"] as const;
+export type StatusPerubahanKategori = (typeof daftarStatusPerubahanKategori)[number];
+
+/**
+ * Perubahan kategori satu tanggal oleh admin (CONTEXT "Perubahan kategori"). `tokoId` kosong = seluruh toko.
+ * Revisi = baris baru dengan nomor revisi +1 pada tanggal + cakupan yang sama; revisi lama tetap tersimpan.
+ * Pembatalan mengubah status semua baris aktif tanggal + cakupan itu menjadi `dibatalkan` dan mencatat siapa, kapan,
+ * dan alasannya pada baris itu (jejak tidak dihapus). Kategori efektif dihitung dengan `kategoriEfektif` (domain).
+ */
+export const perubahanKategori = pgTable(
+  "perubahan_kategori",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    tanggal: date("tanggal", { mode: "string" }).notNull(),
+    tokoId: integer("toko_id").references(() => toko.id),
+    kategoriSebelum: text("kategori_sebelum").$type<KategoriDasar>().notNull(),
+    kategoriSesudah: text("kategori_sesudah").$type<KategoriDasar>().notNull(),
+    alasan: text("alasan").notNull(),
+    revisi: integer("revisi").notNull(),
+    status: text("status").$type<StatusPerubahanKategori>().notNull().default("aktif"),
+    dibuatOleh: text("dibuat_oleh")
+      .notNull()
+      .references(() => user.id),
+    dibuatPada: timestamp("dibuat_pada", { withTimezone: true }).notNull().defaultNow(),
+    dibatalkanOleh: text("dibatalkan_oleh").references(() => user.id),
+    dibatalkanPada: timestamp("dibatalkan_pada", { withTimezone: true }),
+    alasanPembatalan: text("alasan_pembatalan"),
+  },
+  (tabel) => [
+    unique("perubahan_kategori_revisi_unik").on(tabel.tanggal, tabel.tokoId, tabel.revisi).nullsNotDistinct(),
+    index("perubahan_kategori_status_tanggal_idx").on(tabel.status, tabel.tanggal),
+    check(
+      "perubahan_kategori_kategori_dikenal",
+      sql`${tabel.kategoriSebelum} in (${daftarSql(daftarKategoriHari)}) and ${tabel.kategoriSesudah} in (${daftarSql(daftarKategoriHari)})`,
+    ),
+    check("perubahan_kategori_status_dikenal", sql`${tabel.status} in (${daftarSql(daftarStatusPerubahanKategori)})`),
+    check(
+      "perubahan_kategori_jejak_pembatalan",
+      sql`(${tabel.status} = 'dibatalkan') = (${tabel.dibatalkanOleh} is not null and ${tabel.dibatalkanPada} is not null and ${tabel.alasanPembatalan} is not null)`,
+    ),
   ],
 );

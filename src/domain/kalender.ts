@@ -9,7 +9,8 @@ declare const merekTanggalBisnis: unique symbol;
 /** Tanggal kalender `YYYY-MM-DD` yang sudah divalidasi (tahun 0001–9999). */
 export type TanggalBisnis = string & { readonly [merekTanggalBisnis]: true };
 
-export type KategoriDasar = "Senin–Kamis" | "Jumat" | "Sabtu" | "Minggu";
+export const daftarKategoriDasar = ["Senin–Kamis", "Jumat", "Sabtu", "Minggu"] as const;
+export type KategoriDasar = (typeof daftarKategoriDasar)[number];
 
 type PosisiLaporan = {
   kategoriDasar: KategoriDasar;

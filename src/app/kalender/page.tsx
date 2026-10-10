@@ -2,14 +2,17 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-r
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { formatBulanImpor, tanggalWib } from "@/app/admin/impor/format";
+import { formatBulanImpor, formatWaktu, tanggalWib } from "@/app/admin/impor/format";
 import { labelJenisLibur } from "@/app/admin/libur/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, kisiBulan, parseTanggalBisnis, posisiLaporan, type TanggalBisnis } from "@/domain/kalender";
 import { cn } from "@/lib/utils";
 import { wajibMasuk } from "@/server/auth/kewenangan";
+import { daftarTokoAktif, muatPerubahanKategoriTanggal } from "@/server/kalender/perubahan-kategori";
 import { muatLiburAktif, type LiburAktif } from "@/server/libur/libur-aktif";
+
+import { PerubahanKategoriTanggal, type DataPerubahanBerlaku } from "./form-perubahan-kategori";
 
 export const metadata: Metadata = {
   title: "Kalender — Dashboard Penjualan MANDALIKA",
@@ -276,9 +279,25 @@ function DetailTanggal({ tanggal, libur }: { tanggal: TanggalBisnis | null; libu
   );
 }
 
+/** Data form perubahan kategori tanggal terpilih (T42). Hanya dibaca untuk admin. */
+async function muatDataPerubahan(tanggal: TanggalBisnis) {
+  const [daftar, daftarToko] = await Promise.all([muatPerubahanKategoriTanggal(tanggal), daftarTokoAktif()]);
+  const daftarPerubahan: DataPerubahanBerlaku[] = daftar.map((p) => ({
+    idToko: p.idToko,
+    cakupan: p.namaToko ?? "Seluruh toko",
+    kategoriSebelum: p.kategoriSebelum,
+    kategoriSesudah: p.kategoriSesudah,
+    alasan: p.alasan,
+    revisi: p.revisi,
+    dibuat: `${p.dibuatOleh}, ${formatWaktu(p.dibuatPada)}`,
+  }));
+  return { daftarPerubahan, daftarToko };
+}
+
 export default async function HalamanKalender({ searchParams }: { searchParams: Promise<ParameterUrl> }) {
-  // PRD B1 (▶ Keputusan M2–M3): semua pengguna yang sudah masuk boleh melihat. Halaman ini tidak punya kontrol ubah.
-  await wajibMasuk();
+  // PRD B1 (▶ Keputusan M2–M3): semua pengguna yang sudah masuk boleh melihat; hanya admin yang boleh mengubah kalender.
+  // Non-admin tidak mendapat kontrol ubah apa pun; aksi perubahan kategori diperiksa lagi di server.
+  const pengguna = await wajibMasuk();
   const parameter = await searchParams;
 
   const hariIni = tanggalWib(new Date());
@@ -288,6 +307,7 @@ export default async function HalamanKalender({ searchParams }: { searchParams: 
   const terpilih = tanggalUrl ?? (hariIniDiBulan ? hariIni : null);
   const kisi = kisiBulan(bulan.tahun, bulan.bulan);
   const libur = await muatLiburAktif([...kisi.flat(), ...(terpilih ? [terpilih] : [])]);
+  const dataPerubahan = pengguna.peran === "admin" && terpilih ? await muatDataPerubahan(terpilih) : null;
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
@@ -307,7 +327,16 @@ export default async function HalamanKalender({ searchParams }: { searchParams: 
 
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
         <KisiBulan bulan={bulan} kisi={kisi} hariIni={hariIni} terpilih={terpilih} libur={libur} />
-        <DetailTanggal tanggal={terpilih} libur={terpilih ? libur.get(terpilih) : undefined} />
+        <div className="flex flex-col gap-6">
+          <DetailTanggal tanggal={terpilih} libur={terpilih ? libur.get(terpilih) : undefined} />
+          {terpilih && dataPerubahan ? (
+            <PerubahanKategoriTanggal
+              tanggal={terpilih}
+              daftarPerubahan={dataPerubahan.daftarPerubahan}
+              daftarToko={dataPerubahan.daftarToko}
+            />
+          ) : null}
+        </div>
       </div>
     </main>
   );

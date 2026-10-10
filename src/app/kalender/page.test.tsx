@@ -4,8 +4,10 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import golden from "../../../tests/golden/kalender-minggu-laporan.json";
 
 import { formatBulanImpor } from "@/app/admin/impor/format";
-import { kisiBulan } from "@/domain/kalender";
+import { kisiBulan, parseTanggalBisnis } from "@/domain/kalender";
 import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
+import { buatTokoUji } from "@/server/gudang/uji-bantu";
+import { batalkanPerubahanKategori, buatPerubahanKategori, revisiPerubahanKategori } from "@/server/kalender/perubahan-kategori";
 import { buatSnapshotUji, tahunLiburUji } from "@/server/libur/uji-bantu";
 
 const kepala = vi.hoisted(() => ({ cookie: "" }));
@@ -232,5 +234,67 @@ describe("/kalender: libur dari snapshot aktif (PRD B1, B3, B4)", () => {
   it("tanggal tanpa libur aktif tidak menampilkan informasi libur di detail", async () => {
     const tahun = await tahunLiburUji();
     expect(detail(await buka({ tanggal: `${tahun}-03-10` }))?.teks).not.toContain("Jenis libur");
+  });
+});
+
+describe("/kalender: perubahan kategori di detail tanggal (T42)", () => {
+  // Tahun 2427 (bukan data uji lain) agar perubahan di sini tidak mengenai cache laporan berkas test lain.
+  const tanggal = parseTanggalBisnis("2427-04-06");
+
+  /** Isi bagian perubahan kategori, atau `null`. */
+  function bagianPerubahan(html: string) {
+    const cocok = /<section[^>]*data-perubahan-kategori="([^"]+)"[^>]*>(.*?)<\/section>/.exec(html);
+    return cocok ? { tanggal: cocok[1]!, html: cocok[2]!, teks: cocok[2]!.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ") } : null;
+  }
+
+  it("admin: perubahan aktif per cakupan (revisi terbaru) dengan status Aktif, form revisi dan batal, dan form buat", async () => {
+    const admin = await kepalaPenggunaUji("admin");
+    const tokoAktif = await buatTokoUji();
+    const tokoBatal = await buatTokoUji();
+    const isian = { tanggal, alasan: "Event toko", idPengguna: admin.id };
+    await buatPerubahanKategori({ ...isian, idToko: tokoAktif.id, kategoriBaru: "Sabtu" });
+    await revisiPerubahanKategori({ ...isian, idToko: tokoAktif.id, kategoriBaru: "Jumat", alasan: "Event dimajukan" });
+    await buatPerubahanKategori({ ...isian, idToko: tokoBatal.id, kategoriBaru: "Minggu" });
+    await batalkanPerubahanKategori({ ...isian, idToko: tokoBatal.id, alasan: "Batal" });
+
+    kepala.cookie = admin.cookie;
+    const bagian = bagianPerubahan(await buka({ tanggal }));
+    expect(bagian?.tanggal).toBe(tanggal);
+
+    const item = [...bagian!.html.matchAll(/<li[^>]*data-perubahan-cakupan="([^"]+)"[^>]*>(.*?)<\/li>/g)];
+    expect(item.map((m) => m[1])).toEqual([String(tokoAktif.id)]);
+    const teksItem = item[0]![2]!.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+    expect(teksItem).toContain(tokoAktif.nama);
+    expect(teksItem).toContain("Kategori Sabtu → Jumat");
+    expect(teksItem).toContain("Alasan Event dimajukan");
+    expect(teksItem).toContain("Revisi 2");
+    // DESIGN §7: status ikon + teks lewat BadgeStatus (T07).
+    expect(item[0]![2]).toMatch(/data-status="aktif"[^>]*>.*?<svg[^>]*lucide-circle-check.*?Aktif/);
+    expect(teksItem).toContain("Simpan revisi");
+    expect(teksItem).toContain("Alasan pembatalan");
+    expect(teksItem).toContain("Batalkan perubahan");
+
+    expect(bagian!.teks).toContain("Buat perubahan kategori");
+    expect(bagian!.teks).toContain("Seluruh toko");
+    expect(bagian!.teks).toContain("Simpan perubahan");
+    expect([...bagian!.html.matchAll(/<form/g)]).toHaveLength(3);
+  });
+
+  it("admin: tanggal tanpa perubahan aktif hanya menampilkan form buat", async () => {
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+    const bagian = bagianPerubahan(await buka({ tanggal: "2427-04-07" }));
+    expect(bagian?.teks).toContain("Belum ada perubahan aktif pada tanggal ini.");
+    expect([...bagian!.html.matchAll(/<form/g)]).toHaveLength(1);
+  });
+
+  it("viewer: bagian perubahan kategori tidak dirender walaupun tanggal punya perubahan", async () => {
+    const idAdmin = (await buatPenggunaUji("admin")).id;
+    const toko = await buatTokoUji();
+    await buatPerubahanKategori({ tanggal, idToko: null, kategoriBaru: "Minggu", alasan: "Seluruh", idPengguna: idAdmin });
+    await buatPerubahanKategori({ tanggal, idToko: toko.id, kategoriBaru: "Minggu", alasan: "Toko", idPengguna: idAdmin });
+
+    const html = await buka({ tanggal });
+    expect(bagianPerubahan(html)).toBeNull();
+    expect(html).not.toMatch(/<form|<button|<input|<select|<textarea/);
   });
 });
