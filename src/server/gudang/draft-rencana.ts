@@ -53,6 +53,9 @@ export const PESAN_RANKING_BELUM_DIPUBLIKASIKAN = "Ranking pusat belum dipublika
 const PERSEN_BUFFER_TUJUH_BESAR = 20;
 const PERSEN_BUFFER_LAINNYA = 10;
 
+/** Baris draft per INSERT (13 kolom per baris, jauh di bawah batas 65.534 parameter). */
+const UKURAN_BATCH_BARIS = 1000;
+
 export type HasilHitungDraft = { keadaan: "berhasil"; idDraft: number } | { keadaan: "gagal"; pesan: string };
 
 /** Status keluarga aroma produk (ADR-0006); `keluargaAromaId` terisi persis saat `terpetakan`. */
@@ -335,16 +338,16 @@ export async function hitungDraftRencana({
         )
         .returning({ id: tokoDraftRencana.id, tokoId: tokoDraftRencana.tokoId });
       const idTokoDraft = new Map(tokoDraft.map((t) => [t.tokoId, t.id]));
-      if (baris.length > 0) {
-        await tx.insert(barisDraftRencana).values(
-          baris.map(({ tokoId, ...b }) => {
-            const tokoDraftId = idTokoDraft.get(tokoId);
-            if (tokoDraftId === undefined) throw new Error(`Toko ${tokoId} tidak termasuk toko draft.`);
-            // Stok akhir yang sudah diisi dipertahankan (PRD A7, B9); varian baru belum punya stok.
-            const stokAkhir = stokLama.get(`${tokoId}|${b.kodeProduk}`)?.stokAkhir ?? null;
-            return { ...b, tokoDraftId, stokAkhir, ...nilaiKirimBaris({ ...b, stokAkhir }) };
-          }),
-        );
+      const barisBaru = baris.map(({ tokoId, ...b }) => {
+        const tokoDraftId = idTokoDraft.get(tokoId);
+        if (tokoDraftId === undefined) throw new Error(`Toko ${tokoId} tidak termasuk toko draft.`);
+        // Stok akhir yang sudah diisi dipertahankan (PRD A7, B9); varian baru belum punya stok.
+        const stokAkhir = stokLama.get(`${tokoId}|${b.kodeProduk}`)?.stokAkhir ?? null;
+        return { ...b, tokoDraftId, stokAkhir, ...nilaiKirimBaris({ ...b, stokAkhir }) };
+      });
+      // Bertahap: satu INSERT dibatasi 65.534 parameter PostgreSQL, sedangkan draft satu gudang bisa ribuan baris (T65).
+      for (let i = 0; i < barisBaru.length; i += UKURAN_BATCH_BARIS) {
+        await tx.insert(barisDraftRencana).values(barisBaru.slice(i, i + UKURAN_BATCH_BARIS));
       }
     }
     return { keadaan: "berhasil", idDraft: draft.id };

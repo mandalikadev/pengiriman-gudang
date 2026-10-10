@@ -22,7 +22,8 @@
     "db:seed-admin": "tsx scripts/seed-admin.ts",
     "db:seed-master": "tsx scripts/seed-master.ts",
     "worker": "tsx src/worker/index.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "perf": "tsx scripts/uji-performa.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1148.0",
