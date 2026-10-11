@@ -1,34 +1,17 @@
 import { ArrowLeft, CircleCheck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 
 import { formatAngka, formatWaktu } from "@/app/admin/impor/format";
 import { BadgeStatus } from "@/components/badge-status";
 import { formatTanggal } from "@/domain/kalender";
-import { AksesDitolakError, wajibAksesLihatGudang } from "@/server/auth/kewenangan";
 import { bacaRencanaFinal } from "@/server/gudang/rencana-final";
+
+import { muatRencanaFinal } from "../muat";
 
 export const metadata: Metadata = {
   title: "Rencana final — Dashboard Penjualan MANDALIKA",
 };
-
-const ID_VALID = /^\d{1,9}$/;
-
-/** Akses lihat gudang diperiksa di server sebelum membaca data; tanpa akses atau id tidak dikenal mendapat 404. */
-async function muatRencana(id: string, idRencana: string) {
-  if (!ID_VALID.test(id) || !ID_VALID.test(idRencana)) notFound();
-  let idGudang;
-  try {
-    idGudang = (await wajibAksesLihatGudang(Number(id))).gudang.id;
-  } catch (galat) {
-    if (galat instanceof AksesDitolakError) notFound();
-    throw galat;
-  }
-  const rencana = await bacaRencanaFinal(idGudang, Number(idRencana));
-  if (rencana === null) notFound();
-  return { idGudang, rencana };
-}
 
 /**
  * Layar berhasil setelah finalisasi (T62): zona suasana untuk keadaan berhasil besar (DESIGN §1), dibaca dari snapshot
@@ -39,7 +22,7 @@ async function muatRencana(id: string, idRencana: string) {
  */
 export default async function HalamanRencanaFinal({ params }: { params: Promise<{ id: string; idRencana: string }> }) {
   const { id, idRencana } = await params;
-  const { idGudang, rencana } = await muatRencana(id, idRencana);
+  const { idGudang, rencana } = await muatRencanaFinal(id, idRencana, bacaRencanaFinal);
 
   return (
     <main className="relative isolate">
@@ -86,13 +69,21 @@ export default async function HalamanRencanaFinal({ params }: { params: Promise<
           <dt className="text-muted-foreground">Varian tersimpan</dt>
           <dd className="font-semibold tabular-nums">{formatAngka(rencana.baris.length)}</dd>
         </dl>
-        <Link
-          href={`/pengiriman-gudang/${idGudang}?tanggal=${rencana.tanggalKirim}`}
-          className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary transition-all duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 motion-safe:hover:scale-105 motion-safe:active:scale-95"
-        >
-          <ArrowLeft aria-hidden strokeWidth={2} className="size-7" />
-          Kembali ke draft rencana
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/pengiriman-gudang/${idGudang}/rencana-final/${rencana.id}/rincian`}
+            className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary transition-all duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 motion-safe:hover:scale-105 motion-safe:active:scale-95"
+          >
+            Lihat rincian rencana final
+          </Link>
+          <Link
+            href={`/pengiriman-gudang/${idGudang}?tanggal=${rencana.tanggalKirim}`}
+            className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary transition-all duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 motion-safe:hover:scale-105 motion-safe:active:scale-95"
+          >
+            <ArrowLeft aria-hidden strokeWidth={2} className="size-7" />
+            Kembali ke draft rencana
+          </Link>
+        </div>
       </div>
     </main>
   );

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, max } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, max, sql } from "drizzle-orm";
 
 import { parseTanggalBisnis, tanggalDalamBulanLaporan, type KategoriDasar, type TanggalBisnis } from "@/domain/kalender";
 import { db } from "@/server/db";
@@ -21,7 +21,7 @@ import {
 } from "@/server/db/schema";
 
 import { periksaHitungUlang } from "./dasar-draft";
-import { versiTokoDraft } from "./draft-rencana";
+import { asalBufferDari, asalJumlahKirim, versiTokoDraft } from "./draft-rencana";
 import { MASALAH_TANPA_VARIAN } from "./masalah-draft";
 import type { RincianBarisDraft, TanggalCakupanDraft } from "./rincian-draft";
 
@@ -324,5 +324,111 @@ export async function bacaRencanaFinal(idGudang: number, idRencana: number): Pro
         rincian: b.rincian,
       }),
     ),
+  };
+}
+
+/** Versi yang menggantikan versi `versi` (versi + 1) bila ada versi lebih tinggi; `null` = versi terakhir. */
+const penggantiVersi = (versi: number, versiTerakhir: number | null) =>
+  versiTerakhir !== null && versiTerakhir > versi ? versi + 1 : null;
+
+/** Rencana final untuk halaman rincian riwayat (T63): snapshot ditambah keterangan yang diturunkan darinya. */
+export type RincianRencanaFinal = Omit<RencanaFinal, "baris"> & {
+  /**
+   * Versi yang menggantikan versi ini bila sudah ada versi lebih tinggi untuk gudang + toko + tanggal kirim yang sama;
+   * `null` = versi terakhir. Diturunkan, tidak disimpan (T62).
+   */
+  digantikanOleh: number | null;
+  baris: (RencanaFinal["baris"][number] & {
+    /** Asal buffer, diturunkan dari persen buffer snapshot; `null` tanpa buffer. */
+    asalBuffer: ReturnType<typeof asalBufferDari>;
+    /** Asal jumlah kirim dari angka snapshot (modul angka); `null` tanpa jumlah kirim. */
+    rincianJumlahKirim: ReturnType<typeof asalJumlahKirim>;
+  })[];
+};
+
+/** Rencana final `idRencana` gudang `idGudang` untuk rincian riwayat (T63), dari snapshot; `null` bila tidak ada. */
+export async function bacaRincianRencanaFinal(idGudang: number, idRencana: number): Promise<RincianRencanaFinal | null> {
+  const rencana = await bacaRencanaFinal(idGudang, idRencana);
+  if (rencana === null) return null;
+  const [{ versiTerakhir }] = await db
+    .select({ versiTerakhir: max(rencanaFinal.versi) })
+    .from(rencanaFinal)
+    .where(
+      and(eq(rencanaFinal.gudangId, idGudang), eq(rencanaFinal.tokoId, rencana.toko.id), eq(rencanaFinal.tanggalKirim, rencana.tanggalKirim)),
+    );
+  return {
+    ...rencana,
+    digantikanOleh: penggantiVersi(rencana.versi, versiTerakhir),
+    baris: rencana.baris.map((b) => ({ ...b, asalBuffer: asalBufferDari(b.persenBuffer), rincianJumlahKirim: asalJumlahKirim(b) })),
+  };
+}
+
+/** Satu rencana final di riwayat (T63), dibaca dari snapshot. */
+export type RingkasanRencanaFinal = Pick<
+  RincianRencanaFinal,
+  "id" | "versi" | "alasanFinalisasiUlang" | "digantikanOleh" | "toko" | "tanggalKirim" | "difinalisasiOleh" | "difinalisasiPada"
+>;
+
+/**
+ * Riwayat rencana final gudang `idGudang` (T63), semua versi, disaring tanggal kirim dan/atau toko bila diberikan. Urut
+ * tanggal kirim terbaru, lalu nama toko (snapshot), lalu versi terbaru. Status digantikan diturunkan dari versi tertinggi
+ * gudang + toko + tanggal kirim; filter hanya memakai kunci yang sama, jadi tidak memengaruhinya.
+ */
+export async function daftarRencanaFinal(
+  idGudang: number,
+  filter: { tanggalKirim?: TanggalBisnis; tokoId?: number } = {},
+): Promise<RingkasanRencanaFinal[]> {
+  const versiTerakhir = sql<number>`max(${rencanaFinal.versi}) over (partition by ${rencanaFinal.tokoId}, ${rencanaFinal.tanggalKirim})`;
+  const daftar = await db
+    .select({
+      id: rencanaFinal.id,
+      versi: rencanaFinal.versi,
+      versiTerakhir,
+      alasanFinalisasiUlang: rencanaFinal.alasanFinalisasiUlang,
+      tokoId: rencanaFinal.tokoId,
+      namaToko: rencanaFinal.namaToko,
+      tanggalKirim: rencanaFinal.tanggalKirim,
+      difinalisasiOleh: rencanaFinal.namaPemfinalisasi,
+      difinalisasiPada: rencanaFinal.difinalisasiPada,
+    })
+    .from(rencanaFinal)
+    .where(
+      and(
+        eq(rencanaFinal.gudangId, idGudang),
+        filter.tanggalKirim === undefined ? undefined : eq(rencanaFinal.tanggalKirim, filter.tanggalKirim),
+        filter.tokoId === undefined ? undefined : eq(rencanaFinal.tokoId, filter.tokoId),
+      ),
+    )
+    .orderBy(desc(rencanaFinal.tanggalKirim), asc(rencanaFinal.namaToko), asc(rencanaFinal.tokoId), desc(rencanaFinal.versi));
+  return daftar.map((r) => ({
+    id: r.id,
+    versi: r.versi,
+    alasanFinalisasiUlang: r.alasanFinalisasiUlang,
+    digantikanOleh: penggantiVersi(r.versi, Number(r.versiTerakhir)),
+    toko: { id: r.tokoId, nama: r.namaToko },
+    tanggalKirim: parseTanggalBisnis(r.tanggalKirim),
+    difinalisasiOleh: r.difinalisasiOleh,
+    difinalisasiPada: r.difinalisasiPada,
+  }));
+}
+
+/**
+ * Pilihan filter riwayat rencana final gudang `idGudang` (T63): tanggal kirim yang punya rencana final (terbaru di atas)
+ * dan toko yang punya rencana final, dengan nama dari rencana final terakhirnya (snapshot), urut nama.
+ */
+export async function pilihanFilterRencanaFinal(idGudang: number): Promise<{ tanggalKirim: TanggalBisnis[]; toko: { id: number; nama: string }[] }> {
+  const tanggal = await db
+    .selectDistinct({ tanggalKirim: rencanaFinal.tanggalKirim })
+    .from(rencanaFinal)
+    .where(eq(rencanaFinal.gudangId, idGudang))
+    .orderBy(desc(rencanaFinal.tanggalKirim));
+  const daftarToko = await db
+    .selectDistinctOn([rencanaFinal.tokoId], { id: rencanaFinal.tokoId, nama: rencanaFinal.namaToko })
+    .from(rencanaFinal)
+    .where(eq(rencanaFinal.gudangId, idGudang))
+    .orderBy(asc(rencanaFinal.tokoId), desc(rencanaFinal.id));
+  return {
+    tanggalKirim: tanggal.map((t) => parseTanggalBisnis(t.tanggalKirim)),
+    toko: daftarToko.sort((a, b) => a.nama.localeCompare(b.nama, "id") || a.id - b.id),
   };
 }

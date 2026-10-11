@@ -20,7 +20,8 @@ import { FormHitungUlang } from "./form-hitung-ulang";
 import { FormStokToko, InputStok } from "./form-stok-toko";
 import { ID_RINCIAN_BARIS, RincianBaris } from "./rincian-baris";
 
-function SelKebutuhan({ baris }: { baris: BarisDraft }) {
+/** Kebutuhan barang di tabel varian; juga dipakai rincian rencana final (T63). */
+export function SelKebutuhan({ baris }: { baris: Pick<BarisDraft, "kebutuhan" | "tanpaRataRata"> }) {
   if (baris.kebutuhan !== null) return <>{formatAngka(baris.kebutuhan)}</>;
   return (
     <div className="flex flex-col items-end gap-1">
@@ -39,7 +40,7 @@ function SelKebutuhan({ baris }: { baris: BarisDraft }) {
 }
 
 /** Stok akhir tersimpan untuk pengguna tanpa hak `input-stok`: kosong tampil "—" belum diketahui (DESIGN §7). */
-function SelStok({ stokAkhir }: { stokAkhir: number | null }) {
+export function SelStok({ stokAkhir }: { stokAkhir: number | null }) {
   if (stokAkhir !== null) return <>{formatAngka(stokAkhir)}</>;
   return (
     <div className="flex flex-col items-end gap-1">

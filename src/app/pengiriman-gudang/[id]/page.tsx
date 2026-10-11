@@ -61,6 +61,7 @@ function BadgeStatusToko({ aktif }: { aktif: boolean }) {
  * gudang lain untuk disetujui admin (PRD A5 ▶ OD-06); server action memeriksanya lagi. Bagian Draft rencana (T58)
  * menampilkan draft yang tersimpan tanpa menghitung saat halaman dibuka (PRD C1); `?rincian=<id toko>|<kode produk>`
  * membuka rincian perhitungan satu baris (T60). Operator dengan hak `finalisasi` memfinalisasi rencana per toko (T62).
+ * Tautan Riwayat rencana final (T63) untuk semua yang bisa melihat halaman ini.
  */
 export default async function HalamanPengirimanGudang({
   params,
@@ -91,6 +92,13 @@ export default async function HalamanPengirimanGudang({
         Daftar gudang
       </Link>
       <h1 className="text-2xl font-bold md:text-3xl">Pengiriman Gudang — {gudang.nama}</h1>
+      <Link
+        href={`/pengiriman-gudang/${gudang.id}/rencana-final`}
+        data-tautan-riwayat-final
+        className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary underline underline-offset-4 transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        Riwayat rencana final
+      </Link>
       {gudang.hakTindakan.length === 0 ? (
         <KeteranganHanyaBaca>
           Hanya-baca: Anda bisa melihat halaman ini, tetapi tidak punya hak tindakan di gudang ini.

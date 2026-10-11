@@ -364,6 +364,23 @@ export async function daftarTanggalDraft(idGudang: number): Promise<TanggalBisni
   return baris.map((b) => parseTanggalBisnis(b.tanggalKirim));
 }
 
+/** Asal buffer dari persen buffer tersimpan (CONTEXT "Buffer"); `null` = tanpa buffer. Dipakai juga rencana final (T63). */
+export function asalBufferDari(persenBuffer: number | null): "tujuh-besar" | "lainnya" | null {
+  if (persenBuffer === null) return null;
+  return persenBuffer === PERSEN_BUFFER_TUJUH_BESAR ? "tujuh-besar" : "lainnya";
+}
+
+/** Asal jumlah kirim untuk rincian (T60) lewat modul angka; `null` selama jumlah kirim kosong. Dipakai juga rencana final (T63). */
+export function asalJumlahKirim(b: {
+  jumlahKirim: number | null;
+  kebutuhan: number | null;
+  stokAkhir: number | null;
+  persenBuffer: number | null;
+}): ReturnType<typeof rincianJumlahKirim> | null {
+  if (b.jumlahKirim === null || b.kebutuhan === null || b.stokAkhir === null || b.persenBuffer === null) return null;
+  return rincianJumlahKirim(b.kebutuhan, b.stokAkhir, b.persenBuffer);
+}
+
 export type BarisDraft = {
   kodeProduk: string;
   namaProduk: string | null;
@@ -538,11 +555,8 @@ export async function bacaDraftRencana(idGudang: number, tanggalKirim?: TanggalB
       {
         ...b,
         tanpaRataRata: tanpaRataRata?.map((t) => ({ ...t, tanggal: parseTanggalBisnis(t.tanggal) })) ?? null,
-        asalBuffer: b.persenBuffer === null ? null : b.persenBuffer === PERSEN_BUFFER_TUJUH_BESAR ? "tujuh-besar" : "lainnya",
-        rincianJumlahKirim:
-          b.jumlahKirim === null || b.kebutuhan === null || b.stokAkhir === null || b.persenBuffer === null
-            ? null
-            : rincianJumlahKirim(b.kebutuhan, b.stokAkhir, b.persenBuffer),
+        asalBuffer: asalBufferDari(b.persenBuffer),
+        rincianJumlahKirim: asalJumlahKirim(b),
       },
     ]);
   }
