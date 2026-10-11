@@ -39,9 +39,11 @@ Perintah ini mengerjakan semuanya:
 5. Membuat admin pertama, 5 gudang (Pusat, Gudang Bali, Gudang Bandung, Gudang Cibubur, Gudang Jabodetabek), dan 25 toko. Toko **belum dihubungkan** ke gudang, karena datanya masih menunggu pemilik (OD-12). Anda menghubungkannya sendiri di skenario A3.
 6. Menyiapkan aplikasi (beberapa menit), lalu menyalakan aplikasi dan worker. Worker adalah proses yang membaca file impor dan menghitung laporan.
 
-Jika berhasil, terminal menampilkan kotak "Aplikasi siap: http://localhost:3000" beserta email admin.
+Aplikasi ini memakai port sendiri supaya tidak bentrok dengan proyek lain di laptop yang sama: PostgreSQL di port 55432, MinIO di port 59000 (konsol MinIO di `http://localhost:59001`), dan aplikasi di port 3100.
 
-- Buka `http://localhost:3000` di browser.
+Jika berhasil, terminal menampilkan kotak "Aplikasi siap: http://localhost:3100" beserta email admin.
+
+- Buka `http://localhost:3100` di browser.
 - Masuk dengan email admin yang tampil di terminal. Kata sandinya adalah nilai `ADMIN_AWAL_SANDI` di berkas `.env`.
 - Biarkan terminal tetap terbuka selama UAT. Untuk berhenti, tekan **Ctrl+C** di terminal itu.
 
@@ -53,7 +55,8 @@ Data UAT tersimpan di Docker. Jika `pnpm uat` dijalankan lagi, data sebelumnya m
 |---|---|
 | "Docker belum menyala." | Buka Docker Desktop, tunggu sampai statusnya *running*, lalu jalankan `pnpm uat` lagi. |
 | "Perintah docker tidak ditemukan." | Pasang Docker Desktop, lalu jalankan `pnpm uat` lagi. |
-| "Port 5432 sudah dipakai program lain…" (atau port 9000, 9001, 3000) | Ada program lain yang memakai port itu: 5432 untuk PostgreSQL, 9000/9001 untuk MinIO, 3000 untuk aplikasi. Biasanya itu PostgreSQL atau aplikasi lain yang sedang berjalan. Hentikan program itu, lalu jalankan `pnpm uat` lagi. Jika Anda tidak tahu program mana, laporkan pesannya ke Claude Code. |
+| "Berkas .env masih memakai port lama…" | Berkas `.env` Anda dibuat sebelum proyek ini memakai port sendiri. Terminal menyebut baris mana yang harus diubah (misalnya `DATABASE_URL` dari port 5432 menjadi 55432). Ubah baris itu di `.env` sesuai pesan (contoh nilai yang benar ada di `.env.example`), lalu jalankan `pnpm uat` lagi. `pnpm uat` tidak mengubah `.env` sendiri. |
+| "Port 55432 sudah dipakai program lain…" (atau port 59000, 59001, 3100) | Ada program lain yang memakai port itu: 55432 untuk PostgreSQL, 59000/59001 untuk MinIO, 3100 untuk aplikasi. Biasanya itu salinan aplikasi ini yang masih berjalan di terminal lain. Hentikan program itu, lalu jalankan `pnpm uat` lagi. Jika Anda tidak tahu program mana, laporkan pesannya ke Claude Code. |
 | "Salah satu proses berhenti…" | Aplikasi atau worker berhenti. Baca pesan di atasnya, lalu jalankan `pnpm uat` lagi. Jika terulang, laporkan pesannya. |
 
 **Mulai UAT dari awal (menghapus semua data UAT):** hentikan `pnpm uat` dengan Ctrl+C, jalankan `docker compose down -v`, lalu jalankan `pnpm uat` lagi. Perintah `down -v` **menghapus semua data UAT** di laptop ini: impor, pengguna, rencana, dan lainnya.
@@ -105,7 +108,7 @@ Untuk berganti akun, tekan **Keluar** di menu, lalu masuk dengan akun lain. Cara
 | A3.13 | Tugaskan Operator Pusat ke Pusat sekali lagi. | Ditolak dengan pesan bahwa pengguna ini sudah ditugaskan di gudang tersebut. | | |
 | A3.14 | Sebagai admin, buka **Pengiriman Gudang**, lalu buka Pusat. | Admin melihat semua gudang. Halaman Pusat menampilkan "Hanya-baca: Anda bisa melihat halaman ini, tetapi tidak punya hak tindakan di gudang ini." Tidak ada tombol jadwal, stok, hitung, atau finalisasi. | | |
 | A3.15 | Masuk sebagai **Operator Lihat**, lalu buka Pengiriman Gudang. | Hanya gudang Pusat yang tampil, berlabel "Hanya-baca". Halamannya bisa dibuka tanpa tombol tindakan. | | |
-| A3.16 | Masuk sebagai **Pengamat**. Lihat menu, lalu ketik alamat `http://localhost:3000/admin/impor` di browser. | Menu hanya Beranda, Ringkasan, Kalender. Tidak ada Pengiriman Gudang dan tidak ada menu admin. Halaman admin tidak bisa dibuka (halaman "404"). | | |
+| A3.16 | Masuk sebagai **Pengamat**. Lihat menu, lalu ketik alamat `http://localhost:3100/admin/impor` di browser. | Menu hanya Beranda, Ringkasan, Kalender. Tidak ada Pengiriman Gudang dan tidak ada menu admin. Halaman admin tidak bisa dibuka (halaman "404"). | | |
 | A3.17 | Masuk sebagai **Operator Pusat**, lalu buka Pengiriman Gudang. | Hanya Pusat yang tampil, tanpa label "Hanya-baca". Menu admin tidak tampil, karena hak operator tidak sama dengan admin. | | |
 
 ## A1. Memasukkan data penjualan

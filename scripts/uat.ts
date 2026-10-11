@@ -1,6 +1,7 @@
 // Paket UAT lokal (T99). Satu perintah untuk pemilik: pnpm uat, lalu ikuti docs/UAT.md.
 //
-// Langkah: periksa Docker → buat .env dari .env.example jika belum ada → docker compose up (PostgreSQL + MinIO) →
+// Langkah: buat .env dari .env.example jika belum ada (berhenti jika .env masih memakai port lama, T74) →
+// periksa Docker → docker compose up (PostgreSQL + MinIO) →
 // migrasi → seed admin pertama + 5 gudang + 25 toko (tanpa hubungan toko–gudang, OD-12) → next build →
 // next start + worker. Berhenti dengan Ctrl+C. Data tersimpan di volume Docker dan tetap ada saat dijalankan lagi.
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
@@ -8,9 +9,17 @@ import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 
-import { config as muatEnv } from "dotenv";
+import { config as muatEnv, parse as parseEnv } from "dotenv";
 
-import { isiEnvAwal, PESAN_DOCKER_MATI, PESAN_DOCKER_TIDAK_ADA, pesanPortBentrok, portBentrok } from "./uat/pesan";
+import {
+  isiEnvAwal,
+  PESAN_DOCKER_MATI,
+  PESAN_DOCKER_TIDAK_ADA,
+  pesanPortBentrok,
+  pesanPortLama,
+  portBentrok,
+  portLamaDiEnv,
+} from "./uat/pesan";
 
 function catat(pesan: string) {
   console.log(`\n[uat] ${pesan}`);
@@ -41,6 +50,9 @@ function siapkanEnv() {
     writeFileSync(".env", isiEnvAwal(readFileSync(".env.example", "utf8"), randomBytes(32).toString("base64")));
     catat("Membuat .env dari .env.example (email dan kata sandi admin pertama ada di berkas itu).");
   }
+  // .env dari sebelum T74 masih memakai port lama; pemilik mengubahnya sendiri, .env tidak diubah diam-diam.
+  const temuan = portLamaDiEnv(parseEnv(readFileSync(".env", "utf8")));
+  if (temuan.length > 0) gagal(pesanPortLama(temuan));
   muatEnv({ path: ".env", quiet: true });
 }
 
@@ -86,14 +98,14 @@ function jalankanTerus(nama: string, argumen: string[]): ChildProcess {
   return proses;
 }
 
-periksaDocker();
 siapkanEnv();
-const urlAplikasi = new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3000");
-const portAplikasi = Number(urlAplikasi.port || 3000);
+periksaDocker();
+const urlAplikasi = new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3100");
+const portAplikasi = Number(urlAplikasi.port || 3100);
 if (!(await portBebas(portAplikasi))) gagal(pesanPortBentrok(portAplikasi));
 
 nyalakanLayanan();
-await tunggu(`${process.env.S3_ENDPOINT ?? "http://localhost:9000"}/minio/health/live`, "MinIO", 60_000);
+await tunggu(`${process.env.S3_ENDPOINT ?? "http://localhost:59000"}/minio/health/live`, "MinIO", 60_000);
 jalankan("Menjalankan migrasi database...", "pnpm", ["db:migrate"]);
 jalankan("Membuat admin pertama...", "pnpm", ["db:seed-admin"]);
 jalankan("Mengisi 5 gudang dan 25 toko (tanpa hubungan toko–gudang)...", "pnpm", ["db:seed-master"]);

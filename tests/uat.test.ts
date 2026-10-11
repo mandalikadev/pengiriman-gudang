@@ -1,8 +1,13 @@
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
+import { parse as parseEnv } from "dotenv";
 import { describe, expect, it } from "vitest";
 
-import { isiEnvAwal, pesanPortBentrok, portBentrok } from "../scripts/uat/pesan";
+import { isiEnvAwal, pesanPortBentrok, pesanPortLama, portBentrok, portLamaDiEnv } from "../scripts/uat/pesan";
 
 // Paket UAT lokal (T99): bagian murni `pnpm uat` dan cakupan skenario docs/UAT.md.
 
@@ -50,6 +55,114 @@ describe("portBentrok", () => {
 
   it("pesan untuk pemilik menyebut portnya", () => {
     expect(pesanPortBentrok(5432)).toContain("Port 5432 sudah dipakai program lain");
+  });
+});
+
+describe("portLamaDiEnv (T74)", () => {
+  const envBaru = {
+    DATABASE_URL: "postgres://mandalika:mandalika@localhost:55432/mandalika",
+    S3_ENDPOINT: "http://localhost:59000",
+    BETTER_AUTH_URL: "http://localhost:3100",
+  };
+
+  it("port baru → tidak ada temuan", () => {
+    expect(portLamaDiEnv(envBaru)).toEqual([]);
+  });
+
+  it("menemukan setiap variabel yang masih memakai port lama 5432, 9000, 9001, atau 3000", () => {
+    expect(
+      portLamaDiEnv({
+        DATABASE_URL: "postgres://mandalika:mandalika@localhost:5432/mandalika",
+        S3_ENDPOINT: "http://localhost:9000",
+        BETTER_AUTH_URL: "http://localhost:3000",
+      }),
+    ).toEqual([
+      { variabel: "DATABASE_URL", portLama: 5432, portBaru: 55432 },
+      { variabel: "S3_ENDPOINT", portLama: 9000, portBaru: 59000 },
+      { variabel: "BETTER_AUTH_URL", portLama: 3000, portBaru: 3100 },
+    ]);
+    expect(portLamaDiEnv({ ...envBaru, S3_ENDPOINT: "http://localhost:9001" })).toEqual([
+      { variabel: "S3_ENDPOINT", portLama: 9001, portBaru: 59000 },
+    ]);
+  });
+
+  it("DATABASE_URL tanpa port berarti port bawaan PostgreSQL 5432 (lama)", () => {
+    expect(portLamaDiEnv({ ...envBaru, DATABASE_URL: "postgres://mandalika:mandalika@localhost/mandalika" })).toEqual([
+      { variabel: "DATABASE_URL", portLama: 5432, portBaru: 55432 },
+    ]);
+  });
+
+  it("pesan menyebut port lama, variabel, dan nilai yang harus ditulis di .env", () => {
+    const pesan = pesanPortLama([
+      { variabel: "DATABASE_URL", portLama: 5432, portBaru: 55432 },
+      { variabel: "BETTER_AUTH_URL", portLama: 3000, portBaru: 3100 },
+    ]);
+    expect(pesan).toContain(".env");
+    expect(pesan).toContain("DATABASE_URL memakai port lama 5432, ganti menjadi 55432");
+    expect(pesan).toContain("BETTER_AUTH_URL memakai port lama 3000, ganti menjadi 3100");
+    expect(pesan).toContain(".env.example");
+    expect(pesan).toContain("tidak mengubah .env");
+  });
+});
+
+describe("pnpm uat dengan .env berport lama (T74)", () => {
+  it("berhenti dengan pesan yang jelas dan tidak mengubah .env", () => {
+    const folder = mkdtempSync(join(tmpdir(), "uat-port-lama-"));
+    try {
+      const envLama = [
+        "DATABASE_URL=postgres://mandalika:mandalika@localhost:5432/mandalika",
+        "BETTER_AUTH_SECRET=rahasia-acak-minimal-32-karakter-0123456789",
+        "BETTER_AUTH_URL=http://localhost:3000",
+        "S3_ENDPOINT=http://localhost:9000",
+        "",
+      ].join("\n");
+      writeFileSync(join(folder, ".env"), envLama);
+      writeFileSync(join(folder, ".env.example"), baca(".env.example"));
+      const lingkungan = { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "", NODE_ENV: "test" } as const;
+      const hasil = spawnSync(
+        fileURLToPath(new URL("../node_modules/.bin/tsx", import.meta.url)),
+        [fileURLToPath(new URL("../scripts/uat.ts", import.meta.url))],
+        { cwd: folder, env: lingkungan, encoding: "utf8", timeout: 60_000 },
+      );
+      expect(hasil.status).toBe(1);
+      expect(hasil.stderr).toContain("DATABASE_URL memakai port lama 5432, ganti menjadi 55432");
+      expect(hasil.stderr).toContain("S3_ENDPOINT memakai port lama 9000, ganti menjadi 59000");
+      expect(hasil.stderr).toContain("BETTER_AUTH_URL memakai port lama 3000, ganti menjadi 3100");
+      expect(readFileSync(join(folder, ".env"), "utf8")).toBe(envLama);
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
+  }, 60_000);
+});
+
+describe("port lokal khusus proyek (T74)", () => {
+  it(".env.example memakai port baru", () => {
+    const contoh = parseEnv(baca(".env.example"));
+    expect(portLamaDiEnv(contoh)).toEqual([]);
+    expect(contoh.DATABASE_URL).toBe("postgres://mandalika:mandalika@localhost:55432/mandalika");
+    expect(contoh.S3_ENDPOINT).toBe("http://localhost:59000");
+    expect(contoh.BETTER_AUTH_URL).toBe("http://localhost:3100");
+  });
+
+  it("docker-compose.yml memetakan port host 55432, 59000, dan 59001 ke port container bawaan", () => {
+    const compose = baca("docker-compose.yml");
+    expect(compose).toContain('"55432:5432"');
+    expect(compose).toContain('"59000:9000"');
+    expect(compose).toContain('"59001:9001"');
+    expect(compose).not.toMatch(/"(5432|9000|9001):/);
+  });
+
+  it("pnpm dev menjalankan aplikasi di port 3100", () => {
+    const paket = JSON.parse(baca("package.json")) as { scripts: Record<string, string> };
+    expect(paket.scripts.dev).toBe("next dev --port 3100");
+  });
+
+  it("docs/UAT.md merujuk port baru dan tidak lagi merujuk port lama", () => {
+    const uat = baca("docs/UAT.md");
+    expect(uat).toContain("http://localhost:3100");
+    for (const port of ["55432", "59000", "59001"]) expect(uat).toContain(port);
+    expect(uat).not.toMatch(/localhost:(3000|5432|9000|9001)\b/);
+    expect(uat).not.toMatch(/\bPort (3000|5432|9000|9001)\b/);
   });
 });
 
