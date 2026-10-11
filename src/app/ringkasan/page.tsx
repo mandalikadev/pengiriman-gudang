@@ -637,6 +637,28 @@ function FilterTerapan({ bulanPilihan, filter }: { bulanPilihan: string[]; filte
   );
 }
 
+/**
+ * Kartu jumlah per kategori hari di atas tabel (T80, PRD A2 ▶ Keputusan 2026-10-11). Angka dari server: jumlah
+ * Rata-rata Ringkasan per baris dari seluruh hasil filter yang diterapkan. Zona kerja: tanpa efek hover (DESIGN §1, §4).
+ */
+function KartuJumlahRingkasan({ jumlah }: { jumlah: Record<KategoriDasar, number> }) {
+  return (
+    <section aria-label="Jumlah rata-rata per kategori hari" data-kartu-jumlah-ringkasan>
+      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {KATEGORI.map((kategori) => (
+          <li key={kategori}>
+            <Card className="h-full gap-2" data-kartu-kategori={kategori} data-jumlah={jumlah[kategori]}>
+              <CardTitle className="text-base">{kategori}</CardTitle>
+              <span className="font-heading text-4xl font-bold text-foreground tabular-nums">{formatAngka(jumlah[kategori])}</span>
+              <CardDescription>Jumlah rata-rata produk/toko · seluruh hasil filter</CardDescription>
+            </Card>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** Zona kerja (DESIGN §1). Semua pengguna yang sudah masuk; viewer melihat semua toko (OD-07). */
 export default async function HalamanRingkasan({ searchParams }: { searchParams: Promise<ParameterUrl> }) {
   await wajibMasuk();
@@ -705,6 +727,7 @@ export default async function HalamanRingkasan({ searchParams }: { searchParams:
               ) : null}
             </div>
           )}
+          {hasil.keadaan === "siap" ? <KartuJumlahRingkasan jumlah={hasil.jumlahRataRataRingkasan} /> : null}
           {hasil.keadaan === "siap" && hasil.mingguSama !== null ? (
             <PerbandinganMingguSama
               mingguSama={hasil.mingguSama}

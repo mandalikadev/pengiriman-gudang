@@ -90,6 +90,12 @@ export type HasilRingkasan =
       bulanPilihan: string[];
       filterAktif: FilterAktif;
       baris: BarisRingkasan[];
+      /**
+       * Kartu jumlah (PRD A2 ▶ Keputusan 2026-10-11): per kategori hari, jumlah Rata-rata Ringkasan per baris
+       * produk–toko (sudah dibulatkan per baris) dari seluruh hasil filter, bukan hanya halaman tabel. Baris tanpa
+       * nilai tidak menambah apa pun. Bukan total penjualan.
+       */
+      jumlahRataRataRingkasan: Record<KategoriDasar, number>;
       /** `null` = belum ada produk–toko yang dipilih untuk perbandingan minggu sama. */
       mingguSama: MingguSamaTerpilih | null;
       /** `null` = belum ada angka Ringkasan yang dibuka rinciannya (T37). */
@@ -288,6 +294,39 @@ async function hitungBaris(
   });
 }
 
+/**
+ * Jumlah Rata-rata Ringkasan per kategori hari dari semua pasangan produk–toko hasil periode dan filter yang
+ * diterapkan. Setiap pasangan dihitung tahap 3 (`hitungRingkasan`) seperti baris tabel, lalu angkanya dijumlahkan.
+ */
+async function jumlahkanRataRataRingkasan(
+  tx: Tx,
+  { pilihan, sesuaiFilter }: PilihanTerperiksa,
+): Promise<Record<KategoriDasar, number>> {
+  const bulanan = await tx
+    .select({
+      tokoId: cacheRataRataBulanan.tokoId,
+      kodeProduk: cacheRataRataBulanan.kodeProduk,
+      bulanLaporan: cacheRataRataBulanan.bulanLaporan,
+      kategori: cacheRataRataBulanan.kategori,
+      rataRataBulanan: cacheRataRataBulanan.rataRataBulanan,
+      kelengkapan: cacheRataRataBulanan.kelengkapan,
+    })
+    .from(cacheRataRataBulanan)
+    .where(sesuaiFilter);
+  const perPasangan = new Map<string, typeof bulanan>();
+  for (const b of bulanan) {
+    const k = `${b.tokoId}|${b.kodeProduk}`;
+    const daftar = perPasangan.get(k);
+    if (daftar === undefined) perPasangan.set(k, [b]);
+    else daftar.push(b);
+  }
+  const jumlah = Object.fromEntries(KATEGORI.map((kategori) => [kategori, 0])) as Record<KategoriDasar, number>;
+  for (const daftar of perPasangan.values()) {
+    for (const r of hitungRingkasan(daftar, pilihan)) jumlah[r.kategori] += r.rataRataRingkasan;
+  }
+  return jumlah;
+}
+
 /** Pasangan produk–toko dari subquery `pasanganUnik`, dengan nama toko, nama produk, dan kategori produk. */
 function pilihPasangan(tx: Tx, pasanganUnik: ReturnType<typeof pasanganUnikDari>) {
   return tx
@@ -396,6 +435,7 @@ export async function muatRingkasan({
         bulanPilihan: pilihan,
         filterAktif,
         baris: await hitungBaris(tx, terperiksa, pasangan, milikHalaman),
+        jumlahRataRataRingkasan: await jumlahkanRataRataRingkasan(tx, terperiksa),
         mingguSama: hasilMingguSama,
         rincian: hasilRincian,
         jumlahBaris: jumlah,

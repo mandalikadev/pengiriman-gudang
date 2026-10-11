@@ -9,6 +9,7 @@ import { aktifkanImpor } from "@/server/impor/impor";
 import { pastikanBucket } from "@/server/impor/penyimpanan";
 import { buatWorkbookUji, imporUji, kodeProdukUji, sheetPenjualanUji, tahunUji, type ProdukUji } from "@/server/impor/uji-bantu";
 import { hitungUlangCacheLaporan } from "@/server/laporan/cache";
+import { parseTanggalBisnis, posisiLaporan, type KategoriDasar } from "@/domain/kalender";
 
 const kepala = vi.hoisted(() => ({ cookie: "" }));
 // PRD C1: membuka halaman tidak menghitung laporan bertahap dari data harian; hanya tahap 3 dari cache.
@@ -697,5 +698,165 @@ describe("/ringkasan: penelusuran angka sampai sel sumber (T37, PRD A1, A2)", ()
       expect(ringkasan).toEqual([]);
       expect(sumber).toEqual([]);
     }
+  });
+});
+
+describe("/ringkasan: kartu jumlah rata-rata per kategori hari (T80, PRD A2 ▶ Keputusan 2026-10-11)", () => {
+  const LABEL_KARTU = "Jumlah rata-rata produk/toko · seluruh hasil filter";
+
+  /** Tanggal-tanggal `bulan` `tahun` yang kategori dasarnya `kategori`. */
+  function hariKategori(tahun: number, bulan: number, kategori: KategoriDasar, sampai: number) {
+    return Array.from({ length: sampai }, (_, i) => i + 1).filter(
+      (h) => posisiLaporan(parseTanggalBisnis(`${tahun}-${String(bulan).padStart(2, "0")}-${String(h).padStart(2, "0")}`)).kategoriDasar === kategori,
+    );
+  }
+
+  /**
+   * Toko A, Juni (1–30, semua tanggal teramati): 51 produk P dengan Senin–Kamis 1, Jumat 0 (nol teramati), Sabtu 2,
+   * Minggu 1 per tanggal → Ringkasan (1, 0, 2, 1); produk R hanya Sabtu 1.
+   * Toko A, Juli (hanya Sabtu): R Sabtu 2 → R Sabtu ⌈(1 + 2) / 2⌉ = 2 (bukan 1,5); Q Sabtu 3, kategori lain Q tidak tersedia.
+   * Toko B, Agustus (hanya Sabtu): S Sabtu 5.
+   * Kategori produk Q dan R acak agar bisa disaring tanpa mengenai data test lain.
+   */
+  async function siapkan() {
+    const admin = await buatPenggunaUji("admin");
+    const tahun = tahunUji();
+    const [tokoA, tokoB] = [await buatTokoUji(), await buatTokoUji()];
+    const kodeP = Array.from({ length: 51 }, () => kodeProdukUji());
+    const [kodeQ, kodeR, kodeS] = [kodeProdukUji(), kodeProdukUji(), kodeProdukUji()];
+    const kategoriQR = `KAT QR ${kodeQ}`;
+    const juni = Array.from({ length: 30 }, (_, i) => i + 1);
+    const nilaiJuni = (nilai: Record<KategoriDasar, number>) =>
+      juni.map((h) => nilai[posisiLaporan(parseTanggalBisnis(`${tahun}-06-${String(h).padStart(2, "0")}`)).kategoriDasar]);
+    await imporAktif({
+      idAdmin: admin.id,
+      toko: tokoA.nama,
+      tahun,
+      bulan: 6,
+      hari: juni,
+      produk: [
+        ...kodeP.map((kode) => produkUji(kode, nilaiJuni({ "Senin–Kamis": 1, Jumat: 0, Sabtu: 2, Minggu: 1 }))),
+        { ...produkUji(kodeR, nilaiJuni({ "Senin–Kamis": 0, Jumat: 0, Sabtu: 1, Minggu: 0 })), kategori: kategoriQR },
+      ],
+    });
+    const sabtuJuli = hariKategori(tahun, 7, "Sabtu", 31);
+    await imporAktif({
+      idAdmin: admin.id,
+      toko: tokoA.nama,
+      tahun,
+      bulan: 7,
+      hari: sabtuJuli,
+      produk: [
+        { ...produkUji(kodeR, sabtuJuli.map(() => 2)), kategori: kategoriQR },
+        { ...produkUji(kodeQ, sabtuJuli.map(() => 3)), kategori: kategoriQR },
+      ],
+    });
+    const sabtuAgustus = hariKategori(tahun, 8, "Sabtu", 31);
+    await imporAktif({
+      idAdmin: admin.id,
+      toko: tokoB.nama,
+      tahun,
+      bulan: 8,
+      hari: sabtuAgustus,
+      produk: [produkUji(kodeS, sabtuAgustus.map(() => 5))],
+    });
+    await hitungUlangCacheLaporan();
+    const bulan = [`${tahun}-06`, `${tahun}-07`, `${tahun}-08`];
+    return { tokoA, tokoB, kodeP, kodeQ, kodeR, kodeS, kategoriQR, bulan };
+  }
+
+  /** Bagian kartu jumlah: angka per kategori hari dan isi HTML-nya. */
+  function kartu(html: string) {
+    const bagian = /<section[^>]*data-kartu-jumlah-ringkasan[^>]*>(.*?)<\/section>/.exec(html)?.[1];
+    if (bagian === undefined) throw new Error("Kartu jumlah tidak ada.");
+    const jumlah = Object.fromEntries(
+      [...bagian.matchAll(/data-kartu-kategori="([^"]+)"[^>]*data-jumlah="(\d+)"/g)].map(([, kategori, n]) => [kategori, Number(n)]),
+    );
+    return { bagian, jumlah };
+  }
+
+  it("angka kartu = jumlah Rata-rata Ringkasan per baris dari seluruh hasil filter, bukan hanya halaman yang dibuka", async () => {
+    const d = await siapkan();
+    const parameter = { bulan: d.bulan, toko: String(d.tokoA.id) };
+    const halaman1 = await buka("viewer", parameter);
+    expect(halaman1).toContain("Halaman 1 dari 2");
+    // Senin–Kamis 51 × 1; Jumat 0; Sabtu 51 × 2 + R 2 + Q 3; Minggu 51 × 1.
+    const harapan = { "Senin–Kamis": 51, Jumat: 0, Sabtu: 107, Minggu: 51 };
+    expect(kartu(halaman1).jumlah).toEqual(harapan);
+    expect(kartu(await buka("viewer", { ...parameter, halaman: "2" })).jumlah).toEqual(harapan);
+
+    // R Sabtu di tabel = 2 (sudah dibulatkan per baris); kartu menjumlahkan angka itu, bukan 1,5.
+    const html = await buka("viewer", { ...parameter, produk: d.kodeR });
+    expect(baris(html, d.tokoA.nama, d.kodeR).kategori.Sabtu.nilai).toBe("2");
+    expect(kartu(html).jumlah).toEqual({ "Senin–Kamis": 0, Jumat: 0, Sabtu: 2, Minggu: 0 });
+  });
+
+  it("baris dengan nilai tidak tersedia tidak menambah jumlah; nol teramati menambah 0", async () => {
+    const d = await siapkan();
+    const html = await buka("viewer", { bulan: d.bulan, produk: [d.kodeQ, d.kodeP[0]] });
+    const q = baris(html, d.tokoA.nama, d.kodeQ).kategori;
+    const p = baris(html, d.tokoA.nama, d.kodeP[0]).kategori;
+    expect(q["Senin–Kamis"].tersedia).toBe(false);
+    expect(q.Minggu.tersedia).toBe(false);
+    expect(p.Jumat).toMatchObject({ nilai: "0", tersedia: true });
+    expect(kartu(html).jumlah).toEqual({ "Senin–Kamis": 1, Jumat: 0, Sabtu: 5, Minggu: 1 });
+    // Kartu yang hanya berisi nol teramati tampil 0, bukan "—".
+    expect(kartu(html).bagian).toMatch(/data-kartu-kategori="Jumat"[^>]*data-jumlah="0"[^>]*>.*?>0</);
+  });
+
+  it("kartu mengikuti filter yang diterapkan di URL: toko, periode, kategori produk, dan produk (hasil cari)", async () => {
+    const d = await siapkan();
+    const tokoAB = [String(d.tokoA.id), String(d.tokoB.id)];
+    // Pilihan belum diterapkan tidak ada di URL: halaman yang sama memberi kartu yang sama.
+    const terapan = { bulan: d.bulan, toko: tokoAB };
+    expect(kartu(await buka("viewer", terapan)).jumlah).toEqual({ "Senin–Kamis": 51, Jumat: 0, Sabtu: 112, Minggu: 51 });
+    expect(kartu(await buka("viewer", terapan)).jumlah).toEqual({ "Senin–Kamis": 51, Jumat: 0, Sabtu: 112, Minggu: 51 });
+    // Toko.
+    expect(kartu(await buka("viewer", { bulan: d.bulan, toko: String(d.tokoB.id) })).jumlah).toEqual({
+      "Senin–Kamis": 0,
+      Jumat: 0,
+      Sabtu: 5,
+      Minggu: 0,
+    });
+    // Periode: Juni saja → Q tidak ada, R Sabtu 1, S tidak ada.
+    expect(kartu(await buka("viewer", { bulan: d.bulan[0], toko: tokoAB })).jumlah).toEqual({
+      "Senin–Kamis": 51,
+      Jumat: 0,
+      Sabtu: 103,
+      Minggu: 51,
+    });
+    // Kategori produk.
+    expect(kartu(await buka("viewer", { ...terapan, kategoriProduk: d.kategoriQR })).jumlah).toEqual({
+      "Senin–Kamis": 0,
+      Jumat: 0,
+      Sabtu: 5,
+      Minggu: 0,
+    });
+    // Produk (hasil kotak cari diterapkan sebagai filter produk).
+    expect(kartu(await buka("viewer", { ...terapan, produk: [d.kodeS, d.kodeQ] })).jumlah).toEqual({
+      "Senin–Kamis": 0,
+      Jumat: 0,
+      Sabtu: 8,
+      Minggu: 0,
+    });
+  });
+
+  it("4 kartu berjudul kategori hari dengan label persis, tanpa kata total penjualan; Card, tabular-nums, di atas tabel", async () => {
+    const d = await siapkan();
+    const html = await buka("viewer", { bulan: d.bulan, toko: String(d.tokoA.id) });
+    const { bagian } = kartu(html);
+    const kartuKartu = [...bagian.matchAll(/<div[^>]*data-slot="card"[^>]*data-kartu-kategori="([^"]+)"[^>]*>(.*?)<\/div><\/li>/g)];
+    expect(kartuKartu.map(([, kategori]) => kategori)).toEqual(["Senin–Kamis", "Jumat", "Sabtu", "Minggu"]);
+    for (const [, kategori, isi] of kartuKartu) {
+      expect(isi).toContain(`>${kategori}</h3>`);
+      expect(isi).toContain(`>${LABEL_KARTU}</p>`);
+      expect(isi).toMatch(/class="[^"]*tabular-nums[^"]*"/);
+    }
+    expect(bagian.toLocaleLowerCase("id")).not.toContain("total penjualan");
+    // DESIGN §4: kartu rounded-3xl, border-border/60, shadow-soft.
+    expect(bagian).toMatch(/data-slot="card" class="[^"]*rounded-3xl[^"]*border-border\/60[^"]*shadow-soft/);
+    // DESIGN §2: label sekunder muted-foreground di atas card (bukan clay).
+    expect(bagian).not.toMatch(/text-clay/);
+    expect(html.indexOf("data-kartu-jumlah-ringkasan")).toBeLessThan(html.indexOf("data-baris="));
   });
 });
