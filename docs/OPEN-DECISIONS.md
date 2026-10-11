@@ -84,3 +84,8 @@ Daftar hal yang **belum diputuskan pemilik**. Agen tidak mengimplementasikan per
 | T66: urutan tampilan daftar masalah draft: kebutuhan tidak tersedia, belum dipetakan, stok negatif, stok belum diisi (2026-10-10) | PRD A6; T66 |
 | T61: stok untuk varian atau toko yang hilang dari draft setelah dihitung ulang tetap disimpan dan ditampilkan sebagai keterangan; dipakai kembali jika varian/toko itu muncul lagi (2026-10-10) | PRD A7; T61 |
 | T61: perubahan kalender hanya menandai draft yang terdampak: tanggal yang diubah masuk cakupan draft dan cakupan perubahannya mengenai toko di draft (semua toko atau toko itu) (2026-10-10) | PRD B9; T61 |
+| T62: finalisasi ulang boleh; menghasilkan versi baru, versi lama tetap utuh di riwayat, alasan wajib, versi baru ditandai jelas (2026-10-11) | PRD A7; T62 |
+| T62: toko yang hanya berisi produk manual boleh difinalisasi; toko tanpa varian tidak boleh dan tampil sebagai masalah "Tidak ada varian dari periode sumber untuk toko ini" (2026-10-11) | PRD A7; T62 |
+| T62: jika draft perlu dihitung ulang, hanya toko yang terdampak yang tertahan finalisasinya (2026-10-11) | PRD A7; T62 |
+| T65: draft gudang besar ditampilkan sebagai ringkasan per toko; rincian baris dibuka per toko (2026-10-11) | PRD C1; T65 |
+| T65: uji performa memakai 500 produk (workbook asli 358–359 produk) (2026-10-11) | PRD C1; T65 |
