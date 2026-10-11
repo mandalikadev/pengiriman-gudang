@@ -3,8 +3,8 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const tiruan = vi.hoisted(() => ({ simpanStok: vi.fn(), segarkan: vi.fn() }));
-vi.mock("./aksi-stok", () => ({ simpanStok: tiruan.simpanStok }));
+const tiruan = vi.hoisted(() => ({ simpanStok: vi.fn(), unggahStok: vi.fn(), segarkan: vi.fn() }));
+vi.mock("./aksi-stok", () => ({ simpanStok: tiruan.simpanStok, unggahStok: tiruan.unggahStok }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: tiruan.segarkan, push: () => {} }) }));
 
 import { pesanBelumPasti } from "@/components/keadaan-simpan";
@@ -87,11 +87,13 @@ async function kirim(wadah: HTMLElement) {
   });
 }
 
-const status = (wadah: HTMLElement) => wadah.querySelector("[data-keadaan]");
+/** Status simpan form stok (di baris tombol Simpan stok), bukan status unggah file. */
+const status = (wadah: HTMLElement) => wadah.querySelector('button[type="submit"]')?.parentElement?.querySelector("[data-keadaan]") ?? null;
 
 beforeEach(() => {
   window.localStorage.clear();
   tiruan.simpanStok.mockReset();
+  tiruan.unggahStok.mockReset();
   tiruan.segarkan.mockReset();
 });
 
@@ -281,5 +283,143 @@ describe("perlindungan draft input stok", () => {
       tautan.remove();
       window.history.replaceState(null, "", alamatAwal);
     }
+  });
+});
+
+// T83: unggah file stok. Hasil terisi diterapkan ke isian lokal lewat jalur yang sama dengan mengetik (belum disimpan,
+// perlindungan draft); varian tanpa baris di file tidak berubah; ringkasan hasil tampil dekat form dan hilang saat
+// halaman dimuat ulang.
+describe("unggah file stok", () => {
+  const HASIL_CONTOH = {
+    keadaan: "berhasil",
+    terisi: [{ kodeProduk: "UJI-A", stokAkhir: 20 }],
+    tidakDikenal: ["BACCARAT ELIXIR - 2ML EDP"],
+    jumlahDiabaikan: 1,
+    tidakValid: [{ nomor: 6, nama: "HOLY SWEET - 2ML EDP", alasan: 'Ending "abc" bukan bilangan bulat.' }],
+  };
+  const FILE = new File(["Name - Variant;Category;Ending\n"], "ENDING STOK.csv", { type: "text/csv" });
+
+  const isianFile = (wadah: HTMLElement) => {
+    const elemen = wadah.querySelector<HTMLInputElement>('input[type="file"][aria-label="Unggah file stok"]');
+    if (elemen === null) throw new Error("Isian file tidak ada.");
+    return elemen;
+  };
+  const tombolBaca = (wadah: HTMLElement) => {
+    const tombol = [...wadah.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Baca file");
+    if (tombol === undefined) throw new Error("Tombol Baca file tidak ada.");
+    return tombol;
+  };
+  function pilihFile(wadah: HTMLElement, file: File) {
+    const elemen = isianFile(wadah);
+    Object.defineProperty(elemen, "files", { value: [file], configurable: true });
+    act(() => {
+      elemen.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  }
+  async function bacaFile(wadah: HTMLElement) {
+    await act(async () => {
+      tombolBaca(wadah).click();
+    });
+  }
+  const ringkasan = (wadah: HTMLElement) => wadah.querySelector('[aria-label="Hasil unggahan file stok"]');
+
+  it("isian file dan tombol Baca file ada; tombol nonaktif sebelum file dipilih", () => {
+    const wadah = buka();
+    expect(isianFile(wadah).accept).toBe(".csv,.xlsx");
+    expect(tombolBaca(wadah).type).toBe("button");
+    expect(tombolBaca(wadah).disabled).toBe(true);
+    pilihFile(wadah, FILE);
+    expect(tombolBaca(wadah).disabled).toBe(false);
+    expect(ringkasan(wadah)).toBeNull();
+    expect(tiruan.unggahStok).not.toHaveBeenCalled();
+  });
+
+  it("hasil terisi mengisi isian sebagai belum disimpan; varian tanpa baris tidak berubah; ringkasan tampil lalu hilang saat muat ulang", async () => {
+    tiruan.unggahStok.mockResolvedValue(HASIL_CONTOH);
+    const wadah = buka();
+    pilihFile(wadah, FILE);
+    await bacaFile(wadah);
+
+    expect(tiruan.unggahStok).toHaveBeenCalledTimes(1);
+    const form = tiruan.unggahStok.mock.calls[0][0] as FormData;
+    expect(form.get("idGudang")).toBe("3");
+    expect(form.get("tanggalKirim")).toBe("2026-06-08");
+    expect(form.get("tokoId")).toBe("7");
+    expect((form.get("file") as File).name).toBe("ENDING STOK.csv");
+
+    expect(isian(wadah, "UJI-A").value).toBe("20");
+    expect(isian(wadah, "UJI-B").value).toBe("5");
+    expect(status(wadah)?.textContent).toBe("Ada perubahan yang belum disimpan");
+    expect(wadah.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(false);
+    expect(tiruan.simpanStok).not.toHaveBeenCalled();
+
+    const teks = ringkasan(wadah)?.textContent ?? "";
+    expect(teks).toContain("1 varian terisi dari file");
+    expect(teks).toContain("1 nama tidak dikenal");
+    expect(teks).toContain("BACCARAT ELIXIR - 2ML EDP");
+    expect(teks).toContain("Admin memetakan nama ini di Alias nama stok.");
+    expect(teks).toContain("1 baris diabaikan (bukan varian toko ini)");
+    expect(teks).toContain("1 baris nilai tidak valid");
+    expect(teks).toContain("Baris 6");
+    expect(teks).toContain("HOLY SWEET - 2ML EDP");
+    expect(teks).toContain('Ending "abc" bukan bilangan bulat.');
+    // Status selalu ikon + teks (DESIGN §7).
+    expect(ringkasan(wadah)?.querySelectorAll("svg").length).toBe(4);
+
+    // Muat ulang: isian yang belum disimpan dipulihkan (perlindungan draft), ringkasan tidak.
+    const setelahMuatUlang = buka();
+    expect(isian(setelahMuatUlang, "UJI-A").value).toBe("20");
+    expect(status(setelahMuatUlang)?.textContent).toBe("Ada perubahan yang belum disimpan");
+    expect(ringkasan(setelahMuatUlang)).toBeNull();
+  });
+
+  it("stok kosong di file mengosongkan isian (belum diketahui); hasil tanpa varian tak dikenal/diabaikan/tidak valid hanya menampilkan jumlah terisi", async () => {
+    tiruan.unggahStok.mockResolvedValue({
+      keadaan: "berhasil",
+      terisi: [
+        { kodeProduk: "UJI-B", stokAkhir: null },
+        { kodeProduk: "UJI-LAMA", stokAkhir: 9 },
+      ],
+      tidakDikenal: [],
+      jumlahDiabaikan: 0,
+      tidakValid: [],
+    });
+    const wadah = buka();
+    pilihFile(wadah, FILE);
+    await bacaFile(wadah);
+    expect(isian(wadah, "UJI-B").value).toBe("");
+    expect(status(wadah)?.getAttribute("data-keadaan")).toBe("belumDisimpan");
+    const teks = ringkasan(wadah)?.textContent ?? "";
+    expect(teks).toContain("2 varian terisi dari file");
+    expect(teks).not.toContain("tidak dikenal");
+    expect(teks).not.toContain("diabaikan");
+    expect(teks).not.toContain("tidak valid");
+    // Hanya varian toko ini yang diterapkan.
+    expect(window.localStorage.getItem(KUNCI)).toBe(JSON.stringify({ "UJI-B": "" }));
+
+    tiruan.simpanStok.mockResolvedValue({ keadaan: "berhasil" });
+    await kirim(wadah);
+    expect(tiruan.simpanStok).toHaveBeenCalledWith(expect.objectContaining({ stok: [{ kodeProduk: "UJI-B", stokAkhir: null }] }));
+  });
+
+  it("gagal membaca file: pesan tampil, isian tidak berubah", async () => {
+    tiruan.unggahStok.mockResolvedValue({ keadaan: "gagal", pesan: "Judul kolom Ending tidak ditemukan di baris pertama." });
+    const wadah = buka();
+    pilihFile(wadah, FILE);
+    await bacaFile(wadah);
+    expect(wadah.querySelector('[role="alert"]')?.textContent).toContain("Judul kolom Ending tidak ditemukan di baris pertama.");
+    expect(ringkasan(wadah)).toBeNull();
+    expect(isian(wadah, "UJI-A").value).toBe("");
+    expect(status(wadah)).toBeNull();
+  });
+
+  it("gangguan jaringan saat membaca file: pesan gagal tampil, tidak diulang otomatis", async () => {
+    tiruan.unggahStok.mockRejectedValue(new TypeError("Failed to fetch"));
+    const wadah = buka();
+    pilihFile(wadah, FILE);
+    await bacaFile(wadah);
+    expect(tiruan.unggahStok).toHaveBeenCalledTimes(1);
+    expect(wadah.querySelector('[role="alert"]')?.textContent).toContain("File tidak terbaca karena server tidak menjawab. Coba lagi.");
+    expect(status(wadah)).toBeNull();
   });
 });

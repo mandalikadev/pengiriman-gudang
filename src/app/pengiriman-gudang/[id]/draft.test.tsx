@@ -446,10 +446,13 @@ describe("input stok di draft rencana (T59)", () => {
     const hanyaBaca = await bukaToko(tokoContoh.id);
     expect(baris(hanyaBaca, kode.contoh)).toMatch(/data-stok-akhir="kosong"[^>]*>.*?—.*?data-status="belumDiketahui".*?lucide-circle-dashed.*?Belum diketahui/);
     expect(hanyaBaca).not.toContain("Simpan stok");
+    // T83: isian unggah file stok juga hanya untuk operator berhak input-stok.
+    expect(hanyaBaca).not.toContain("Unggah file stok");
 
     await masukOperator(cibubur, ["input-stok"]);
     const sebelum = await bukaToko(tokoContoh.id);
     expect(baris(sebelum, kode.contoh)).toMatch(new RegExp(`<input[^>]*aria-label="Stok akhir ${kode.contoh}"`));
+    expect(sebelum).toMatch(/<input[^>]*type="file"[^>]*aria-label="Unggah file stok"/);
     expect(sebelum).toMatch(new RegExp(`data-draft-toko="${tokoContoh.id}".*?<button[^>]*type="submit"[^>]*>Simpan stok<`));
 
     const [contoh] = golden.kasusJumlahKirim;

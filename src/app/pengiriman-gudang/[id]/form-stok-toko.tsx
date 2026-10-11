@@ -9,16 +9,18 @@ import { usePenyimpanan } from "@/components/keadaan-simpan";
 import { PesanStatusSimpan } from "@/components/pesan-status-simpan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { STOK_MAKS } from "@/domain/batas-stok";
 
 import { simpanStok } from "./aksi-stok";
-import { STOK_MAKS } from "./batas-stok";
 import { bacaIsianLokal, kunciIsianLokal, langgananIsianLokal, teksStok, tulisIsianLokal, uraiIsianLokal } from "./isian-lokal";
 import { usePeringatanTinggalkan } from "./perlindungan-draft";
+import { UnggahStok } from "./unggah-stok";
 
 // Form stok akhir satu toko di draft rencana (T59; PRD A6, A7). Isian kosong = belum diketahui (`null`), bukan nol; stok
 // negatif boleh. Simpan per toko dengan lima keadaan (CODING_STANDARDS); hasil belum pasti tidak diulang otomatis.
 // Perlindungan draft: isian yang belum disimpan disimpan di penyimpanan lokal peramban dan dipulihkan setelah muat ulang
 // atau gangguan akses, sampai berhasil disimpan; meninggalkan halaman memunculkan peringatan.
+// Unggah file stok (T83): hasil terisi diterapkan lewat jalur isian yang sama dengan mengetik (`ubahBanyak`).
 
 const PESAN_ISIAN_TIDAK_VALID = "Isi bilangan bulat, atau kosongkan jika belum diketahui.";
 
@@ -85,11 +87,16 @@ export function FormStokToko({
   const keadaan =
     tampilan !== null && tampilan.keadaan !== "belumDisimpan" ? tampilan : belumDisimpan ? { keadaan: "belumDisimpan" as const } : null;
 
-  function ubah(kodeProduk: string, nilai: string) {
-    const baru = { ...isian, [kodeProduk]: nilai };
+  /** Mengubah isian beberapa varian sekaligus; kode yang bukan varian toko ini di draft diabaikan. */
+  function ubahBanyak(perubahan: Readonly<Record<string, string>>) {
+    const baru = { ...isian, ...Object.fromEntries(Object.entries(perubahan).filter(([k]) => Object.hasOwn(tersimpan, k))) };
     const berubah = Object.fromEntries(Object.entries(baru).filter(([k, v]) => v !== tersimpan[k]));
     tulisIsianLokal(kunci, Object.keys(berubah).length > 0 ? berubah : null);
     tandaiBerubah();
+  }
+
+  function ubah(kodeProduk: string, nilai: string) {
+    ubahBanyak({ [kodeProduk]: nilai });
   }
 
   const tidakValid = berbeda.filter((k) => bacaIsianStok(isian[k]) === undefined);
@@ -122,6 +129,13 @@ export function FormStokToko({
           );
         }}
       >
+        <UnggahStok
+          idGudang={idGudang}
+          tanggalKirim={tanggalKirim}
+          tokoId={tokoId}
+          menunggu={menunggu}
+          terapkan={(terisi) => ubahBanyak(Object.fromEntries(terisi.map((s) => [s.kodeProduk, teksStok(s.stokAkhir)])))}
+        />
         {children}
         <div className="flex flex-wrap items-center gap-4">
           <Button type="submit" disabled={menunggu || !belumDisimpan} className="active:scale-95">
