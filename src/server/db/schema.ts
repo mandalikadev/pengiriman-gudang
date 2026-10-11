@@ -1093,3 +1093,25 @@ export const barisRencanaFinal = pgTable(
     ),
   ],
 );
+
+// --- Alias nama stok (T82, PRD A6 ▶ Keputusan 2026-10-12 UAT: unggah file stok dan alias nama stok) ---
+
+/**
+ * Nama produk di file stok kasir yang dipetakan admin ke tepat satu kode produk (CONTEXT "Alias nama stok").
+ * `alias` disimpan setelah normalisasi (`normalisasiNamaStok`) dan unik: satu alias hanya untuk satu produk; satu
+ * produk boleh punya beberapa alias. Nama master produk tidak disimpan di sini (berlaku sebagai alias bawaan).
+ */
+export const aliasNamaStok = pgTable(
+  "alias_nama_stok",
+  {
+    alias: text("alias").primaryKey(),
+    kodeProduk: text("kode_produk")
+      .notNull()
+      .references(() => produk.kode),
+    dibuatOleh: text("dibuat_oleh")
+      .notNull()
+      .references(() => user.id),
+    dibuatPada: timestamp("dibuat_pada", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabel) => [index("alias_nama_stok_kode_produk_idx").on(tabel.kodeProduk)],
+);

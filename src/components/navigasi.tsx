@@ -51,6 +51,7 @@ const kelompokMenu: Kelompok[] = [
           { href: "/admin/ranking", label: "Ranking", akses: "admin" },
           { href: "/admin/keluarga-aroma", label: "Keluarga aroma", akses: "admin" },
           { href: "/admin/pemetaan-produk", label: "Pemetaan produk", akses: "admin" },
+          { href: "/admin/alias-stok", label: "Alias nama stok", akses: "admin" },
           { href: "/admin/libur", label: "Libur", akses: "admin" },
         ],
       },

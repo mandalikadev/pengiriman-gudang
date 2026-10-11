@@ -148,6 +148,13 @@
       "when": 1791693453580,
       "tag": "0020_nama_gudang_rencana_final",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791740153112,
+      "tag": "0021_alias_nama_stok",
+      "breakpoints": true
     }
   ]
 }

@@ -40,6 +40,7 @@ describe("Navigasi: kelompok menu per peran", () => {
       ["/admin/ranking", "Ranking"],
       ["/admin/keluarga-aroma", "Keluarga aroma"],
       ["/admin/pemetaan-produk", "Pemetaan produk"],
+      ["/admin/alias-stok", "Alias nama stok"],
       ["/admin/libur", "Libur"],
       ["/admin/gudang", "Gudang"],
       ["/admin/pengguna", "Pengguna"],
