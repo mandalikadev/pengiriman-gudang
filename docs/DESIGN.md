@@ -87,6 +87,12 @@ Hanya mode terang (ADR-0010).
 | Pesan status form | Komponen tetap untuk lima keadaan simpan dari CODING_STANDARDS. Diletakkan dekat bagian yang dikerjakan. |
 | Navigasi | Bar pil mengambang, `sticky top-4`, `bg-card/80 backdrop-blur-md`, logo dalam lingkaran moss. Item hanya untuk halaman yang sudah ada. Di layar kecil menjadi menu tarik `rounded-3xl`. |
 
+> ▶ Keputusan (2026-10-11): navigasi memakai **sidebar**, menggantikan bar pil mengambang (baris "Navigasi" di atas).
+> - **Desktop (≥ 1024 px):** sidebar tetap di kiri, lebar ±240 px, latar `card`, logo dalam lingkaran moss dan "MANDALIKA" di atas. Item aktif memakai latar `accent` + `accent-foreground` dan `aria-current="page"`. Di bawah: nama pengguna, peran, lalu "Keluar".
+> - **Kelompok menu:** Beranda; **Laporan** (Ringkasan, Kalender); **Operasional** (Pengiriman Gudang); **Admin**, hanya untuk admin, dengan subkelompok Data (Impor, Ranking, Keluarga aroma, Pemetaan produk, Libur) dan Organisasi (Gudang, Pengguna, Penugasan, Persetujuan jadwal).
+> - **Layar < 1024 px:** bar atas tipis berisi logo dan tombol menu; tombol membuka sidebar sebagai menu tarik `rounded-3xl`.
+> - Item tetap hanya untuk halaman yang sudah ada dan boleh dibuka peran itu. Konten utama berada di sebelah kanan sidebar; lebar konten tetap mengikuti §9.
+
 Ikon: lucide-react, stroke 2. Ukuran 20 px di zona kerja dan 28 px di zona suasana. Ikon fitur diletakkan dalam wadah `rounded-2xl bg-primary/10`.
 
 ## 7. Bahasa visual status
@@ -120,6 +126,16 @@ Kolom "Token" menentukan warna **ikon** dan latar badge, bukan warna teks. Teks 
 - Wadah aplikasi `max-w-7xl mx-auto px-4 sm:px-6 lg:px-8`. Halaman detail dan form tunggal memakai `max-w-3xl`.
 - Kerja utama dilakukan di laptop/desktop. Di layar kecil semua layar tetap bisa dibaca; tabel menggulir di dalam wadahnya sendiri, dan grid runtuh menjadi satu kolom.
 - Target sentuh minimal 44 px untuk kontrol utama. Input di dalam tabel (h-9) dikompensasi oleh area klik sel.
+
+> ▶ Keputusan (2026-10-11): isi **beranda** (zona suasana) sesuai peran. Semua data hanya dibaca dari yang sudah tersimpan, tanpa hitungan baru (PRD C1).
+> - **Sapaan:** "Selamat datang, <nama>", ditambah peran dan, untuk operator, gudang yang ditugaskan.
+> - **Kartu "Perlu tindakan"**: setiap kartu berisi jumlah dan tautan langsung ke halamannya, dan hanya tampil jika jumlahnya > 0.
+>   - Admin: usulan jadwal menunggu persetujuan; snapshot libur menunggu ditinjau; produk belum dipetakan; ranking bulan berjalan belum dipublikasikan; impor gagal atau menunggu diaktifkan.
+>   - Operator (gudang yang ditugaskan): draft yang perlu dihitung ulang; toko dengan baris tertahan; toko yang belum difinalisasi untuk tanggal kirim terdekat.
+> - Jika tidak ada kartu: keadaan kosong "Semua beres" (ikon + teks, §7).
+> - **Status data** (satu baris kecil): impor aktif terakhir dan status cache laporan.
+> - **Pintasan** 2–4 tombol ke halaman utama peran itu: admin (Impor, Ringkasan, Gudang), operator (Pengiriman Gudang, Ringkasan, Kalender).
+> - **Viewer:** sapaan, status data, dan pintasan ke Ringkasan dan Kalender saja.
 
 ## 10. Yang tidak diambil dari sumber
 
