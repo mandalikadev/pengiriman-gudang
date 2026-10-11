@@ -28,7 +28,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const rencana = await bacaRencanaFinal(gudang.id, Number(idRencana));
   if (rencana === null) return tolak(404, "Rencana final tidak ditemukan.");
 
-  return new Response(new Uint8Array(buatBerkasEkspor(gudang.nama, rencana)), {
+  return new Response(new Uint8Array(buatBerkasEkspor(rencana)), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="${namaBerkasEkspor(rencana)}"`,

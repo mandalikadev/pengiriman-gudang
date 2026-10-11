@@ -1000,6 +1000,8 @@ export const rencanaFinal = pgTable(
     gudangId: integer("gudang_id")
       .notNull()
       .references(() => gudang.id),
+    /** Nama gudang saat difinalisasi (snapshot). */
+    namaGudang: text("nama_gudang").notNull(),
     tokoId: integer("toko_id")
       .notNull()
       .references(() => toko.id),

@@ -87,7 +87,7 @@ export async function finalisasiRencanaToko({
 }): Promise<HasilFinalisasi> {
   return db.transaction(async (tx) => {
     // Kunci yang sama dengan menghitung draft dan menyimpan stok: ketiganya berjalan bergantian untuk gudang ini.
-    const [tujuan] = await tx.select({ id: gudang.id }).from(gudang).where(eq(gudang.id, idGudang)).for("update");
+    const [tujuan] = await tx.select({ id: gudang.id, nama: gudang.nama }).from(gudang).where(eq(gudang.id, idGudang)).for("update");
     if (!tujuan) return gagal("Gudang tidak ditemukan.");
 
     const [draft] = await tx
@@ -189,7 +189,8 @@ export async function finalisasiRencanaToko({
       .from(versiRanking)
       .where(eq(versiRanking.id, draft.versiRankingId));
     if (!jadwal || !ranking) return gagal(PESAN_PERLU_DIHITUNG_ULANG);
-    // Nama toko dan nama pemfinalisasi disalin agar tampilan rencana final tidak ikut berubah bila master diubah.
+    // Nama gudang (dari baris yang dikunci di atas), nama toko, dan nama pemfinalisasi disalin agar tampilan dan ekspor
+    // rencana final tidak ikut berubah bila master diubah.
     const [namaToko] = await tx.select({ nama: toko.nama }).from(toko).where(eq(toko.id, tokoId));
     const [pemfinalisasi] = await tx.select({ nama: user.name }).from(user).where(eq(user.id, idPengguna));
     if (!namaToko || !pemfinalisasi) return gagal(PESAN_DRAFT_BERUBAH_FINALISASI);
@@ -218,6 +219,7 @@ export async function finalisasiRencanaToko({
       .insert(rencanaFinal)
       .values({
         gudangId: idGudang,
+        namaGudang: tujuan.nama,
         tokoId,
         namaToko: namaToko.nama,
         tanggalKirim,
@@ -268,6 +270,8 @@ export type RencanaFinal = {
   versi: number;
   /** Alasan finalisasi ulang (versi ≥ 2); `null` untuk versi 1. */
   alasanFinalisasiUlang: string | null;
+  /** Nama gudang saat difinalisasi. */
+  gudang: { id: number; nama: string };
   /** Nama toko saat difinalisasi. */
   toko: { id: number; nama: string };
   tanggalKirim: TanggalBisnis;
@@ -298,6 +302,7 @@ export async function bacaRencanaFinal(idGudang: number, idRencana: number): Pro
     id: r.id,
     versi: r.versi,
     alasanFinalisasiUlang: r.alasanFinalisasiUlang,
+    gudang: { id: r.gudangId, nama: r.namaGudang },
     toko: { id: r.tokoId, nama: r.namaToko },
     tanggalKirim: parseTanggalBisnis(r.tanggalKirim),
     difinalisasiOleh: r.namaPemfinalisasi,

@@ -23,12 +23,12 @@ export function namaBerkasEkspor(rencana: Pick<RencanaFinal, "toko" | "tanggalKi
   return `rencana-final-${toko}-${rencana.tanggalKirim}-v${rencana.versi}.xlsx`;
 }
 
-/** Workbook `.xlsx` berisi satu sheet "Rencana final". `namaGudang` = nama gudang pemilik rencana. */
-export function buatBerkasEkspor(namaGudang: string, rencana: RencanaFinal): Buffer {
+/** Workbook `.xlsx` berisi satu sheet "Rencana final". */
+export function buatBerkasEkspor(rencana: RencanaFinal): Buffer {
   const { sumber, ranking } = rencana;
   const kepala: Sel[][] = [
     ["Rencana final"],
-    ["Gudang", namaGudang],
+    ["Gudang", rencana.gudang.nama],
     ["Tanggal kirim", formatTanggal(rencana.tanggalKirim)],
     ["Toko", rencana.toko.nama],
     ["Waktu finalisasi", formatWaktu(rencana.difinalisasiPada)],

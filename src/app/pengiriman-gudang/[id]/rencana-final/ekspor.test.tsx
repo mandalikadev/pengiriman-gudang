@@ -10,7 +10,7 @@ import { formatWaktu } from "@/app/admin/impor/format";
 import { parseTanggalBisnis, type KategoriDasar, type NamaHari } from "@/domain/kalender";
 import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
-import { draftRencana, hubunganTokoGudang, impor, jadwalToko, produk, rencanaFinal, toko, user } from "@/server/db/schema";
+import { draftRencana, gudang, hubunganTokoGudang, impor, jadwalToko, produk, rencanaFinal, toko, user } from "@/server/db/schema";
 import { bacaDraftRencana, hitungDraftRencana } from "@/server/gudang/draft-rencana";
 import { daftarHakTindakan, type HakTindakan } from "@/server/gudang/hak-tindakan";
 import { tugaskanOperator } from "@/server/gudang/penugasan";
@@ -237,7 +237,7 @@ describe("GET ekspor rencana final: isi berkas dari snapshot", () => {
     const sebelum = (await baca(await ekspor())).semua;
 
     // Impor baru (penjualan dua kali lipat), ranking baru tanpa keluarga contoh, pemetaan diubah, draft dihitung ulang
-    // dengan stok lain, serta nama toko, produk, dan pemfinalisasi diubah di master.
+    // dengan stok lain, serta nama gudang, toko, produk, dan pemfinalisasi diubah di master.
     await aktifkanImporJuniUji({
       idAdmin,
       tahun,
@@ -256,13 +256,16 @@ describe("GET ekspor rencana final: isi berkas dari snapshot", () => {
     expect(barisDraft?.kebutuhan).not.toBe(CONTOH.kebutuhan);
 
     const [{ nama: namaPemfinalisasi }] = await db.select({ nama: user.name }).from(user).where(eq(user.id, idOperator));
+    const [{ nama: namaGudang }] = await db.select({ nama: gudang.nama }).from(gudang).where(eq(gudang.id, cibubur));
     try {
+      await db.update(gudang).set({ nama: `${namaGudang} BARU` }).where(eq(gudang.id, cibubur));
       await db.update(toko).set({ nama: `${tokoA.nama} BARU` }).where(eq(toko.id, tokoA.id));
       await db.update(user).set({ name: "Nama baru operator" }).where(eq(user.id, idOperator));
       await db.update(produk).set({ nama: "NAMA PRODUK BARU" }).where(eq(produk.kode, kode.contoh));
 
       const sesudah = await baca(await ekspor());
       expect(sesudah.semua).toEqual(sebelum);
+      expect(sesudah.nilai("Gudang")).toBe(namaGudang);
       expect(sesudah.nilai("Toko")).toBe(tokoA.nama);
       expect(sesudah.baris.find((b) => b["Kode produk"] === kode.contoh)).toMatchObject({
         "Nama produk": NAMA_PRODUK,
@@ -271,6 +274,7 @@ describe("GET ekspor rencana final: isi berkas dari snapshot", () => {
         "Jumlah kirim": CONTOH.jumlahKirim,
       });
     } finally {
+      await db.update(gudang).set({ nama: namaGudang }).where(eq(gudang.id, cibubur));
       await db.update(toko).set({ nama: tokoA.nama }).where(eq(toko.id, tokoA.id));
       await db.update(user).set({ name: namaPemfinalisasi }).where(eq(user.id, idOperator));
       await db.update(produk).set({ nama: NAMA_PRODUK }).where(eq(produk.kode, kode.contoh));
