@@ -34,7 +34,10 @@ function pemakaianIkon(sumber: string): { nama: string; tag: string }[] {
 }
 
 // Berkas yang seluruh layarnya zona suasana (DESIGN §1), relatif terhadap src/.
-const berkasZonaSuasana = new Set([join("app", "pengiriman-gudang", "[id]", "rencana-final", "[idRencana]", "page.tsx")]);
+const berkasZonaSuasana = new Set([
+  join("app", "page.tsx"),
+  join("app", "pengiriman-gudang", "[id]", "rencana-final", "[idRencana]", "page.tsx"),
+]);
 
 const akar = join(import.meta.dirname, "..", "src");
 const semuaPemakaian = berkasTsx(akar).flatMap((berkas) =>
