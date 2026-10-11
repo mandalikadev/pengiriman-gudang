@@ -9,7 +9,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatTanggal, type TanggalBisnis } from "@/domain/kalender";
 import { cn } from "@/lib/utils";
 import type { AlasanHitungUlang } from "@/server/gudang/dasar-draft";
-import type { BarisDraft, DraftRencana, StokTidakDipakai, TokoDraft } from "@/server/gudang/draft-rencana";
+import type {
+  BarisDraft,
+  DraftRencana,
+  RingkasanDraftRencana,
+  RingkasanTokoDraft,
+  StokTidakDipakai,
+  TokoDraft,
+} from "@/server/gudang/draft-rencana";
 import { labelPersiapan, persiapanDariHari } from "@/server/gudang/pilihan-jadwal";
 import { MASALAH_TANPA_VARIAN } from "@/server/gudang/masalah-draft";
 
@@ -50,6 +57,16 @@ export function SelStok({ stokAkhir }: { stokAkhir: number | null }) {
   );
 }
 
+/** Masalah toko tanpa varian (PRD A7 ▶ Keputusan 2026-10-11, T62): ikon + teks seperti masalah baris (DESIGN §7). */
+function MasalahTanpaVarian() {
+  return (
+    <p data-tanpa-varian className="flex items-center gap-2 font-semibold">
+      <TriangleAlert aria-hidden strokeWidth={2} className="size-5 shrink-0 text-warning" />
+      {MASALAH_TANPA_VARIAN}
+    </p>
+  );
+}
+
 /** Ringkasan masalah per toko: jumlah baris tertahan (ikon + teks, DESIGN §7). */
 function RingkasanTertahan({ jumlah }: { jumlah: number }) {
   const Ikon = jumlah > 0 ? TriangleAlert : CircleCheck;
@@ -64,15 +81,33 @@ function RingkasanTertahan({ jumlah }: { jumlah: number }) {
 type InputStokDraft = { idGudang: number; tanggalKirim: TanggalBisnis } | null;
 
 /** Rincian perhitungan per baris (T60): `terbuka` = nilai URL `<id toko>|<kode produk>` baris yang rinciannya dibuka. */
-type RincianDraft = { idGudang: number; draft: DraftRencana; terbuka: string | null };
+type RincianDraft = {
+  idGudang: number;
+  draft: Pick<DraftRencana, "tanggalKirim" | "bulanSumber" | "ranking">;
+  terbuka: string | null;
+};
 
-/** Halaman draft ini, dengan rincian satu baris terbuka bila `rincian` diberikan. */
-function urlDraft(idGudang: number, tanggalKirim: TanggalBisnis, rincian?: string) {
+/** Id judul bagian satu toko yang dibuka; tujuan tautan `#…` saat toko dibuka (T73). */
+const idBagianToko = (tokoId: number) => `draft-toko-${tokoId}`;
+
+/**
+ * Halaman draft ini: tanpa `toko` = ringkasan per toko saja; dengan `toko` = toko itu dibuka (T73), dan dengan
+ * `rincian` = rincian satu baris toko itu terbuka (T60).
+ */
+function urlDraft(idGudang: number, tanggalKirim: TanggalBisnis, buka: { toko?: number; rincian?: string } = {}) {
   const parameter = new URLSearchParams({ tanggal: tanggalKirim });
-  if (rincian === undefined) return `/pengiriman-gudang/${idGudang}?${parameter.toString()}`;
-  parameter.set("rincian", rincian);
+  if (buka.toko === undefined) return `/pengiriman-gudang/${idGudang}?${parameter.toString()}`;
+  parameter.set("toko", String(buka.toko));
+  if (buka.rincian === undefined) return `/pengiriman-gudang/${idGudang}?${parameter.toString()}#${idBagianToko(buka.toko)}`;
+  parameter.set("rincian", buka.rincian);
   return `/pengiriman-gudang/${idGudang}?${parameter.toString()}#${ID_RINCIAN_BARIS}`;
 }
+
+const kelasDasarTautan =
+  "inline-flex min-h-11 items-center rounded-full px-4 font-semibold underline underline-offset-4 transition-colors duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+const kelasTautan = `${kelasDasarTautan} text-primary hover:bg-primary/10`;
+/** Tautan di baris terpilih (latar accent): primary di atas accent di bawah 4,5 : 1, jadi accent-foreground (DESIGN §2). */
+const kelasTautanBarisTerpilih = `${kelasDasarTautan} text-accent-foreground hover:bg-accent-foreground/10`;
 
 const JUMLAH_KOLOM_VARIAN = 8;
 
@@ -118,10 +153,10 @@ function TabelVarian({ toko, inputStok, rincian }: { toko: TokoDraft; inputStok:
                 </TableCell>
                 <TableCell className="align-top">
                   <Link
-                    href={urlDraft(idGudang, draft.tanggalKirim, nilaiRincian)}
+                    href={urlDraft(idGudang, draft.tanggalKirim, { toko: toko.id, rincian: nilaiRincian })}
                     aria-current={terbuka ? "true" : undefined}
                     data-tautan-rincian-baris={nilaiRincian}
-                    className="inline-flex min-h-11 items-center rounded-full px-4 font-semibold text-primary underline underline-offset-4 transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    className={kelasTautan}
                   >
                     Rincian
                     <span className="sr-only"> perhitungan {b.kodeProduk}</span>
@@ -131,7 +166,7 @@ function TabelVarian({ toko, inputStok, rincian }: { toko: TokoDraft; inputStok:
               {terbuka ? (
                 <TableRow>
                   <TableCell colSpan={JUMLAH_KOLOM_VARIAN}>
-                    <RincianBaris baris={b} toko={toko} draft={draft} urlTutup={urlDraft(idGudang, draft.tanggalKirim)} />
+                    <RincianBaris baris={b} toko={toko} draft={draft} urlTutup={urlDraft(idGudang, draft.tanggalKirim, { toko: toko.id })} />
                   </TableCell>
                 </TableRow>
               ) : null}
@@ -195,9 +230,9 @@ function TabelToko({
   finalisasi: FinalisasiDraft;
 }) {
   return (
-    <section aria-labelledby={`draft-toko-${toko.id}`} data-draft-toko={toko.id} className="flex flex-col gap-3">
+    <section aria-labelledby={idBagianToko(toko.id)} data-draft-toko={toko.id} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <h4 id={`draft-toko-${toko.id}`} className="text-lg font-semibold">
+        <h4 id={idBagianToko(toko.id)} className="scroll-mt-24 text-lg font-semibold">
           {toko.nama}
         </h4>
         {toko.versiFinal !== null ? (
@@ -214,11 +249,7 @@ function TabelToko({
         {toko.baris.length === 0 ? null : <RingkasanTertahan jumlah={toko.jumlahTertahan} />}
       </div>
       {toko.baris.length === 0 ? (
-        // Masalah toko tanpa varian (PRD A7 ▶ Keputusan 2026-10-11, T62): ikon + teks seperti masalah baris (DESIGN §7).
-        <p data-tanpa-varian className="flex items-center gap-2 font-semibold">
-          <TriangleAlert aria-hidden strokeWidth={2} className="size-5 shrink-0 text-warning" />
-          {MASALAH_TANPA_VARIAN}
-        </p>
+        <MasalahTanpaVarian />
       ) : inputStok === null ? (
         <TabelVarian toko={toko} inputStok={null} rincian={rincian} />
       ) : (
@@ -319,16 +350,98 @@ function KeteranganStokTidakDipakai({ daftarStok }: { daftarStok: readonly StokT
   );
 }
 
+/** Status toko di ringkasan: Final beserta versinya (T62), atau Draft; ditambah Perlu dihitung ulang bila terdampak (T61). */
+function StatusToko({ toko, terpilih }: { toko: RingkasanTokoDraft; terpilih: boolean }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {toko.versiFinal !== null ? (
+        <>
+          <BadgeStatus status="final" />
+          {/* Teks sekunder di baris terpilih (latar accent) memakai accent-foreground (DESIGN §2). */}
+          <span data-versi-final={toko.versiFinal} className={terpilih ? "text-accent-foreground" : "text-muted-foreground"}>
+            Versi {toko.versiFinal}
+          </span>
+        </>
+      ) : (
+        <BadgeStatus status="draft" />
+      )}
+      {toko.perluDihitungUlang.length > 0 ? <BadgeStatus status="perluDihitungUlang" /> : null}
+    </div>
+  );
+}
+
+/**
+ * Ringkasan per toko (PRD C1 ▶ Keputusan 2026-10-11, T65; T73): nama, jumlah varian, baris tertahan, dan status setiap
+ * toko di draft. Toko dibuka lewat tautan (parameter URL `toko`) supaya halaman hanya merender baris toko itu.
+ */
+function TabelRingkasanToko({
+  idGudang,
+  draft,
+}: {
+  idGudang: number;
+  draft: Pick<RingkasanDraftRencana, "tanggalKirim" | "toko" | "tokoDibuka">;
+}) {
+  return (
+    <Table aria-label="Ringkasan per toko">
+      <TableHeader>
+        <TableRow>
+          <TableHead>Toko</TableHead>
+          <TableHead angka>Varian</TableHead>
+          <TableHead>Baris tertahan</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>
+            <span className="sr-only">Buka toko</span>
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {draft.toko.map((t) => {
+          const dibuka = draft.tokoDibuka?.id === t.id;
+          return (
+            <TableRow
+              key={t.id}
+              data-ringkasan-toko={t.id}
+              aria-current={dibuka ? "true" : undefined}
+              className={cn(dibuka && "bg-accent text-accent-foreground hover:bg-accent")}
+            >
+              <TableCell className="font-semibold">{t.nama}</TableCell>
+              <TableCell angka data-jumlah-baris={t.jumlahBaris}>
+                {formatAngka(t.jumlahBaris)}
+              </TableCell>
+              <TableCell>{t.jumlahBaris === 0 ? <MasalahTanpaVarian /> : <RingkasanTertahan jumlah={t.jumlahTertahan} />}</TableCell>
+              <TableCell>
+                <StatusToko toko={t} terpilih={dibuka} />
+              </TableCell>
+              <TableCell>
+                <Link
+                  href={dibuka ? urlDraft(idGudang, draft.tanggalKirim) : urlDraft(idGudang, draft.tanggalKirim, { toko: t.id })}
+                  data-tautan-buka-toko={t.id}
+                  className={dibuka ? kelasTautanBarisTerpilih : kelasTautan}
+                >
+                  {dibuka ? "Tutup" : "Buka"}
+                  <span className="sr-only"> {t.nama}</span>
+                </Link>
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
+  );
+}
+
 function IsiDraft({
+  idGudang,
   draft,
   inputStok,
-  rincian,
+  rincianTerbuka,
   hitungUlang,
   finalisasi,
 }: {
-  draft: DraftRencana;
+  idGudang: number;
+  draft: RingkasanDraftRencana;
   inputStok: InputStokDraft;
-  rincian: RincianDraft;
+  rincianTerbuka: string | null;
   hitungUlang: HitungUlangDraft;
   finalisasi: FinalisasiDraft;
 }) {
@@ -350,7 +463,17 @@ function IsiDraft({
       {draft.toko.length === 0 ? (
         <p className="text-muted-foreground">Tidak ada toko yang mengirim pada tanggal ini menurut jadwal aktif.</p>
       ) : (
-        draft.toko.map((t) => <TabelToko key={t.id} toko={t} inputStok={inputStok} rincian={rincian} finalisasi={finalisasi} />)
+        <>
+          <TabelRingkasanToko idGudang={idGudang} draft={draft} />
+          {draft.tokoDibuka === null ? null : (
+            <TabelToko
+              toko={draft.tokoDibuka}
+              inputStok={inputStok}
+              rincian={{ idGudang, draft, terbuka: rincianTerbuka }}
+              finalisasi={finalisasi}
+            />
+          )}
+        </>
       )}
     </div>
   );
@@ -381,7 +504,8 @@ function PeringatanTokoNonaktif({ daftarToko }: { daftarToko: readonly { id: num
  * (T59) tampil hanya untuk operator dengan hak `input-stok` (diperiksa lagi di server). Draft yang dasar perhitungannya
  * berubah diberi penanda "Perlu dihitung ulang" (T61). Finalisasi per toko (T62) hanya untuk operator dengan hak
  * `finalisasi` (diperiksa lagi di server); toko yang sudah final ditandai Final beserta versinya untuk semua yang bisa
- * melihat halaman.
+ * melihat halaman. Draft tampil sebagai ringkasan per toko; baris, isian stok, finalisasi, dan rincian baris hanya
+ * dirender untuk toko yang dibuka (T73; PRD C1 ▶ Keputusan 2026-10-11, T65).
  */
 export function BagianDraft({
   idGudang,
@@ -401,7 +525,8 @@ export function BagianDraft({
   /** Tanggal kirim draft yang tersimpan, terbaru di atas. */
   daftarTanggal: TanggalBisnis[];
   tanggalDiminta: TanggalBisnis | null;
-  draft: DraftRencana | null;
+  /** Draft sebagai ringkasan per toko, dengan baris hanya untuk toko yang dibuka (T73). */
+  draft: RingkasanDraftRencana | null;
   /** Nilai URL `<id toko>|<kode produk>` baris draft yang rincian perhitungannya dibuka (T60). */
   rincianDiminta: string | null;
   /** Toko nonaktif gudang ini yang masih punya jadwal aktif. */
@@ -451,9 +576,10 @@ export function BagianDraft({
         ) : null}
         {draft !== null ? (
           <IsiDraft
+            idGudang={idGudang}
             draft={draft}
             inputStok={bolehInputStok ? { idGudang, tanggalKirim: draft.tanggalKirim } : null}
-            rincian={{ idGudang, draft, terbuka: rincianDiminta }}
+            rincianTerbuka={rincianDiminta}
             hitungUlang={bolehHitung ? { idGudang, tanggalKirim: draft.tanggalKirim } : null}
             finalisasi={bolehFinalisasi ? { idGudang, tanggalKirim: draft.tanggalKirim } : null}
           />

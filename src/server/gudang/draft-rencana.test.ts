@@ -25,6 +25,7 @@ import { buatKeluargaUji, publikasikanRankingUji } from "@/server/ranking/uji-ba
 
 import {
   bacaDraftRencana,
+  bacaRingkasanDraft,
   daftarTanggalDraft,
   hitungDraftRencana,
   nilaiBarisDraft,
@@ -393,6 +394,41 @@ describe("hitungDraftRencana", () => {
     // Enam produk otomatis (semua stoknya belum diisi) tertahan; produk manual tidak.
     expect(baca?.toko.find((t) => t.id === tokoContoh.id)?.jumlahTertahan).toBe(6);
     expect(baca?.toko.find((t) => t.id === tokoTanpaVarian.id)?.jumlahTertahan).toBe(0);
+  });
+
+  it("ringkasan draft (T73): setiap toko dengan jumlah baris dan baris tertahan, tanpa baris; baris hanya untuk toko yang dibuka", async () => {
+    await hitungDraftRencana({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator });
+    const lengkap = await bacaDraftRencana(bali, TANGGAL_KIRIM);
+    if (lengkap === null) throw new Error("draft tidak ada");
+    const { toko: semuaToko, ...kepalaDraft } = lengkap;
+
+    const tertutup = await bacaRingkasanDraft(bali, TANGGAL_KIRIM, null);
+    expect(tertutup).toMatchObject(kepalaDraft);
+    expect(tertutup?.tokoDibuka).toBeNull();
+    expect(tertutup?.toko).toEqual(
+      semuaToko.map((t) => ({
+        id: t.id,
+        nama: t.nama,
+        persiapanHari: t.persiapanHari,
+        panjangCakupan: t.panjangCakupan,
+        jumlahBaris: t.baris.length,
+        jumlahTertahan: t.jumlahTertahan,
+        perluDihitungUlang: t.perluDihitungUlang,
+        versiFinal: t.versiFinal,
+      })),
+    );
+    // Enam produk otomatis tertahan; toko tanpa varian punya nol baris.
+    expect(tertutup?.toko.find((t) => t.id === tokoContoh.id)).toMatchObject({ jumlahTertahan: 6 });
+    expect(tertutup?.toko.find((t) => t.id === tokoTanpaVarian.id)).toMatchObject({ jumlahBaris: 0, jumlahTertahan: 0 });
+    expect(tertutup?.toko.every((t) => !("baris" in t))).toBe(true);
+
+    const dibuka = await bacaRingkasanDraft(bali, TANGGAL_KIRIM, tokoContoh.id);
+    expect(dibuka?.toko).toEqual(tertutup?.toko);
+    expect(dibuka?.tokoDibuka).toEqual(semuaToko.find((t) => t.id === tokoContoh.id));
+
+    // Toko yang tidak ada di draft tidak membuka apa pun.
+    expect((await bacaRingkasanDraft(bali, TANGGAL_KIRIM, 999_999_999))?.tokoDibuka).toBeNull();
+    expect(await bacaRingkasanDraft(bali, parseTanggalBisnis("2026-06-15"), tokoContoh.id)).toBeNull();
   });
 
   it("tanpa ranking dipublikasikan → pesan; draft tidak dibuat dan draft yang ada tidak berubah", async () => {

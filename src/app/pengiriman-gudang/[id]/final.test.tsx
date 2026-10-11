@@ -162,10 +162,17 @@ const rencanaGudang = () =>
     .where(eq(rencanaFinal.gudangId, jabodetabek))
     .orderBy(asc(rencanaFinal.id));
 
-const bukaDraft = async () =>
+/** Draft tanggal contoh; `tokoId` = toko yang dibuka (T73). */
+const bukaDraft = async (tokoId?: number) =>
   renderToStaticMarkup(
-    await HalamanPengirimanGudang({ params: Promise.resolve({ id: String(jabodetabek) }), searchParams: Promise.resolve({ tanggal: TANGGAL_KIRIM }) }),
+    await HalamanPengirimanGudang({
+      params: Promise.resolve({ id: String(jabodetabek) }),
+      searchParams: Promise.resolve({ tanggal: TANGGAL_KIRIM, ...(tokoId === undefined ? {} : { toko: String(tokoId) }) }),
+    }),
   );
+
+/** Baris ringkasan satu toko di draft (T73). */
+const ringkasanToko = (html: string, tokoId: number) => new RegExp(`<tr[^>]*data-ringkasan-toko="${tokoId}".*?</tr>`).exec(html)?.[0] ?? "";
 
 const bukaFinal = async (idRencana: number | string, idGudang: number | string = jabodetabek) =>
   renderToStaticMarkup(await HalamanRencanaFinal({ params: Promise.resolve({ id: String(idGudang), idRencana: String(idRencana) }) }));
@@ -204,16 +211,19 @@ describe("kewenangan finalisasi (diperiksa di server)", () => {
 describe("finalisasi di halaman Pengiriman Gudang", () => {
   it("operator berhak melihat form finalisasi untuk toko yang siap, dan alasan untuk toko yang tertahan; tanpa hak tidak ada form", async () => {
     await masukOperator(jabodetabek, ["finalisasi"]);
-    const html = await bukaDraft();
+    const html = await bukaDraft(tokoSiap.id);
     const siap = bagianToko(html, tokoSiap.id);
     expect(siap).toMatch(/data-finalisasi-toko.*?<button[^>]*type="submit"[^>]*>Finalisasi rencana/);
     expect(siap).toContain("Finalisasi menyimpan rencana kebutuhan barang toko ini beserta dasar perhitungannya.");
     expect(siap).toContain("Ini bukan konfirmasi pengiriman fisik atau penerimaan barang.");
-    const tertahan = bagianToko(html, tokoTertahan.id);
+    // Form finalisasi hanya untuk toko yang dibuka (T73).
+    expect([...html.matchAll(/data-finalisasi-toko="(\d+)"/g)].map((m) => m[1])).toEqual([String(tokoSiap.id)]);
+    expect(bagianToko(html, tokoTertahan.id)).toBe("");
+    const tertahan = bagianToko(await bukaDraft(tokoTertahan.id), tokoTertahan.id);
     expect(tertahan).not.toContain("data-finalisasi-toko");
     expect(tertahan).toMatch(/data-finalisasi-tertahan[^>]*>.*?lucide-triangle-alert.*?Belum bisa difinalisasi: 1 baris masih tertahan\./);
     // Toko tanpa varian tampil sebagai masalah dan tidak bisa difinalisasi (PRD A7 ▶ Keputusan 2026-10-11, T62).
-    const tanpaVarian = bagianToko(html, tokoTanpaVarian.id);
+    const tanpaVarian = bagianToko(await bukaDraft(tokoTanpaVarian.id), tokoTanpaVarian.id);
     expect(tanpaVarian).toMatch(/data-tanpa-varian[^>]*>.*?lucide-triangle-alert.*?Tidak ada varian dari periode sumber untuk toko ini</);
     expect(tanpaVarian).not.toContain("data-jumlah-tertahan");
     expect(tanpaVarian).not.toContain("data-finalisasi-toko");
@@ -222,7 +232,7 @@ describe("finalisasi di halaman Pengiriman Gudang", () => {
     );
 
     await masukOperator(jabodetabek, ["input-stok"]);
-    const tanpaHak = await bukaDraft();
+    const tanpaHak = await bukaDraft(tokoSiap.id);
     expect(tanpaHak).not.toContain("data-finalisasi-toko");
     expect(tanpaHak).not.toContain("data-finalisasi-tertahan");
   });
@@ -241,8 +251,11 @@ describe("finalisasi di halaman Pengiriman Gudang", () => {
       await masukOperator(jabodetabek, ["finalisasi"]);
       const html = await bukaDraft();
       expect(html).toMatch(/data-perlu-dihitung-ulang.*?Toko yang terkena perubahan ini tidak bisa difinalisasi sebelum draft dihitung ulang\./);
-      expect(bagianToko(html, tokoSiap.id)).toContain("data-finalisasi-toko");
-      expect(bagianToko(html, tokoTertahan.id)).toMatch(
+      // Ringkasan (T73): hanya toko yang terdampak ditandai perlu dihitung ulang.
+      expect(ringkasanToko(html, tokoTertahan.id)).toContain('data-status="perluDihitungUlang"');
+      expect(ringkasanToko(html, tokoSiap.id)).not.toContain('data-status="perluDihitungUlang"');
+      expect(bagianToko(await bukaDraft(tokoSiap.id), tokoSiap.id)).toContain("data-finalisasi-toko");
+      expect(bagianToko(await bukaDraft(tokoTertahan.id), tokoTertahan.id)).toMatch(
         /data-finalisasi-tertahan[^>]*>.*?lucide-triangle-alert.*?Belum bisa difinalisasi: dasar perhitungan toko ini berubah \(Kategori efektif\)\. Hitung ulang draft lebih dulu\./,
       );
     } finally {
@@ -268,7 +281,10 @@ describe("finalisasi di halaman Pengiriman Gudang", () => {
     expect(kepala.dimuatUlang).toEqual([`/pengiriman-gudang/${jabodetabek}`]);
 
     await masukOperator(jabodetabek, ["finalisasi"]);
-    const siap = bagianToko(await bukaDraft(), tokoSiap.id);
+    // Ringkasan tanpa toko dibuka (T73): status Final beserta versinya.
+    expect(ringkasanToko(await bukaDraft(), tokoSiap.id)).toMatch(/data-status="final".*?lucide-circle-check.*?Final.*?data-versi-final="1"[^>]*>Versi 1</);
+    expect(ringkasanToko(await bukaDraft(), tokoTertahan.id)).not.toContain('data-status="final"');
+    const siap = bagianToko(await bukaDraft(tokoSiap.id), tokoSiap.id);
     expect(siap).toMatch(/data-status="final".*?lucide-circle-check.*?Final.*?data-versi-final="1"[^>]*>Versi 1</);
     expect(siap).toMatch(/data-finalisasi-toko[^>]*data-finalisasi-ulang/);
     expect(siap).toContain("Rencana toko ini sudah final (versi 1). Finalisasi ulang menyimpan versi 2 yang menggantikan versi 1; versi 1 tetap tersimpan.");
@@ -277,7 +293,7 @@ describe("finalisasi di halaman Pengiriman Gudang", () => {
 
     // Tanpa hak finalisasi: badge Final dan versi tampil, tanpa form.
     await masukAdmin();
-    const lihat = bagianToko(await bukaDraft(), tokoSiap.id);
+    const lihat = bagianToko(await bukaDraft(tokoSiap.id), tokoSiap.id);
     expect(lihat).toMatch(/data-status="final".*?Final.*?Versi 1/);
     expect(lihat).not.toContain("data-finalisasi-toko");
   });
@@ -296,7 +312,7 @@ describe("finalisasi di halaman Pengiriman Gudang", () => {
     const [versi1, versi2] = await rencanaGudang();
     expect(hasil).toEqual({ keadaan: "berhasil", idRencana: versi2.id });
     expect([versi1.versi, versi2.versi]).toEqual([1, 2]);
-    expect(bagianToko(await bukaDraft(), tokoSiap.id)).toMatch(/data-versi-final="2"[^>]*>Versi 2</);
+    expect(bagianToko(await bukaDraft(tokoSiap.id), tokoSiap.id)).toMatch(/data-versi-final="2"[^>]*>Versi 2</);
   });
 
   it("layar berhasil versi baru: ditandai menggantikan versi sebelumnya beserta alasannya", async () => {

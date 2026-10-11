@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { and, asc, desc, eq, inArray, max } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, max, sql } from "drizzle-orm";
 
 import { parseTanggalBisnis, type KategoriDasar, type TanggalBisnis } from "@/domain/kalender";
 import { hitungRingkasan } from "@/domain/laporan";
@@ -471,11 +471,37 @@ export type DraftRencana = {
   stokTidakDipakai: StokTidakDipakai[];
 };
 
+/** Ringkasan satu toko di draft (T73): tanpa baris; baris dibaca hanya untuk toko yang dibuka. */
+export type RingkasanTokoDraft = Pick<
+  TokoDraft,
+  "id" | "nama" | "persiapanHari" | "panjangCakupan" | "jumlahTertahan" | "perluDihitungUlang" | "versiFinal"
+> & {
+  /** Jumlah baris (varian) toko ini di draft; 0 = toko tanpa varian di periode sumber. */
+  jumlahBaris: number;
+};
+
 /**
- * Draft rencana tersimpan gudang `idGudang` untuk `tanggalKirim`, atau draft yang terakhir dihitung bila tanggal tidak
- * diberikan. `null` bila tidak ada. Hanya membaca; tidak menghitung (PRD C1).
+ * Draft sebagai ringkasan per toko (PRD C1 ▶ Keputusan 2026-10-11, T65; T73): keterangan tingkat draft sama dengan
+ * `DraftRencana`, setiap toko tanpa barisnya, dan `tokoDibuka` lengkap dengan baris bila toko itu ada di draft.
  */
-export async function bacaDraftRencana(idGudang: number, tanggalKirim?: TanggalBisnis): Promise<DraftRencana | null> {
+export type RingkasanDraftRencana = Omit<DraftRencana, "toko"> & {
+  /** Urut nama toko, sama dengan `DraftRencana.toko`. */
+  toko: RingkasanTokoDraft[];
+  /** Toko yang dibuka beserta barisnya; `null` = tidak ada toko dibuka, atau toko itu tidak ada di draft. */
+  tokoDibuka: TokoDraft | null;
+};
+
+type TokoTersimpan = {
+  idTokoDraft: number;
+  id: number;
+  nama: string;
+  persiapanHari: 0 | 1 | 2;
+  panjangCakupan: 7 | 14;
+  cakupan: TanggalCakupanDraft[] | null;
+};
+
+/** Bagian draft yang sama untuk bacaan lengkap dan ringkasan: keterangan tingkat draft dan daftar toko tanpa baris. */
+async function bacaKepalaDraft(idGudang: number, tanggalKirim: TanggalBisnis | undefined) {
   const [draft] = await db
     .select({
       id: draftRencana.id,
@@ -514,7 +540,7 @@ export async function bacaDraftRencana(idGudang: number, tanggalKirim?: TanggalB
           .where(inArray(toko.id, draft.tokoDikeluarkan))
           .orderBy(asc(toko.nama), asc(toko.id));
 
-  const daftarToko = await db
+  const daftarToko: TokoTersimpan[] = await db
     .select({
       idTokoDraft: tokoDraftRencana.id,
       id: tokoDraftRencana.tokoId,
@@ -528,34 +554,59 @@ export async function bacaDraftRencana(idGudang: number, tanggalKirim?: TanggalB
     .where(eq(tokoDraftRencana.draftId, draft.id))
     .orderBy(asc(toko.nama), asc(tokoDraftRencana.tokoId));
 
-  const baris =
-    daftarToko.length === 0
-      ? []
-      : await db
-          .select({
-            tokoDraftId: barisDraftRencana.tokoDraftId,
-            kodeProduk: barisDraftRencana.kodeProduk,
-            namaProduk: produk.nama,
-            klasifikasi: barisDraftRencana.klasifikasi,
-            kebutuhan: barisDraftRencana.kebutuhan,
-            tanpaRataRata: barisDraftRencana.tanpaRataRata,
-            persenBuffer: barisDraftRencana.persenBuffer,
-            masalah: barisDraftRencana.masalah,
-            jumlahKirim: barisDraftRencana.jumlahKirim,
-            stokAkhir: barisDraftRencana.stokAkhir,
-            rincian: barisDraftRencana.rincian,
-          })
-          .from(barisDraftRencana)
-          .leftJoin(produk, eq(produk.kode, barisDraftRencana.kodeProduk))
-          .where(
-            inArray(
-              barisDraftRencana.tokoDraftId,
-              daftarToko.map((t) => t.idTokoDraft),
-            ),
-          )
-          .orderBy(asc(barisDraftRencana.kodeProduk));
+  const stokTidakDipakai = await bacaStokTidakDipakai(
+    draft.stokTidakDipakai,
+    new Set(daftarToko.map((t) => t.id)),
+  );
+  const daftarFinal = await db
+    .select({ tokoId: rencanaFinal.tokoId, versi: max(rencanaFinal.versi) })
+    .from(rencanaFinal)
+    .where(and(eq(rencanaFinal.gudangId, idGudang), eq(rencanaFinal.tanggalKirim, tanggalDraft)))
+    .groupBy(rencanaFinal.tokoId);
+  const versiFinal = new Map(daftarFinal.map((f) => [f.tokoId, f.versi]));
 
+  const keterangan: Omit<DraftRencana, "toko"> = {
+    tanggalKirim: tanggalDraft,
+    dihitungOleh: draft.dihitungOleh,
+    dihitungPada: draft.dihitungPada,
+    ranking: draft.ranking,
+    bulanSumber: draft.bulanSumber,
+    perluDihitungUlang: hitungUlang.alasan,
+    tokoDikeluarkan,
+    stokTidakDipakai,
+  };
+  return {
+    keterangan,
+    daftarToko,
+    perluDihitungUlangToko: (tokoId: number) => hitungUlang.perToko.get(tokoId) ?? [],
+    versiFinalToko: (tokoId: number) => versiFinal.get(tokoId) ?? null,
+  };
+}
+
+type KepalaDraft = NonNullable<Awaited<ReturnType<typeof bacaKepalaDraft>>>;
+
+/** Baris draft untuk toko draft `idTokoDraft`, dikelompokkan per toko draft; baris urut kode produk. */
+async function bacaBarisToko(idTokoDraft: readonly number[]): Promise<Map<number, BarisDraft[]>> {
   const barisPerToko = new Map<number, BarisDraft[]>();
+  if (idTokoDraft.length === 0) return barisPerToko;
+  const baris = await db
+    .select({
+      tokoDraftId: barisDraftRencana.tokoDraftId,
+      kodeProduk: barisDraftRencana.kodeProduk,
+      namaProduk: produk.nama,
+      klasifikasi: barisDraftRencana.klasifikasi,
+      kebutuhan: barisDraftRencana.kebutuhan,
+      tanpaRataRata: barisDraftRencana.tanpaRataRata,
+      persenBuffer: barisDraftRencana.persenBuffer,
+      masalah: barisDraftRencana.masalah,
+      jumlahKirim: barisDraftRencana.jumlahKirim,
+      stokAkhir: barisDraftRencana.stokAkhir,
+      rincian: barisDraftRencana.rincian,
+    })
+    .from(barisDraftRencana)
+    .leftJoin(produk, eq(produk.kode, barisDraftRencana.kodeProduk))
+    .where(inArray(barisDraftRencana.tokoDraftId, [...idTokoDraft]))
+    .orderBy(asc(barisDraftRencana.kodeProduk));
   for (const { tokoDraftId, tanpaRataRata, ...b } of baris) {
     barisPerToko.set(tokoDraftId, [
       ...(barisPerToko.get(tokoDraftId) ?? []),
@@ -567,37 +618,87 @@ export async function bacaDraftRencana(idGudang: number, tanggalKirim?: TanggalB
       },
     ]);
   }
-  const stokTidakDipakai = await bacaStokTidakDipakai(
-    draft.stokTidakDipakai,
-    new Set(daftarToko.map((t) => t.id)),
-  );
-  const daftarFinal = await db
-    .select({ tokoId: rencanaFinal.tokoId, versi: max(rencanaFinal.versi) })
-    .from(rencanaFinal)
-    .where(and(eq(rencanaFinal.gudangId, idGudang), eq(rencanaFinal.tanggalKirim, tanggalDraft)))
-    .groupBy(rencanaFinal.tokoId);
-  const versiFinal = new Map(daftarFinal.map((f) => [f.tokoId, f.versi]));
+  return barisPerToko;
+}
+
+/** Toko draft lengkap dengan barisnya. */
+function susunTokoDraft(kepala: KepalaDraft, t: TokoTersimpan, barisToko: BarisDraft[]): TokoDraft {
+  const versiFinal = kepala.versiFinalToko(t.id);
+  const { cakupan } = t;
   return {
-    tanggalKirim: tanggalDraft,
-    dihitungOleh: draft.dihitungOleh,
-    dihitungPada: draft.dihitungPada,
-    ranking: draft.ranking,
-    bulanSumber: draft.bulanSumber,
-    toko: daftarToko.map(({ idTokoDraft, cakupan, ...t }) => {
-      const barisToko = barisPerToko.get(idTokoDraft) ?? [];
-      return {
-        ...t,
-        cakupan: cakupan?.map((c) => ({ ...c, tanggal: parseTanggalBisnis(c.tanggal) })) ?? null,
-        jumlahTertahan: barisToko.filter((b) => b.masalah.length > 0).length,
-        baris: barisToko,
-        perluDihitungUlang: hitungUlang.perToko.get(t.id) ?? [],
-        versi: versiTokoDraft(draft.dihitungPada, barisToko, versiFinal.get(t.id) ?? null),
-        versiFinal: versiFinal.get(t.id) ?? null,
-      };
-    }),
-    perluDihitungUlang: hitungUlang.alasan,
-    tokoDikeluarkan,
-    stokTidakDipakai,
+    id: t.id,
+    nama: t.nama,
+    persiapanHari: t.persiapanHari,
+    panjangCakupan: t.panjangCakupan,
+    cakupan: cakupan?.map((c) => ({ ...c, tanggal: parseTanggalBisnis(c.tanggal) })) ?? null,
+    jumlahTertahan: barisToko.filter((b) => b.masalah.length > 0).length,
+    baris: barisToko,
+    perluDihitungUlang: kepala.perluDihitungUlangToko(t.id),
+    versi: versiTokoDraft(kepala.keterangan.dihitungPada, barisToko, versiFinal),
+    versiFinal,
+  };
+}
+
+/**
+ * Draft rencana tersimpan gudang `idGudang` untuk `tanggalKirim`, atau draft yang terakhir dihitung bila tanggal tidak
+ * diberikan. `null` bila tidak ada. Hanya membaca; tidak menghitung (PRD C1). Membaca semua baris semua toko; halaman
+ * Pengiriman Gudang memakai `bacaRingkasanDraft`.
+ */
+export async function bacaDraftRencana(idGudang: number, tanggalKirim?: TanggalBisnis): Promise<DraftRencana | null> {
+  const kepala = await bacaKepalaDraft(idGudang, tanggalKirim);
+  if (kepala === null) return null;
+  const barisPerToko = await bacaBarisToko(kepala.daftarToko.map((t) => t.idTokoDraft));
+  return {
+    ...kepala.keterangan,
+    toko: kepala.daftarToko.map((t) => susunTokoDraft(kepala, t, barisPerToko.get(t.idTokoDraft) ?? [])),
+  };
+}
+
+/**
+ * Draft rencana seperti `bacaDraftRencana`, sebagai ringkasan per toko (T73; PRD C1 ▶ Keputusan 2026-10-11, T65):
+ * jumlah baris dan baris tertahan setiap toko dihitung di database tanpa membaca barisnya; baris hanya dibaca untuk
+ * toko `idTokoDibuka` (`null` = tidak ada toko dibuka). Hanya membaca; tidak menghitung (PRD C1).
+ */
+export async function bacaRingkasanDraft(
+  idGudang: number,
+  tanggalKirim: TanggalBisnis | undefined,
+  idTokoDibuka: number | null,
+): Promise<RingkasanDraftRencana | null> {
+  const kepala = await bacaKepalaDraft(idGudang, tanggalKirim);
+  if (kepala === null) return null;
+  const jumlahPerToko =
+    kepala.daftarToko.length === 0
+      ? []
+      : await db
+          .select({
+            tokoDraftId: barisDraftRencana.tokoDraftId,
+            jumlahBaris: count(),
+            jumlahTertahan: sql<number>`count(*) filter (where jsonb_array_length(${barisDraftRencana.masalah}) > 0)`.mapWith(Number),
+          })
+          .from(barisDraftRencana)
+          .where(
+            inArray(
+              barisDraftRencana.tokoDraftId,
+              kepala.daftarToko.map((t) => t.idTokoDraft),
+            ),
+          )
+          .groupBy(barisDraftRencana.tokoDraftId);
+  const jumlah = new Map(jumlahPerToko.map((j) => [j.tokoDraftId, j]));
+  const dibuka = kepala.daftarToko.find((t) => t.id === idTokoDibuka) ?? null;
+  const barisDibuka = dibuka === null ? [] : ((await bacaBarisToko([dibuka.idTokoDraft])).get(dibuka.idTokoDraft) ?? []);
+  return {
+    ...kepala.keterangan,
+    toko: kepala.daftarToko.map((t) => ({
+      id: t.id,
+      nama: t.nama,
+      persiapanHari: t.persiapanHari,
+      panjangCakupan: t.panjangCakupan,
+      jumlahBaris: jumlah.get(t.idTokoDraft)?.jumlahBaris ?? 0,
+      jumlahTertahan: jumlah.get(t.idTokoDraft)?.jumlahTertahan ?? 0,
+      perluDihitungUlang: kepala.perluDihitungUlangToko(t.id),
+      versiFinal: kepala.versiFinalToko(t.id),
+    })),
+    tokoDibuka: dibuka === null ? null : susunTokoDraft(kepala, dibuka, barisDibuka),
   };
 }
 
