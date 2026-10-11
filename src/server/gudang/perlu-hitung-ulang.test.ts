@@ -141,6 +141,8 @@ beforeAll(async () => {
 afterAll(async () => {
   // Draft merujuk periode sumber; berkas test lain menghapus periode sumber gudang.
   await db.delete(draftRencana).where(eq(draftRencana.gudangId, bandung));
+  // Toko uji tidak lagi terhubung, agar tidak ikut draft gudang ini di berkas test lain (T75).
+  await db.delete(hubunganTokoGudang).where(inArray(hubunganTokoGudang.tokoId, [tokoA.id, tokoB.id, tokoBaru.id]));
   await hapusPerubahanUji();
 });
 

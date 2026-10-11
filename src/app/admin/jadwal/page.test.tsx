@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { inArray } from "drizzle-orm";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
@@ -16,9 +17,24 @@ vi.mock("next/headers", () => ({
 import HalamanPersetujuanJadwal from "./page";
 
 let bandung: number;
+/** Toko uji yang dihubungkan ke Gudang Bandung di berkas ini. */
+const tokoTerhubung: number[] = [];
+
+/** Toko uji baru yang terhubung ke Gudang Bandung; hubungannya dilepas di `afterAll`. */
+async function tokoDiBandung() {
+  const t = await buatTokoUji();
+  await db.insert(hubunganTokoGudang).values({ tokoId: t.id, gudangId: bandung });
+  tokoTerhubung.push(t.id);
+  return t;
+}
 
 beforeAll(async () => {
   bandung = await idGudangUji("Gudang Bandung");
+});
+
+afterAll(async () => {
+  // Toko uji tidak lagi terhubung, agar toko berjadwal Senin tidak ikut draft gudang ini di berkas test lain (T75).
+  if (tokoTerhubung.length > 0) await db.delete(hubunganTokoGudang).where(inArray(hubunganTokoGudang.tokoId, tokoTerhubung));
 });
 
 beforeEach(() => {
@@ -46,11 +62,7 @@ describe("/admin/jadwal", () => {
 
   it("admin melihat usulan menunggu beserta rincian beda dengan jadwal aktif, dan tombol Setujui/Tolak", async () => {
     const pengusul = await buatPenggunaUji("viewer");
-    const [berjadwal, baru] = [await buatTokoUji(), await buatTokoUji()];
-    await db.insert(hubunganTokoGudang).values([
-      { tokoId: berjadwal.id, gudangId: bandung },
-      { tokoId: baru.id, gudangId: bandung },
-    ]);
+    const [berjadwal, baru] = [await tokoDiBandung(), await tokoDiBandung()];
     await db.insert(jadwalToko).values({
       tokoId: berjadwal.id,
       pola: "mingguan",
@@ -98,8 +110,7 @@ describe("/admin/jadwal", () => {
 
   it("usulan nonaktifkan: kolom usulan tanpa jadwal", async () => {
     const pengusul = await buatPenggunaUji("viewer");
-    const t = await buatTokoUji();
-    await db.insert(hubunganTokoGudang).values({ tokoId: t.id, gudangId: bandung });
+    const t = await tokoDiBandung();
     await db.insert(jadwalToko).values({
       tokoId: t.id,
       pola: "mingguan",
