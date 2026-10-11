@@ -191,7 +191,7 @@ const waktuFinal = async (id: number) => {
 };
 
 describe("daftar rencana final", () => {
-  it("menampilkan semua versi per tanggal kirim dan toko, siapa dan kapan memfinalisasi; versi lama ditandai digantikan", async () => {
+  it("menampilkan semua versi per tanggal kirim dan toko, siapa dan kapan memfinalisasi; semua versi berstatus Final", async () => {
     // Operator tanpa hak tindakan punya akses lihat gudang (hanya-baca).
     await masukOperator(cibubur, []);
     const html = await bukaDaftar();
@@ -214,8 +214,8 @@ describe("daftar rencana final", () => {
     expect(v2).toContain(`href="/pengiriman-gudang/${cibubur}/rencana-final/${rencana.a1v2}/rincian"`);
 
     const v1 = barisDaftar(html, rencana.a1v1);
-    expect(v1).toMatch(/data-status="digantikan".*?lucide-archive.*?Digantikan/);
-    expect(v1).toMatch(/data-digantikan-oleh="2"[^>]*>oleh versi 2</);
+    expect(v1).toMatch(/data-status="final".*?lucide-circle-check.*?Final/);
+    expect(v1).not.toContain("Digantikan");
     expect(v1).toMatch(/Versi 1/);
     expect(v1).not.toContain("data-versi-menggantikan");
     expect(v1).toContain(await waktuFinal(rencana.a1v1));
@@ -253,9 +253,11 @@ describe("rincian rencana final", () => {
     expect(html).not.toContain("blur-3xl");
     expect(html).toMatch(new RegExp(`<h1[^>]*class="[^"]*text-2xl[^"]*md:text-3xl[^"]*"[^>]*>Rencana final ${tokoA.nama}</h1>`));
     expect(html).toContain("Tanggal kirim Senin, 08-06-2026");
-    // Versi lama: digantikan versi 2 (status ikon + teks).
-    expect(html).toMatch(/data-status="digantikan".*?lucide-archive.*?Digantikan/);
-    expect(html).toMatch(/data-digantikan-oleh="2"[^>]*>Versi ini digantikan oleh versi 2\.</);
+    // Versi lama tetap utuh dan berstatus Final (status ikon + teks); tanpa penanda menggantikan.
+    expect(html).toMatch(/data-status="final".*?lucide-circle-check.*?Final/);
+    expect(html).toMatch(/<span[^>]*>Versi 1<\/span>/);
+    expect(html).not.toContain("data-versi-menggantikan");
+    expect(html).not.toContain("Digantikan");
     expect(html).toMatch(/Difinalisasi oleh<\/dt><dd[^>]*>Uji viewer</);
     expect(html).toContain(await waktuFinal(rencana.a1v1));
     expect(html).toContain("Ini bukan konfirmasi pengiriman fisik atau penerimaan barang.");
@@ -304,7 +306,7 @@ describe("rincian rencana final", () => {
     expect(html).toMatch(/data-status="final".*?lucide-circle-check.*?Final/);
     expect(html).toMatch(/data-versi-menggantikan[^>]*>Versi 2 menggantikan versi 1\.</);
     expect(html).toMatch(new RegExp(`Alasan finalisasi ulang</dt><dd[^>]*>${ALASAN_ULANG}<`));
-    expect(html).not.toContain("data-digantikan-oleh");
+    expect(html).toMatch(/<span[^>]*>Versi 2<\/span>/);
     expect(barisVarian(html, kode.contoh)).toMatch(/data-stok-akhir="30"/);
     expect(html).not.toContain("data-rincian-baris");
   });
@@ -345,6 +347,7 @@ describe("rincian rencana final", () => {
 
     // Nama toko, produk, dan pemfinalisasi diubah di master.
     const [{ nama: namaPemfinalisasi }] = await db.select({ nama: user.name }).from(user).where(eq(user.id, idOperator));
+    const [{ nama: namaProduk }] = await db.select({ nama: produk.nama }).from(produk).where(eq(produk.kode, kode.contoh));
     try {
       await db.update(toko).set({ nama: `${tokoA.nama} BARU` }).where(eq(toko.id, tokoA.id));
       await db.update(user).set({ name: "Nama baru operator" }).where(eq(user.id, idOperator));
@@ -356,6 +359,7 @@ describe("rincian rencana final", () => {
     } finally {
       await db.update(toko).set({ nama: tokoA.nama }).where(eq(toko.id, tokoA.id));
       await db.update(user).set({ name: namaPemfinalisasi }).where(eq(user.id, idOperator));
+      await db.update(produk).set({ nama: namaProduk }).where(eq(produk.kode, kode.contoh));
     }
   });
 });

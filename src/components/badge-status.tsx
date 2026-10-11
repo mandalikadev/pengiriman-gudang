@@ -41,9 +41,6 @@ const daftarStatus = {
   diarsipkan: { label: "Diarsipkan", nada: "muted", ikon: Archive },
   // DESIGN §7 belum punya baris "Dibatalkan": token dan ikon sama dengan "Diarsipkan" (T71).
   dibatalkan: { label: "Dibatalkan", nada: "muted", ikon: Archive },
-  // DESIGN §7 belum punya baris "Digantikan" (versi rencana final yang sudah difinalisasi ulang): token dan ikon sama
-  // dengan "Diarsipkan" (T63).
-  digantikan: { label: "Digantikan", nada: "muted", ikon: Archive },
 } as const satisfies Record<string, { label: string; nada: NadaBadge; ikon: LucideIcon }>;
 
 export type Status = keyof typeof daftarStatus;

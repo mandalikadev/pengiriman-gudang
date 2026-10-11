@@ -43,16 +43,7 @@ function BarisRencana({ idGudang, rencana }: { idGudang: number; rencana: Ringka
         </div>
       </TableCell>
       <TableCell className="align-top">
-        {rencana.digantikanOleh === null ? (
-          <BadgeStatus status="final" />
-        ) : (
-          <div className="flex flex-col items-start gap-1">
-            <BadgeStatus status="digantikan" />
-            <span data-digantikan-oleh={rencana.digantikanOleh} className="text-muted-foreground">
-              {`oleh versi ${rencana.digantikanOleh}`}
-            </span>
-          </div>
-        )}
+        <BadgeStatus status="final" />
       </TableCell>
       <TableCell className="align-top">{rencana.difinalisasiOleh}</TableCell>
       <TableCell className="align-top">{formatWaktu(rencana.difinalisasiPada)}</TableCell>
@@ -75,7 +66,7 @@ function BarisRencana({ idGudang, rencana }: { idGudang: number; rencana: Ringka
 
 /**
  * Riwayat rencana final satu gudang (T63; PRD A7): zona kerja (DESIGN §1). Semua versi rencana final per tanggal kirim
- * dan toko, siapa dan kapan memfinalisasi, dibaca dari snapshot; versi lama tetap tampil dan ditandai digantikan, versi
+ * dan toko, siapa dan kapan memfinalisasi, dibaca dari snapshot; semua versi tetap tampil dengan status Final, versi
  * baru ditandai "Versi N menggantikan versi N−1" (PRD A7 ▶ Keputusan 2026-10-11, T62). Filter `?tanggal=YYYY-MM-DD` dan
  * `?toko=<id>`. Bisa dibuka semua pengguna yang boleh melihat Pengiriman Gudang gudang itu (akses diperiksa di server).
  */

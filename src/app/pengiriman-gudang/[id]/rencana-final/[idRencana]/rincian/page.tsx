@@ -207,7 +207,7 @@ function TabelBaris({ idGudang, rencana, terbuka }: { idGudang: number; rencana:
 /**
  * Rincian rencana final (T63; PRD A7, B9): zona kerja (DESIGN §1). Baris dan rincian perhitungannya, sumber penjualan,
  * ranking, jadwal, dan kalender yang dipakai, semuanya dibaca dari snapshot saat finalisasi (bukan data terkini).
- * `?rincian=<kode produk>` membuka rincian perhitungan satu baris. Versi lama ditandai digantikan; versi baru ditandai
+ * `?rincian=<kode produk>` membuka rincian perhitungan satu baris. Semua versi berstatus Final; versi baru ditandai
  * "Versi N menggantikan versi N−1" beserta alasannya (PRD A7 ▶ Keputusan 2026-10-11, T62). Bisa dibuka semua pengguna
  * yang boleh melihat Pengiriman Gudang gudang itu (akses diperiksa di server).
  */
@@ -234,15 +234,12 @@ export default async function HalamanRincianRencanaFinal({
       </div>
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
-          <BadgeStatus status={rencana.digantikanOleh === null ? "final" : "digantikan"} />
+          <BadgeStatus status="final" />
           <span className="font-semibold">{`Versi ${rencana.versi}`}</span>
         </div>
         {rencana.versi > 1 ? (
           <p data-versi-menggantikan className="font-semibold">{`Versi ${rencana.versi} menggantikan versi ${rencana.versi - 1}.`}</p>
         ) : null}
-        {rencana.digantikanOleh === null ? null : (
-          <p data-digantikan-oleh={rencana.digantikanOleh}>{`Versi ini digantikan oleh versi ${rencana.digantikanOleh}.`}</p>
-        )}
       </div>
       <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-[auto_1fr]">
         {rencana.alasanFinalisasiUlang === null ? null : (

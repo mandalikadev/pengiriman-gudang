@@ -28,7 +28,6 @@ const harapan: Record<Status, { token: string; ikon: string; teks: string }> = {
   manual: { token: "muted-foreground", ikon: "hand", teks: "Manual" },
   diarsipkan: { token: "muted-foreground", ikon: "archive", teks: "Diarsipkan" },
   dibatalkan: { token: "muted-foreground", ikon: "archive", teks: "Dibatalkan" },
-  digantikan: { token: "muted-foreground", ikon: "archive", teks: "Digantikan" },
 };
 
 function kelasBadge(html: string): string[] {
