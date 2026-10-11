@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { and, eq, inArray } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { parseTanggalBisnis, type KategoriDasar, type NamaHari } from "@/domain/kalender";
 import { buatPenggunaUji } from "@/server/auth/uji-bantu";
@@ -448,6 +448,45 @@ describe("hitungDraftRencana", () => {
     );
     expect(baris?.find((b) => b.kodeProduk === kode.nol)).toMatchObject({ klasifikasi: "otomatis", kebutuhan: 0 });
     expect(baris?.find((b) => b.kodeProduk === kode.manual)).toMatchObject({ klasifikasi: "manual" });
+  });
+
+  it("baris draft disisipkan bertahap dalam satu transaksi: isi tersimpan utuh dan sama dengan satu INSERT (T72)", async () => {
+    const isiBarisDraft = async () => {
+      const draft = await bacaDraftRencana(bali, TANGGAL_KIRIM);
+      return (draft?.toko ?? []).flatMap((t) => t.baris.map((b) => ({ toko: t.id, ...b })));
+    };
+    // Menghitung jumlah INSERT ke baris_draft_rencana di dalam transaksi hitungDraftRencana.
+    const hitungInsertBaris = async (ukuranBatchBaris?: number) => {
+      let jumlahInsert = 0;
+      const transaksiAsli = db.transaction.bind(db);
+      const mata = vi.spyOn(db, "transaction").mockImplementation((jalankan, opsi) =>
+        transaksiAsli((tx) => {
+          const insertAsli = tx.insert.bind(tx);
+          vi.spyOn(tx, "insert").mockImplementation((tabel) => {
+            if (tabel === barisDraftRencana) jumlahInsert++;
+            return insertAsli(tabel);
+          });
+          return jalankan(tx);
+        }, opsi),
+      );
+      try {
+        const hasil = await hitungDraftRencana({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator, ukuranBatchBaris });
+        expect(hasil.keadaan).toBe("berhasil");
+      } finally {
+        mata.mockRestore();
+      }
+      return jumlahInsert;
+    };
+
+    expect(await hitungInsertBaris()).toBe(1);
+    const satuInsert = await isiBarisDraft();
+    // Toko contoh 7 varian + toko tanpa Minggu 1 varian = 8 baris; batch 3 → 3 + 3 + 2.
+    expect(satuInsert).toHaveLength(8);
+
+    expect(await hitungInsertBaris(3)).toBe(3);
+    const bertahap = await isiBarisDraft();
+    expect(bertahap).toHaveLength(8);
+    expect(bertahap).toEqual(satuInsert);
   });
 
   it("toko nonaktif tidak masuk draft walaupun masih punya jadwal aktif yang mengirim pada tanggal itu (PRD A6 ▶ T58)", async () => {

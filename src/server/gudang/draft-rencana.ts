@@ -56,6 +56,9 @@ export const PESAN_RANKING_BELUM_DIPUBLIKASIKAN = "Ranking pusat belum dipublika
 const PERSEN_BUFFER_TUJUH_BESAR = 20;
 const PERSEN_BUFFER_LAINNYA = 10;
 
+/** Baris draft per INSERT: 13 kolom per baris, jauh di bawah batas 65.534 parameter PostgreSQL per perintah (T72). */
+const UKURAN_BATCH_BARIS = 1000;
+
 export type HasilHitungDraft = { keadaan: "berhasil"; idDraft: number } | { keadaan: "gagal"; pesan: string };
 
 /** Status keluarga aroma produk (ADR-0006); `keluargaAromaId` terisi persis saat `terpetakan`. */
@@ -263,10 +266,13 @@ export async function hitungDraftRencana({
   idGudang,
   tanggalKirim,
   idPengguna,
+  ukuranBatchBaris = UKURAN_BATCH_BARIS,
 }: {
   idGudang: number;
   tanggalKirim: TanggalBisnis;
   idPengguna: string;
+  /** Internal: baris draft per INSERT. Hanya diperkecil oleh test untuk membuktikan penyisipan bertahap. */
+  ukuranBatchBaris?: number;
 }): Promise<HasilHitungDraft> {
   const periode = await bacaPeriodeSumberPerhitungan(idGudang);
   if (periode === null) return { keadaan: "gagal", pesan: PESAN_PERIODE_BELUM_DITETAPKAN };
@@ -338,16 +344,17 @@ export async function hitungDraftRencana({
         )
         .returning({ id: tokoDraftRencana.id, tokoId: tokoDraftRencana.tokoId });
       const idTokoDraft = new Map(tokoDraft.map((t) => [t.tokoId, t.id]));
-      if (baris.length > 0) {
-        await tx.insert(barisDraftRencana).values(
-          baris.map(({ tokoId, ...b }) => {
-            const tokoDraftId = idTokoDraft.get(tokoId);
-            if (tokoDraftId === undefined) throw new Error(`Toko ${tokoId} tidak termasuk toko draft.`);
-            // Stok akhir yang sudah diisi dipertahankan (PRD A7, B9); varian baru belum punya stok.
-            const stokAkhir = stokLama.get(`${tokoId}|${b.kodeProduk}`)?.stokAkhir ?? null;
-            return { ...b, tokoDraftId, stokAkhir, ...nilaiKirimBaris({ ...b, stokAkhir }) };
-          }),
-        );
+      const barisBaru = baris.map(({ tokoId, ...b }) => {
+        const tokoDraftId = idTokoDraft.get(tokoId);
+        if (tokoDraftId === undefined) throw new Error(`Toko ${tokoId} tidak termasuk toko draft.`);
+        // Stok akhir yang sudah diisi dipertahankan (PRD A7, B9); varian baru belum punya stok.
+        const stokAkhir = stokLama.get(`${tokoId}|${b.kodeProduk}`)?.stokAkhir ?? null;
+        return { ...b, tokoDraftId, stokAkhir, ...nilaiKirimBaris({ ...b, stokAkhir }) };
+      });
+      // Bertahap dalam transaksi yang sama: satu INSERT dibatasi 65.534 parameter, sedangkan draft gudang besar bisa
+      // ribuan baris (T65, T72). Draft tersimpan utuh atau tidak sama sekali.
+      for (let i = 0; i < barisBaru.length; i += ukuranBatchBaris) {
+        await tx.insert(barisDraftRencana).values(barisBaru.slice(i, i + ukuranBatchBaris));
       }
     }
     return { keadaan: "berhasil", idDraft: draft.id };
