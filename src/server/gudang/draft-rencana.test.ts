@@ -471,8 +471,9 @@ describe("hitungDraftRencana", () => {
       cakupan: golden.kasusCakupan.tanggalCakupan.slice(1).map(({ tanggal, kategoriEfektif }) => ({ tanggal, kategoriEfektif, sumberKategori: "dasar" })),
       jumlahTertahan: 0,
       baris: [],
+      perluDihitungUlang: [],
       versi: expect.any(String),
-      final: false,
+      versiFinal: null,
     });
   });
 

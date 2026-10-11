@@ -1,5 +1,5 @@
 {
-  "id": "c9544a8a-579f-4c34-aad3-69a62b02000e",
+  "id": "b9b1ee6d-c57c-40c2-a2d2-6d33b9085769",
   "prevId": "14efcb1e-53b9-488b-a53a-2e2ec3ea5d53",
   "version": "7",
   "dialect": "postgresql",
@@ -2765,6 +2765,18 @@
           "primaryKey": false,
           "notNull": true
         },
+        "versi": {
+          "name": "versi",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "alasan_finalisasi_ulang": {
+          "name": "alasan_finalisasi_ulang",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "difinalisasi_oleh": {
           "name": "difinalisasi_oleh",
           "type": "text",
@@ -2864,8 +2876,8 @@
         }
       },
       "indexes": {
-        "rencana_final_gudang_toko_tanggal_unik": {
-          "name": "rencana_final_gudang_toko_tanggal_unik",
+        "rencana_final_gudang_toko_tanggal_versi_unik": {
+          "name": "rencana_final_gudang_toko_tanggal_versi_unik",
           "columns": [
             {
               "expression": "gudang_id",
@@ -2881,6 +2893,12 @@
             },
             {
               "expression": "tanggal_kirim",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "versi",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2950,6 +2968,14 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "rencana_final_versi": {
+          "name": "rencana_final_versi",
+          "value": "\"rencana_final\".\"versi\" >= 1"
+        },
+        "rencana_final_alasan_finalisasi_ulang": {
+          "name": "rencana_final_alasan_finalisasi_ulang",
+          "value": "(\"rencana_final\".\"versi\" = 1) = (\"rencana_final\".\"alasan_finalisasi_ulang\" is null) and coalesce(btrim(\"rencana_final\".\"alasan_finalisasi_ulang\"), 'x') <> ''"
+        },
         "rencana_final_persiapan": {
           "name": "rencana_final_persiapan",
           "value": "\"rencana_final\".\"persiapan_hari\" in (0, 1, 2)"

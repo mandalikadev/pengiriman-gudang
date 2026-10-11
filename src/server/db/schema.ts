@@ -984,7 +984,9 @@ export type JadwalRencanaFinal = {
 
 /**
  * Rencana final satu toko untuk satu tanggal kirim (CONTEXT "Rencana final"), dibuat operator dengan hak `finalisasi`
- * dari draft rencana gudang itu. Paling banyak satu per gudang + toko + tanggal kirim; tidak pernah diubah. Semua
+ * dari draft rencana gudang itu. Setiap finalisasi gudang + toko + tanggal kirim membuat versi baru (1, 2, …); versi
+ * lama tidak pernah diubah (PRD A7 ▶ Keputusan 2026-10-11, T62). Versi 2 dan seterusnya menggantikan versi sebelumnya
+ * dan wajib punya alasan finalisasi ulang; versi 1 tanpa alasan. Semua
  * masukannya disimpan sebagai snapshot sehingga tidak bergantung pada data yang bisa berubah atau dihapus kemudian
  * (draft, periode sumber, jadwal, cache laporan, master produk; PRD A7, B9): bulan periode sumber dan versi periodenya,
  * impor beserta identitas file + SHA-256, bulan dan versi ranking pusat, versi dan isi jadwal beserta p dan L, revisi
@@ -1004,6 +1006,10 @@ export const rencanaFinal = pgTable(
     /** Nama toko saat difinalisasi (snapshot). */
     namaToko: text("nama_toko").notNull(),
     tanggalKirim: date("tanggal_kirim", { mode: "string" }).notNull(),
+    /** Nomor versi per gudang + toko + tanggal kirim, mulai 1. */
+    versi: integer("versi").notNull(),
+    /** Alasan finalisasi ulang (versi ≥ 2); `null` untuk versi 1. */
+    alasanFinalisasiUlang: text("alasan_finalisasi_ulang"),
     difinalisasiOleh: text("difinalisasi_oleh")
       .notNull()
       .references(() => user.id),
@@ -1030,7 +1036,12 @@ export const rencanaFinal = pgTable(
     cakupan: jsonb("cakupan").$type<TanggalCakupanDraft[]>().notNull(),
   },
   (tabel) => [
-    uniqueIndex("rencana_final_gudang_toko_tanggal_unik").on(tabel.gudangId, tabel.tokoId, tabel.tanggalKirim),
+    uniqueIndex("rencana_final_gudang_toko_tanggal_versi_unik").on(tabel.gudangId, tabel.tokoId, tabel.tanggalKirim, tabel.versi),
+    check("rencana_final_versi", sql`${tabel.versi} >= 1`),
+    check(
+      "rencana_final_alasan_finalisasi_ulang",
+      sql`(${tabel.versi} = 1) = (${tabel.alasanFinalisasiUlang} is null) and coalesce(btrim(${tabel.alasanFinalisasiUlang}), 'x') <> ''`,
+    ),
     check("rencana_final_persiapan", sql`${tabel.persiapanHari} in (0, 1, 2)`),
     check("rencana_final_panjang_cakupan", sql`${tabel.panjangCakupan} in (7, 14)`),
   ],

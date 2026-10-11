@@ -265,11 +265,11 @@ describe("draft rencana di halaman Pengiriman Gudang", () => {
     );
     // Ringkasan masalah per toko: jumlah baris tertahan (produk manual tidak tertahan).
     expect(html).toMatch(new RegExp(`data-draft-toko="${tokoContoh.id}".*?data-jumlah-tertahan="3"[^>]*>.*?lucide-triangle-alert.*?3 baris tertahan<`));
-    expect(html).toMatch(new RegExp(`data-draft-toko="${tokoTanpaVarian.id}".*?data-jumlah-tertahan="0"[^>]*>.*?lucide-circle-check.*?Tidak ada baris tertahan<`));
-    // Toko yang mengirim tanpa varian di periode sumber tetap tampil dengan keterangan.
-    expect(html).toMatch(
-      new RegExp(`data-draft-toko="${tokoTanpaVarian.id}".*?Persiapan H−2 · Panjang cakupan 7 hari.*?data-tanpa-varian.*?Tidak ada varian di periode sumber untuk toko ini\\.`),
-    );
+    // Toko yang mengirim tanpa varian di periode sumber tetap tampil, dengan masalah sebagai ganti ringkasan baris
+    // tertahan (PRD A7 ▶ Keputusan 2026-10-11, T62; ikon + teks, DESIGN §7).
+    const tanpaVarian = new RegExp(`<section[^>]*data-draft-toko="${tokoTanpaVarian.id}".*?</section>`).exec(html)?.[0] ?? "";
+    expect(tanpaVarian).toMatch(/Persiapan H−2 · Panjang cakupan 7 hari.*?data-tanpa-varian[^>]*>.*?lucide-triangle-alert.*?Tidak ada varian dari periode sumber untuk toko ini</);
+    expect(tanpaVarian).not.toContain("data-jumlah-tertahan");
     // Toko nonaktif tidak ikut masuk draft walaupun masih punya jadwal aktif (PRD A6 ▶ T58).
     expect(html).not.toContain(`data-draft-toko="${tokoNonaktif.id}"`);
     // Daftar draft tersimpan; draft yang dibuka ditandai.

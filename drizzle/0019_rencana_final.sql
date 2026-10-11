@@ -23,6 +23,8 @@ CREATE TABLE "rencana_final" (
 	"toko_id" integer NOT NULL,
 	"nama_toko" text NOT NULL,
 	"tanggal_kirim" date NOT NULL,
+	"versi" integer NOT NULL,
+	"alasan_finalisasi_ulang" text,
 	"difinalisasi_oleh" text NOT NULL,
 	"nama_pemfinalisasi" text NOT NULL,
 	"difinalisasi_pada" timestamp with time zone DEFAULT now() NOT NULL,
@@ -39,6 +41,8 @@ CREATE TABLE "rencana_final" (
 	"revisi_kalender" integer NOT NULL,
 	"perubahan_kategori" integer[] NOT NULL,
 	"cakupan" jsonb NOT NULL,
+	CONSTRAINT "rencana_final_versi" CHECK ("rencana_final"."versi" >= 1),
+	CONSTRAINT "rencana_final_alasan_finalisasi_ulang" CHECK (("rencana_final"."versi" = 1) = ("rencana_final"."alasan_finalisasi_ulang" is null) and coalesce(btrim("rencana_final"."alasan_finalisasi_ulang"), 'x') <> ''),
 	CONSTRAINT "rencana_final_persiapan" CHECK ("rencana_final"."persiapan_hari" in (0, 1, 2)),
 	CONSTRAINT "rencana_final_panjang_cakupan" CHECK ("rencana_final"."panjang_cakupan" in (7, 14))
 );
@@ -49,4 +53,4 @@ ALTER TABLE "rencana_final" ADD CONSTRAINT "rencana_final_toko_id_toko_id_fk" FO
 ALTER TABLE "rencana_final" ADD CONSTRAINT "rencana_final_difinalisasi_oleh_user_id_fk" FOREIGN KEY ("difinalisasi_oleh") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "rencana_final" ADD CONSTRAINT "rencana_final_versi_ranking_id_versi_ranking_id_fk" FOREIGN KEY ("versi_ranking_id") REFERENCES "public"."versi_ranking"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "baris_rencana_final_unik" ON "baris_rencana_final" USING btree ("rencana_final_id","kode_produk");--> statement-breakpoint
-CREATE UNIQUE INDEX "rencana_final_gudang_toko_tanggal_unik" ON "rencana_final" USING btree ("gudang_id","toko_id","tanggal_kirim");
+CREATE UNIQUE INDEX "rencana_final_gudang_toko_tanggal_versi_unik" ON "rencana_final" USING btree ("gudang_id","toko_id","tanggal_kirim","versi");

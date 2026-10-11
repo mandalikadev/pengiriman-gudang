@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import type { AlasanHitungUlang } from "@/server/gudang/dasar-draft";
 import type { BarisDraft, DraftRencana, StokTidakDipakai, TokoDraft } from "@/server/gudang/draft-rencana";
 import { labelPersiapan, persiapanDariHari } from "@/server/gudang/pilihan-jadwal";
+import { MASALAH_TANPA_VARIAN } from "@/server/gudang/masalah-draft";
 
 import { DaftarMasalah } from "./daftar-masalah";
 import { FormFinalisasi } from "./form-finalisasi";
@@ -142,20 +143,24 @@ function TabelVarian({ toko, inputStok, rincian }: { toko: TokoDraft; inputStok:
 }
 
 /** Finalisasi per toko (T62): `null` = pengguna tanpa hak `finalisasi`. */
-type FinalisasiDraft = { idGudang: number; tanggalKirim: TanggalBisnis; perluDihitungUlang: boolean } | null;
+type FinalisasiDraft = { idGudang: number; tanggalKirim: TanggalBisnis } | null;
 
 /**
  * Finalisasi satu toko (T62) untuk operator dengan hak `finalisasi`: form finalisasi bila toko siap, atau alasan belum
- * bisa difinalisasi (draft perlu dihitung ulang, atau ada baris tertahan). Toko yang sudah final hanya ditandai badge
- * Final di judulnya (DESIGN §7); siapa/kapan dan rincian rencana final adalah bagian riwayat (T63).
+ * bisa difinalisasi (dasar perhitungan toko itu berubah, toko tanpa varian, atau ada baris tertahan). Toko yang sudah
+ * final mendapat form finalisasi ulang dengan alasan wajib (PRD A7 ▶ Keputusan 2026-10-11, T62); daftar versi dan
+ * rincian rencana final adalah bagian riwayat (T63).
  */
 function FinalisasiToko({ toko, finalisasi }: { toko: TokoDraft; finalisasi: FinalisasiDraft }) {
-  if (toko.final || finalisasi === null) return null;
-  const alasan = finalisasi.perluDihitungUlang
-    ? "draft perlu dihitung ulang."
-    : toko.jumlahTertahan > 0
-      ? `${formatAngka(toko.jumlahTertahan)} baris masih tertahan.`
-      : null;
+  if (finalisasi === null) return null;
+  const alasan =
+    toko.perluDihitungUlang.length > 0
+      ? `dasar perhitungan toko ini berubah (${toko.perluDihitungUlang.map((a) => labelAlasan[a]).join(", ")}). Hitung ulang draft lebih dulu.`
+      : toko.baris.length === 0
+        ? `${MASALAH_TANPA_VARIAN.toLowerCase()}.`
+        : toko.jumlahTertahan > 0
+          ? `${formatAngka(toko.jumlahTertahan)} baris masih tertahan.`
+          : null;
   if (alasan !== null) {
     return (
       <p data-finalisasi-tertahan={toko.id} className="flex items-start gap-2 font-semibold">
@@ -171,6 +176,7 @@ function FinalisasiToko({ toko, finalisasi }: { toko: TokoDraft; finalisasi: Fin
       tokoId={toko.id}
       namaToko={toko.nama}
       versi={toko.versi}
+      versiFinal={toko.versiFinal}
       stokTersimpan={toko.baris.map((b) => ({ kodeProduk: b.kodeProduk, stokAkhir: b.stokAkhir }))}
     />
   );
@@ -193,15 +199,24 @@ function TabelToko({
         <h4 id={`draft-toko-${toko.id}`} className="text-lg font-semibold">
           {toko.nama}
         </h4>
-        {toko.final ? <BadgeStatus status="final" className="self-center" /> : null}
+        {toko.versiFinal !== null ? (
+          <span className="flex items-center gap-2 self-center">
+            <BadgeStatus status="final" />
+            <span data-versi-final={toko.versiFinal} className="text-muted-foreground">
+              Versi {toko.versiFinal}
+            </span>
+          </span>
+        ) : null}
         <p className="text-muted-foreground">
           Persiapan {labelPersiapan[persiapanDariHari[toko.persiapanHari]]} · Panjang cakupan {toko.panjangCakupan} hari
         </p>
-        <RingkasanTertahan jumlah={toko.jumlahTertahan} />
+        {toko.baris.length === 0 ? null : <RingkasanTertahan jumlah={toko.jumlahTertahan} />}
       </div>
       {toko.baris.length === 0 ? (
-        <p data-tanpa-varian className="text-muted-foreground">
-          Tidak ada varian di periode sumber untuk toko ini.
+        // Masalah toko tanpa varian (PRD A7 ▶ Keputusan 2026-10-11, T62): ikon + teks seperti masalah baris (DESIGN §7).
+        <p data-tanpa-varian className="flex items-center gap-2 font-semibold">
+          <TriangleAlert aria-hidden strokeWidth={2} className="size-5 shrink-0 text-warning" />
+          {MASALAH_TANPA_VARIAN}
         </p>
       ) : inputStok === null ? (
         <TabelVarian toko={toko} inputStok={null} rincian={rincian} />
@@ -242,7 +257,8 @@ function PenandaHitungUlang({ alasan, hitungUlang }: { alasan: readonly AlasanHi
     <div data-perlu-dihitung-ulang className="flex flex-col gap-3">
       <BadgeStatus status="perluDihitungUlang" className="w-fit" />
       <p>
-        Dasar perhitungan berubah sejak draft ini dihitung. Draft ini tidak bisa difinalisasi sebelum dihitung ulang.
+        Dasar perhitungan berubah sejak draft ini dihitung. Toko yang terkena perubahan ini tidak bisa difinalisasi sebelum
+        draft dihitung ulang.
         Stok akhir yang sudah diisi tetap disimpan. Stok untuk toko atau varian yang tidak ada lagi di draft ditampilkan
         sebagai keterangan dan dipakai kembali jika toko atau varian itu muncul lagi.
       </p>
@@ -363,7 +379,8 @@ function PeringatanTokoNonaktif({ daftarToko }: { daftarToko: readonly { id: num
  * `hitung-kebutuhan` (diperiksa lagi di server); pengguna lain, termasuk admin, hanya melihat. Isian stok akhir per toko
  * (T59) tampil hanya untuk operator dengan hak `input-stok` (diperiksa lagi di server). Draft yang dasar perhitungannya
  * berubah diberi penanda "Perlu dihitung ulang" (T61). Finalisasi per toko (T62) hanya untuk operator dengan hak
- * `finalisasi` (diperiksa lagi di server); toko yang sudah final ditandai Final untuk semua yang bisa melihat halaman.
+ * `finalisasi` (diperiksa lagi di server); toko yang sudah final ditandai Final beserta versinya untuk semua yang bisa
+ * melihat halaman.
  */
 export function BagianDraft({
   idGudang,
@@ -437,11 +454,7 @@ export function BagianDraft({
             inputStok={bolehInputStok ? { idGudang, tanggalKirim: draft.tanggalKirim } : null}
             rincian={{ idGudang, draft, terbuka: rincianDiminta }}
             hitungUlang={bolehHitung ? { idGudang, tanggalKirim: draft.tanggalKirim } : null}
-            finalisasi={
-              bolehFinalisasi
-                ? { idGudang, tanggalKirim: draft.tanggalKirim, perluDihitungUlang: draft.perluDihitungUlang.length > 0 }
-                : null
-            }
+            finalisasi={bolehFinalisasi ? { idGudang, tanggalKirim: draft.tanggalKirim } : null}
           />
         ) : (
           <p className="text-muted-foreground">

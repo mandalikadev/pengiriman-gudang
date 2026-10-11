@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, max } from "drizzle-orm";
 
 import { parseTanggalBisnis, type KategoriDasar, type TanggalBisnis } from "@/domain/kalender";
 import { hitungRingkasan } from "@/domain/laporan";
@@ -24,7 +24,7 @@ import {
 import { bacaPerubahanKategori, bacaRevisiKalender, versiCacheAktif } from "@/server/laporan/cache";
 import { rankingBerlaku } from "@/server/ranking/ranking";
 
-import { alasanHitungUlang, perubahanKategoriMengenai, tokoYangMengirim, type AlasanHitungUlang, type TokoKirim } from "./dasar-draft";
+import { periksaHitungUlang, perubahanKategoriMengenai, tokoYangMengirim, type AlasanHitungUlang, type TokoKirim } from "./dasar-draft";
 import { URUTAN_MASALAH, type MasalahBarisDraft } from "./masalah-draft";
 import { bacaPeriodeSumberPerhitungan } from "./periode-sumber";
 import type { RincianBarisDraft, SumberKategoriDraft, TanggalCakupanDraft } from "./rincian-draft";
@@ -387,21 +387,32 @@ export type TokoDraft = {
   /** Ringkasan masalah: jumlah baris yang tertahan (punya masalah). */
   jumlahTertahan: number;
   baris: BarisDraft[];
+  /**
+   * Dasar perhitungan berubah yang mengenai toko ini (T61), dalam urutan tampilan; tidak kosong = finalisasi toko ini
+   * tertahan sampai draft dihitung ulang (PRD A7 ▶ Keputusan 2026-10-11, T62).
+   */
+  perluDihitungUlang: AlasanHitungUlang[];
   /** Versi isi toko ini di draft (`versiTokoDraft`), dikirim kembali saat finalisasi (T62). */
   versi: string;
-  /** Toko ini sudah punya rencana final untuk tanggal kirim draft (T62). */
-  final: boolean;
+  /** Nomor versi rencana final terakhir toko ini untuk tanggal kirim draft; `null` = belum pernah final (T62). */
+  versiFinal: number | null;
 };
 
 /**
- * Versi isi satu toko di draft: berubah bila draft dihitung ulang atau stok, jumlah kirim, atau masalah satu barisnya
- * berubah. Finalisasi (T62) membandingkannya dengan versi yang dilihat pengguna. `baris` urut kode produk.
+ * Versi isi satu toko di draft: berubah bila draft dihitung ulang, stok, jumlah kirim, atau masalah satu barisnya
+ * berubah, atau toko itu difinalisasi (ulang). Finalisasi (T62) membandingkannya dengan versi yang dilihat pengguna.
+ * `baris` urut kode produk; `versiFinal` = versi rencana final terakhir toko itu (`null` = belum final).
  */
 export function versiTokoDraft(
   dihitungPada: Date,
   baris: readonly Pick<BarisDraft, "kodeProduk" | "stokAkhir" | "jumlahKirim" | "masalah">[],
+  versiFinal: number | null,
 ): string {
-  const isi = JSON.stringify([dihitungPada.toISOString(), baris.map((b) => [b.kodeProduk, b.stokAkhir, b.jumlahKirim, b.masalah])]);
+  const isi = JSON.stringify([
+    dihitungPada.toISOString(),
+    baris.map((b) => [b.kodeProduk, b.stokAkhir, b.jumlahKirim, b.masalah]),
+    versiFinal,
+  ]);
   return createHash("sha256").update(isi).digest("hex");
 }
 
@@ -427,7 +438,7 @@ export type DraftRencana = {
   toko: TokoDraft[];
   /**
    * Dasar perhitungan yang berubah sejak draft dihitung (T61), dalam urutan tampilan; kosong = tidak perlu dihitung
-   * ulang. Draft yang perlu dihitung ulang tidak bisa difinalisasi.
+   * ulang. Hanya toko yang terkena perubahan (`TokoDraft.perluDihitungUlang`) yang tertahan finalisasinya (T62).
    */
   perluDihitungUlang: AlasanHitungUlang[];
   /** Toko yang dikeluarkan pada hitungan terakhir karena tidak lagi mengirim pada tanggal itu (T61), urut nama. */
@@ -469,7 +480,7 @@ export async function bacaDraftRencana(idGudang: number, tanggalKirim?: TanggalB
   if (!draft) return null;
   const tanggalDraft = parseTanggalBisnis(draft.tanggalKirim);
 
-  const perluDihitungUlang = await alasanHitungUlang({ ...draft, idDraft: draft.id, idGudang, tanggalKirim: tanggalDraft });
+  const hitungUlang = await periksaHitungUlang({ ...draft, idDraft: draft.id, idGudang, tanggalKirim: tanggalDraft });
   const tokoDikeluarkan =
     draft.tokoDikeluarkan.length === 0
       ? []
@@ -540,10 +551,11 @@ export async function bacaDraftRencana(idGudang: number, tanggalKirim?: TanggalB
     new Set(daftarToko.map((t) => t.id)),
   );
   const daftarFinal = await db
-    .select({ tokoId: rencanaFinal.tokoId })
+    .select({ tokoId: rencanaFinal.tokoId, versi: max(rencanaFinal.versi) })
     .from(rencanaFinal)
-    .where(and(eq(rencanaFinal.gudangId, idGudang), eq(rencanaFinal.tanggalKirim, tanggalDraft)));
-  const tokoFinal = new Set(daftarFinal.map((f) => f.tokoId));
+    .where(and(eq(rencanaFinal.gudangId, idGudang), eq(rencanaFinal.tanggalKirim, tanggalDraft)))
+    .groupBy(rencanaFinal.tokoId);
+  const versiFinal = new Map(daftarFinal.map((f) => [f.tokoId, f.versi]));
   return {
     tanggalKirim: tanggalDraft,
     dihitungOleh: draft.dihitungOleh,
@@ -557,11 +569,12 @@ export async function bacaDraftRencana(idGudang: number, tanggalKirim?: TanggalB
         cakupan: cakupan?.map((c) => ({ ...c, tanggal: parseTanggalBisnis(c.tanggal) })) ?? null,
         jumlahTertahan: barisToko.filter((b) => b.masalah.length > 0).length,
         baris: barisToko,
-        versi: versiTokoDraft(draft.dihitungPada, barisToko),
-        final: tokoFinal.has(t.id),
+        perluDihitungUlang: hitungUlang.perToko.get(t.id) ?? [],
+        versi: versiTokoDraft(draft.dihitungPada, barisToko, versiFinal.get(t.id) ?? null),
+        versiFinal: versiFinal.get(t.id) ?? null,
       };
     }),
-    perluDihitungUlang,
+    perluDihitungUlang: hitungUlang.alasan,
     tokoDikeluarkan,
     stokTidakDipakai,
   };

@@ -14,6 +14,7 @@ import { kunciIsianLokal, tulisIsianLokal } from "./isian-lokal";
 
 // T62: form finalisasi satu toko. Setelah berhasil, layar rencana final dibuka. Hasil yang belum pasti tidak diulang
 // otomatis. Isian stok toko ini yang belum disimpan (T59) menahan finalisasi, karena rencana final memakai stok tersimpan.
+// Toko yang sudah final difinalisasi ulang dengan alasan wajib (PRD A7 ▶ Keputusan 2026-10-11, T62).
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -25,13 +26,21 @@ const STOK_TERSIMPAN = [{ kodeProduk: "UJI-A", stokAkhir: 20 }];
 
 let terpasang: { wadah: HTMLElement; akar: Root } | null = null;
 
-function buka() {
+function buka(versiFinal: number | null = null) {
   const wadah = document.createElement("div");
   document.body.append(wadah);
   const akar = createRoot(wadah);
   act(() =>
     akar.render(
-      <FormFinalisasi idGudang={3} tanggalKirim="2026-06-08" tokoId={7} namaToko="TOKO UJI" versi="v1" stokTersimpan={STOK_TERSIMPAN} />,
+      <FormFinalisasi
+        idGudang={3}
+        tanggalKirim="2026-06-08"
+        tokoId={7}
+        namaToko="TOKO UJI"
+        versi="v1"
+        versiFinal={versiFinal}
+        stokTersimpan={STOK_TERSIMPAN}
+      />,
     ),
   );
   terpasang = { wadah, akar };
@@ -43,6 +52,12 @@ const tombol = (wadah: HTMLElement) => {
   if (elemen === null) throw new Error("Tombol finalisasi tidak ada.");
   return elemen;
 };
+
+/** Mengubah nilai input terkendali React seperti diketik pengguna. */
+function ubahNilai(input: HTMLInputElement, nilai: string) {
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, nilai);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
 
 async function kirim(wadah: HTMLElement) {
   await act(async () => {
@@ -71,6 +86,7 @@ describe("FormFinalisasi", () => {
     const wadah = buka();
     await kirim(wadah);
     expect(tiruan.finalisasiRencana).toHaveBeenCalledWith({ idGudang: 3, tanggalKirim: "2026-06-08", tokoId: 7, versi: "v1" });
+    expect(wadah.querySelector('input[name="alasan"]')).toBeNull();
     expect(tiruan.buka).toHaveBeenCalledWith("/pengiriman-gudang/3/rencana-final/42");
     expect(wadah.querySelector('[data-keadaan="berhasil"]')).not.toBeNull();
   });
@@ -103,5 +119,32 @@ describe("FormFinalisasi", () => {
     // Isian yang sama dengan stok tersimpan tidak dihitung belum disimpan.
     act(() => tulisIsianLokal(KUNCI, { "UJI-A": "20" }));
     expect(tombol(wadah).disabled).toBe(false);
+  });
+
+  it("finalisasi ulang: alasan wajib sebelum bisa dikirim, lalu dikirim bersama versi toko", async () => {
+    tiruan.finalisasiRencana.mockResolvedValue({ keadaan: "berhasil", idRencana: 43 });
+    const wadah = buka(2);
+    expect(wadah.textContent).toContain("Rencana toko ini sudah final (versi 2). Finalisasi ulang menyimpan versi 3 yang menggantikan versi 2; versi 2 tetap tersimpan.");
+    expect(tombol(wadah).textContent).toContain("Finalisasi ulang");
+    const isian = wadah.querySelector<HTMLInputElement>('input[name="alasan"]');
+    if (isian === null) throw new Error("Isian alasan tidak ada.");
+    expect(isian.required).toBe(true);
+    expect(tombol(wadah).disabled).toBe(true);
+
+    act(() => ubahNilai(isian, "   "));
+    expect(tombol(wadah).disabled).toBe(true);
+    act(() => ubahNilai(isian, "Stok salah ketik"));
+    expect(wadah.querySelector('[data-keadaan="belumDisimpan"]')).not.toBeNull();
+    expect(tombol(wadah).disabled).toBe(false);
+
+    await kirim(wadah);
+    expect(tiruan.finalisasiRencana).toHaveBeenCalledWith({
+      idGudang: 3,
+      tanggalKirim: "2026-06-08",
+      tokoId: 7,
+      versi: "v1",
+      alasanFinalisasiUlang: "Stok salah ketik",
+    });
+    expect(tiruan.buka).toHaveBeenCalledWith("/pengiriman-gudang/3/rencana-final/43");
   });
 });

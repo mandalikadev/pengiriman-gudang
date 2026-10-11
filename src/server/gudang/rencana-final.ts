@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, max } from "drizzle-orm";
 
 import { parseTanggalBisnis, tanggalDalamBulanLaporan, type KategoriDasar, type TanggalBisnis } from "@/domain/kalender";
 import { db } from "@/server/db";
@@ -20,23 +20,29 @@ import {
   type StatusBarisRencanaFinal,
 } from "@/server/db/schema";
 
-import { alasanHitungUlang } from "./dasar-draft";
+import { periksaHitungUlang } from "./dasar-draft";
 import { versiTokoDraft } from "./draft-rencana";
+import { MASALAH_TANPA_VARIAN } from "./masalah-draft";
 import type { RincianBarisDraft, TanggalCakupanDraft } from "./rincian-draft";
 
 // Finalisasi rencana per toko per tanggal kirim (T62; PRD A7 ▶ Keputusan perencanaan M2–M3; CONTEXT "Finalisasi").
 // Rencana final disalin dari draft rencana gudang itu dalam satu transaksi (CODING_STANDARDS), hanya bila draft tidak
-// perlu dihitung ulang (T61) dan semua baris otomatis toko itu tanpa masalah (PRD A6). Snapshot lengkapnya (PRD A7, B9)
-// disimpan di `rencana_final` dan `baris_rencana_final`, lalu tidak pernah diubah. Finalisasi hanya menyatakan rencana
-// kebutuhan barang tersimpan, bukan konfirmasi pengiriman fisik. Kewenangan diperiksa pemanggil (server action).
+// perlu dihitung ulang untuk toko itu (T61), toko itu punya varian, dan semua baris otomatisnya tanpa masalah (PRD A6).
+// Snapshot lengkapnya (PRD A7, B9) disimpan di `rencana_final` dan `baris_rencana_final`, lalu tidak pernah diubah.
+// Finalisasi ulang membuat versi baru dengan alasan wajib; versi lama tetap utuh (PRD A7 ▶ Keputusan 2026-10-11, T62).
+// Finalisasi hanya menyatakan rencana kebutuhan barang tersimpan, bukan konfirmasi pengiriman fisik. Kewenangan diperiksa
+// pemanggil (server action).
 
 /** Draft, toko, atau isi baris toko berubah sejak halaman dibuka (mis. dihitung ulang atau stok diubah). */
 export const PESAN_DRAFT_BERUBAH_FINALISASI =
   "Draft rencana sudah berubah sejak halaman dibuka. Muat ulang halaman, periksa rencana toko ini, lalu finalisasi lagi.";
 
-export const PESAN_PERLU_DIHITUNG_ULANG = "Draft rencana perlu dihitung ulang sebelum bisa difinalisasi.";
+export const PESAN_PERLU_DIHITUNG_ULANG =
+  "Dasar perhitungan toko ini berubah. Hitung ulang draft rencana sebelum toko ini bisa difinalisasi.";
 
-export const PESAN_SUDAH_FINAL = "Rencana toko ini untuk tanggal kirim ini sudah final.";
+export const PESAN_TANPA_VARIAN = `Rencana toko ini tidak bisa difinalisasi karena ${MASALAH_TANPA_VARIAN.toLowerCase()}.`;
+
+export const PESAN_ALASAN_FINALISASI_ULANG = "Alasan finalisasi ulang wajib diisi.";
 
 export function pesanBarisTertahan(jumlah: number) {
   return `Rencana toko ini belum bisa difinalisasi karena ${jumlah.toLocaleString("id-ID")} baris masih tertahan. Selesaikan masalahnya lebih dulu.`;
@@ -59,8 +65,9 @@ function bulanImporUntuk(bulanSumber: readonly string[]) {
 /**
  * Memfinalisasi rencana toko `tokoId` di draft gudang `idGudang` untuk `tanggalKirim`. `versiDilihat` = versi toko draft
  * yang dilihat pengguna (`TokoDraft.versi`); draft yang sudah berubah ditolak agar yang difinalisasi sama dengan yang
- * diperiksa. Ditolak tanpa menulis apa pun bila toko itu sudah final, draft perlu dihitung ulang, atau ada baris tertahan.
- * Toko lain di draft yang sama tidak terpengaruh.
+ * diperiksa. Ditolak tanpa menulis apa pun bila dasar perhitungan toko itu berubah (perlu dihitung ulang), toko itu
+ * tanpa varian, ada baris tertahan, atau toko itu sudah final dan `alasanFinalisasiUlang` kosong. Toko lain di draft
+ * yang sama tidak terpengaruh. Toko yang sudah final mendapat versi berikutnya; versi lama tidak diubah.
  */
 export async function finalisasiRencanaToko({
   idGudang,
@@ -68,12 +75,15 @@ export async function finalisasiRencanaToko({
   tokoId,
   idPengguna,
   versiDilihat,
+  alasanFinalisasiUlang,
 }: {
   idGudang: number;
   tanggalKirim: TanggalBisnis;
   tokoId: number;
   idPengguna: string;
   versiDilihat: string;
+  /** Wajib (tidak kosong) bila toko ini sudah final untuk tanggal kirim ini; diabaikan untuk versi 1. */
+  alasanFinalisasiUlang?: string;
 }): Promise<HasilFinalisasi> {
   return db.transaction(async (tx) => {
     // Kunci yang sama dengan menghitung draft dan menyimpan stok: ketiganya berjalan bergantian untuk gudang ini.
@@ -99,11 +109,10 @@ export async function finalisasiRencanaToko({
       .where(and(eq(tokoDraftRencana.draftId, draft.id), eq(tokoDraftRencana.tokoId, tokoId)));
     if (!tokoDraft) return gagal(PESAN_DRAFT_BERUBAH_FINALISASI);
 
-    const [sudahFinal] = await tx
-      .select({ id: rencanaFinal.id })
+    const [{ versiTerakhir }] = await tx
+      .select({ versiTerakhir: max(rencanaFinal.versi) })
       .from(rencanaFinal)
       .where(and(eq(rencanaFinal.gudangId, idGudang), eq(rencanaFinal.tokoId, tokoId), eq(rencanaFinal.tanggalKirim, tanggalKirim)));
-    if (sudahFinal) return gagal(PESAN_SUDAH_FINAL);
 
     const baris = await tx
       .select({
@@ -123,11 +132,11 @@ export async function finalisasiRencanaToko({
       .leftJoin(produk, eq(produk.kode, barisDraftRencana.kodeProduk))
       .where(eq(barisDraftRencana.tokoDraftId, tokoDraft.id))
       .orderBy(asc(barisDraftRencana.kodeProduk));
-    if (versiTokoDraft(draft.dihitungPada, baris) !== versiDilihat) return gagal(PESAN_DRAFT_BERUBAH_FINALISASI);
+    if (versiTokoDraft(draft.dihitungPada, baris, versiTerakhir) !== versiDilihat) return gagal(PESAN_DRAFT_BERUBAH_FINALISASI);
 
     // Draft tidak bisa ditulis selama kunci gudang dipegang, jadi dasar yang dibandingkan tetap milik draft ini. Dasar
     // yang berlaku dibaca di transaksi yang sama.
-    const alasan = await alasanHitungUlang(
+    const hitungUlang = await periksaHitungUlang(
       {
         idDraft: draft.id,
         idGudang,
@@ -140,12 +149,18 @@ export async function finalisasiRencanaToko({
     );
     const { bulanSumber, imporAktif } = draft;
     const { cakupan, perubahanKategori } = tokoDraft;
-    // Draft dari sebelum T60/T61 tidak menyimpan dasar lengkap; T61 juga menandainya perlu dihitung ulang.
+    // Hanya dasar yang mengenai toko ini yang menahan. Draft dari sebelum T60/T61 tidak menyimpan dasar lengkap; T61 juga
+    // menandainya perlu dihitung ulang.
+    const alasan = hitungUlang.perToko.get(tokoId) ?? [];
     if (alasan.length > 0 || bulanSumber === null || imporAktif === null || cakupan === null || perubahanKategori === null) {
       return gagal(PESAN_PERLU_DIHITUNG_ULANG);
     }
+    if (baris.length === 0) return gagal(PESAN_TANPA_VARIAN);
     const tertahan = baris.filter((b) => b.masalah.length > 0).length;
     if (tertahan > 0) return gagal(pesanBarisTertahan(tertahan));
+    const alasanUlang = versiTerakhir === null ? null : (alasanFinalisasiUlang ?? "").trim();
+    if (alasanUlang === "") return gagal(PESAN_ALASAN_FINALISASI_ULANG);
+    const versi = (versiTerakhir ?? 0) + 1;
 
     const barisFinal = [];
     for (const b of baris) {
@@ -206,6 +221,8 @@ export async function finalisasiRencanaToko({
         tokoId,
         namaToko: namaToko.nama,
         tanggalKirim,
+        versi,
+        alasanFinalisasiUlang: alasanUlang,
         difinalisasiOleh: idPengguna,
         namaPemfinalisasi: pemfinalisasi.nama,
         bulanSumber,
@@ -247,6 +264,10 @@ type BarisRencanaFinal = {
 
 export type RencanaFinal = {
   id: number;
+  /** Nomor versi per gudang + toko + tanggal kirim; versi N menggantikan versi N−1. */
+  versi: number;
+  /** Alasan finalisasi ulang (versi ≥ 2); `null` untuk versi 1. */
+  alasanFinalisasiUlang: string | null;
   /** Nama toko saat difinalisasi. */
   toko: { id: number; nama: string };
   tanggalKirim: TanggalBisnis;
@@ -275,6 +296,8 @@ export async function bacaRencanaFinal(idGudang: number, idRencana: number): Pro
     .orderBy(asc(barisRencanaFinal.kodeProduk));
   return {
     id: r.id,
+    versi: r.versi,
+    alasanFinalisasiUlang: r.alasanFinalisasiUlang,
     toko: { id: r.tokoId, nama: r.namaToko },
     tanggalKirim: parseTanggalBisnis(r.tanggalKirim),
     difinalisasiOleh: r.namaPemfinalisasi,

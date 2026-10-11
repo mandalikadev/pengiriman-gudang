@@ -7,8 +7,9 @@ import { parseTanggalBisnis } from "@/domain/kalender";
 import { wajibHakTindakan } from "@/server/auth/kewenangan";
 import { finalisasiRencanaToko } from "@/server/gudang/rencana-final";
 
-// Finalisasi rencana per toko per tanggal kirim (T62; PRD A7 ▶ Keputusan perencanaan M2–M3). Hak `finalisasi` di gudang
-// itu diperiksa di server sebelum membaca atau menulis data; admin tanpa penugasan berhak ditolak (hanya melihat).
+// Finalisasi rencana per toko per tanggal kirim (T62; PRD A7 ▶ Keputusan perencanaan M2–M3 dan 2026-10-11), termasuk
+// finalisasi ulang dengan alasan wajib. Hak `finalisasi` di gudang itu diperiksa di server sebelum membaca atau menulis
+// data; admin tanpa penugasan berhak ditolak (hanya melihat).
 
 /** Hasil untuk form finalisasi: `idRencana` membuka layar berhasil. */
 export type HasilAksiFinalisasi =
@@ -21,6 +22,8 @@ const skemaFinalisasi = skemaGudang.extend({
   tanggalKirim: z.string(),
   tokoId: z.number().int(),
   versi: z.string().min(1, "Muat ulang halaman, lalu finalisasi lagi."),
+  /** Hanya untuk finalisasi ulang; wajib tidak kosong bila toko sudah final (diperiksa di `finalisasiRencanaToko`). */
+  alasanFinalisasiUlang: z.string().optional(),
 });
 
 /** Memfinalisasi rencana satu toko untuk tanggal kirim draft, lalu memuat ulang halaman Pengiriman Gudang. */
@@ -37,8 +40,15 @@ export async function finalisasiRencana(input: unknown): Promise<HasilAksiFinali
     return { keadaan: "gagal", pesan: "Tanggal kirim tidak valid." };
   }
 
-  const { idGudang, tokoId, versi } = isian.data;
-  const hasil = await finalisasiRencanaToko({ idGudang, tanggalKirim, tokoId, idPengguna: operator.id, versiDilihat: versi });
+  const { idGudang, tokoId, versi, alasanFinalisasiUlang } = isian.data;
+  const hasil = await finalisasiRencanaToko({
+    idGudang,
+    tanggalKirim,
+    tokoId,
+    idPengguna: operator.id,
+    versiDilihat: versi,
+    alasanFinalisasiUlang,
+  });
   if (hasil.keadaan === "gagal") return hasil;
   try {
     revalidatePath(`/pengiriman-gudang/${idGudang}`);

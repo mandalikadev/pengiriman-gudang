@@ -33,7 +33,9 @@ async function muatRencana(id: string, idRencana: string) {
 /**
  * Layar berhasil setelah finalisasi (T62): zona suasana untuk keadaan berhasil besar (DESIGN §1), dibaca dari snapshot
  * rencana final. Menjelaskan bahwa finalisasi hanya menyimpan rencana kebutuhan barang, bukan konfirmasi pengiriman fisik
- * atau penerimaan barang (PRD A7). Bisa dibuka semua pengguna yang boleh melihat Pengiriman Gudang gudang itu.
+ * atau penerimaan barang (PRD A7). Versi hasil finalisasi ulang ditandai "Versi N menggantikan versi N−1" beserta
+ * alasannya (PRD A7 ▶ Keputusan 2026-10-11, T62). Bisa dibuka semua pengguna yang boleh melihat Pengiriman Gudang gudang
+ * itu.
  */
 export default async function HalamanRencanaFinal({ params }: { params: Promise<{ id: string; idRencana: string }> }) {
   const { id, idRencana } = await params;
@@ -62,8 +64,21 @@ export default async function HalamanRencanaFinal({ params }: { params: Promise<
             penerimaan barang.
           </p>
           <p>Rencana ini tidak berubah walaupun data penjualan, kalender, jadwal, atau ranking pusat diperbarui kemudian.</p>
+          {rencana.versi > 1 ? (
+            <p data-versi-menggantikan className="font-semibold">
+              {`Versi ${rencana.versi} menggantikan versi ${rencana.versi - 1}.`}
+            </p>
+          ) : null}
         </div>
         <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-[auto_1fr]">
+          <dt className="text-muted-foreground">Versi</dt>
+          <dd className="font-semibold tabular-nums">{formatAngka(rencana.versi)}</dd>
+          {rencana.alasanFinalisasiUlang === null ? null : (
+            <>
+              <dt className="text-muted-foreground">Alasan finalisasi ulang</dt>
+              <dd className="font-semibold">{rencana.alasanFinalisasiUlang}</dd>
+            </>
+          )}
           <dt className="text-muted-foreground">Difinalisasi oleh</dt>
           <dd className="font-semibold">{rencana.difinalisasiOleh}</dd>
           <dt className="text-muted-foreground">Waktu finalisasi</dt>

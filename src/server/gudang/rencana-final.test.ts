@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { parseTanggalBisnis, type KategoriDasar, type NamaHari } from "@/domain/kalender";
@@ -20,18 +20,21 @@ import { tetapkanPeriodeSumber } from "./periode-sumber";
 import {
   bacaRencanaFinal,
   finalisasiRencanaToko,
+  PESAN_ALASAN_FINALISASI_ULANG,
   PESAN_DRAFT_BERUBAH_FINALISASI,
   PESAN_PERLU_DIHITUNG_ULANG,
-  PESAN_SUDAH_FINAL,
+  PESAN_TANPA_VARIAN,
   pesanBarisTertahan,
 } from "./rencana-final";
 import { simpanStokToko } from "./stok-draft";
 import { buatTokoUji, idGudangUji } from "./uji-bantu";
 
 // T62: finalisasi rencana per toko per tanggal kirim (PRD A7 ▶ Keputusan perencanaan M2–M3), dalam satu transaksi, hanya
-// bila semua baris otomatis toko itu tanpa masalah dan draft tidak perlu dihitung ulang (T61). Rencana final menyimpan
-// snapshot lengkap (PRD A7, B9) dan tidak berubah oleh pembaruan data berikutnya. Contoh PRD A6 / golden
-// `jumlah-kirim.json`: kebutuhan 56, stok 20, tujuh besar → jumlah kirim 44.
+// bila semua baris otomatis toko itu tanpa masalah dan draft tidak perlu dihitung ulang untuk toko itu (T61). Rencana
+// final menyimpan snapshot lengkap (PRD A7, B9) dan tidak berubah oleh pembaruan data berikutnya. PRD A7 ▶ Keputusan
+// 2026-10-11 (T62): finalisasi ulang membuat versi baru dengan alasan wajib, versi lama utuh; toko tanpa varian tidak
+// boleh difinalisasi, toko yang hanya berisi produk manual boleh; perlu dihitung ulang hanya menahan toko yang terdampak.
+// Contoh PRD A6 / golden `jumlah-kirim.json`: kebutuhan 56, stok 20, tujuh besar → jumlah kirim 44.
 
 type Golden = {
   rataRata: Record<KategoriDasar, number>;
@@ -63,39 +66,56 @@ let bandung: number;
 let tokoA: { id: number; nama: string };
 /** Toko kedua; stoknya diisi belakangan. */
 let tokoB: { id: number; nama: string };
+/** Toko yang mengirim tetapi tidak punya varian di periode sumber. */
+let tokoTanpaVarian: { id: number; nama: string };
+/** Toko yang semua barisnya produk manual. */
+let tokoManual: { id: number; nama: string };
 let tahunA: number;
 let tahunB: number;
+/** Tahun impor penjualan toko manual. */
+let tahunManual: number;
 let sesuaiContoh: number[];
 let keluargaTujuhBesar: number;
 let keluargaLain: number;
-const kode = { contoh: kodeProdukUji("GOR"), manual: kodeProdukUji("GOR-T"), tokoB: kodeProdukUji("GOR") };
+const kode = { contoh: kodeProdukUji("GOR"), manual: kodeProdukUji("GOR-T"), tokoB: kodeProdukUji("GOR"), tokoManual: kodeProdukUji("SAN-T") };
 
 const hitung = () => hitungDraftRencana({ idGudang: bandung, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator });
 const draft = () => bacaDraftRencana(bandung, TANGGAL_KIRIM);
 
-/** Finalisasi toko `tokoId` dengan versi draft yang sedang tersimpan (seperti yang dilihat di halaman). */
-async function finalisasi(tokoId: number) {
-  const tokoDraft = (await draft())?.toko.find((t) => t.id === tokoId);
-  if (tokoDraft === undefined) throw new Error(`Toko ${tokoId} tidak ada di draft.`);
-  return finalisasiRencanaToko({ idGudang: bandung, tanggalKirim: TANGGAL_KIRIM, tokoId, idPengguna: idOperator, versiDilihat: tokoDraft.versi });
+/** Toko `tokoId` di draft yang sedang tersimpan. */
+async function tokoDraft(tokoId: number) {
+  const hasil = (await draft())?.toko.find((t) => t.id === tokoId);
+  if (hasil === undefined) throw new Error(`Toko ${tokoId} tidak ada di draft.`);
+  return hasil;
 }
 
-const rencanaGudang = () => db.select({ id: rencanaFinal.id, tokoId: rencanaFinal.tokoId }).from(rencanaFinal).where(eq(rencanaFinal.gudangId, bandung));
+/** Finalisasi toko `tokoId` dengan versi draft yang sedang tersimpan (seperti yang dilihat di halaman). */
+async function finalisasi(tokoId: number, alasanFinalisasiUlang?: string) {
+  const { versi } = await tokoDraft(tokoId);
+  return finalisasiRencanaToko({ idGudang: bandung, tanggalKirim: TANGGAL_KIRIM, tokoId, idPengguna: idOperator, versiDilihat: versi, alasanFinalisasiUlang });
+}
+
+const rencanaGudang = () =>
+  db
+    .select({ id: rencanaFinal.id, tokoId: rencanaFinal.tokoId, versi: rencanaFinal.versi })
+    .from(rencanaFinal)
+    .where(eq(rencanaFinal.gudangId, bandung))
+    .orderBy(asc(rencanaFinal.id));
+const rencanaToko = async (tokoId: number) => (await rencanaGudang()).filter((r) => r.tokoId === tokoId);
+const idRencana = (hasil: Awaited<ReturnType<typeof finalisasiRencanaToko>>) => (hasil.keadaan === "berhasil" ? hasil.idRencana : -1);
 
 beforeAll(async () => {
   idAdmin = (await buatPenggunaUji("admin")).id;
   idOperator = (await buatPenggunaUji("viewer")).id;
   bandung = await idGudangUji("Gudang Bandung");
   await db.delete(draftRencana).where(eq(draftRencana.gudangId, bandung));
-  [tokoA, tokoB] = [await buatTokoUji(), await buatTokoUji()];
-  await db.insert(hubunganTokoGudang).values([tokoA, tokoB].map((t) => ({ tokoId: t.id, gudangId: bandung })));
+  [tokoA, tokoB, tokoTanpaVarian, tokoManual] = [await buatTokoUji(), await buatTokoUji(), await buatTokoUji(), await buatTokoUji()];
+  const semuaToko = [tokoA, tokoB, tokoTanpaVarian, tokoManual];
+  await db.insert(hubunganTokoGudang).values(semuaToko.map((t) => ({ tokoId: t.id, gudangId: bandung })));
   const jadwalSenin = { pola: "mingguan" as const, hariKirim: [{ hari: "Senin" as const, persiapanHari: 2 as const }], dibuatOleh: idAdmin };
-  await db.insert(jadwalToko).values([
-    { ...jadwalSenin, tokoId: tokoA.id },
-    { ...jadwalSenin, tokoId: tokoB.id },
-  ]);
+  await db.insert(jadwalToko).values(semuaToko.map((t) => ({ ...jadwalSenin, tokoId: t.id })));
 
-  [tahunA, tahunB] = [tahunUji(), tahunUji()];
+  [tahunA, tahunB, tahunManual] = [tahunUji(), tahunUji(), tahunUji()];
   sesuaiContoh = kuantitasJuniMenurutHari(tahunA, SEMUA_HARI_JUNI, (nama) => golden.rataRata[kategoriHari(nama)]);
   await aktifkanImporJuniUji({
     idAdmin,
@@ -111,8 +131,19 @@ beforeAll(async () => {
     hari: SEMUA_HARI_JUNI,
     produk: [produkUji(kode.tokoB, SEMUA_HARI_JUNI.map(() => 2))],
   });
+  await aktifkanImporJuniUji({
+    idAdmin,
+    tahun: tahunManual,
+    namaToko: tokoManual.nama,
+    hari: SEMUA_HARI_JUNI,
+    produk: [produkUji(kode.tokoManual, SEMUA_HARI_JUNI.map(() => 1))],
+  });
   await hitungUlangCacheLaporan();
-  const periode = await tetapkanPeriodeSumber({ idGudang: bandung, bulan: [`${tahunA}-06`, `${tahunB}-06`], idPengguna: idAdmin });
+  const periode = await tetapkanPeriodeSumber({
+    idGudang: bandung,
+    bulan: [`${tahunA}-06`, `${tahunB}-06`, `${tahunManual}-06`].sort(),
+    idPengguna: idAdmin,
+  });
   if (periode.keadaan !== "berhasil") throw new Error(periode.pesan);
 
   keluargaTujuhBesar = (await buatKeluargaUji()).id;
@@ -130,7 +161,7 @@ afterAll(async () => {
   // Draft merujuk periode sumber; berkas test lain menghapus periode sumber gudang.
   await db.delete(draftRencana).where(eq(draftRencana.gudangId, bandung));
   // Toko uji tidak lagi terhubung, agar tidak ikut draft gudang ini di berkas test lain.
-  await db.delete(hubunganTokoGudang).where(inArray(hubunganTokoGudang.tokoId, [tokoA.id, tokoB.id]));
+  await db.delete(hubunganTokoGudang).where(inArray(hubunganTokoGudang.tokoId, [tokoA.id, tokoB.id, tokoTanpaVarian.id, tokoManual.id]));
   await db.delete(rencanaFinal).where(eq(rencanaFinal.gudangId, bandung));
   await db.delete(perubahanKategori).where(eq(perubahanKategori.alasan, ALASAN_UJI));
 });
@@ -148,7 +179,9 @@ describe("finalisasi rencana per toko", () => {
     // Toko A: produk otomatis tanpa masalah, produk manual (stok kosong) tidak menahan finalisasi (PRD A6 ▶ T05).
     const hasil = await finalisasi(tokoA.id);
     expect(hasil).toMatchObject({ keadaan: "berhasil" });
-    expect(await rencanaGudang()).toEqual([{ id: hasil.keadaan === "berhasil" ? hasil.idRencana : -1, tokoId: tokoA.id }]);
+    expect(await rencanaGudang()).toEqual([{ id: idRencana(hasil), tokoId: tokoA.id, versi: 1 }]);
+    expect((await tokoDraft(tokoA.id)).versiFinal).toBe(1);
+    expect((await tokoDraft(tokoB.id)).versiFinal).toBeNull();
   });
 
   it("rencana final menyimpan snapshot lengkap: baris, sumber penjualan, ranking, jadwal, kalender, dan tanggal cakupan", async () => {
@@ -157,7 +190,7 @@ describe("finalisasi rencana per toko", () => {
     expect(rencana).not.toBeNull();
     if (rencana === null) return;
 
-    expect(rencana).toMatchObject({ id, toko: tokoA, tanggalKirim: TANGGAL_KIRIM, difinalisasiOleh: "Uji viewer" });
+    expect(rencana).toMatchObject({ id, versi: 1, alasanFinalisasiUlang: null, toko: tokoA, tanggalKirim: TANGGAL_KIRIM, difinalisasiOleh: "Uji viewer" });
     expect(rencana.difinalisasiPada).toBeInstanceOf(Date);
     // Kode uji berawalan acak, jadi urutan baris (kode produk) dibandingkan lewat status.
     expect([...rencana.baris].sort((a, b) => (a.status === b.status ? 0 : a.status === "siap" ? -1 : 1))).toEqual([
@@ -188,8 +221,8 @@ describe("finalisasi rencana per toko", () => {
     const imporJuni = await db
       .select({ id: impor.id, tahunImpor: impor.tahunImpor })
       .from(impor)
-      .where(and(eq(impor.status, "aktif"), inArray(impor.tahunImpor, [tahunA, tahunB])));
-    expect(rencana.sumber.bulanSumber).toEqual([`${tahunA}-06`, `${tahunB}-06`].sort());
+      .where(and(eq(impor.status, "aktif"), inArray(impor.tahunImpor, [tahunA, tahunB, tahunManual])));
+    expect(rencana.sumber.bulanSumber).toEqual([`${tahunA}-06`, `${tahunB}-06`, `${tahunManual}-06`].sort());
     expect(rencana.sumber.impor.map((i) => i.id).sort((a, b) => a - b)).toEqual(imporJuni.map((i) => i.id).sort((a, b) => a - b));
     for (const i of rencana.sumber.impor) {
       expect(i).toMatchObject({ namaFile: "penjualan-uji.xlsx", namaSheet: "JUNI (S)", bulanImpor: 6 });
@@ -210,9 +243,37 @@ describe("finalisasi rencana per toko", () => {
     expect(typeof rencana.kalender.revisi).toBe("number");
   });
 
-  it("toko yang sudah final tidak bisa difinalisasi lagi", async () => {
-    expect(await finalisasi(tokoA.id)).toEqual({ keadaan: "gagal", pesan: PESAN_SUDAH_FINAL });
-    expect(await rencanaGudang()).toHaveLength(1);
+  it("toko tanpa varian ditolak dengan masalahnya; toko yang semua barisnya produk manual boleh difinalisasi", async () => {
+    expect((await tokoDraft(tokoTanpaVarian.id)).baris).toEqual([]);
+    expect(await finalisasi(tokoTanpaVarian.id)).toEqual({ keadaan: "gagal", pesan: PESAN_TANPA_VARIAN });
+    expect(await rencanaToko(tokoTanpaVarian.id)).toEqual([]);
+    expect(PESAN_TANPA_VARIAN).toContain("tidak ada varian dari periode sumber untuk toko ini");
+
+    const hasil = await finalisasi(tokoManual.id);
+    expect(hasil).toMatchObject({ keadaan: "berhasil" });
+    const rencana = await bacaRencanaFinal(bandung, idRencana(hasil));
+    expect(rencana?.baris).toEqual([
+      expect.objectContaining({ kodeProduk: kode.tokoManual, status: "manual", stokAkhir: null, persenBuffer: null, jumlahKirim: null }),
+    ]);
+  });
+
+  it("finalisasi ulang tanpa alasan ditolak; dengan alasan menghasilkan versi baru dan versi lama tidak berubah", async () => {
+    const [versi1] = await rencanaToko(tokoA.id);
+    const sebelum = await bacaRencanaFinal(bandung, versi1.id);
+
+    expect(await finalisasi(tokoA.id)).toEqual({ keadaan: "gagal", pesan: PESAN_ALASAN_FINALISASI_ULANG });
+    expect(await finalisasi(tokoA.id, "   ")).toEqual({ keadaan: "gagal", pesan: PESAN_ALASAN_FINALISASI_ULANG });
+    expect(await rencanaToko(tokoA.id)).toHaveLength(1);
+
+    const hasil = await finalisasi(tokoA.id, "  Stok salah ketik  ");
+    expect(hasil).toMatchObject({ keadaan: "berhasil" });
+    expect(await rencanaToko(tokoA.id)).toEqual([versi1, { id: idRencana(hasil), tokoId: tokoA.id, versi: 2 }]);
+    const versi2 = await bacaRencanaFinal(bandung, idRencana(hasil));
+    expect(versi2).toMatchObject({ versi: 2, alasanFinalisasiUlang: "Stok salah ketik", toko: tokoA, tanggalKirim: TANGGAL_KIRIM });
+    expect(versi2?.baris).toEqual(sebelum?.baris);
+    // Versi lama tetap utuh.
+    expect(await bacaRencanaFinal(bandung, versi1.id)).toEqual(sebelum);
+    expect((await tokoDraft(tokoA.id)).versiFinal).toBe(2);
   });
 
   it("draft yang berubah sejak dilihat ditolak", async () => {
@@ -223,24 +284,93 @@ describe("finalisasi rencana per toko", () => {
     expect(
       await finalisasiRencanaToko({ idGudang: bandung, tanggalKirim: TANGGAL_KIRIM, tokoId: tokoB.id, idPengguna: idOperator, versiDilihat: versiLama }),
     ).toEqual({ keadaan: "gagal", pesan: PESAN_DRAFT_BERUBAH_FINALISASI });
-    expect(await rencanaGudang()).toHaveLength(1);
+    expect(await rencanaToko(tokoB.id)).toEqual([]);
+
+    // Toko yang difinalisasi ulang orang lain sejak halaman dibuka: versi yang dilihat sudah usang.
+    const versiDilihatA = (await tokoDraft(tokoA.id)).versi;
+    expect(await finalisasi(tokoA.id, "Koreksi kedua")).toMatchObject({ keadaan: "berhasil" });
+    expect(
+      await finalisasiRencanaToko({
+        idGudang: bandung,
+        tanggalKirim: TANGGAL_KIRIM,
+        tokoId: tokoA.id,
+        idPengguna: idOperator,
+        versiDilihat: versiDilihatA,
+        alasanFinalisasiUlang: "Koreksi ganda",
+      }),
+    ).toEqual({ keadaan: "gagal", pesan: PESAN_DRAFT_BERUBAH_FINALISASI });
+    expect((await rencanaToko(tokoA.id)).map((r) => r.versi)).toEqual([1, 2, 3]);
   });
 
-  it("ditolak bila draft perlu dihitung ulang; setelah dihitung ulang toko itu bisa difinalisasi", async () => {
+  it("perubahan yang mengenai semua toko (ranking) menahan semua toko; setelah dihitung ulang toko itu bisa difinalisasi", async () => {
+    const jumlahSebelum = (await rencanaGudang()).length;
     await publikasikanRankingUji({ keluarga: [keluargaTujuhBesar], idPengguna: idAdmin });
     expect((await draft())?.perluDihitungUlang).toEqual(["ranking"]);
+    for (const t of [tokoA, tokoB, tokoManual]) expect((await tokoDraft(t.id)).perluDihitungUlang).toEqual(["ranking"]);
     expect(await finalisasi(tokoB.id)).toEqual({ keadaan: "gagal", pesan: PESAN_PERLU_DIHITUNG_ULANG });
-    expect(await rencanaGudang()).toHaveLength(1);
+    expect(await finalisasi(tokoA.id, "Koreksi")).toEqual({ keadaan: "gagal", pesan: PESAN_PERLU_DIHITUNG_ULANG });
+    expect(await rencanaGudang()).toHaveLength(jumlahSebelum);
 
     expect(await hitung()).toMatchObject({ keadaan: "berhasil" });
     expect(await finalisasi(tokoB.id)).toMatchObject({ keadaan: "berhasil" });
-    expect((await rencanaGudang()).map((r) => r.tokoId).sort((a, b) => a - b)).toEqual([tokoA.id, tokoB.id].sort((a, b) => a - b));
+    expect(await rencanaToko(tokoB.id)).toHaveLength(1);
+  });
+});
+
+describe("perlu dihitung ulang hanya menahan toko yang terdampak (PRD A7 ▶ Keputusan 2026-10-11, T62)", () => {
+  /** Toko A tetap bisa difinalisasi (ulang) selama perubahan hanya mengenai toko B. */
+  async function hanyaTokoBTertahan(alasan: string) {
+    expect((await draft())?.perluDihitungUlang).toEqual([alasan]);
+    expect((await tokoDraft(tokoB.id)).perluDihitungUlang).toEqual([alasan]);
+    expect((await tokoDraft(tokoA.id)).perluDihitungUlang).toEqual([]);
+    expect(await finalisasi(tokoB.id, "Koreksi")).toEqual({ keadaan: "gagal", pesan: PESAN_PERLU_DIHITUNG_ULANG });
+    const versiA = (await rencanaToko(tokoA.id)).length;
+    expect(await finalisasi(tokoA.id, `Koreksi saat ${alasan} toko B berubah`)).toMatchObject({ keadaan: "berhasil" });
+    expect(await rencanaToko(tokoA.id)).toHaveLength(versiA + 1);
+  }
+
+  it("kategori efektif diubah khusus toko B di tanggal cakupannya → hanya toko B tertahan", async () => {
+    expect(
+      await buatPerubahanKategori({ tanggal: parseTanggalBisnis("2026-06-10"), idToko: tokoB.id, kategoriBaru: "Minggu", alasan: ALASAN_UJI, idPengguna: idAdmin }),
+    ).toEqual({ keadaan: "berhasil" });
+    await hanyaTokoBTertahan("kategori-efektif");
+    await db.delete(perubahanKategori).where(eq(perubahanKategori.alasan, ALASAN_UJI));
+    expect((await draft())?.perluDihitungUlang).toEqual([]);
+  });
+
+  it("kategori efektif diubah untuk seluruh toko di tanggal cakupan → semua toko yang cakupannya kena tertahan", async () => {
+    expect(
+      await buatPerubahanKategori({ tanggal: parseTanggalBisnis("2026-06-10"), idToko: null, kategoriBaru: "Minggu", alasan: ALASAN_UJI, idPengguna: idAdmin }),
+    ).toEqual({ keadaan: "berhasil" });
+    for (const t of [tokoA, tokoB]) {
+      expect((await tokoDraft(t.id)).perluDihitungUlang).toEqual(["kategori-efektif"]);
+      expect(await finalisasi(t.id, "Koreksi")).toEqual({ keadaan: "gagal", pesan: PESAN_PERLU_DIHITUNG_ULANG });
+    }
+    await db.delete(perubahanKategori).where(eq(perubahanKategori.alasan, ALASAN_UJI));
+    expect((await draft())?.perluDihitungUlang).toEqual([]);
+  });
+
+  it("jadwal toko B diubah → hanya toko B tertahan", async () => {
+    await db
+      .update(jadwalToko)
+      .set({ status: "nonaktif", dinonaktifkanOleh: idAdmin, dinonaktifkanPada: new Date() })
+      .where(and(eq(jadwalToko.tokoId, tokoB.id), eq(jadwalToko.status, "aktif")));
+    await db.insert(jadwalToko).values({ tokoId: tokoB.id, pola: "mingguan", hariKirim: [{ hari: "Senin", persiapanHari: 2 }], dibuatOleh: idAdmin });
+    await hanyaTokoBTertahan("jadwal");
+    expect(await hitung()).toMatchObject({ keadaan: "berhasil" });
+  });
+
+  it("pemetaan produk yang hanya ada di baris toko B diubah → hanya toko B tertahan", async () => {
+    const [pemetaan] = await terapkanPemetaan(idAdmin, [{ kodeProduk: kode.tokoB, tujuan: { status: "terpetakan", idKeluarga: keluargaLain } }]);
+    expect(pemetaan.status).toBe("berhasil");
+    await hanyaTokoBTertahan("pemetaan");
+    expect(await hitung()).toMatchObject({ keadaan: "berhasil" });
   });
 });
 
 describe("rencana final tidak berubah oleh pembaruan data berikutnya (PRD A5, A7, B9)", () => {
   it("impor baru diaktifkan, kategori, jadwal, ranking, dan pemetaan diubah, lalu draft dihitung ulang → isi rencana final tetap", async () => {
-    const [rencanaA] = (await rencanaGudang()).filter((r) => r.tokoId === tokoA.id);
+    const [rencanaA] = await rencanaToko(tokoA.id);
     const sebelum = await bacaRencanaFinal(bandung, rencanaA.id);
     expect(sebelum).not.toBeNull();
 
@@ -278,7 +408,7 @@ describe("rencana final tidak berubah oleh pembaruan data berikutnya (PRD A5, A7
   });
 
   it("nama toko dan nama pemfinalisasi diubah → rencana final tetap menampilkan nama saat difinalisasi", async () => {
-    const [rencanaA] = (await rencanaGudang()).filter((r) => r.tokoId === tokoA.id);
+    const [rencanaA] = await rencanaToko(tokoA.id);
     const sebelum = await bacaRencanaFinal(bandung, rencanaA.id);
     expect(sebelum).toMatchObject({ toko: tokoA, difinalisasiOleh: "Uji viewer" });
 
