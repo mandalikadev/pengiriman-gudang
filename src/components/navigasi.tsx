@@ -1,12 +1,19 @@
 "use client";
 
-import { LogOut, Menu, X } from "lucide-react";
+import { ChevronDown, LogOut, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { keluar } from "@/app/keluar/aksi";
 import { cn } from "@/lib/utils";
+
+import {
+  bacaPilihanKelompok,
+  langgananPilihanKelompok,
+  tulisPilihanKelompok,
+  uraiPilihanKelompok,
+} from "./pilihan-kelompok-sidebar";
 
 // T78 — DESIGN §6 ▶ Keputusan (2026-10-11): navigasi berupa sidebar berkelompok.
 // Desktop (≥ lg): sidebar tetap di kiri, lebar 240 px. Layar kecil: bar atas tipis + menu tarik rounded-3xl.
@@ -118,16 +125,9 @@ function TautanNavigasi({ item, aktif, onClick }: { item: Item; aktif: boolean; 
   );
 }
 
-function JudulKelompok({ judul, id, utama }: { judul: string; id: string; utama: boolean }) {
+function JudulSubkelompok({ judul, id }: { judul: string; id: string }) {
   return (
-    <p
-      id={id}
-      data-kelompok={judul}
-      className={cn(
-        "px-4 pt-3 pb-1 text-xs font-bold tracking-wide uppercase",
-        utama ? "text-foreground" : "text-muted-foreground",
-      )}
-    >
+    <p id={id} data-kelompok={judul} className="px-4 pt-3 pb-1 text-xs font-bold tracking-wide text-muted-foreground uppercase">
       {judul}
     </p>
   );
@@ -145,35 +145,65 @@ function DaftarItem({ item, pathname, onPilih }: { item: Item[]; pathname: strin
   );
 }
 
+/** Semua item dalam kelompok, termasuk item di subkelompoknya. */
+function itemKelompok(kelompok: Kelompok): Item[] {
+  return "subkelompok" in kelompok ? kelompok.subkelompok.flatMap((sub) => sub.item) : kelompok.item;
+}
+
+/** T81: judul kelompok berupa tombol buka-tutup (DESIGN §6 ▶ Keputusan 2026-10-11, UAT). */
 function KelompokNavigasi({
   kelompok,
   idDasar,
   pathname,
+  terbuka,
+  onAlih,
   onPilih,
 }: {
   kelompok: Kelompok;
   idDasar: string;
   pathname: string;
+  terbuka: boolean;
+  onAlih: () => void;
   onPilih: () => void;
 }) {
-  if ("subkelompok" in kelompok) {
-    return (
-      <section aria-labelledby={idDasar}>
-        <JudulKelompok judul={kelompok.judul} id={idDasar} utama />
-        {kelompok.subkelompok.map((sub, i) => (
-          <section key={sub.judul} aria-labelledby={`${idDasar}-${i}`}>
-            <JudulKelompok judul={sub.judul ?? ""} id={`${idDasar}-${i}`} utama={false} />
-            <DaftarItem item={sub.item} pathname={pathname} onPilih={onPilih} />
-          </section>
-        ))}
-      </section>
-    );
-  }
-  if (kelompok.judul === null) return <DaftarItem item={kelompok.item} pathname={pathname} onPilih={onPilih} />;
+  if (kelompok.judul === null) return <DaftarItem item={itemKelompok(kelompok)} pathname={pathname} onPilih={onPilih} />;
+  const idDaftar = `${idDasar}-daftar`;
   return (
     <section aria-labelledby={idDasar}>
-      <JudulKelompok judul={kelompok.judul} id={idDasar} utama={false} />
-      <DaftarItem item={kelompok.item} pathname={pathname} onPilih={onPilih} />
+      <button
+        id={idDasar}
+        type="button"
+        data-kelompok={kelompok.judul}
+        aria-expanded={terbuka}
+        aria-controls={idDaftar}
+        onClick={onAlih}
+        className={cn(
+          bentukItem,
+          // `group`: ikon ChevronDown berputar mengikuti aria-expanded tombol ini.
+          "group justify-between text-xs font-bold tracking-wide uppercase hover:bg-primary/10 hover:text-primary",
+          "subkelompok" in kelompok ? "text-foreground" : "text-muted-foreground",
+          fokusTerlihat,
+        )}
+      >
+        {kelompok.judul}
+        <ChevronDown
+          aria-hidden
+          strokeWidth={2}
+          className="size-5 transition-transform duration-300 ease-out group-aria-expanded:rotate-180 motion-reduce:transition-none"
+        />
+      </button>
+      <div id={idDaftar} hidden={!terbuka}>
+        {"subkelompok" in kelompok ? (
+          kelompok.subkelompok.map((sub, i) => (
+            <section key={sub.judul} aria-labelledby={`${idDasar}-${i}`}>
+              <JudulSubkelompok judul={sub.judul ?? ""} id={`${idDasar}-${i}`} />
+              <DaftarItem item={sub.item} pathname={pathname} onPilih={onPilih} />
+            </section>
+          ))
+        ) : (
+          <DaftarItem item={kelompok.item} pathname={pathname} onPilih={onPilih} />
+        )}
+      </div>
     </section>
   );
 }
@@ -212,6 +242,12 @@ export function Navigasi({
   const tombolMenuRef = useRef<HTMLButtonElement>(null);
   const tombolTutupRef = useRef<HTMLButtonElement>(null);
   const pernahTerbuka = useRef(false);
+  const teksPilihan = useSyncExternalStore(langgananPilihanKelompok, bacaPilihanKelompok, () => null);
+  // Kelompok halaman aktif yang ditutup pengguna selama berada di halaman ini; berlaku sampai pindah halaman.
+  const [ditutupDiHalaman, setDitutupDiHalaman] = useState<{ pathname: string; judul: readonly string[] }>({
+    pathname: "",
+    judul: [],
+  });
 
   useEffect(() => {
     if (!menuTerbuka) return;
@@ -238,6 +274,25 @@ export function Navigasi({
     akses === "masuk" || (akses === "admin" ? pengguna.peran === "admin" : tampilkanPengirimanGudang);
   const kelompok = kelompokUntuk(bolehDibuka);
   const tutup = () => setMenuTerbuka(false);
+
+  // Keadaan awal: kelompok berisi halaman aktif terbuka, lainnya tertutup; pilihan tersimpan berlaku untuk kelompok lain.
+  // Kelompok halaman aktif selalu terbuka saat halaman dibuka, walaupun sebelumnya ditutup.
+  const pilihan = uraiPilihanKelompok(teksPilihan);
+  const ditutup = ditutupDiHalaman.pathname === pathname ? ditutupDiHalaman.judul : [];
+  const berisiHalamanAktif = (k: Kelompok) => itemKelompok(k).some((i) => halamanAktif(pathname, i.href));
+  const terbuka = (k: Kelompok) => {
+    if (k.judul === null) return true;
+    return berisiHalamanAktif(k) ? !ditutup.includes(k.judul) : pilihan[k.judul] === true;
+  };
+  const alih = (k: Kelompok) => {
+    const judul = k.judul;
+    if (judul === null) return;
+    const buka = !terbuka(k);
+    if (berisiHalamanAktif(k)) {
+      setDitutupDiHalaman({ pathname, judul: buka ? ditutup.filter((j) => j !== judul) : [...ditutup, judul] });
+    }
+    tulisPilihanKelompok(judul, buka);
+  };
 
   return (
     <>
@@ -283,7 +338,15 @@ export function Navigasi({
 
         <nav aria-label="Navigasi utama" className="flex flex-1 flex-col gap-2">
           {kelompok.map((k, i) => (
-            <KelompokNavigasi key={k.judul ?? "beranda"} kelompok={k} idDasar={`${idSidebar}-${i}`} pathname={pathname} onPilih={tutup} />
+            <KelompokNavigasi
+              key={k.judul ?? "beranda"}
+              kelompok={k}
+              idDasar={`${idSidebar}-${i}`}
+              pathname={pathname}
+              terbuka={terbuka(k)}
+              onAlih={() => alih(k)}
+              onPilih={tutup}
+            />
           ))}
         </nav>
 

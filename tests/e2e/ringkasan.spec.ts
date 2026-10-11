@@ -74,8 +74,12 @@ test("Ringkasan: pilih bulan → Terapkan → periode aktif tampil; mengubah pil
   await page.getByRole("button", { name: "Masuk" }).click();
   await expect(page).not.toHaveURL(/\/masuk/);
 
-  // Sidebar (T78): satu tautan per halaman, tanpa duplikat menu tarik.
-  await page.getByRole("navigation", { name: "Navigasi utama" }).getByRole("link", { name: "Ringkasan" }).click();
+  // Sidebar (T78): satu tautan per halaman, tanpa duplikat menu tarik. Kelompok Laporan dibuka dulu (T81).
+  const navigasi = page.getByRole("navigation", { name: "Navigasi utama" });
+  const laporan = navigasi.getByRole("button", { name: "Laporan" });
+  if ((await laporan.getAttribute("aria-expanded")) !== "true") await laporan.click();
+  await expect(laporan).toHaveAttribute("aria-expanded", "true");
+  await navigasi.getByRole("link", { name: "Ringkasan" }).click();
   await expect(page).toHaveURL(/\/ringkasan$/);
   await expect(page.getByRole("heading", { name: "Ringkasan", level: 1 })).toBeVisible();
 
