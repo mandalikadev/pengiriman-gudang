@@ -37,6 +37,22 @@ async function imporAktif(
   expect(await aktifkanImpor(id, idAdmin)).toEqual({ keadaan: "berhasil" });
 }
 
+const KATEGORI_HARI = ["Senin–Kamis", "Jumat", "Sabtu", "Minggu"] as const;
+
+/** Angka 4 kartu jumlah Ringkasan (T80), urut kategori hari. */
+async function angkaKartu(page: import("@playwright/test").Page) {
+  return Promise.all(
+    KATEGORI_HARI.map(async (kategori) => Number(await page.locator(`[data-kartu-kategori="${kategori}"]`).getAttribute("data-jumlah"))),
+  );
+}
+
+/** Rata-rata Ringkasan satu baris tabel per kategori hari; tidak tersedia = 0 (tidak menambah jumlah kartu). */
+async function nilaiBaris(baris: import("@playwright/test").Locator) {
+  return Promise.all(
+    KATEGORI_HARI.map(async (kategori) => Number((await baris.locator(`td[data-kategori="${kategori}"]`).getAttribute("data-nilai")) ?? 0)),
+  );
+}
+
 async function masuk(page: import("@playwright/test").Page) {
   await page.goto("/masuk");
   await page.getByLabel("Email").fill(EMAIL_ADMIN_E2E);
@@ -86,19 +102,28 @@ test("Ringkasan: pilih bulan → Terapkan → periode aktif tampil; mengubah pil
   await expect(baris).toBeVisible();
   const totalMentah = baris.locator("[data-total-mentah]");
   await expect(totalMentah).toHaveText("42");
+  // T80: tahun acak → satu-satunya baris pada periode ini; kartu = Rata-rata Ringkasan baris itu.
+  await expect(page.getByText("Baris 1–1 dari 1")).toBeVisible();
+  const kartuMaretJuni = await angkaKartu(page);
+  expect(kartuMaretJuni).toEqual(await nilaiBaris(baris));
 
-  // Mengubah pilihan tanpa Terapkan tidak mengubah hasil, periode, maupun URL.
+  // Mengubah pilihan tanpa Terapkan tidak mengubah hasil, periode, kartu, maupun URL.
   const url = page.url();
   await page.getByRole("checkbox", { name: `Juni ${tahun}` }).uncheck();
   await expect(page.getByText("1 bulan dipilih.")).toBeVisible();
   await expect(periode).toContainText(`Juni ${tahun} (2 bulan)`);
   await expect(totalMentah).toHaveText("42");
+  expect(await angkaKartu(page)).toEqual(kartuMaretJuni);
   expect(page.url()).toBe(url);
 
-  // Setelah Terapkan, hasil mengikuti pilihan baru.
+  // Setelah Terapkan, hasil dan kartu mengikuti pilihan baru.
   await page.getByRole("button", { name: "Terapkan" }).click();
   await expect(periode).toContainText(`Periode aktif: Maret ${tahun} (1 bulan)`);
   await expect(totalMentah).toHaveText("28");
+  const kartuMaret = await angkaKartu(page);
+  expect(kartuMaret).toEqual(await nilaiBaris(baris));
+  // Jumat, Sabtu, dan Minggu Maret bernilai berbeda-beda (1–7), Juni semuanya 2: kartu pasti berubah.
+  expect(kartuMaret).not.toEqual(kartuMaretJuni);
 });
 
 test("Ringkasan: filter kategori produk dan produk berlaku setelah Terapkan, tersimpan di URL, dan bisa dikosongkan", async ({ page }) => {

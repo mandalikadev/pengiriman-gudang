@@ -11,7 +11,8 @@ import { bulanLaporanTersedia, idVersiCacheAktif } from "@/server/laporan/cache"
 import { muatRincian, type RincianAngka } from "@/server/laporan/rincian";
 
 // Halaman Ringkasan (T34, PRD A2). Membaca cache rata-rata bulanan (T33) lalu menghitung tahap 3 lewat
-// `hitungRingkasan` (T32) untuk baris di halaman tabel yang dibuka saja. Tidak membaca Excel (PRD C1).
+// `hitungRingkasan` (T32) untuk baris di halaman tabel yang dibuka. Kartu jumlah (T80) menjumlahkan Rata-rata Ringkasan
+// seluruh hasil filter dengan tahap 3 yang sama, diagregasi di database. Tidak membaca Excel (PRD C1).
 // Perbandingan minggu sama (T36) untuk satu produk–toko terpilih dari cache nilai mingguan lewat
 // `hitungPerbandinganMingguSama` (T32). Rincian satu angka sampai sel sumber (T37) dari `muatRincian`.
 // Ekspor (T38) memakai pemeriksaan pilihan dan perhitungan baris yang sama untuk semua baris hasil filter.
@@ -296,33 +297,35 @@ async function hitungBaris(
 
 /**
  * Jumlah Rata-rata Ringkasan per kategori hari dari semua pasangan produk–toko hasil periode dan filter yang
- * diterapkan. Setiap pasangan dihitung tahap 3 (`hitungRingkasan`) seperti baris tabel, lalu angkanya dijumlahkan.
+ * diterapkan (PRD A2 ▶ Keputusan 2026-10-11). Tahap 3 per pasangan sama dengan `hitungRingkasan`: Σ rata-rata bulanan
+ * dibagi jumlah bulan pilihan yang punya hasil (baris cache yang ada), dibulatkan ke atas per pasangan lewat
+ * `bagiBulatAtas`. Pasangan tanpa hasil di suatu kategori tidak punya baris cache, jadi tidak menambah apa pun.
+ * Agar halaman tetap cepat untuk 12 bulan (PRD C1), database hanya mengembalikan banyaknya pasangan per kombinasi
+ * (kategori, Σ, pembagi); pembulatan tetap di domain.
  */
-async function jumlahkanRataRataRingkasan(
-  tx: Tx,
-  { pilihan, sesuaiFilter }: PilihanTerperiksa,
-): Promise<Record<KategoriDasar, number>> {
-  const bulanan = await tx
+async function jumlahkanRataRataRingkasan(tx: Tx, { sesuaiFilter }: PilihanTerperiksa): Promise<Record<KategoriDasar, number>> {
+  const perPasangan = tx
     .select({
-      tokoId: cacheRataRataBulanan.tokoId,
-      kodeProduk: cacheRataRataBulanan.kodeProduk,
-      bulanLaporan: cacheRataRataBulanan.bulanLaporan,
       kategori: cacheRataRataBulanan.kategori,
-      rataRataBulanan: cacheRataRataBulanan.rataRataBulanan,
-      kelengkapan: cacheRataRataBulanan.kelengkapan,
+      jumlahRataRataBulanan: sql<number>`sum(${cacheRataRataBulanan.rataRataBulanan})::int`.as("jumlah_rata_rata_bulanan"),
+      pembagiBulan: sql<number>`count(*)::int`.as("pembagi_bulan"),
     })
     .from(cacheRataRataBulanan)
-    .where(sesuaiFilter);
-  const perPasangan = new Map<string, typeof bulanan>();
-  for (const b of bulanan) {
-    const k = `${b.tokoId}|${b.kodeProduk}`;
-    const daftar = perPasangan.get(k);
-    if (daftar === undefined) perPasangan.set(k, [b]);
-    else daftar.push(b);
-  }
+    .where(sesuaiFilter)
+    .groupBy(cacheRataRataBulanan.tokoId, cacheRataRataBulanan.kodeProduk, cacheRataRataBulanan.kategori)
+    .as("per_pasangan");
+  const kelompok = await tx
+    .select({
+      kategori: perPasangan.kategori,
+      jumlahRataRataBulanan: perPasangan.jumlahRataRataBulanan,
+      pembagiBulan: perPasangan.pembagiBulan,
+      banyakPasangan: sql<number>`count(*)::int`,
+    })
+    .from(perPasangan)
+    .groupBy(perPasangan.kategori, perPasangan.jumlahRataRataBulanan, perPasangan.pembagiBulan);
   const jumlah = Object.fromEntries(KATEGORI.map((kategori) => [kategori, 0])) as Record<KategoriDasar, number>;
-  for (const daftar of perPasangan.values()) {
-    for (const r of hitungRingkasan(daftar, pilihan)) jumlah[r.kategori] += r.rataRataRingkasan;
+  for (const k of kelompok) {
+    jumlah[k.kategori] += bagiBulatAtas(k.jumlahRataRataBulanan, k.pembagiBulan) * k.banyakPasangan;
   }
   return jumlah;
 }

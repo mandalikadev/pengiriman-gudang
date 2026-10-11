@@ -807,9 +807,8 @@ describe("/ringkasan: kartu jumlah rata-rata per kategori hari (T80, PRD A2 ▶ 
   it("kartu mengikuti filter yang diterapkan di URL: toko, periode, kategori produk, dan produk (hasil cari)", async () => {
     const d = await siapkan();
     const tokoAB = [String(d.tokoA.id), String(d.tokoB.id)];
-    // Pilihan belum diterapkan tidak ada di URL: halaman yang sama memberi kartu yang sama.
+    // Pilihan yang belum diterapkan (tanpa Terapkan) diuji di tests/e2e/ringkasan.spec.ts.
     const terapan = { bulan: d.bulan, toko: tokoAB };
-    expect(kartu(await buka("viewer", terapan)).jumlah).toEqual({ "Senin–Kamis": 51, Jumat: 0, Sabtu: 112, Minggu: 51 });
     expect(kartu(await buka("viewer", terapan)).jumlah).toEqual({ "Senin–Kamis": 51, Jumat: 0, Sabtu: 112, Minggu: 51 });
     // Toko.
     expect(kartu(await buka("viewer", { bulan: d.bulan, toko: String(d.tokoB.id) })).jumlah).toEqual({
