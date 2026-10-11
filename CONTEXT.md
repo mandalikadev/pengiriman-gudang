@@ -135,6 +135,18 @@ Jumlah rata-rata sesuai kategori efektif setiap tanggal dalam cakupan.
 **Stok akhir**:
 Stok toko yang diisi operator. Jika kosong, berarti belum diketahui.
 
+**File stok**:
+Ekspor stok akhir satu toko dari sistem kasir (CSV `;` atau `.xlsx`) dengan kolom `Name - Variant`, `Category`, `Ending`.
+_Avoid_: menganggap nama produk di dalamnya sama dengan nama master
+
+**Alias nama stok**:
+Nama produk di file stok yang dipetakan admin ke tepat satu kode produk. Nama master adalah alias bawaan. Dicocokkan persis setelah normalisasi.
+_Avoid_: pencocokan mirip/fuzzy
+
+**Unggah stok**:
+Membaca satu file stok untuk satu toko di draft rencana menjadi isian stok yang belum disimpan.
+_Avoid_: menganggap hasil unggahan sudah tersimpan
+
 **Buffer**:
 Persen tambahan: 20 untuk keluarga aroma tujuh besar, 10 untuk produk otomatis lainnya.
 

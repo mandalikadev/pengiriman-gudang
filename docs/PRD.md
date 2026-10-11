@@ -82,7 +82,13 @@ Saya ingin menambahkan beberapa toko sekaligus dengan memilih toko lalu menekan 
 > ▶ Keputusan (OD-07, 2026-10-09): viewer melihat laporan semua toko.
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): admin boleh **melihat** halaman Pengiriman Gudang semua gudang (hanya-baca), tanpa tindakan operasional. Menetapkan periode sumber dan menyetujui jadwal tetap dilakukan dari halaman admin.
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): selama OD-12 terbuka, seed data UAT tidak menghubungkan toko ke gudang. Penguji menghubungkan toko lewat halaman admin sebagai bagian dari skenario UAT.
-> ▶ Terbuka: OD-12 (toko mana terhubung ke gudang mana).
+> ▶ Keputusan (2026-10-12, UAT, OD-12 sebagian): hubungan toko–gudang dari lampiran pemilik (gambar jadwal gudang Cibubur, PDF jadwal gudang Bali dan Bandung).
+> - **Gudang Cibubur**: SMB, BOTANI, MKG, KOKAS, SMS, ALSUT, BXC, KARAWACI, CCM, BSD, DELTAMAS, PMB, KUNCIT, TSM CBB, SENTUL, LMK. Toko "Performance" (Atrium Senin dan GPS) ada di jadwal Cibubur tetapi tidak ada di sheet penjualan, jadi tidak dimasukkan.
+> - **Gudang Bali**: DMB, LWB.
+> - **Gudang Bandung**: PASKAL, PVJ.
+> - PMS, PMJ, QUEEN, MKS, DPM belum ditentukan (tetap OD-12).
+> - Seed UAT (`pnpm uat`) menghubungkan toko di atas ke gudangnya dan mengisi jadwal awal (A5) sebagai **data awal** atas nama admin pertama. Perubahan berikutnya mengikuti alur usulan–persetujuan seperti biasa. Keputusan 2026-10-09 "seed tidak menghubungkan toko" tidak berlaku lagi untuk toko di atas; toko yang masih terbuka tetap dihubungkan penguji lewat halaman admin.
+> ▶ Terbuka: OD-12 untuk PMS, PMJ, QUEEN, MKS, DPM.
 
 ### A4. Ketika saya menentukan sumber perhitungan gudang
 
@@ -108,6 +114,33 @@ Pembuatan, perubahan, dan penonaktifan jadwal empat gudang selain Pusat memerluk
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): menyalin template = menerapkan satu pengaturan jadwal ke beberapa toko sekaligus, tanpa entitas template tersimpan. Untuk gudang non-Pusat, setiap toko hasil salinan menjadi usulan tersendiri yang perlu disetujui admin.
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): pola dua mingguan: hari kirim berlaku di pekan (Senin–Minggu) yang memuat tanggal jangkar, lalu berulang setiap 14 hari.
 > ▶ Keputusan (2026-10-10, T54): pola dua mingguan berlaku ke depan **dan ke belakang** dari tanggal jangkar. Jangkar hanya menentukan pekan mana yang menjadi pekan kirim, bukan tanggal mulai jadwal. Contoh: jangkar Rabu 10-06-2026 dengan hari kirim Senin → 25-05, 08-06, dan 22-06-2026 adalah tanggal kirim; 01-06 dan 15-06-2026 bukan.
+> ▶ Keputusan (2026-10-12, UAT): jadwal awal per toko dari lampiran pemilik, diisi seed UAT sebagai jadwal aktif (lihat A3). Kolom jam masuk driver, jam kirim, armada, dan skema drop di lampiran tidak dimodelkan aplikasi.
+>
+> | Gudang | Toko | Pola | Hari kirim (persiapan) | Tanggal jangkar |
+> |---|---|---|---|---|
+> | Gudang Cibubur | SMB | 2× seminggu | Senin (H), Kamis (H−1) | — |
+> | Gudang Cibubur | BOTANI | 2× seminggu | Senin (H), Kamis (H−1) | — |
+> | Gudang Cibubur | MKG | 2× seminggu | Selasa (H−1), Jumat (H−1) | — |
+> | Gudang Cibubur | KOKAS | 2× seminggu | Selasa (H−1), Jumat (H−1) | — |
+> | Gudang Cibubur | SMS | 2× seminggu | Selasa (H−1), Jumat (H−1) | — |
+> | Gudang Cibubur | ALSUT | mingguan | Selasa (H−1) | — |
+> | Gudang Cibubur | BXC | dua mingguan | Rabu (H−1) | 2026-10-14 |
+> | Gudang Cibubur | KARAWACI | mingguan | Rabu (H−1) | — |
+> | Gudang Cibubur | CCM | dua mingguan | Rabu (H−1) | 2026-10-21 |
+> | Gudang Cibubur | BSD | mingguan | Rabu (H−1) | — |
+> | Gudang Cibubur | DELTAMAS | mingguan | Kamis (H−1) | — |
+> | Gudang Cibubur | PMB | mingguan | Kamis (H−2) | — |
+> | Gudang Cibubur | KUNCIT | mingguan | Jumat (H−1) | — |
+> | Gudang Cibubur | TSM CBB | mingguan | Jumat (H) | — |
+> | Gudang Cibubur | SENTUL | mingguan | Sabtu (H−1) | — |
+> | Gudang Cibubur | LMK | mingguan | Sabtu (H−1) | — |
+> | Gudang Bali | DMB | mingguan | Senin (H−1) | — |
+> | Gudang Bali | LWB | 3× seminggu | Senin (H−1), Rabu (H−1), Jumat (H−1) | — |
+> | Gudang Bandung | PASKAL | 2× seminggu | Senin (H−1), Jumat (H−1) | — |
+> | Gudang Bandung | PVJ | mingguan | Selasa (H−1) | — |
+>
+> - Bacaan lampiran yang perlu dikonfirmasi pemilik saat UAT: SMS tercantum di Selasa ("1× seminggu") dan Jumat ("2× seminggu") → dibaca 2× seminggu. BXC dan CCM "2 minggu 1× bergantian" → BXC pekan 12-10-2026, CCM pekan berikutnya. Persiapan Bali dan Bandung tidak tertulis → H−1 (PDF Bandung: permintaan masuk paling lambat satu hari sebelum kirim).
+
 
 Jika jadwal atau dasar perhitungan berubah, draft terkait harus dihitung ulang. Input stok tetap dipertahankan. Rencana yang sudah final tidak berubah mengikuti aturan baru.
 
@@ -174,6 +207,13 @@ Stok yang belum diisi berarti belum diketahui, bukan nol. Stok negatif untuk pro
 > - Jika kebutuhan tidak tersedia, tampilkan tanggal dan kategori mana yang tidak punya rata-rata.
 
 > ▶ Keputusan (2026-10-10, T66): masalah `belum-dipetakan` (produk otomatis yang keluarga aromanya belum dipetakan) tampil di daftar masalah yang sama. Urutan tampilan menjadi: `kebutuhan-tidak-tersedia`, `belum-dipetakan`, `stok-negatif`, `stok-belum-diisi`.
+
+> ▶ Keputusan (2026-10-12, UAT): unggah file stok dan alias nama stok.
+> - **File stok** adalah ekspor stok akhir satu toko dari sistem kasir. Contoh pemilik: `data-lokal/ENDING STOK DPM 5 OKT.csv` (tidak di-commit). Format: CSV berpemisah `;` atau workbook `.xlsx` (sheet pertama). Baris pertama adalah judul kolom `Name - Variant`, `Category`, `Ending`, dicocokkan setelah normalisasi; `Category` boleh tidak ada dan tidak dipakai; kolom lain diabaikan. Struktur lain ditolak dengan pesan yang jelas.
+> - **Alias nama stok**: nama produk di file stok yang dipetakan ke tepat satu kode produk. Satu produk boleh punya beberapa alias. Nama master produk berlaku sebagai alias bawaan. Pencocokan **persis setelah normalisasi** (trim, spasi ganda menjadi satu, huruf besar; sama dengan alias keluarga aroma), tanpa pencocokan mirip. Hanya admin yang mengelola alias: tambah dan hapus satu per satu, serta unggah tabel alias (CSV `;` atau `.xlsx`, kolom `Nama di file stok` dan `Kode produk`) dengan hasil per baris: ditambahkan, sudah ada (pemetaan sama), atau ditolak (kode produk tidak dikenal, alias sudah dipakai produk lain, atau alias ganda di file). Baris yang ditolak tidak menahan baris lain.
+> - **Unggah stok** dilakukan operator berhak `input-stok` di draft rencana, pada toko yang sedang dibuka; satu file = satu toko. Hasil pembacaan mengisi isian stok toko itu sebagai isian **belum disimpan** (sama seperti diketik manual, termasuk perlindungan draft); operator meninjau lalu menekan "Simpan stok". Varian draft tanpa baris di file tidak berubah. `Ending` kosong = belum diketahui; bilangan bulat negatif diterima dan aturan stok negatif tetap berlaku.
+> - Ringkasan hasil unggahan tampil dekat form stok: jumlah varian terisi; baris **tidak dikenal** (nama tanpa alias) beserta daftar namanya dan keterangan bahwa admin yang memetakan alias; baris **diabaikan** (produk dikenal tetapi bukan varian toko ini di draft); baris **nilai tidak valid** (bukan bilangan bulat, atau nama yang muncul lebih dari sekali di file) beserta nomor barisnya. Hanya baris terisi yang mengubah isian.
+
 
 Display, display tester, dan kertas tester ditangani manual tanpa jumlah kirim atau buffer otomatis. Jangan menganggap semua produk dengan kata “tester” memiliki perlakuan yang sama tanpa konfirmasi.
 

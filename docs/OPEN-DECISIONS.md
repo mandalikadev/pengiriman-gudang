@@ -7,7 +7,7 @@ Daftar hal yang **belum diputuskan pemilik**. Agen tidak mengimplementasikan per
 | ID | Pertanyaan | Menahan | Usulan sementara (berlaku hanya jika ditulis di tiket) |
 |---|---|---|---|
 | OD-04 | Penyedia hosting. Syarat: worker yang hidup lama, PostgreSQL region Singapura, storage S3. | Deploy (bukan M1) | — |
-| OD-12 | Toko mana terhubung ke gudang mana (sisa OD-02). Menyusul dari pemilik sebagai data. | Data awal hubungan toko–gudang (tidak menahan kode T21) | — (data, bukan kode) |
+| OD-12 | Toko mana terhubung ke gudang mana untuk **PMS, PMJ, QUEEN, MKS, DPM** (Cibubur, Bali, Bandung sudah diputuskan 2026-10-12). | Data awal hubungan toko–gudang lima toko itu (tidak menahan kode) | — (data, bukan kode) |
 
 ## Tindakan pemilik (bukan keputusan)
 
@@ -89,3 +89,5 @@ Daftar hal yang **belum diputuskan pemilik**. Agen tidak mengimplementasikan per
 | T62: jika draft perlu dihitung ulang, hanya toko yang terdampak yang tertahan finalisasinya (2026-10-11) | PRD A7; T62 |
 | T65: draft gudang besar ditampilkan sebagai ringkasan per toko; rincian baris dibuka per toko (2026-10-11) | PRD C1; T65 |
 | T65: uji performa memakai 500 produk (workbook asli 358–359 produk) (2026-10-11) | PRD C1; T65 |
+| OD-12 sebagian: hubungan toko–gudang Gudang Cibubur (16 toko), Gudang Bali (DMB, LWB), Gudang Bandung (PASKAL, PVJ) dari lampiran pemilik; seed UAT menghubungkannya dan mengisi jadwal awal (2026-10-12) | PRD A3, A5; T84 |
+| Unggah file stok per toko di draft (format CSV `;`/`.xlsx`, kolom `Name - Variant`, `Category`, `Ending`), dicocokkan lewat alias nama stok yang dikelola admin, hasil masuk sebagai isian belum disimpan (2026-10-12) | PRD A6; T82, T83 |
