@@ -137,6 +137,11 @@ Kolom "Token" menentukan warna **ikon** dan latar badge, bukan warna teks. Teks 
 > - **Pintasan** 2–4 tombol ke halaman utama peran itu: admin (Impor, Ringkasan, Gudang), operator (Pengiriman Gudang, Ringkasan, Kalender).
 > - **Viewer:** sapaan, status data, dan pintasan ke Ringkasan dan Kalender saja.
 
+> ▶ Keputusan (2026-10-11, T79): definisi kartu "Perlu tindakan" di beranda.
+> - **"Toko yang belum difinalisasi untuk tanggal kirim terdekat" (operator):** tanggal kirim terdekat = tanggal kirim paling dekat (hari ini atau sesudahnya) menurut jadwal aktif toko-toko gudang itu, satu tanggal per gudang. Yang dihitung: toko aktif yang mengirim pada tanggal itu dan belum punya rencana final untuk tanggal itu, walaupun draft tanggal itu belum dihitung.
+> - **"Draft perlu dihitung ulang" dan "toko dengan baris tertahan" (operator):** hanya draft dengan tanggal kirim hari ini dan sesudahnya.
+> - **Kartu admin:** usulan jadwal berstatus menunggu; snapshot libur menunggu persetujuan; produk belum dipetakan; ranking bulan kalender berjalan (WIB) belum pernah dipublikasikan (kartu berjumlah 1); impor berstatus gagal atau siap ditinjau.
+
 ## 10. Yang tidak diambil dari sumber
 
 Bagian sumber untuk landing page tidak dipakai: hero, harga, testimoni, blog, FAQ, gambar berotasi, konektor SVG, `py-32`, latar seksi berwarna penuh, dan rotasi saat hover. Jika ada layar baru yang terasa membutuhkannya, tanyakan pemilik.
