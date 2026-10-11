@@ -6,7 +6,7 @@ Aturan yang diuji berasal dari `docs/PRD.md`, termasuk semua blok **▶ Keputusa
 
 ## Cara memakai panduan ini
 
-- Kerjakan bagian-bagian **sesuai urutan di dokumen ini**. Urutannya mengikuti alur kerja nyata, bukan urutan nomor PRD: akun dan gudang dulu, lalu impor, laporan, kalender, dan terakhir pengiriman gudang.
+- Mulai dari **"Alur utama"** (cerita pengguna Gudang Cibubur dari impor sampai ekspor), lalu kerjakan bagian-bagian berikutnya **sesuai urutan di dokumen ini**. Urutannya mengikuti alur kerja nyata, bukan urutan nomor PRD: akun dan gudang dulu, lalu impor, laporan, kalender, dan terakhir pengiriman gudang.
 - Isi kolom **Hasil (OK/Tidak)** dengan `OK` atau `Tidak`. Tulis apa yang Anda lihat di kolom **Catatan**, terutama jika hasilnya `Tidak`. Jika langkah tidak bisa dicoba (misalnya datanya tidak ada), tulis `Tidak bisa diuji` beserta alasannya.
 - Teks yang ditulis di antara tanda kutip ("…") adalah teks yang seharusnya tampil persis di layar.
 - Tanggal ditulis seperti di aplikasi: `Senin, 19-10-2026`. Jika Anda menguji di minggu lain, pakai tanggal yang setara (misalnya Senin minggu depan).
@@ -17,9 +17,11 @@ Aturan yang diuji berasal dari `docs/PRD.md`, termasuk semua blok **▶ Keputusa
 
 1. Docker Desktop terpasang dan **menyala**.
 2. Node.js 22 dan pnpm terpasang. Di folder repo, jalankan `pnpm install` sekali.
-3. Folder `data-lokal/` berisi dua file dari pemilik. File ini tidak ada di repo dan tidak boleh di-commit:
+3. Folder `data-lokal/` berisi file dari pemilik. File ini tidak ada di repo dan tidak boleh di-commit:
    - workbook penjualan (`data-lokal/DATA TUMPUKAN AKEH YA ALLAh.xlsx`, berisi sheet `APRIL (S)` sampai `SEPTEMBER (S)`);
-   - `data-lokal/RANKING-SALES-SEPTEMBER-2026.xlsx` (file ranking pusat).
+   - `data-lokal/RANKING-SALES-SEPTEMBER-2026.xlsx` (file ranking pusat);
+   - `data-lokal/ENDING STOK DPM 5 OKT.csv` (contoh file stok dari sistem kasir, dipakai di "Alur utama" Babak 4);
+   - `data-lokal/alias-nama-stok.csv` (tabel alias nama kasir → kode produk, 205 baris, diturunkan dari file stok di atas dengan aturan EDP = EXTRAIT, PARFUM = PARFUM INTENSE, awalan DISPLAY/GIFT SET dihapus; `data-lokal/usulan-alias-lengkap.csv` memuat versi lengkapnya beserta cara pencocokan dan 57 nama yang tidak ada di master).
 4. Internet menyala. Ini hanya dibutuhkan untuk sinkronisasi libur (bagian B2).
 
 ### Satu perintah
@@ -77,13 +79,96 @@ Buat akun-akun ini di skenario A3. Pilih sendiri kata sandinya (minimal 8 karakt
 |---|---|---|---|
 | Admin (dari `pnpm uat`) | admin | — | Konfigurasi, impor, kalender, ranking, persetujuan |
 | Operator Pusat | viewer | Pusat, semua hak tindakan | Jadwal langsung, stok, hitung, finalisasi, ekspor di Pusat |
-| Operator Bandung | viewer | Gudang Bandung, semua hak tindakan | Usulan jadwal yang perlu persetujuan admin |
+| Operator Cibubur | viewer | Gudang Cibubur, semua hak tindakan | Alur utama: unggah stok, hitung, finalisasi, ekspor di Gudang Cibubur |
+| Operator Jabodetabek | viewer | Gudang Jabodetabek, semua hak tindakan | Usulan jadwal yang perlu persetujuan admin |
 | Operator Lihat | viewer | Pusat, tanpa hak tindakan | Akses hanya-baca ke Pengiriman Gudang |
 | Pengamat | viewer | — | Hanya laporan dan kalender |
 
 Aplikasi hanya punya dua peran, **admin** dan **viewer**. Seseorang menjadi **operator** karena ditugaskan ke gudang di halaman Penugasan, bukan karena perannya. Peran admin tidak memberi hak operator.
 
 Untuk berganti akun, tekan **Keluar** di menu, lalu masuk dengan akun lain. Cara lain: pakai jendela penyamaran (*incognito*) browser untuk akun kedua.
+
+---
+
+## Alur utama: dari file Excel sampai jumlah kirim (Gudang Cibubur)
+
+Bagian ini adalah **cerita pengguna** dari awal sampai akhir, untuk dikerjakan pertama kali supaya Anda hafal alur platformnya. Skenario A1–B9 di bawahnya menguji aturan satu per satu dan boleh dikerjakan setelahnya. Semua langkah di sini sudah dijalankan pada 12-10-2026 dengan file asli Anda; angka yang disebut adalah angka yang keluar saat itu.
+
+Ceritanya: **Admin** menyiapkan data sekali (impor penjualan, keluarga aroma, ranking, alias nama stok, periode sumber, operator). Jadwal kirim Cibubur, Bali, dan Bandung sudah terisi otomatis dari lampiran Anda. **Operator Cibubur** lalu tinggal memilih tanggal kirim, mengunggah file stok dari kasir, meninjau, menyimpan, dan memfinalisasi. Hasilnya bisa diekspor ke Excel.
+
+Mulai dari database kosong (`pnpm uat`). Jika Anda sudah pernah memakai aplikasi ini, bersihkan dulu:
+
+```
+docker compose down -v
+```
+
+lalu jalankan `pnpm uat` lagi. Perintah itu menghapus semua data lokal, termasuk file unggahan.
+
+### Babak 1 — Admin: masukkan data penjualan
+
+| No | Langkah | Hasil yang diharapkan | Hasil (OK/Tidak) | Catatan |
+|---|---|---|---|---|
+| U1.1 | Masuk sebagai **admin**. Di Beranda, lihat kartu "Perlu tindakan". | Ada kartu "Ranking bulan berjalan belum dipublikasikan" dan keterangan "Belum ada impor aktif." Tombol pintasan Impor, Ringkasan, Gudang. | | |
+| U1.2 | Buka **Admin › Impor**. Pilih `data-lokal/DATA TUMPUKAN AKEH YA ALLAh.xlsx`, pilih sheet **JUNI (S)**, tahun **2026**, bulan **Juni**, tekan "Unggah dan proses". | Halaman tinjau impor terbuka. Dalam beberapa detik status menjadi "Siap ditinjau". Ringkasan per toko berisi 25 toko, cakupan 01-06-2026 s.d. 30-06-2026. "0 error, 25 peringatan." Semua peringatan berbunyi `Kolom tanggal invalid "31/6" … kosong dan dilewati` dan tidak perlu tindakan. | | |
+| U1.3 | Tekan "Aktifkan". | "Impor ini sekarang aktif." Status "Aktif". | | |
+| U1.4 | Ulangi U1.2–U1.3 untuk **JULI (S)** (Juli 2026) dan **AGUSTUS (S)** (Agustus 2026). | Keduanya "0 error, 0 peringatan." dan aktif. Daftar impor berisi tiga impor aktif. | | |
+| U1.5 | Buka **Ringkasan**, centang Juni, Juli, Agustus 2026, toko **MKG**, cari produk `PW110P-GOR`, tekan Terapkan. | Satu baris MKG · PW110P-GOR dengan Rata-rata Senin–Kamis **4**, Jumat **3**, Sabtu **4**, Minggu **4**, total penjualan mentah **245**. Klik angka 4 Senin–Kamis: rincian menunjukkan "Σ 10 ÷ 3 bulan ≈ 3,33 → dibulatkan ke atas 4" sampai ke sel Excel (`JUNI (S)!AAQ274`). | | |
+
+### Babak 2 — Admin: keluarga aroma, pemetaan produk, ranking
+
+| No | Langkah | Hasil yang diharapkan | Hasil (OK/Tidak) | Catatan |
+|---|---|---|---|---|
+| U2.1 | Buka **Admin › Keluarga aroma**. Untuk setiap baris `VARIANT` di `data-lokal/RANKING-SALES-SEPTEMBER-2026.xlsx` (28 baris: GORGEOUS TUBEROSE … REBEL, termasuk GIFT SET BOX), ketik namanya di "Nama keluarga" dan tekan "Tambah keluarga". Tambahkan juga **KISS FROM A ROSE** (ada di produk, tidak ada di ranking). | 29 kartu keluarga berstatus Aktif. | | |
+| U2.2 | Di setiap kartu, isi "Alias baru" dengan nama yang sama persis dengan teks VARIANT, tekan "Tambah alias". Lalu isi "Segmen kode baru" dengan 3 huruf kode produknya dan tekan "Tambah segmen kode": GOR, HOL, ONL, NO1, UNS, CHA, SED, ROM, THE, MRF, REM, HYP, IRR, DAY, FEE, VAN, FOR, SWE, PRI, 24H, LAD, MOR, ICO, SIG, SEN, YES, REB, KIS. Untuk GIFT SET BOX, segmennya **B** dan **W**. | Alias dan segmen tersimpan per kartu. Segmen yang sama tidak bisa dipakai dua keluarga. | | |
+| U2.3 | Buka **Admin › Pemetaan produk**. Di "Daftar usulan", centang "Pilih semua usulan", lalu "Konfirmasi usulan terpilih". | "347 produk dipilih" → "347 dari 347 produk dikonfirmasi." Setiap baris "Belum dipetakan → Terpetakan: <keluarga>". | | |
+| U2.4 | Sisa 12 produk tanpa aroma: untuk `100-ALK`, `KEM-CAN`, `KEM-GIF`, `PB15-HS`, `KEM-KAR`, `BUK-L`, `BUK-M`, `BUK-S`, `KEM-PAP`, `KTP-PEL`, `KTL-POL`, `KTP-POL`, pilih "Tanpa aroma" di kolom Konfirmasi lalu tekan "Konfirmasi". | Filter status: Semua (359), Terpetakan (347), Tanpa aroma (12), Belum dipetakan (0). | | |
+| U2.5 | Buka **Admin › Ranking**. Pilih `data-lokal/RANKING-SALES-SEPTEMBER-2026.xlsx`, bulan **September 2026**, tekan "Unggah dan tinjau". | Halaman tinjau: 28 baris, semuanya cocok ke keluarga aroma; tujuh besar RANK 1–7 (GORGEOUS TUBEROSE, HOLY SWEET, ONLY THE BRAVE, NO1, UNSTOPPABLE, CHAMPION, SEDUCTION). | | |
+| U2.6 | Tekan "Publikasikan". | "Ranking ini sekarang berlaku untuk semua gudang." Status "Dipublikasikan", "September 2026 versi 1". | | |
+
+> **Periksa sendiri:** keluarga GIFT SET BOX memakai segmen `B` dan `W`, sehingga `GS15-B`, `GS15-W`, dan dua display dummy `DD-GS15-B`, `DD-GS15-W` masuk keluarga itu. Jika display dummy seharusnya tidak dihitung sebagai GIFT SET BOX, ubah pemetaannya di Pemetaan produk dan catat sebagai keputusan.
+
+### Babak 3 — Admin: alias nama stok, periode sumber, operator
+
+| No | Langkah | Hasil yang diharapkan | Hasil (OK/Tidak) | Catatan |
+|---|---|---|---|---|
+| U3.1 | Buka **Admin › Alias nama stok**. Di "Unggah tabel alias", pilih `data-lokal/alias-nama-stok.csv` (205 baris, dibuat dari file stok DPM; nama kasir seperti `GORGEOUS TUBEROSE - 110ML M PARFUM` dipetakan ke kode master `PW110P-GOR`), tekan "Unggah tabel alias". | "Hasil unggahan: 205 ditambahkan, 0 sudah ada, 0 ditolak." Daftar alias terisi. | | |
+| U3.2 | Unggah file yang sama sekali lagi. | "205 sudah ada", tidak ada yang berubah. | | |
+| U3.3 | Di "Tambah alias", isi `GORGEOUS TUBEROSE - 10ML ATOMIZER` dengan kode `PW110P-GOR`. | Ditolak, karena nama itu adalah nama master produk lain (`A10M-GOR`). Nama master selalu berlaku sebagai alias tanpa perlu ditambahkan. | | |
+| U3.4 | Buka **Admin › Gudang** → "Periode sumber penjualan". Untuk **Gudang Cibubur**, centang **Juni 2026, Juli 2026, Agustus 2026**, tekan "Simpan periode sumber". Ulangi untuk Gudang Bali dan Gudang Bandung. | "Berhasil disimpan". Tabel periode sumber menampilkan tiga bulan per gudang beserta siapa dan kapan menetapkannya. | | |
+| U3.5 | Buka **Admin › Pengguna**. Buat **Operator Cibubur** (viewer) dengan email dan kata sandi pilihan Anda. | Tampil di daftar, status Aktif. | | |
+| U3.6 | Buka **Admin › Penugasan**. Pilih Operator Cibubur, gudang **Gudang Cibubur**, centang kelima hak (Kelola usulan jadwal, Input stok, Hitung kebutuhan, Finalisasi, Ekspor), tekan "Tugaskan". | "Berhasil disimpan". Menugaskan orang yang sama ke gudang yang sama lagi ditolak. | | |
+| U3.7 | Buka **Pengiriman Gudang** → Gudang Cibubur sebagai admin. | Halaman terbuka hanya-baca. Kartu "Toko terhubung" berisi 16 toko (ALSUT, BOTANI, BSD, BXC, CCM, DELTAMAS, KARAWACI, KOKAS, KUNCIT, LMK, MKG, PMB, SENTUL, SMB, SMS, TSM CBB). Kartu "Jadwal" berisi jadwal dari lampiran Anda, misalnya SMB "2× seminggu · Senin (H), Kamis (H−1)", BXC "Dua mingguan · Rabu (H−1) · jangkar Rabu, 14-10-2026", PMB "Mingguan · Kamis (H−2)". | | |
+
+> **Periksa sendiri:** tiga bacaan lampiran yang saya tetapkan sendiri dan perlu Anda konfirmasi: SMS dibaca **2× seminggu** (Selasa dan Jumat); BXC mengirim pekan 12-10-2026 dan CCM pekan berikutnya (bergantian); persiapan Bali dan Bandung **H−1**. Toko "Performance" tidak ada di sheet penjualan sehingga tidak masuk. Jika ada yang keliru, ubah lewat usulan jadwal (Babak 5) atau beri tahu saya untuk mengubah seed-nya.
+
+### Babak 4 — Operator Cibubur: hitung, unggah stok, finalisasi, ekspor
+
+Tanggal kirim contoh: **Selasa, 13-10-2026**. Menurut jadwal, yang mengirim hari itu adalah **ALSUT, KOKAS, MKG, SMS**. Jika Anda menguji di minggu lain, pakai Selasa terdekat; angka kebutuhan tetap sama selama kategori hari di cakupannya sama.
+
+| No | Langkah | Hasil yang diharapkan | Hasil (OK/Tidak) | Catatan |
+|---|---|---|---|---|
+| U4.1 | Keluar, lalu masuk sebagai **Operator Cibubur**. Buka **Pengiriman Gudang**. | Hanya "Gudang Cibubur" yang tampil, tanpa label hanya-baca. Menu Admin tidak ada. | | |
+| U4.2 | Buka Gudang Cibubur. Di kartu "Draft rencana" → "Hitung kebutuhan", isi Tanggal kirim **13-10-2026**, tekan "Hitung kebutuhan". | "Berhasil disimpan". Muncul "Draft tersimpan: Selasa, 13-10-2026". Ringkasan per toko: ALSUT, KOKAS, MKG, SMS, masing-masing **359 varian** dan **285 baris tertahan** (semua produk otomatis belum punya stok; 74 produk manual tidak tertahan). | | |
+| U4.3 | Tekan "Buka" di baris **MKG**. Cari baris `PW110P-GOR`, tekan "Rincian". | Tanggal cakupan Senin, 12-10-2026 – Senin, 19-10-2026 · 8 hari · Persiapan H−1 · Panjang cakupan 7 hari. Rata-rata per kategori 4 / 3 / 4 / 4 (sama dengan U1.5). "Kebutuhan = (5 × 4) + (1 × 3) + (1 × 4) + (1 × 4) = **31**". Buffer "20% · keluarga aroma termasuk tujuh besar ranking pusat September 2026 versi 1". Jumlah kirim "—", karena stok belum diisi. | | |
+| U4.4 | Di atas tabel varian MKG ada "Unggah file stok". Pilih `data-lokal/ENDING STOK DPM 5 OKT.csv` (file kasir; untuk uji ini dianggap stok MKG), tekan "Baca file". | Isian stok terisi dari file dan form berstatus "Ada perubahan yang belum disimpan". Ringkasan hasil: "**249 varian terisi dari file**" dan "**57 nama tidak dikenal**" beserta daftarnya (`BACCARAT ELIXIR - …`, `DISPLAY 10ML PRIA/WANITA - …`, `GLASS MAN/WOMAN - …`, `GLITTER/LEATHER - …`, beberapa tester: produk kasir yang tidak ada di master) dan keterangan "Admin memetakan nama ini di Alias nama stok." Belum ada yang tersimpan. | | |
+| U4.5 | Periksa isian `PW110P-GOR`. | Terisi **24** (baris `GORGEOUS TUBEROSE - 110ML M PARFUM;PARFUM WANITA;24` di file). | | |
+| U4.6 | Tekan "Simpan stok". Buka lagi rincian `PW110P-GOR`. | "Berhasil disimpan". Rincian menampilkan "(31 − 24) × 120% = 8,4 → dibulatkan ke atas 9", Jumlah kirim **9**. `A10M-GOR` terisi 64. Di Ringkasan per toko, MKG kini "**50 baris tertahan**" (dari 285): produk otomatis yang tidak ada di file stok (stok masih "—") dan **4 baris "Stok negatif"** yang memang negatif di file kasir (`DP100E-DAY` −1, `DP100E-ICO` −2, `DP100E-NO1` −1, `DW110P-UNS` −1). Stok negatif tersimpan apa adanya tetapi menahan finalisasi. | | |
+| U4.7 | Isi stok yang masih kosong (ketik 0 jika memang tidak ada stok) dan perbaiki 4 stok negatif menjadi angka yang benar (misalnya 0), lalu "Simpan stok". | Baris MKG menjadi "Tidak ada baris tertahan". Form "Finalisasi rencana MKG" muncul dengan keterangan bahwa finalisasi bukan konfirmasi pengiriman fisik. | | |
+| U4.8 | Tekan "Finalisasi rencana" untuk MKG. | Halaman "Rencana final tersimpan": Versi 1, difinalisasi oleh Operator Cibubur, 359 varian tersimpan. Toko lain (ALSUT, KOKAS, SMS) tetap draft dan tidak terpengaruh. | | |
+| U4.9 | Buka "Lihat rincian rencana final", lalu "Ekspor (.xlsx)". | Dasar perhitungan lengkap (periode sumber, tiga impor dengan SHA-256, ranking September 2026 versi 1, jadwal MKG, 8 tanggal cakupan dengan kategori efektifnya) dan 359 baris rencana; baris `PW110P-GOR`: kebutuhan 31, stok 24, jumlah kirim 9. File `rencana-final-MKG-2026-10-13-v1.xlsx` terunduh: kepala (gudang, tanggal kirim, toko, waktu finalisasi, periode sumber, tiga impor sumber, ranking), lalu tabel Kode produk, Nama produk, Kebutuhan barang, Stok akhir, Buffer (%), Jumlah kirim, Status; baris `PW110P-GOR` = 31 · 24 · 20 · 9 · Otomatis. | | |
+| U4.10 | Buka "Riwayat rencana final". | Rencana MKG 13-10-2026 versi 1 tampil dan bisa dibuka lagi. | | |
+
+### Babak 5 — Operator mengubah jadwal, admin menyetujui
+
+Alur ini sama dengan skenario A5 dan A7.9; teks yang diharapkan mengikuti skenario itu.
+
+| No | Langkah | Hasil yang diharapkan | Hasil (OK/Tidak) | Catatan |
+|---|---|---|---|---|
+| U5.1 | Sebagai Operator Cibubur, di "Usulkan jadwal toko", pilih **ALSUT**, Pola **2× seminggu**, Selasa (H−1) dan Jumat (H−1), tekan "Kirim usulan". | Usulan "Menunggu persetujuan". Jadwal aktif ALSUT tetap Mingguan Selasa (H−1) sampai disetujui. | | |
+| U5.2 | Sebagai **admin**, buka **Admin › Persetujuan jadwal**, bandingkan "Jadwal aktif" dan "Usulan", tekan "Setujui". | Jadwal ALSUT berganti menjadi 2× seminggu. Draft 13-10-2026 bertanda "Perlu dihitung ulang" dengan "Yang berubah: Jadwal toko"; hanya ALSUT yang tertahan, MKG (sudah final) tidak berubah. | | |
+| U5.3 | Sebagai Operator Cibubur, tekan "Hitung ulang" pada draft 13-10-2026. | Draft segar, stok yang sudah diisi tetap ada. | | |
+
+Setelah Babak 5 selesai, Anda sudah melewati seluruh alur bisnis: data masuk → rata-rata → jadwal → stok → jumlah kirim → final → ekspor. Lanjutkan ke skenario A1–B9 untuk aturan-aturan rincinya.
 
 ---
 
@@ -97,12 +182,12 @@ Untuk berganti akun, tekan **Keluar** di menu, lalu masuk dengan akun lain. Cara
 | A3.4 | Pilih **Gudang Jabodetabek**, centang **QUEEN**, **MKS**, dan juga **PMS**. Tekan "Tambahkan toko terpilih". | "2 dari 3 toko ditambahkan." QUEEN dan MKS "Berhasil". PMS "Terkait gudang lain" dengan keterangan bahwa PMS sudah terhubung ke Pusat dan satu toko hanya boleh terhubung ke satu gudang. | | |
 | A3.5 | Pilih **Pusat** lagi, centang **PMS**, tekan tombolnya. | PMS "Sudah terhubung", dengan keterangan bahwa tidak ada yang diubah. | | |
 | A3.6 | Nonaktifkan **DPM** (lihat "Menonaktifkan dan mengaktifkan toko"). Pilih Pusat, centang **DPM**, tekan "Tambahkan toko terpilih". Setelah itu tekan "Aktifkan" di baris DPM. | DPM berstatus "Nonaktif" di daftar. Hasilnya "Nonaktif" dengan keterangan "Tidak ditambahkan: toko berstatus nonaktif." | | |
-| A3.7 | Buka **Pengguna**. Buat empat akun dari tabel "Akun uji", semuanya dengan peran **viewer**. | Setiap akun berhasil dibuat dan tampil di "Daftar pengguna" berstatus "Aktif". Pilihan peran hanya "viewer" dan "admin". | | |
+| A3.7 | Buka **Pengguna**. Buat lima akun dari tabel "Akun uji", semuanya dengan peran **viewer**. | Setiap akun berhasil dibuat dan tampil di "Daftar pengguna" berstatus "Aktif". Pilihan peran hanya "viewer" dan "admin". | | |
 | A3.8 | Coba buat akun dengan email yang sudah dipakai. | Muncul "Email sudah dipakai pengguna lain." Tidak ada akun ganda. | | |
 | A3.9 | Di baris akun admin Anda sendiri, tekan "Nonaktifkan". | Ditolak dengan pesan "Akun sendiri tidak bisa dinonaktifkan." | | |
 | A3.10 | Ubah peran admin Anda sendiri menjadi viewer, lalu tekan "Simpan peran" (saat Anda satu-satunya admin aktif). | Ditolak dengan pesan "Peran tidak bisa diubah: aplikasi harus punya minimal satu admin aktif." | | |
 | A3.11 | Nonaktifkan **Pengamat**. Coba masuk sebagai Pengamat. Lalu, sebagai admin, tekan "Aktifkan kembali". | Saat nonaktif, masuk ditolak dengan "Akun ini dinonaktifkan. Hubungi admin." Setelah diaktifkan kembali, Pengamat bisa masuk. | | |
-| A3.12 | Buka **Penugasan**. Tugaskan Operator Pusat ke **Pusat** dengan kelima hak: Kelola usulan jadwal, Input stok, Hitung kebutuhan, Finalisasi, Ekspor. Tugaskan Operator Bandung ke **Gudang Bandung** dengan kelima hak. Tugaskan Operator Lihat ke **Pusat** tanpa mencentang hak apa pun. | Ketiga penugasan tampil di "Daftar penugasan" dengan hak masing-masing. Penugasan tanpa hak tetap tersimpan. | | |
+| A3.12 | Buka **Penugasan**. Tugaskan Operator Pusat ke **Pusat** dengan kelima hak: Kelola usulan jadwal, Input stok, Hitung kebutuhan, Finalisasi, Ekspor. Tugaskan Operator Cibubur ke **Gudang Cibubur** dan Operator Jabodetabek ke **Gudang Jabodetabek**, masing-masing dengan kelima hak. Tugaskan Operator Lihat ke **Pusat** tanpa mencentang hak apa pun. | Ketiga penugasan tampil di "Daftar penugasan" dengan hak masing-masing. Penugasan tanpa hak tetap tersimpan. | | |
 | A3.13 | Tugaskan Operator Pusat ke Pusat sekali lagi. | Ditolak dengan pesan bahwa pengguna ini sudah ditugaskan di gudang tersebut. | | |
 | A3.14 | Sebagai admin, buka **Pengiriman Gudang**, lalu buka Pusat. | Admin melihat semua gudang. Halaman Pusat menampilkan "Hanya-baca: Anda bisa melihat halaman ini, tetapi tidak punya hak tindakan di gudang ini." Tidak ada tombol jadwal, stok, hitung, atau finalisasi. | | |
 | A3.15 | Masuk sebagai **Operator Lihat**, lalu buka Pengiriman Gudang. | Hanya gudang Pusat yang tampil, berlabel "Hanya-baca". Halamannya bisa dibuka tanpa tombol tindakan. | | |
@@ -241,7 +326,7 @@ Klik setiap tanggal di Kalender dan baca "Bulan laporan" dan "Minggu laporan" di
 |---|---|---|---|---|
 | A4.1 | Masuk sebagai **Operator Pusat**, buka Pengiriman Gudang → Pusat sebelum periode sumber ditetapkan. | Kartu "Periode sumber penjualan" mudah ditemukan dan menampilkan "Periode sumber belum ditetapkan admin". Operator tidak bisa mengubahnya. | | |
 | A4.2 | Sebagai Operator Pusat, coba "Hitung kebutuhan" untuk suatu tanggal kirim. | Ditolak dengan "Periode sumber belum ditetapkan admin". Draft tidak dibuat. | | |
-| A4.3 | Sebagai admin, buka **Gudang** → "Periode sumber penjualan". Untuk Pusat, pilih **Juni, Juli, Agustus 2026**, lalu "Simpan periode sumber". Untuk Gudang Bandung, pilih Juni–Agustus juga. | Tersimpan. Tabel menampilkan periode tiap gudang beserta siapa dan kapan menetapkannya. | | |
+| A4.3 | Sebagai admin, buka **Gudang** → "Periode sumber penjualan". Untuk Pusat, pilih **Juni, Juli, Agustus 2026**, lalu "Simpan periode sumber". Untuk Gudang Jabodetabek, pilih Juni–Agustus juga (Gudang Cibubur, Bali, dan Bandung ditetapkan di "Alur utama"). | Tersimpan. Tabel menampilkan periode tiap gudang beserta siapa dan kapan menetapkannya. | | |
 | A4.4 | Sebagai Operator Pusat, muat ulang halaman Pusat. | Kartu menampilkan Juni, Juli, Agustus 2026 (hanya-baca) dan "Ditetapkan oleh … pada …". | | |
 | A4.5 | Di Ringkasan, terapkan bulan lain (misalnya April saja). Kembali ke halaman Pusat. | Periode sumber Pusat tetap Juni–Agustus. Filter Ringkasan tidak mengubah dasar perhitungan gudang. | | |
 | A4.6 | *(Opsional.)* Jika ada bulan periode sumber yang tidak lagi punya impor aktif, lihat kartunya. | Bulan itu bertanda "… — Tidak ada data aktif", dengan keterangan "Perhitungan memakai bulan yang masih punya data aktif." Jika semua bulan tidak punya data, perhitungan ditolak dengan pesan yang jelas dan draft tidak dibuat. Jika tidak bisa dibuat, tulis `Tidak bisa diuji`. | | |
@@ -256,12 +341,12 @@ Gunakan tanggal kirim contoh **Senin, 19-10-2026**. Jika Anda menguji di minggu 
 | A5.2 | Coba Pola **2× seminggu** dengan hanya satu hari dipilih. | Ditolak: "Pola 2× seminggu membutuhkan tepat 2 hari kirim, dipilih 1." Hari kirim yang bisa dipilih hanya Senin–Sabtu. | | |
 | A5.3 | Atur PMJ dengan Pola **2× seminggu**: Senin (H−1) dan Kamis (H). | Tersimpan. Satu toko hanya punya satu jadwal aktif. | | |
 | A5.4 | Di "Salin jadwal ke beberapa toko", buat pengaturan Mingguan, Senin (H), centang PMS dan PMJ, lalu "Terapkan ke toko terpilih". Setelah itu kembalikan jadwal PMS ke Senin (H−2) dan PMJ ke 2× seminggu (A5.1 dan A5.3). | Hasil per toko: "2 dari 2 toko berhasil." Kedua toko langsung mendapat jadwal yang sama, masing-masing sebagai jadwal sendiri. | | |
-| A5.5 | Sebagai **Operator Bandung**, buka Gudang Bandung. Di "Usulkan jadwal toko", pilih **PVJ**, Pola **Dua mingguan**, hari kirim **Senin (H)**, Tanggal jangkar **Rabu, 14-10-2026**, lalu "Kirim usulan". | Usulan tersimpan dengan status "Menunggu persetujuan". PVJ masih "Belum ada jadwal". Usulan belum menggantikan jadwal aktif. | | |
-| A5.6 | Coba kirim usulan lain untuk PVJ. | Tombol tidak bisa ditekan: "Toko ini masih punya usulan jadwal yang menunggu persetujuan admin." | | |
-| A5.7 | Lewat "Salin jadwal ke beberapa toko", kirim usulan Mingguan Senin (H) ke **PASKAL**. | PASKAL mendapat usulan tersendiri yang menunggu persetujuan. | | |
+| A5.5 | Sebagai **Operator Jabodetabek**, buka Gudang Jabodetabek. Di "Usulkan jadwal toko", pilih **QUEEN**, Pola **Dua mingguan**, hari kirim **Senin (H)**, Tanggal jangkar **Rabu, 14-10-2026**, lalu "Kirim usulan". | Usulan tersimpan dengan status "Menunggu persetujuan". QUEEN masih "Belum ada jadwal". Usulan belum menggantikan jadwal aktif. | | |
+| A5.6 | Coba kirim usulan lain untuk QUEEN. | Tombol tidak bisa ditekan: "Toko ini masih punya usulan jadwal yang menunggu persetujuan admin." | | |
+| A5.7 | Lewat "Salin jadwal ke beberapa toko", kirim usulan Mingguan Senin (H) ke **MKS**. | MKS mendapat usulan tersendiri yang menunggu persetujuan. | | |
 | A5.8 | Sebagai admin, buka **Persetujuan jadwal**. | Kedua usulan tampil dengan perbandingan "Jadwal aktif" dan "Usulan" (Pola, Hari kirim, Tanggal jangkar). Admin hanya bisa "Setujui" atau "Tolak", tidak bisa mengubah isinya. Usulan dari Pusat tidak ada di sini. | | |
-| A5.9 | Setujui usulan PVJ. Tolak usulan PASKAL tanpa alasan, lalu dengan alasan. | PVJ kini punya jadwal aktif dua mingguan. Penolakan tanpa alasan ditolak ("Isi alasan penolakan."). Dengan alasan, Operator Bandung melihat "Ditolak" beserta alasan di kolom "Usulan terakhir". PASKAL tetap tanpa jadwal aktif. | | |
-| A5.10 | Pola dua mingguan PVJ (jangkar 14-10-2026, Senin): hitung kebutuhan Gudang Bandung untuk Senin, 12-10-2026, Senin, 19-10-2026, dan Senin, 26-10-2026 (setelah A6 siap). | PVJ ikut pada 12-10 dan 26-10, tetapi **tidak** pada 19-10. Pola berlaku ke depan dan ke belakang dari pekan jangkar. | | |
+| A5.9 | Setujui usulan QUEEN. Tolak usulan MKS tanpa alasan, lalu dengan alasan. | QUEEN kini punya jadwal aktif dua mingguan. Penolakan tanpa alasan ditolak ("Isi alasan penolakan."). Dengan alasan, Operator Jabodetabek melihat "Ditolak" beserta alasan di kolom "Usulan terakhir". MKS tetap tanpa jadwal aktif. | | |
+| A5.10 | Pola dua mingguan QUEEN (jangkar 14-10-2026, Senin): setelah A4.3 menetapkan periode sumber Gudang Jabodetabek dan A6 siap, hitung kebutuhan Gudang Jabodetabek untuk Senin, 12-10-2026, Senin, 19-10-2026, dan Senin, 26-10-2026. | QUEEN ikut pada 12-10 dan 26-10, tetapi **tidak** pada 19-10. Pola berlaku ke depan dan ke belakang dari pekan jangkar. | | |
 | A5.11 | Sebagai Operator Pusat, ubah jadwal PMS setelah draft dihitung (lihat A7). | Draft terkait ditandai "Perlu dihitung ulang". Stok yang sudah diisi tetap ada. Rencana final tidak berubah. | | |
 
 ## A6. Menghitung kebutuhan dan jumlah kirim
@@ -289,7 +374,7 @@ Bagian ini butuh keluarga aroma, ranking pusat, dan pemetaan produk. Semuanya di
 | A6.17 | Isi stok **negatif** (misalnya −3) untuk satu produk otomatis dan satu produk manual. Simpan. | Produk otomatis mendapat masalah "Stok negatif" yang menahan finalisasi. Produk manual tetap "Manual", tidak tertahan, dan stoknya tetap tersimpan dan ditampilkan. | | |
 | A6.18 | Isi stok dengan teks atau angka desimal. | Ditolak: "Isi bilangan bulat, atau kosongkan jika belum diketahui." | | |
 | A6.19 | Jika ada produk yang tidak punya rata-rata untuk satu kategori di periode sumber, lihat barisnya. | "Kebutuhan tidak tersedia", dengan daftar "Tanpa rata-rata:" berisi tanggal dan kategori yang tidak punya rata-rata. Jika tidak ada produk seperti itu, tulis `Tidak bisa diuji`. | | |
-| A6.20 | Hubungkan LMK ke Pusat dan beri jadwal Senin dulu, lalu, sebagai admin, nonaktifkan LMK di **Gudang** (lihat "Menonaktifkan dan mengaktifkan toko"). Hitung ulang draft 19-10-2026. Setelah itu, sebagai admin, aktifkan LMK lagi di **Gudang**. | LMK tidak masuk draft. Halaman menampilkan "Toko LMK nonaktif tetapi masih punya jadwal aktif". | | |
+| A6.20 | Sebagai admin, nonaktifkan **PMJ** di **Gudang** (lihat "Menonaktifkan dan mengaktifkan toko"). Sebagai Operator Pusat, hitung ulang draft 19-10-2026. Setelah itu, sebagai admin, aktifkan PMJ lagi dan hitung ulang sekali lagi. | Saat nonaktif, PMJ tidak masuk draft dan halaman menampilkan "Toko PMJ nonaktif tetapi masih punya jadwal aktif". Setelah diaktifkan dan dihitung ulang, PMJ masuk draft lagi. | | |
 
 ## A7. Menyimpan dan memfinalisasi
 
