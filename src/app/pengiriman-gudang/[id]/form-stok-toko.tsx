@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 
 import { simpanStok } from "./aksi-stok";
 import { STOK_MAKS } from "./batas-stok";
-import { bacaIsianLokal, kunciIsianLokal, langgananIsianLokal, tulisIsianLokal } from "./isian-lokal";
+import { bacaIsianLokal, kunciIsianLokal, langgananIsianLokal, teksStok, tulisIsianLokal, uraiIsianLokal } from "./isian-lokal";
 import { usePeringatanTinggalkan } from "./perlindungan-draft";
 
 // Form stok akhir satu toko di draft rencana (T59; PRD A6, A7). Isian kosong = belum diketahui (`null`), bukan nol; stok
@@ -31,22 +31,6 @@ function bacaIsianStok(teks: string): number | null | undefined {
   if (!/^-?\d+$/.test(rapi)) return undefined;
   const nilai = Number(rapi);
   return Math.abs(nilai) <= STOK_MAKS ? nilai : undefined;
-}
-
-const teksStok = (stokAkhir: number | null) => (stokAkhir === null ? "" : String(stokAkhir));
-
-/** Isian lokal (JSON) → isian per kode produk, hanya untuk varian yang ada di draft. */
-function uraiIsianLokal(teks: string | null, kodeDraft: ReadonlySet<string>): Record<string, string> {
-  if (teks === null) return {};
-  try {
-    const isi: unknown = JSON.parse(teks);
-    if (typeof isi !== "object" || isi === null || Array.isArray(isi)) return {};
-    return Object.fromEntries(
-      Object.entries(isi).filter((e): e is [string, string] => kodeDraft.has(e[0]) && typeof e[1] === "string"),
-    );
-  } catch {
-    return {};
-  }
 }
 
 type KonteksStok = {

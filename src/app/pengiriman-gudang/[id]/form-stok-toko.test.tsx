@@ -247,4 +247,39 @@ describe("perlindungan draft input stok", () => {
     expect(tinggalkan()).toBe(false);
     expect(status(wadah)).toBeNull();
   });
+
+  it("berpindah toko (T73): tautan ke toko lain di halaman yang sama meminta konfirmasi; isian toko ini dipulihkan saat dibuka lagi", () => {
+    const alamatAwal = window.location.href;
+    window.history.replaceState(null, "", "/pengiriman-gudang/3?tanggal=2026-06-08&toko=7");
+    const tautan = document.createElement("a");
+    tautan.href = "/pengiriman-gudang/3?tanggal=2026-06-08&toko=8#draft-toko-8";
+    document.body.append(tautan);
+    const konfirmasi = vi.spyOn(window, "confirm").mockReturnValue(true);
+    try {
+      const wadah = buka();
+      ketik(isian(wadah, "UJI-A"), "3");
+
+      // Dicatat setelah perlindungan draft memutuskan; navigasi jsdom sendiri lalu dicegah (jsdom tidak berpindah dokumen).
+      let dicegahPerlindungan: boolean | null = null;
+      const catat = (event: Event) => {
+        dicegahPerlindungan = event.defaultPrevented;
+        event.preventDefault();
+      };
+      document.addEventListener("click", catat, true);
+      tautan.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+      document.removeEventListener("click", catat, true);
+      expect(konfirmasi).toHaveBeenCalledWith("Ada perubahan stok yang belum disimpan. Tinggalkan halaman ini?");
+      expect(dicegahPerlindungan).toBe(false);
+
+      // Toko lain dibuka (form toko ini dibongkar), lalu toko ini dibuka lagi: isian yang belum disimpan kembali.
+      tutup();
+      const dibukaLagi = buka();
+      expect(isian(dibukaLagi, "UJI-A").value).toBe("3");
+      expect(status(dibukaLagi)?.textContent).toBe("Ada perubahan yang belum disimpan");
+    } finally {
+      konfirmasi.mockRestore();
+      tautan.remove();
+      window.history.replaceState(null, "", alamatAwal);
+    }
+  });
 });

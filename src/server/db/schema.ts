@@ -961,3 +961,135 @@ export const barisDraftRencana = pgTable(
     check("baris_draft_rencana_jumlah_kirim", sql`${tabel.jumlahKirim} is null or ${tabel.jumlahKirim} >= 0`),
   ],
 );
+
+// --- Rencana final (T62, PRD A7 ▶ Keputusan perencanaan M2–M3: finalisasi per toko per tanggal kirim) ---
+
+/** Satu impor yang menjadi sumber penjualan rencana final, beserta identitas filenya (PRD A7). */
+export type ImporRencanaFinal = {
+  id: number;
+  namaFile: string;
+  ukuranByte: number;
+  sha256: string | null;
+  namaSheet: string;
+  tahunImpor: number;
+  bulanImpor: number;
+};
+
+/** Isi jadwal aktif toko saat difinalisasi (PRD A7). */
+export type JadwalRencanaFinal = {
+  pola: PolaJadwal;
+  hariKirim: { hari: HariKirim; persiapanHari: 0 | 1 | 2 }[];
+  tanggalJangkar: string | null;
+};
+
+/**
+ * Rencana final satu toko untuk satu tanggal kirim (CONTEXT "Rencana final"), dibuat operator dengan hak `finalisasi`
+ * dari draft rencana gudang itu. Setiap finalisasi gudang + toko + tanggal kirim membuat versi baru (1, 2, …); versi
+ * lama tidak pernah diubah (PRD A7 ▶ Keputusan 2026-10-11, T62). Versi 2 dan seterusnya menggantikan versi sebelumnya
+ * dan wajib punya alasan finalisasi ulang; versi 1 tanpa alasan. Semua
+ * masukannya disimpan sebagai snapshot sehingga tidak bergantung pada data yang bisa berubah atau dihapus kemudian
+ * (draft, periode sumber, jadwal, cache laporan, master produk; PRD A7, B9): bulan periode sumber dan versi periodenya,
+ * impor beserta identitas file + SHA-256, bulan dan versi ranking pusat, versi dan isi jadwal beserta p dan L, revisi
+ * kalender, id perubahan kategori yang mengenai cakupan, serta tanggal cakupan beserta kategori efektif dan sumbernya.
+ * Nama toko dan nama pemfinalisasi juga disalin agar tampilan rencana final tidak ikut berubah bila master diubah.
+ */
+export const rencanaFinal = pgTable(
+  "rencana_final",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    gudangId: integer("gudang_id")
+      .notNull()
+      .references(() => gudang.id),
+    /** Nama gudang saat difinalisasi (snapshot). */
+    namaGudang: text("nama_gudang").notNull(),
+    tokoId: integer("toko_id")
+      .notNull()
+      .references(() => toko.id),
+    /** Nama toko saat difinalisasi (snapshot). */
+    namaToko: text("nama_toko").notNull(),
+    tanggalKirim: date("tanggal_kirim", { mode: "string" }).notNull(),
+    /** Nomor versi per gudang + toko + tanggal kirim, mulai 1. */
+    versi: integer("versi").notNull(),
+    /** Alasan finalisasi ulang (versi ≥ 2); `null` untuk versi 1. */
+    alasanFinalisasiUlang: text("alasan_finalisasi_ulang"),
+    difinalisasiOleh: text("difinalisasi_oleh")
+      .notNull()
+      .references(() => user.id),
+    /** Nama pengguna yang memfinalisasi saat difinalisasi (snapshot). */
+    namaPemfinalisasi: text("nama_pemfinalisasi").notNull(),
+    difinalisasiPada: timestamp("difinalisasi_pada", { withTimezone: true }).notNull().defaultNow(),
+    /** Bulan periode sumber yang dipakai (`YYYY-MM`, urut naik). */
+    bulanSumber: jsonb("bulan_sumber").$type<string[]>().notNull(),
+    /** Id penetapan periode sumber yang dipakai (T51); tanpa FK karena snapshot. */
+    versiPeriodeSumber: integer("versi_periode_sumber").notNull(),
+    impor: jsonb("impor").$type<ImporRencanaFinal[]>().notNull(),
+    versiRankingId: integer("versi_ranking_id")
+      .notNull()
+      .references(() => versiRanking.id),
+    bulanRanking: text("bulan_ranking").notNull(),
+    versiRanking: integer("versi_ranking").notNull(),
+    /** Id jadwal aktif toko yang dipakai (T55); tanpa FK karena snapshot. */
+    versiJadwal: integer("versi_jadwal").notNull(),
+    jadwal: jsonb("jadwal").$type<JadwalRencanaFinal>().notNull(),
+    persiapanHari: integer("persiapan_hari").$type<0 | 1 | 2>().notNull(),
+    panjangCakupan: integer("panjang_cakupan").$type<7 | 14>().notNull(),
+    revisiKalender: integer("revisi_kalender").notNull(),
+    perubahanKategori: integer("perubahan_kategori").array().notNull(),
+    cakupan: jsonb("cakupan").$type<TanggalCakupanDraft[]>().notNull(),
+  },
+  (tabel) => [
+    uniqueIndex("rencana_final_gudang_toko_tanggal_versi_unik").on(tabel.gudangId, tabel.tokoId, tabel.tanggalKirim, tabel.versi),
+    check("rencana_final_versi", sql`${tabel.versi} >= 1`),
+    check(
+      "rencana_final_alasan_finalisasi_ulang",
+      sql`(${tabel.versi} = 1) = (${tabel.alasanFinalisasiUlang} is null) and coalesce(btrim(${tabel.alasanFinalisasiUlang}), 'x') <> ''`,
+    ),
+    check("rencana_final_persiapan", sql`${tabel.persiapanHari} in (0, 1, 2)`),
+    check("rencana_final_panjang_cakupan", sql`${tabel.panjangCakupan} in (7, 14)`),
+  ],
+);
+
+export const daftarStatusBarisRencanaFinal = ["siap", "manual"] as const;
+export type StatusBarisRencanaFinal = (typeof daftarStatusBarisRencanaFinal)[number];
+
+/**
+ * Satu baris rencana final = satu varian toko itu, disalin dari baris draft saat difinalisasi. `status` `siap` = produk
+ * otomatis tanpa masalah dengan jumlah kirim; `manual` = produk manual, tanpa buffer dan jumlah kirim. Nama dan kategori
+ * produk disalin dari master produk (master bisa berubah oleh impor berikutnya). `rincian` = rata-rata per kategori yang
+ * dipakai dan kebutuhan per kategori efektif. `tanpaRataRata` hanya untuk produk manual yang kebutuhannya tidak tersedia.
+ */
+export const barisRencanaFinal = pgTable(
+  "baris_rencana_final",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    rencanaFinalId: integer("rencana_final_id")
+      .notNull()
+      .references(() => rencanaFinal.id, { onDelete: "cascade" }),
+    kodeProduk: text("kode_produk").notNull(),
+    namaProduk: text("nama_produk"),
+    kategoriProduk: text("kategori_produk"),
+    status: text("status").$type<StatusBarisRencanaFinal>().notNull(),
+    kebutuhan: integer("kebutuhan"),
+    tanpaRataRata: jsonb("tanpa_rata_rata").$type<{ tanggal: string; kategoriEfektif: KategoriDasar }[]>(),
+    stokAkhir: integer("stok_akhir"),
+    persenBuffer: integer("persen_buffer"),
+    jumlahKirim: integer("jumlah_kirim"),
+    rincian: jsonb("rincian").$type<RincianBarisDraft>().notNull(),
+  },
+  (tabel) => [
+    uniqueIndex("baris_rencana_final_unik").on(tabel.rencanaFinalId, tabel.kodeProduk),
+    check("baris_rencana_final_status_dikenal", sql`${tabel.status} in (${daftarSql(daftarStatusBarisRencanaFinal)})`),
+    check(
+      "baris_rencana_final_siap_lengkap",
+      sql`${tabel.status} <> 'siap' or (${tabel.kebutuhan} is not null and ${tabel.stokAkhir} is not null and ${tabel.persenBuffer} in (10, 20) and ${tabel.jumlahKirim} >= 0)`,
+    ),
+    check(
+      "baris_rencana_final_manual_tanpa_kirim",
+      sql`${tabel.status} <> 'manual' or (${tabel.persenBuffer} is null and ${tabel.jumlahKirim} is null)`,
+    ),
+    check(
+      "baris_rencana_final_kebutuhan_atau_tanpa_rata_rata",
+      sql`(${tabel.kebutuhan} is null) = (${tabel.tanpaRataRata} is not null)`,
+    ),
+  ],
+);

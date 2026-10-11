@@ -17,3 +17,9 @@ export const URUTAN_MASALAH = [
   "stok-negatif",
   "stok-belum-diisi",
 ] as const satisfies readonly MasalahBarisDraft[];
+
+/**
+ * Masalah toko di draft yang tidak punya varian dari periode sumber: toko itu tidak boleh difinalisasi (PRD A7
+ * ▶ Keputusan 2026-10-11, T62). Toko yang hanya berisi produk manual tetap boleh.
+ */
+export const MASALAH_TANPA_VARIAN = "Tidak ada varian dari periode sumber untuk toko ini";

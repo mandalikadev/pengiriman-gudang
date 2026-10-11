@@ -51,8 +51,11 @@ export function StatusEkspor({ keadaan }: { keadaan: KeadaanEkspor }) {
   );
 }
 
-/** `url` = `/ringkasan/ekspor?…` dengan periode dan filter yang sedang diterapkan. */
-export function TombolEkspor({ url }: { url: string }) {
+/**
+ * `url` = alamat route ekspor, mis. `/ringkasan/ekspor?…` dengan periode dan filter yang sedang diterapkan.
+ * `keterangan` = teks tambahan untuk pembaca layar bila ada beberapa tombol ekspor di satu halaman.
+ */
+export function TombolEkspor({ url, keterangan }: { url: string; keterangan?: string }) {
   const [keadaan, setKeadaan] = useState<KeadaanEkspor>({ keadaan: "siap" });
 
   async function ekspor() {
@@ -89,6 +92,7 @@ export function TombolEkspor({ url }: { url: string }) {
       >
         <Download aria-hidden strokeWidth={2} className="size-5" />
         Ekspor (.xlsx)
+        {keterangan === undefined ? null : <span className="sr-only">{` ${keterangan}`}</span>}
       </Button>
       <StatusEkspor keadaan={keadaan} />
     </div>

@@ -2,9 +2,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// DESIGN §6: ikon lucide-react, stroke 2, ukuran 20 px (size-5) di zona kerja.
+// DESIGN §6: ikon lucide-react, stroke 2, ukuran 20 px (size-5) di zona kerja dan 28 px (size-7) di zona suasana.
 // Penjaga sumber: setiap ikon lucide yang diimpor langsung dan dipakai sebagai elemen JSX
-// harus ber-className size-5 dan tidak memakai strokeWidth selain 2.
+// harus ber-className size-5 (size-7 di berkas zona suasana) dan tidak memakai strokeWidth selain 2.
 // Ikon yang dirender lewat variabel (mis. `Ikon` di BadgeStatus) dijaga test komponennya sendiri.
 
 function berkasTsx(dir: string): string[] {
@@ -33,6 +33,9 @@ function pemakaianIkon(sumber: string): { nama: string; tag: string }[] {
   );
 }
 
+// Berkas yang seluruh layarnya zona suasana (DESIGN §1), relatif terhadap src/.
+const berkasZonaSuasana = new Set([join("app", "pengiriman-gudang", "[id]", "rencana-final", "[idRencana]", "page.tsx")]);
+
 const akar = join(import.meta.dirname, "..", "src");
 const semuaPemakaian = berkasTsx(akar).flatMap((berkas) =>
   pemakaianIkon(readFileSync(berkas, "utf8")).map((p) => ({
@@ -48,11 +51,23 @@ describe("ikon lucide (DESIGN §6)", () => {
     );
   });
 
-  it.each(semuaPemakaian.map((p) => [`${p.berkas} <${p.nama}>`, p.tag]))(
-    "%s berukuran 20 px, stroke 2",
-    (_, tag) => {
-      expect(tag).toMatch(/className="[^"]*\bsize-5\b/);
-      expect(tag).not.toMatch(/\bsize-(?!5\b)\d/);
+  it("berkas zona suasana yang terdaftar ada dan memakai ikon", () => {
+    for (const berkas of berkasZonaSuasana) {
+      expect(semuaPemakaian.some((p) => p.berkas === berkas)).toBe(true);
+    }
+  });
+
+  it.each(
+    semuaPemakaian.map((p) => [
+      `${p.berkas} <${p.nama}>`,
+      p.tag,
+      berkasZonaSuasana.has(p.berkas) ? "7" : "5",
+    ]),
+  )(
+    "%s berukuran sesuai zona, stroke 2",
+    (_, tag, ukuran) => {
+      expect(tag).toMatch(new RegExp(`className="[^"]*\\bsize-${ukuran}\\b`));
+      expect(tag).not.toMatch(new RegExp(`\\bsize-(?!${ukuran}\\b)\\d`));
       const stroke = tag.match(/strokeWidth=\{([^}]*)\}/)?.[1];
       if (stroke !== undefined) expect(stroke).toBe("2");
     },

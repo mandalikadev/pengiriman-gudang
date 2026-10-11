@@ -13,15 +13,33 @@ import { nilaiRincian } from "@/server/laporan/rincian";
 import { DaftarMasalah } from "./daftar-masalah";
 import { formatJumlahKirim, formatKebutuhan } from "./format-rincian";
 
-// Rincian perhitungan satu baris draft (T60; PRD A1, A6; DESIGN §8). Zona kerja. Semua angka dibaca dari draft
-// tersimpan; komponen hanya menampilkan dan tidak menghitung rumus.
+// Rincian perhitungan satu baris draft (T60; PRD A1, A6; DESIGN §8), juga satu baris rencana final dari snapshotnya
+// (T63). Zona kerja. Semua angka dibaca dari data tersimpan; komponen hanya menampilkan dan tidak menghitung rumus.
+
+/** Bagian baris yang ditampilkan rincian (baris draft, atau baris rencana final). */
+type BarisRincian = Pick<
+  BarisDraft,
+  | "kodeProduk"
+  | "klasifikasi"
+  | "kebutuhan"
+  | "tanpaRataRata"
+  | "stokAkhir"
+  | "persenBuffer"
+  | "asalBuffer"
+  | "jumlahKirim"
+  | "rincianJumlahKirim"
+  | "masalah"
+  | "rincian"
+>;
+type TokoRincian = Pick<TokoDraft, "id" | "nama" | "persiapanHari" | "panjangCakupan" | "cakupan">;
+type DasarRincian = Pick<DraftRencana, "bulanSumber" | "ranking">;
 
 /** Id bagian rincian yang sedang dibuka (hanya satu per halaman); tujuan tautan `#…`. */
 export const ID_RINCIAN_BARIS = "rincian-baris";
 
 const KATEGORI: readonly KategoriDasar[] = ["Senin–Kamis", "Jumat", "Sabtu", "Minggu"];
 
-const labelSumberKategori = {
+export const labelSumberKategori = {
   dasar: "Kategori dasar",
   "semua-toko": "Perubahan kategori seluruh toko",
   toko: "Perubahan kategori khusus toko ini",
@@ -66,8 +84,8 @@ function TanggalCakupan({
   toko,
   rincian,
 }: {
-  toko: TokoDraft & { cakupan: NonNullable<TokoDraft["cakupan"]> };
-  rincian: NonNullable<BarisDraft["rincian"]>;
+  toko: TokoRincian & { cakupan: NonNullable<TokoRincian["cakupan"]> };
+  rincian: NonNullable<BarisRincian["rincian"]>;
 }) {
   const { cakupan } = toko;
   const awal = cakupan[0];
@@ -102,13 +120,23 @@ function TanggalCakupan({
   );
 }
 
-function RataRataPerKategori({ baris, tokoId, bulanSumber }: { baris: BarisDraft; tokoId: number; bulanSumber: readonly string[] }) {
+function RataRataPerKategori({
+  baris,
+  tokoId,
+  bulanSumber,
+  tautanRingkasan,
+}: {
+  baris: BarisRincian;
+  tokoId: number;
+  bulanSumber: readonly string[];
+  tautanRingkasan: boolean;
+}) {
   const rataRata = baris.rincian?.rataRata ?? {};
   return (
     <Bagian judul="Rata-rata per kategori" data-tahap="rata-rata">
       <p className="text-muted-foreground">
-        Rata-rata Ringkasan periode sumber: {bulanSumber.map(formatBulanLaporan).join(", ")}. Buka angka untuk menelusuri
-        asalnya.
+        Rata-rata Ringkasan periode sumber: {bulanSumber.map(formatBulanLaporan).join(", ")}.
+        {tautanRingkasan ? " Buka angka untuk menelusuri asalnya." : " Nilai saat difinalisasi."}
       </p>
       <ul aria-label="Rata-rata per kategori" className="flex flex-col gap-1">
         {KATEGORI.map((kategori) => {
@@ -118,6 +146,8 @@ function RataRataPerKategori({ baris, tokoId, bulanSumber }: { baris: BarisDraft
               <span>Rata-rata {kategori}:</span>
               {nilai === undefined ? (
                 <TidakTersedia />
+              ) : !tautanRingkasan ? (
+                <span className="font-semibold tabular-nums">{formatAngka(nilai)}</span>
               ) : (
                 <Link
                   href={urlPenelusuranRingkasan(bulanSumber, tokoId, baris.kodeProduk, kategori)}
@@ -136,7 +166,7 @@ function RataRataPerKategori({ baris, tokoId, bulanSumber }: { baris: BarisDraft
   );
 }
 
-function Kebutuhan({ baris }: { baris: BarisDraft }) {
+function Kebutuhan({ baris }: { baris: BarisRincian }) {
   if (baris.kebutuhan === null) {
     return (
       <Bagian judul="Kebutuhan barang" data-kebutuhan-rincian="tidak-tersedia">
@@ -173,7 +203,7 @@ function Kebutuhan({ baris }: { baris: BarisDraft }) {
   );
 }
 
-function Buffer({ baris, ranking }: { baris: BarisDraft; ranking: DraftRencana["ranking"] }) {
+function Buffer({ baris, ranking }: { baris: BarisRincian; ranking: DasarRincian["ranking"] }) {
   const asalRanking = `ranking pusat ${formatBulanLaporan(ranking.bulanRanking)} versi ${ranking.versi}`;
   return (
     <Bagian judul="Buffer" data-buffer={baris.persenBuffer ?? "kosong"}>
@@ -205,7 +235,7 @@ function Buffer({ baris, ranking }: { baris: BarisDraft; ranking: DraftRencana["
   );
 }
 
-function JumlahKirim({ baris }: { baris: BarisDraft }) {
+function JumlahKirim({ baris }: { baris: BarisRincian }) {
   return (
     <Bagian judul="Jumlah kirim" data-jumlah-kirim-rincian={baris.jumlahKirim ?? "kosong"}>
       {baris.rincianJumlahKirim !== null && baris.jumlahKirim !== null ? (
@@ -226,17 +256,21 @@ function JumlahKirim({ baris }: { baris: BarisDraft }) {
 /**
  * Rincian perhitungan satu baris draft: tanggal cakupan, kategori efektif dan sumbernya, rata-rata per kategori (tautan
  * ke penelusuran Ringkasan, T37), kebutuhan (jumlah hari × rata-rata), stok, buffer dan asalnya, serta jumlah kirim.
+ * Untuk rencana final (T63) `tautanRingkasan` = false: Ringkasan membaca data terkini, sedangkan rincian final memakai
+ * rata-rata snapshot.
  */
 export function RincianBaris({
   baris,
   toko,
   draft,
   urlTutup,
+  tautanRingkasan = true,
 }: {
-  baris: BarisDraft;
-  toko: TokoDraft;
-  draft: DraftRencana;
+  baris: BarisRincian;
+  toko: TokoRincian;
+  draft: DasarRincian;
   urlTutup: string;
+  tautanRingkasan?: boolean;
 }) {
   const { cakupan } = toko;
   return (
@@ -262,7 +296,7 @@ export function RincianBaris({
       ) : (
         <>
           <TanggalCakupan toko={{ ...toko, cakupan }} rincian={baris.rincian} />
-          <RataRataPerKategori baris={baris} tokoId={toko.id} bulanSumber={draft.bulanSumber} />
+          <RataRataPerKategori baris={baris} tokoId={toko.id} bulanSumber={draft.bulanSumber} tautanRingkasan={tautanRingkasan} />
         </>
       )}
       <Kebutuhan baris={baris} />

@@ -29,8 +29,8 @@ export type TokoDenganJadwal = { id: number; nama: string; aktif: boolean; jadwa
 export const bacaJangkar = (tanggal: string | null) => (tanggal === null ? null : parseTanggalBisnis(tanggal));
 
 /** Toko yang terhubung ke gudang `idGudang` (urut nama) beserta jadwal aktifnya. Pemeriksaan akses oleh pemanggil. */
-export async function jadwalTokoGudang(idGudang: number): Promise<TokoDenganJadwal[]> {
-  const baris = await db
+export async function jadwalTokoGudang(idGudang: number, klien: typeof db | Tx = db): Promise<TokoDenganJadwal[]> {
+  const baris = await klien
     .select({
       id: toko.id,
       nama: toko.nama,

@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { parseTanggalBisnis, type TanggalBisnis } from "@/domain/kalender";
 import { AksesDitolakError, wajibAksesLihatGudang } from "@/server/auth/kewenangan";
 import { tokoTerhubung } from "@/server/gudang/akses";
-import { bacaDraftRencana, daftarTanggalDraft } from "@/server/gudang/draft-rencana";
+import { bacaRingkasanDraft, daftarTanggalDraft } from "@/server/gudang/draft-rencana";
 import { jadwalTokoGudang } from "@/server/gudang/jadwal";
 import { bacaPeriodeSumberPerhitungan } from "@/server/gudang/periode-sumber";
 import { NAMA_GUDANG_PUSAT } from "@/server/gudang/seed-master";
@@ -45,6 +45,11 @@ function bacaTanggalDiminta(nilai: string | string[] | undefined): TanggalBisnis
   }
 }
 
+/** `?toko=<id toko>` = toko draft yang dibuka (T73); nilai lain diabaikan (tidak ada toko dibuka). */
+function bacaTokoDiminta(nilai: string | string[] | undefined): number | null {
+  return typeof nilai === "string" && /^\d{1,9}$/.test(nilai) ? Number(nilai) : null;
+}
+
 function BadgeStatusToko({ aktif }: { aktif: boolean }) {
   if (aktif) return <BadgeStatus status="aktif" />;
   return (
@@ -59,8 +64,9 @@ function BadgeStatusToko({ aktif }: { aktif: boolean }) {
  * Zona kerja (DESIGN §1). Halaman Pengiriman Gudang satu gudang (T50) dengan kartu Periode sumber (T51) dan bagian
  * Jadwal (T55, T56). Operator dengan hak `kelola-usulan-jadwal` mengubah jadwal Pusat langsung dan mengusulkan jadwal
  * gudang lain untuk disetujui admin (PRD A5 ▶ OD-06); server action memeriksanya lagi. Bagian Draft rencana (T58)
- * menampilkan draft yang tersimpan tanpa menghitung saat halaman dibuka (PRD C1); `?rincian=<id toko>|<kode produk>`
- * membuka rincian perhitungan satu baris (T60).
+ * menampilkan draft yang tersimpan tanpa menghitung saat halaman dibuka (PRD C1), sebagai ringkasan per toko; `?toko=<id>`
+ * membuka baris satu toko (T73) dan `?rincian=<id toko>|<kode produk>` membuka rincian perhitungan satu barisnya (T60). Operator dengan hak `finalisasi` memfinalisasi rencana per toko (T62).
+ * Tautan Riwayat rencana final (T63) untuk semua yang bisa melihat halaman ini.
  */
 export default async function HalamanPengirimanGudang({
   params,
@@ -78,7 +84,7 @@ export default async function HalamanPengirimanGudang({
   const pusat = gudang.nama === NAMA_GUDANG_PUSAT;
   const usulanPerToko = pusat ? null : await usulanTerakhirPerToko(gudang.id);
   const daftarTanggal = await daftarTanggalDraft(gudang.id);
-  const draft = await bacaDraftRencana(gudang.id, tanggalDiminta ?? undefined);
+  const draft = await bacaRingkasanDraft(gudang.id, tanggalDiminta ?? undefined, bacaTokoDiminta(parameter?.toko));
   const jalurJadwal = gudang.hakTindakan.includes("kelola-usulan-jadwal") ? (pusat ? "langsung" : "usulan") : null;
 
   return (
@@ -91,6 +97,13 @@ export default async function HalamanPengirimanGudang({
         Daftar gudang
       </Link>
       <h1 className="text-2xl font-bold md:text-3xl">Pengiriman Gudang — {gudang.nama}</h1>
+      <Link
+        href={`/pengiriman-gudang/${gudang.id}/rencana-final`}
+        data-tautan-riwayat-final
+        className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary underline underline-offset-4 transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        Riwayat rencana final
+      </Link>
       {gudang.hakTindakan.length === 0 ? (
         <KeteranganHanyaBaca>
           Hanya-baca: Anda bisa melihat halaman ini, tetapi tidak punya hak tindakan di gudang ini.
@@ -135,6 +148,7 @@ export default async function HalamanPengirimanGudang({
         idGudang={gudang.id}
         bolehHitung={gudang.hakTindakan.includes("hitung-kebutuhan")}
         bolehInputStok={gudang.hakTindakan.includes("input-stok")}
+        bolehFinalisasi={gudang.hakTindakan.includes("finalisasi")}
         daftarTanggal={daftarTanggal}
         tanggalDiminta={tanggalDiminta}
         draft={draft}

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { and, eq, inArray } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { parseTanggalBisnis, type KategoriDasar, type NamaHari } from "@/domain/kalender";
 import { buatPenggunaUji } from "@/server/auth/uji-bantu";
@@ -25,6 +25,7 @@ import { buatKeluargaUji, publikasikanRankingUji } from "@/server/ranking/uji-ba
 
 import {
   bacaDraftRencana,
+  bacaRingkasanDraft,
   daftarTanggalDraft,
   hitungDraftRencana,
   nilaiBarisDraft,
@@ -395,6 +396,41 @@ describe("hitungDraftRencana", () => {
     expect(baca?.toko.find((t) => t.id === tokoTanpaVarian.id)?.jumlahTertahan).toBe(0);
   });
 
+  it("ringkasan draft (T73): setiap toko dengan jumlah baris dan baris tertahan, tanpa baris; baris hanya untuk toko yang dibuka", async () => {
+    await hitungDraftRencana({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator });
+    const lengkap = await bacaDraftRencana(bali, TANGGAL_KIRIM);
+    if (lengkap === null) throw new Error("draft tidak ada");
+    const { toko: semuaToko, ...kepalaDraft } = lengkap;
+
+    const tertutup = await bacaRingkasanDraft(bali, TANGGAL_KIRIM, null);
+    expect(tertutup).toMatchObject(kepalaDraft);
+    expect(tertutup?.tokoDibuka).toBeNull();
+    expect(tertutup?.toko).toEqual(
+      semuaToko.map((t) => ({
+        id: t.id,
+        nama: t.nama,
+        persiapanHari: t.persiapanHari,
+        panjangCakupan: t.panjangCakupan,
+        jumlahBaris: t.baris.length,
+        jumlahTertahan: t.jumlahTertahan,
+        perluDihitungUlang: t.perluDihitungUlang,
+        versiFinal: t.versiFinal,
+      })),
+    );
+    // Enam produk otomatis tertahan; toko tanpa varian punya nol baris.
+    expect(tertutup?.toko.find((t) => t.id === tokoContoh.id)).toMatchObject({ jumlahTertahan: 6 });
+    expect(tertutup?.toko.find((t) => t.id === tokoTanpaVarian.id)).toMatchObject({ jumlahBaris: 0, jumlahTertahan: 0 });
+    expect(tertutup?.toko.every((t) => !("baris" in t))).toBe(true);
+
+    const dibuka = await bacaRingkasanDraft(bali, TANGGAL_KIRIM, tokoContoh.id);
+    expect(dibuka?.toko).toEqual(tertutup?.toko);
+    expect(dibuka?.tokoDibuka).toEqual(semuaToko.find((t) => t.id === tokoContoh.id));
+
+    // Toko yang tidak ada di draft tidak membuka apa pun.
+    expect((await bacaRingkasanDraft(bali, TANGGAL_KIRIM, 999_999_999))?.tokoDibuka).toBeNull();
+    expect(await bacaRingkasanDraft(bali, parseTanggalBisnis("2026-06-15"), tokoContoh.id)).toBeNull();
+  });
+
   it("tanpa ranking dipublikasikan → pesan; draft tidak dibuat dan draft yang ada tidak berubah", async () => {
     await hitungDraftRencana({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator });
     const sebelum = await db.select().from(draftRencana).where(eq(draftRencana.gudangId, bali));
@@ -450,6 +486,45 @@ describe("hitungDraftRencana", () => {
     expect(baris?.find((b) => b.kodeProduk === kode.manual)).toMatchObject({ klasifikasi: "manual" });
   });
 
+  it("baris draft disisipkan bertahap dalam satu transaksi: isi tersimpan utuh dan sama dengan satu INSERT (T72)", async () => {
+    const isiBarisDraft = async () => {
+      const draft = await bacaDraftRencana(bali, TANGGAL_KIRIM);
+      return (draft?.toko ?? []).flatMap((t) => t.baris.map((b) => ({ toko: t.id, ...b })));
+    };
+    // Menghitung jumlah INSERT ke baris_draft_rencana di dalam transaksi hitungDraftRencana.
+    const hitungInsertBaris = async (ukuranBatchBaris?: number) => {
+      let jumlahInsert = 0;
+      const transaksiAsli = db.transaction.bind(db);
+      const mata = vi.spyOn(db, "transaction").mockImplementation((jalankan, opsi) =>
+        transaksiAsli((tx) => {
+          const insertAsli = tx.insert.bind(tx);
+          vi.spyOn(tx, "insert").mockImplementation((tabel) => {
+            if (tabel === barisDraftRencana) jumlahInsert++;
+            return insertAsli(tabel);
+          });
+          return jalankan(tx);
+        }, opsi),
+      );
+      try {
+        const hasil = await hitungDraftRencana({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator, ukuranBatchBaris });
+        expect(hasil.keadaan).toBe("berhasil");
+      } finally {
+        mata.mockRestore();
+      }
+      return jumlahInsert;
+    };
+
+    expect(await hitungInsertBaris()).toBe(1);
+    const satuInsert = await isiBarisDraft();
+    // Toko contoh 7 varian + toko tanpa Minggu 1 varian = 8 baris; batch 3 → 3 + 3 + 2.
+    expect(satuInsert).toHaveLength(8);
+
+    expect(await hitungInsertBaris(3)).toBe(3);
+    const bertahap = await isiBarisDraft();
+    expect(bertahap).toHaveLength(8);
+    expect(bertahap).toEqual(satuInsert);
+  });
+
   it("toko nonaktif tidak masuk draft walaupun masih punya jadwal aktif yang mengirim pada tanggal itu (PRD A6 ▶ T58)", async () => {
     await hitungDraftRencana({ idGudang: bali, tanggalKirim: TANGGAL_KIRIM, idPengguna: idOperator });
     const draft = await bacaDraftRencana(bali, TANGGAL_KIRIM);
@@ -471,6 +546,9 @@ describe("hitungDraftRencana", () => {
       cakupan: golden.kasusCakupan.tanggalCakupan.slice(1).map(({ tanggal, kategoriEfektif }) => ({ tanggal, kategoriEfektif, sumberKategori: "dasar" })),
       jumlahTertahan: 0,
       baris: [],
+      perluDihitungUlang: [],
+      versi: expect.any(String),
+      versiFinal: null,
     });
   });
 

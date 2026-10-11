@@ -20,6 +20,7 @@ import { buatKeluargaUji, publikasikanRankingUji } from "../../src/server/rankin
 import { EMAIL_ADMIN_E2E } from "./siapkan";
 
 // T59: operator dengan hak input-stok mengisi stok akhir di draft rencana → simpan → jumlah kirim tampil.
+// T73: draft tampil sebagai ringkasan per toko; baris dan isian stok tampil setelah toko dibuka.
 // Contoh PRD A6 / golden `jumlah-kirim.json`: kebutuhan 56, stok 20, keluarga tujuh besar → jumlah kirim 44.
 
 const golden = JSON.parse(readFileSync(join(import.meta.dirname, "../golden/jumlah-kirim.json"), "utf8")) as {
@@ -32,7 +33,7 @@ const SEMUA_HARI_JUNI = Array.from({ length: 30 }, (_, i) => i + 1);
 const kategoriHari = (nama: NamaHari): KategoriDasar =>
   nama === "Jumat" || nama === "Sabtu" || nama === "Minggu" ? nama : "Senin–Kamis";
 
-test("Draft rencana: isi stok → simpan → jumlah kirim tampil", async ({ page }) => {
+test("Draft rencana: buka toko → isi stok → simpan → jumlah kirim tampil", async ({ page }) => {
   const [admin] = await db.select({ id: user.id }).from(user).where(eq(user.email, EMAIL_ADMIN_E2E));
   const operator = await buatPenggunaUji("viewer");
   const jabodetabek = await idGudangUji("Gudang Jabodetabek");
@@ -88,6 +89,13 @@ test("Draft rencana: isi stok → simpan → jumlah kirim tampil", async ({ page
 
   await page.goto(`/pengiriman-gudang/${jabodetabek}?tanggal=${TANGGAL_KIRIM}`);
   const baris = page.locator(`tr[data-kode-produk="${kode}"]`);
+  // Tanpa toko dibuka: ringkasan toko saja, tanpa baris maupun isian stok.
+  await expect(page.locator(`tr[data-ringkasan-toko="${toko.id}"] [data-jumlah-baris]`)).toHaveText("1");
+  await expect(baris).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: `Stok akhir ${kode}` })).toHaveCount(0);
+
+  await page.getByRole("link", { name: `Buka ${toko.nama}` }).click();
+  await expect(page).toHaveURL(new RegExp(`[?&]toko=${toko.id}(&|#|$)`));
   await expect(baris.locator("[data-kebutuhan]")).toHaveText(String(golden.kasusCakupan.kebutuhan));
   await expect(baris.locator("[data-jumlah-kirim]")).toHaveText("—");
   await expect(baris.getByText("Stok belum diisi")).toBeVisible();

@@ -43,3 +43,20 @@ export function tulisIsianLokal(kunci: string, isian: Readonly<Record<string, st
   }
   for (const dipanggil of pendengar) dipanggil();
 }
+
+/** Stok akhir tersimpan → teks isian: kosong = belum diketahui. */
+export const teksStok = (stokAkhir: number | null) => (stokAkhir === null ? "" : String(stokAkhir));
+
+/** Isian lokal (JSON) → isian per kode produk, hanya untuk varian yang ada di draft. */
+export function uraiIsianLokal(teks: string | null, kodeDraft: ReadonlySet<string>): Record<string, string> {
+  if (teks === null) return {};
+  try {
+    const isi: unknown = JSON.parse(teks);
+    if (typeof isi !== "object" || isi === null || Array.isArray(isi)) return {};
+    return Object.fromEntries(
+      Object.entries(isi).filter((e): e is [string, string] => kodeDraft.has(e[0]) && typeof e[1] === "string"),
+    );
+  } catch {
+    return {};
+  }
+}

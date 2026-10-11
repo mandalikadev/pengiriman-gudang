@@ -58,8 +58,8 @@ function periodeBerlaku(kondisi?: SQL, klien: typeof db | Tx = db) {
  * Periode sumber yang dipakai perhitungan gudang `idGudang`, atau `null` bila admin belum menetapkannya (perhitungan
  * tidak berjalan; tidak ada periode cadangan). Pemeriksaan akses dilakukan pemanggil.
  */
-export async function bacaPeriodeSumber(idGudang: number): Promise<PeriodeSumber | null> {
-  const [baris] = await periodeBerlaku(eq(periodeSumberGudang.gudangId, idGudang));
+export async function bacaPeriodeSumber(idGudang: number, klien: typeof db | Tx = db): Promise<PeriodeSumber | null> {
+  const [baris] = await periodeBerlaku(eq(periodeSumberGudang.gudangId, idGudang), klien);
   if (!baris) return null;
   return { versi: baris.versi, bulan: baris.bulan, ditetapkanOleh: baris.ditetapkanOleh, ditetapkanPada: baris.ditetapkanPada };
 }
