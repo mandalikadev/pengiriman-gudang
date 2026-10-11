@@ -58,7 +58,8 @@ test("Ringkasan: pilih bulan → Terapkan → periode aktif tampil; mengubah pil
   await page.getByRole("button", { name: "Masuk" }).click();
   await expect(page).not.toHaveURL(/\/masuk/);
 
-  await page.getByRole("navigation", { name: "Navigasi utama" }).getByRole("link", { name: "Ringkasan" }).first().click();
+  // Sidebar (T78): satu tautan per halaman, tanpa duplikat menu tarik.
+  await page.getByRole("navigation", { name: "Navigasi utama" }).getByRole("link", { name: "Ringkasan" }).click();
   await expect(page).toHaveURL(/\/ringkasan$/);
   await expect(page.getByRole("heading", { name: "Ringkasan", level: 1 })).toBeVisible();
 

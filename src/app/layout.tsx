@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Nunito } from "next/font/google";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 import { Navigasi } from "@/components/navigasi";
 import { penggunaSaatIni } from "@/server/auth/kewenangan";
@@ -29,16 +29,22 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const pengguna = await penggunaSaatIni();
+  // Akses lihat Pengiriman Gudang: admin, atau punya penugasan di suatu gudang (PRD A3).
   const aksesPengirimanGudang = pengguna !== null && (await daftarGudangDapatDilihat(pengguna)).length > 0;
+  // Peran yang ditampilkan di sidebar (CONTEXT.md): operator = bukan admin, tetapi ditugaskan ke gudang.
+  const penggunaSidebar: ComponentProps<typeof Navigasi>["pengguna"] =
+    pengguna === null
+      ? null
+      : { nama: pengguna.nama, peran: pengguna.peran === "admin" ? "admin" : aksesPengirimanGudang ? "operator" : "viewer" };
   return (
     <html lang="id" className={`${fraunces.variable} ${nunito.variable}`}>
-      <body className="min-h-screen pt-4 antialiased">
+      <body className="min-h-screen antialiased">
         <Navigasi
-          tampilkanAdmin={pengguna?.peran === "admin"}
+          pengguna={penggunaSidebar}
           tampilkanPengirimanGudang={aksesPengirimanGudang}
-          sudahMasuk={pengguna !== null}
-        />
-        {children}
+        >
+          {children}
+        </Navigasi>
         <div aria-hidden className="tekstur-kertas" />
       </body>
     </html>

@@ -3,63 +3,178 @@
 import { LogOut, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { keluar } from "@/app/keluar/aksi";
 import { cn } from "@/lib/utils";
 
-// DESIGN §6: item hanya untuk halaman yang sudah ada.
-const itemUmum = [{ href: "/", label: "Beranda" }];
-// Semua pengguna yang sudah masuk (PRD A2, perencanaan M2–M3). Halaman memeriksa sesi di server (wajibMasuk).
-const itemMasuk = [
-  { href: "/ringkasan", label: "Ringkasan" },
-  { href: "/kalender", label: "Kalender" },
+// T78 — DESIGN §6 ▶ Keputusan (2026-10-11): navigasi berupa sidebar berkelompok.
+// Desktop (≥ lg): sidebar tetap di kiri, lebar 240 px. Layar kecil: bar atas tipis + menu tarik rounded-3xl.
+// Item hanya untuk halaman yang sudah ada dan boleh dibuka peran itu; penyembunyian ini tambahan,
+// halaman tetap memeriksa sesi dan peran di server (wajibMasuk / wajibAdmin / wajibAksesPengirimanGudang).
+
+/** Peran yang ditampilkan di sidebar (istilah CONTEXT.md). Operator = bukan admin, tetapi punya penugasan gudang. */
+type PeranTampil = "admin" | "operator" | "viewer";
+
+const labelPeran: Record<PeranTampil, string> = { admin: "Admin", operator: "Operator", viewer: "Viewer" };
+
+type Akses = "masuk" | "pengiriman-gudang" | "admin";
+type Item = { href: string; label: string; akses: Akses };
+type KelompokItem = { judul: string | null; item: Item[] };
+type Kelompok = KelompokItem | { judul: string; subkelompok: KelompokItem[] };
+
+// Urutan dan pengelompokan persis DESIGN §6 ▶ Keputusan.
+const kelompokMenu: Kelompok[] = [
+  { judul: null, item: [{ href: "/", label: "Beranda", akses: "masuk" }] },
+  {
+    judul: "Laporan",
+    item: [
+      { href: "/ringkasan", label: "Ringkasan", akses: "masuk" },
+      { href: "/kalender", label: "Kalender", akses: "masuk" },
+    ],
+  },
+  { judul: "Operasional", item: [{ href: "/pengiriman-gudang", label: "Pengiriman Gudang", akses: "pengiriman-gudang" }] },
+  {
+    judul: "Admin",
+    subkelompok: [
+      {
+        judul: "Data",
+        item: [
+          { href: "/admin/impor", label: "Impor", akses: "admin" },
+          { href: "/admin/ranking", label: "Ranking", akses: "admin" },
+          { href: "/admin/keluarga-aroma", label: "Keluarga aroma", akses: "admin" },
+          { href: "/admin/pemetaan-produk", label: "Pemetaan produk", akses: "admin" },
+          { href: "/admin/libur", label: "Libur", akses: "admin" },
+        ],
+      },
+      {
+        judul: "Organisasi",
+        item: [
+          { href: "/admin/gudang", label: "Gudang", akses: "admin" },
+          { href: "/admin/pengguna", label: "Pengguna", akses: "admin" },
+          { href: "/admin/penugasan", label: "Penugasan", akses: "admin" },
+          { href: "/admin/jadwal", label: "Persetujuan jadwal", akses: "admin" },
+        ],
+      },
+    ],
+  },
 ];
-// Pengguna dengan akses lihat Pengiriman Gudang: admin atau punya penugasan (PRD A3). Halaman memeriksa akses di server.
-const itemPengirimanGudang = [{ href: "/pengiriman-gudang", label: "Pengiriman Gudang" }];
-// Hanya untuk admin. Penyembunyian ini tambahan; halaman memeriksa peran di server (wajibAdmin).
-const itemAdmin = [
-  { href: "/admin/pengguna", label: "Pengguna" },
-  { href: "/admin/gudang", label: "Gudang" },
-  { href: "/admin/penugasan", label: "Penugasan" },
-  { href: "/admin/impor", label: "Impor" },
-  { href: "/admin/libur", label: "Libur" },
-  { href: "/admin/keluarga-aroma", label: "Keluarga aroma" },
-  { href: "/admin/pemetaan-produk", label: "Pemetaan produk" },
-  { href: "/admin/ranking", label: "Ranking" },
-  { href: "/admin/jadwal", label: "Persetujuan jadwal" },
-];
+
+/** Menyaring item yang boleh dibuka; kelompok dan subkelompok tanpa item tidak ditampilkan. */
+function kelompokUntuk(bolehDibuka: (akses: Akses) => boolean): Kelompok[] {
+  const saring = (kelompok: KelompokItem): KelompokItem[] => {
+    const item = kelompok.item.filter((i) => bolehDibuka(i.akses));
+    return item.length > 0 ? [{ judul: kelompok.judul, item }] : [];
+  };
+  return kelompokMenu.flatMap((kelompok): Kelompok[] => {
+    if (!("subkelompok" in kelompok)) return saring(kelompok);
+    const subkelompok = kelompok.subkelompok.flatMap(saring);
+    return subkelompok.length > 0 ? [{ judul: kelompok.judul, subkelompok }] : [];
+  });
+}
+
+/** Halaman aktif termasuk sub-halamannya (`/admin/impor/12` menandai Impor). Beranda hanya persis `/`. */
+function halamanAktif(pathname: string, href: string): boolean {
+  return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
+}
 
 const fokusTerlihat =
-  "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card";
 
 const bentukItem =
-  "inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold transition-colors duration-300 ease-out";
+  "flex min-h-11 w-full items-center gap-2 rounded-full px-4 text-sm font-semibold transition-colors duration-300 ease-out";
 
-function TautanNavigasi({
-  href,
-  label,
-  aktif,
-  onClick,
-}: {
-  href: string;
-  label: string;
-  aktif: boolean;
-  onClick?: () => void;
-}) {
+const bentukTombolIkon =
+  "inline-flex size-11 shrink-0 items-center justify-center rounded-full text-primary transition-colors duration-300 ease-out hover:bg-primary/10";
+
+function Logo() {
+  return (
+    <span className="flex items-center gap-3">
+      <span
+        aria-hidden
+        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground"
+      >
+        M
+      </span>
+      <span className="text-lg font-bold">MANDALIKA</span>
+    </span>
+  );
+}
+
+function TautanNavigasi({ item, aktif, onClick }: { item: Item; aktif: boolean; onClick: () => void }) {
   return (
     <Link
-      href={href}
+      href={item.href}
       aria-current={aktif ? "page" : undefined}
       onClick={onClick}
       className={cn(
         bentukItem,
-        aktif ? "bg-primary/10 text-primary" : "text-foreground hover:bg-primary/10 hover:text-primary",
+        aktif ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-primary/10 hover:text-primary",
         fokusTerlihat,
       )}
     >
-      {label}
+      {item.label}
     </Link>
+  );
+}
+
+function JudulKelompok({ judul, id, utama }: { judul: string; id: string; utama: boolean }) {
+  return (
+    <p
+      id={id}
+      data-kelompok={judul}
+      className={cn(
+        "px-4 pt-3 pb-1 text-xs font-bold tracking-wide uppercase",
+        utama ? "text-foreground" : "text-muted-foreground",
+      )}
+    >
+      {judul}
+    </p>
+  );
+}
+
+function DaftarItem({ item, pathname, onPilih }: { item: Item[]; pathname: string; onPilih: () => void }) {
+  return (
+    <ul className="flex flex-col gap-0.5">
+      {item.map((i) => (
+        <li key={i.href}>
+          <TautanNavigasi item={i} aktif={halamanAktif(pathname, i.href)} onClick={onPilih} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function KelompokNavigasi({
+  kelompok,
+  idDasar,
+  pathname,
+  onPilih,
+}: {
+  kelompok: Kelompok;
+  idDasar: string;
+  pathname: string;
+  onPilih: () => void;
+}) {
+  if ("subkelompok" in kelompok) {
+    return (
+      <section aria-labelledby={idDasar}>
+        <JudulKelompok judul={kelompok.judul} id={idDasar} utama />
+        {kelompok.subkelompok.map((sub, i) => (
+          <section key={sub.judul} aria-labelledby={`${idDasar}-${i}`}>
+            <JudulKelompok judul={sub.judul ?? ""} id={`${idDasar}-${i}`} utama={false} />
+            <DaftarItem item={sub.item} pathname={pathname} onPilih={onPilih} />
+          </section>
+        ))}
+      </section>
+    );
+  }
+  if (kelompok.judul === null) return <DaftarItem item={kelompok.item} pathname={pathname} onPilih={onPilih} />;
+  return (
+    <section aria-labelledby={idDasar}>
+      <JudulKelompok judul={kelompok.judul} id={idDasar} utama={false} />
+      <DaftarItem item={kelompok.item} pathname={pathname} onPilih={onPilih} />
+    </section>
   );
 }
 
@@ -69,7 +184,7 @@ function TombolKeluar() {
     <form action={keluar}>
       <button
         type="submit"
-        className={cn(bentukItem, "gap-2 text-foreground hover:bg-primary/10 hover:text-primary", fokusTerlihat)}
+        className={cn(bentukItem, "text-foreground hover:bg-primary/10 hover:text-primary", fokusTerlihat)}
       >
         <LogOut aria-hidden strokeWidth={2} className="size-5" />
         Keluar
@@ -78,24 +193,25 @@ function TombolKeluar() {
   );
 }
 
+/**
+ * Kerangka aplikasi: sidebar navigasi (desktop) atau bar atas + menu tarik (layar kecil), dengan isi halaman di sebelah
+ * kanan sidebar. Tanpa pengguna yang masuk, dan di halaman masuk, hanya isi halaman yang ditampilkan.
+ */
 export function Navigasi({
-  tampilkanAdmin = false,
-  tampilkanPengirimanGudang = false,
-  sudahMasuk = false,
+  pengguna,
+  tampilkanPengirimanGudang,
+  children,
 }: {
-  tampilkanAdmin?: boolean;
-  tampilkanPengirimanGudang?: boolean;
-  sudahMasuk?: boolean;
+  pengguna: { nama: string; peran: PeranTampil } | null;
+  tampilkanPengirimanGudang: boolean;
+  children: ReactNode;
 }) {
-  const itemNavigasi = [
-    ...itemUmum,
-    ...(sudahMasuk ? itemMasuk : []),
-    ...(tampilkanPengirimanGudang ? itemPengirimanGudang : []),
-    ...(tampilkanAdmin ? itemAdmin : []),
-  ];
   const pathname = usePathname();
   const [menuTerbuka, setMenuTerbuka] = useState(false);
-  const idMenu = useId();
+  const idSidebar = useId();
+  const tombolMenuRef = useRef<HTMLButtonElement>(null);
+  const tombolTutupRef = useRef<HTMLButtonElement>(null);
+  const pernahTerbuka = useRef(false);
 
   useEffect(() => {
     if (!menuTerbuka) return;
@@ -106,64 +222,81 @@ export function Navigasi({
     return () => document.removeEventListener("keydown", tutupDenganEscape);
   }, [menuTerbuka]);
 
+  // Fokus mengikuti menu tarik: masuk ke tombol tutup saat dibuka, kembali ke tombol menu saat ditutup.
+  useEffect(() => {
+    if (menuTerbuka) {
+      pernahTerbuka.current = true;
+      tombolTutupRef.current?.focus();
+    } else if (pernahTerbuka.current) {
+      tombolMenuRef.current?.focus();
+    }
+  }, [menuTerbuka]);
+
+  if (pengguna === null || pathname === "/masuk") return <>{children}</>;
+
+  const bolehDibuka = (akses: Akses) =>
+    akses === "masuk" || (akses === "admin" ? pengguna.peran === "admin" : tampilkanPengirimanGudang);
+  const kelompok = kelompokUntuk(bolehDibuka);
+  const tutup = () => setMenuTerbuka(false);
+
   return (
-    <header className="sticky top-4 z-40 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <nav
-        aria-label="Navigasi utama"
-        className="rounded-3xl border border-border/60 bg-card/80 px-3 py-2 shadow-soft backdrop-blur-md md:rounded-full"
+    <>
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border/60 bg-card/80 px-4 py-2 backdrop-blur-md lg:hidden">
+        <Logo />
+        <button
+          ref={tombolMenuRef}
+          type="button"
+          className={cn(bentukTombolIkon, fokusTerlihat)}
+          aria-expanded={menuTerbuka}
+          aria-controls={idSidebar}
+          aria-label={menuTerbuka ? "Tutup menu" : "Buka menu"}
+          onClick={() => setMenuTerbuka((terbuka) => !terbuka)}
+        >
+          {menuTerbuka ? <X aria-hidden strokeWidth={2} className="size-5" /> : <Menu aria-hidden strokeWidth={2} className="size-5" />}
+        </button>
+      </header>
+
+      {menuTerbuka ? <div aria-hidden className="fixed inset-0 z-40 bg-foreground/20 lg:hidden" onClick={tutup} /> : null}
+
+      <aside
+        id={idSidebar}
+        className={cn(
+          // Layar kecil: menu tarik mengambang (rounded-3xl) di atas isi halaman.
+          "fixed inset-4 z-50 flex-col gap-4 overflow-y-auto rounded-3xl border border-border/60 bg-card p-4 shadow-float",
+          // Desktop: sidebar tetap di kiri, lebar 240 px, setinggi layar.
+          "lg:inset-auto lg:inset-y-0 lg:left-0 lg:z-30 lg:w-60 lg:rounded-none lg:border-y-0 lg:border-l-0 lg:border-r lg:shadow-none",
+          menuTerbuka ? "flex" : "hidden lg:flex",
+        )}
       >
-        <div className="flex items-center justify-between gap-4">
-          <span className="flex items-center gap-3">
-            <span
-              aria-hidden
-              className="flex size-10 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground"
-            >
-              M
-            </span>
-            <span className="text-lg font-bold">MANDALIKA</span>
-          </span>
-
-          <ul className="hidden items-center gap-1 md:flex">
-            {itemNavigasi.map((item) => (
-              <li key={item.href}>
-                <TautanNavigasi {...item} aktif={pathname === item.href} />
-              </li>
-            ))}
-            {sudahMasuk ? (
-              <li>
-                <TombolKeluar />
-              </li>
-            ) : null}
-          </ul>
-
+        <div className="flex items-center justify-between gap-2 px-2">
+          <Logo />
           <button
+            ref={tombolTutupRef}
             type="button"
-            className={cn(
-              "inline-flex size-11 items-center justify-center rounded-full text-primary transition-colors duration-300 ease-out hover:bg-primary/10 md:hidden",
-              fokusTerlihat,
-            )}
-            aria-expanded={menuTerbuka}
-            aria-controls={idMenu}
-            aria-label={menuTerbuka ? "Tutup menu" : "Buka menu"}
-            onClick={() => setMenuTerbuka((terbuka) => !terbuka)}
+            className={cn(bentukTombolIkon, "lg:hidden", fokusTerlihat)}
+            aria-label="Tutup menu"
+            onClick={tutup}
           >
-            {menuTerbuka ? <X aria-hidden strokeWidth={2} className="size-5" /> : <Menu aria-hidden strokeWidth={2} className="size-5" />}
+            <X aria-hidden strokeWidth={2} className="size-5" />
           </button>
         </div>
 
-        <ul id={idMenu} hidden={!menuTerbuka} className="mt-2 flex flex-col gap-1 border-t border-border/60 pt-2 md:hidden">
-          {itemNavigasi.map((item) => (
-            <li key={item.href}>
-              <TautanNavigasi {...item} aktif={pathname === item.href} onClick={() => setMenuTerbuka(false)} />
-            </li>
+        <nav aria-label="Navigasi utama" className="flex flex-1 flex-col gap-2">
+          {kelompok.map((k, i) => (
+            <KelompokNavigasi key={k.judul ?? "beranda"} kelompok={k} idDasar={`${idSidebar}-${i}`} pathname={pathname} onPilih={tutup} />
           ))}
-          {sudahMasuk ? (
-            <li>
-              <TombolKeluar />
-            </li>
-          ) : null}
-        </ul>
-      </nav>
-    </header>
+        </nav>
+
+        <div className="flex flex-col gap-2 border-t border-border/60 pt-4">
+          <div className="px-4 text-sm">
+            <p className="truncate font-semibold text-foreground">{pengguna.nama}</p>
+            <p className="text-muted-foreground">{labelPeran[pengguna.peran]}</p>
+          </div>
+          <TombolKeluar />
+        </div>
+      </aside>
+
+      <div className="lg:pl-60">{children}</div>
+    </>
   );
 }
