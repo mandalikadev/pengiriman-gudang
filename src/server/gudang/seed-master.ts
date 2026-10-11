@@ -15,7 +15,8 @@ const daftarToko = [
 
 /**
  * Mengisi master gudang dan toko. Idempoten: baris yang sudah ada (berdasarkan nama) tidak diubah,
- * termasuk status aktif toko. Tidak membuat hubungan toko–gudang: pemetaannya menyusul dari pemilik (OD-12).
+ * termasuk status aktif toko. Tidak membuat hubungan toko–gudang: itu tugas `seedHubunganJadwalAwal` (T84) untuk toko
+ * yang sudah diputuskan pemilik; sisanya menyusul (OD-12).
  */
 export async function seedMasterGudangToko() {
   await db.transaction(async (tx) => {

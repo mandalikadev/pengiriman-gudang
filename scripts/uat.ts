@@ -2,7 +2,8 @@
 //
 // Langkah: buat .env dari .env.example jika belum ada (berhenti jika .env masih memakai port lama, T74) →
 // periksa Docker → docker compose up (PostgreSQL + MinIO) →
-// migrasi → seed admin pertama + 5 gudang + 25 toko (tanpa hubungan toko–gudang, OD-12) → next build →
+// migrasi → seed admin pertama + 5 gudang + 25 toko + hubungan dan jadwal awal Cibubur, Bali, Bandung (T84; PMS, PMJ, QUEEN,
+// MKS, DPM tetap belum terhubung, OD-12) → next build →
 // next start + worker. Berhenti dengan Ctrl+C. Data tersimpan di volume Docker dan tetap ada saat dijalankan lagi.
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -108,7 +109,7 @@ nyalakanLayanan();
 await tunggu(`${process.env.S3_ENDPOINT ?? "http://localhost:59000"}/minio/health/live`, "MinIO", 60_000);
 jalankan("Menjalankan migrasi database...", "pnpm", ["db:migrate"]);
 jalankan("Membuat admin pertama...", "pnpm", ["db:seed-admin"]);
-jalankan("Mengisi 5 gudang dan 25 toko (tanpa hubungan toko–gudang)...", "pnpm", ["db:seed-master"]);
+jalankan("Mengisi 5 gudang, 25 toko, serta hubungan dan jadwal awal Cibubur, Bali, Bandung...", "pnpm", ["db:seed-master"]);
 jalankan("Menyiapkan aplikasi (next build, beberapa menit)...", "pnpm", ["build"]);
 
 catat("Menyalakan aplikasi dan worker...");

@@ -36,7 +36,7 @@ Perintah ini mengerjakan semuanya:
 2. Membuat berkas `.env` dari `.env.example` jika belum ada.
 3. Menyalakan PostgreSQL dan MinIO (`docker compose up`).
 4. Menyiapkan database (migrasi).
-5. Membuat admin pertama, 5 gudang (Pusat, Gudang Bali, Gudang Bandung, Gudang Cibubur, Gudang Jabodetabek), dan 25 toko. Toko **belum dihubungkan** ke gudang, karena datanya masih menunggu pemilik (OD-12). Anda menghubungkannya sendiri di skenario A3.
+5. Membuat admin pertama, 5 gudang (Pusat, Gudang Bali, Gudang Bandung, Gudang Cibubur, Gudang Jabodetabek), dan 25 toko. Dua puluh toko langsung dihubungkan ke gudangnya beserta jadwal aktif awal, sesuai lampiran jadwal dari pemilik (PRD A3 dan A5 ▶ Keputusan 2026-10-12): 16 toko ke Gudang Cibubur, DMB dan LWB ke Gudang Bali, PASKAL dan PVJ ke Gudang Bandung, atas nama admin pertama. Lima toko (**PMS, PMJ, QUEEN, MKS, DPM**) **belum dihubungkan**, karena datanya masih menunggu pemilik (OD-12). Anda menghubungkannya sendiri di skenario A3.
 6. Menyiapkan aplikasi (beberapa menit), lalu menyalakan aplikasi dan worker. Worker adalah proses yang membaca file impor dan menghitung laporan.
 
 Aplikasi ini memakai port sendiri supaya tidak bentrok dengan proyek lain di laptop yang sama: PostgreSQL di port 55432, MinIO di port 59000 (konsol MinIO di `http://localhost:59001`), dan aplikasi di port 3100.
@@ -92,11 +92,11 @@ Untuk berganti akun, tekan **Keluar** di menu, lalu masuk dengan akun lain. Cara
 | No | Langkah | Hasil yang diharapkan | Hasil (OK/Tidak) | Catatan |
 |---|---|---|---|---|
 | A3.1 | Masuk sebagai admin. Lihat menu. | Menu berisi Beranda, Ringkasan, Kalender, Pengiriman Gudang, Pengguna, Gudang, Penugasan, Impor, Libur, Keluarga aroma, Pemetaan produk, Ranking, Persetujuan jadwal. Tidak ada tautan pendaftaran akun mandiri di halaman Masuk. | | |
-| A3.2 | Buka **Gudang**. | Ada lima gudang: Pusat, Gudang Bali, Gudang Bandung, Gudang Cibubur, Gudang Jabodetabek. Semuanya "Belum ada toko". Daftar toko berisi 25 toko, semuanya "Belum terhubung". | | |
+| A3.2 | Buka **Gudang**. | Ada lima gudang: Pusat, Gudang Bali, Gudang Bandung, Gudang Cibubur, Gudang Jabodetabek. Gudang Cibubur berisi 16 toko (SMB, BOTANI, MKG, KOKAS, SMS, ALSUT, BXC, KARAWACI, CCM, BSD, DELTAMAS, PMB, KUNCIT, TSM CBB, SENTUL, LMK), Gudang Bali berisi DMB dan LWB, Gudang Bandung berisi PASKAL dan PVJ. Pusat dan Gudang Jabodetabek "Belum ada toko". Daftar toko berisi 25 toko; PMS, PMJ, QUEEN, MKS, dan DPM "Belum terhubung", toko lainnya menampilkan nama gudangnya. | | |
 | A3.3 | Di "Tambah toko ke gudang", pilih gudang **Pusat**, centang **PMS** dan **PMJ**, tekan "Tambahkan toko terpilih". | Hasil per toko tampil: "2 dari 2 toko ditambahkan.", masing-masing "Berhasil" dengan keterangan "Ditambahkan ke Pusat." | | |
-| A3.4 | Pilih **Gudang Bandung**, centang **PVJ**, **PASKAL**, dan juga **PMS**. Tekan "Tambahkan toko terpilih". | "2 dari 3 toko ditambahkan." PVJ dan PASKAL "Berhasil". PMS "Terkait gudang lain" dengan keterangan bahwa PMS sudah terhubung ke Pusat dan satu toko hanya boleh terhubung ke satu gudang. | | |
+| A3.4 | Pilih **Gudang Jabodetabek**, centang **QUEEN**, **MKS**, dan juga **PMS**. Tekan "Tambahkan toko terpilih". | "2 dari 3 toko ditambahkan." QUEEN dan MKS "Berhasil". PMS "Terkait gudang lain" dengan keterangan bahwa PMS sudah terhubung ke Pusat dan satu toko hanya boleh terhubung ke satu gudang. | | |
 | A3.5 | Pilih **Pusat** lagi, centang **PMS**, tekan tombolnya. | PMS "Sudah terhubung", dengan keterangan bahwa tidak ada yang diubah. | | |
-| A3.6 | Nonaktifkan **LMK** (lihat "Menonaktifkan dan mengaktifkan toko"). Pilih Pusat, centang **LMK**, tekan "Tambahkan toko terpilih". Setelah itu tekan "Aktifkan" di baris LMK. | LMK berstatus "Nonaktif" di daftar. Hasilnya "Nonaktif" dengan keterangan "Tidak ditambahkan: toko berstatus nonaktif." | | |
+| A3.6 | Nonaktifkan **DPM** (lihat "Menonaktifkan dan mengaktifkan toko"). Pilih Pusat, centang **DPM**, tekan "Tambahkan toko terpilih". Setelah itu tekan "Aktifkan" di baris DPM. | DPM berstatus "Nonaktif" di daftar. Hasilnya "Nonaktif" dengan keterangan "Tidak ditambahkan: toko berstatus nonaktif." | | |
 | A3.7 | Buka **Pengguna**. Buat empat akun dari tabel "Akun uji", semuanya dengan peran **viewer**. | Setiap akun berhasil dibuat dan tampil di "Daftar pengguna" berstatus "Aktif". Pilihan peran hanya "viewer" dan "admin". | | |
 | A3.8 | Coba buat akun dengan email yang sudah dipakai. | Muncul "Email sudah dipakai pengguna lain." Tidak ada akun ganda. | | |
 | A3.9 | Di baris akun admin Anda sendiri, tekan "Nonaktifkan". | Ditolak dengan pesan "Akun sendiri tidak bisa dinonaktifkan." | | |
