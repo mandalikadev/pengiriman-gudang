@@ -243,11 +243,14 @@ export function Navigasi({
   const tombolTutupRef = useRef<HTMLButtonElement>(null);
   const pernahTerbuka = useRef(false);
   const teksPilihan = useSyncExternalStore(langgananPilihanKelompok, bacaPilihanKelompok, () => null);
-  // Kelompok halaman aktif yang ditutup pengguna selama berada di halaman ini; berlaku sampai pindah halaman.
-  const [ditutupDiHalaman, setDitutupDiHalaman] = useState<{ pathname: string; judul: readonly string[] }>({
-    pathname: "",
-    judul: [],
-  });
+  // Kelompok halaman aktif yang ditutup pengguna selama berada di halaman ini; direset setiap kali pathname berubah
+  // (Navigasi hidup di root layout, jadi state-nya bertahan selama navigasi klien).
+  const [ditutupDiHalaman, setDitutupDiHalaman] = useState<readonly string[]>([]);
+  const [pathnameTerakhir, setPathnameTerakhir] = useState(pathname);
+  if (pathname !== pathnameTerakhir) {
+    setPathnameTerakhir(pathname);
+    setDitutupDiHalaman([]);
+  }
 
   useEffect(() => {
     if (!menuTerbuka) return;
@@ -278,7 +281,7 @@ export function Navigasi({
   // Keadaan awal: kelompok berisi halaman aktif terbuka, lainnya tertutup; pilihan tersimpan berlaku untuk kelompok lain.
   // Kelompok halaman aktif selalu terbuka saat halaman dibuka, walaupun sebelumnya ditutup.
   const pilihan = uraiPilihanKelompok(teksPilihan);
-  const ditutup = ditutupDiHalaman.pathname === pathname ? ditutupDiHalaman.judul : [];
+  const ditutup = pathname === pathnameTerakhir ? ditutupDiHalaman : [];
   const berisiHalamanAktif = (k: Kelompok) => itemKelompok(k).some((i) => halamanAktif(pathname, i.href));
   const terbuka = (k: Kelompok) => {
     if (k.judul === null) return true;
@@ -289,7 +292,7 @@ export function Navigasi({
     if (judul === null) return;
     const buka = !terbuka(k);
     if (berisiHalamanAktif(k)) {
-      setDitutupDiHalaman({ pathname, judul: buka ? ditutup.filter((j) => j !== judul) : [...ditutup, judul] });
+      setDitutupDiHalaman(buka ? ditutup.filter((j) => j !== judul) : [...ditutup, judul]);
     }
     tulisPilihanKelompok(judul, buka);
   };

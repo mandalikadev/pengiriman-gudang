@@ -175,6 +175,24 @@ describe("pilihan diingat di browser", () => {
     expect(terbuka("Laporan")).toBe(true);
   });
 
+  it("navigasi klien A → tutup → B → A: kelompok halaman A terbuka lagi", () => {
+    pasang("/ringkasan");
+    klik(judul("Laporan"));
+    expect(terbuka("Laporan")).toBe(false);
+    tampilkan("/");
+    expect(terbuka("Laporan")).toBe(false);
+    tampilkan("/ringkasan");
+    expect(terbuka("Laporan")).toBe(true);
+  });
+
+  it("menutup kelompok halaman aktif berlaku sementara di halaman itu, lalu bisa dibuka lagi", () => {
+    pasang("/admin/impor/12");
+    klik(judul("Admin"));
+    expect(terbuka("Admin")).toBe(false);
+    klik(judul("Admin"));
+    expect(terbuka("Admin")).toBe(true);
+  });
+
   it("isi penyimpanan yang rusak diabaikan: kembali ke keadaan awal", () => {
     window.localStorage.setItem("mandalika:sidebar-kelompok", "{bukan json");
     pasang("/ringkasan");
