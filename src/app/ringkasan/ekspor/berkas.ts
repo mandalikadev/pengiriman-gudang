@@ -1,10 +1,12 @@
 import * as XLSX from "xlsx";
 
 import { formatBulanImpor } from "@/app/admin/impor/format";
+import { labelStatus } from "@/components/badge-status";
 import { KATEGORI, type HasilSemuaBarisRingkasan } from "@/server/laporan/ringkasan";
 
 // Berkas ekspor Ringkasan (T38, PRD A2 ▶ Keputusan 2026-10-09: .xlsx). Isinya periode dan filter yang diterapkan,
-// lalu semua baris hasil filter. Tidak tersedia ditulis "—", bukan 0; nol teramati ditulis 0 (DESIGN §7, §8).
+// lalu semua baris hasil filter. Label status (Parsial) diambil dari sumber yang sama dengan badge di layar (T77).
+// Tidak tersedia ditulis "—", bukan 0; nol teramati ditulis 0 (DESIGN §7, §8).
 
 const TIDAK_TERSEDIA = "—";
 
@@ -57,7 +59,7 @@ export function buatBerkasEkspor({ bulanPilihan, filterAktif, baris }: SemuaBari
     ...KATEGORI.flatMap((kategori): Sel[] => {
       const nilai = b.rataRata[kategori];
       if (nilai === null) return [TIDAK_TERSEDIA, null];
-      return [nilai.rataRataRingkasan, nilai.kelengkapan === "parsial" ? "Parsial" : null];
+      return [nilai.rataRataRingkasan, nilai.kelengkapan === "parsial" ? labelStatus("parsial") : null];
     }),
     b.totalPenjualanMentah,
   ]);

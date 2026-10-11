@@ -220,16 +220,40 @@ describe("GET ekspor rencana final: isi berkas dari snapshot", () => {
       "Stok akhir": CONTOH.stokAkhir,
       "Buffer (%)": CONTOH.persenBuffer,
       "Jumlah kirim": CONTOH.jumlahKirim,
-      Status: "siap",
+      Status: "Otomatis",
     });
-    // Produk manual: status "manual", tanpa buffer dan jumlah kirim; stok yang belum diisi ditulis "—", bukan 0.
+    // Produk manual: status "Manual", tanpa buffer dan jumlah kirim; stok yang belum diisi ditulis "—", bukan 0.
     expect(baris.find((b) => b["Kode produk"] === kode.manual)).toMatchObject({
       "Nama produk": NAMA_PRODUK,
       "Stok akhir": "—",
       "Buffer (%)": "—",
       "Jumlah kirim": "—",
-      Status: "manual",
+      Status: "Manual",
     });
+  });
+
+  it("status setiap baris sama dengan label yang tampil di layar rincian untuk baris yang sama (T77)", async () => {
+    await masukOperator(cibubur, ["ekspor"]);
+    const { baris } = await baca(await ekspor());
+    const rincian = renderToStaticMarkup(
+      await HalamanRincianRencanaFinal({
+        params: Promise.resolve({ id: String(cibubur), idRencana: String(idRencana) }),
+        searchParams: Promise.resolve({}),
+      }),
+    );
+    // Kolom ketiga tabel baris rencana di layar (Klasifikasi), tanpa tag dan teks khusus pembaca layar.
+    const labelLayar = (kodeProduk: string) => {
+      const tr = new RegExp(`<tr[^>]*data-kode-produk="${kodeProduk}".*?</tr>`).exec(rincian)?.[0] ?? "";
+      const sel = [...tr.matchAll(/<td[^>]*>(.*?)<\/td>/g)].map((m) => m[1]);
+      return (sel[2] ?? "").replace(/<span class="sr-only">.*?<\/span>/g, "").replace(/<[^>]+>/g, "").trim();
+    };
+    expect(baris).toHaveLength(2);
+    for (const b of baris) {
+      const label = labelLayar(String(b["Kode produk"]));
+      expect(label).not.toBe("");
+      expect(b.Status).toBe(label);
+    }
+    expect(Object.fromEntries(baris.map((b) => [b["Kode produk"], b.Status]))).toEqual({ [kode.contoh]: "Otomatis", [kode.manual]: "Manual" });
   });
 
   it("isi berkas sama dengan snapshot walau data sumber sudah berubah", async () => {

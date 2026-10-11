@@ -14,6 +14,7 @@ import { bacaRincianRencanaFinal, type RincianRencanaFinal } from "@/server/guda
 
 import { SelKebutuhan, SelStok } from "../../../bagian-draft";
 import { ID_RINCIAN_BARIS, labelSumberKategori, RincianBaris } from "../../../rincian-baris";
+import { labelStatusBarisRencanaFinal } from "../../label-status-baris";
 import { muatRencanaFinal } from "../../muat";
 
 export const metadata: Metadata = {
@@ -168,7 +169,7 @@ function TabelBaris({ idGudang, rencana, terbuka }: { idGudang: number; rencana:
               <TableRow data-kode-produk={b.kodeProduk}>
                 <TableCell className="align-top font-semibold">{b.kodeProduk}</TableCell>
                 <TableCell className="align-top">{b.namaProduk ?? "—"}</TableCell>
-                <TableCell className="align-top">{b.status === "manual" ? <BadgeStatus status="manual" /> : "Otomatis"}</TableCell>
+                <TableCell className="align-top">{b.status === "manual" ? <BadgeStatus status="manual" /> : labelStatusBarisRencanaFinal.siap}</TableCell>
                 <TableCell angka className="align-top" data-kebutuhan={b.kebutuhan ?? "tidak-tersedia"}>
                   <SelKebutuhan baris={b} />
                 </TableCell>

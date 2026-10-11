@@ -47,6 +47,11 @@ export type Status = keyof typeof daftarStatus;
 
 export const semuaStatus = Object.keys(daftarStatus) as Status[];
 
+/** Teks label status, sama dengan yang tampil di badge; dipakai juga oleh berkas ekspor (T77). */
+export function labelStatus(status: Status): string {
+  return daftarStatus[status].label;
+}
+
 export function BadgeStatus({
   status,
   className,

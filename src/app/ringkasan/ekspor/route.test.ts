@@ -1,3 +1,4 @@
+import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import * as XLSX from "xlsx";
 
@@ -14,6 +15,8 @@ const kepala = vi.hoisted(() => ({ cookie: "" }));
 vi.mock("next/headers", () => ({
   headers: async () => new Headers(kepala.cookie ? { cookie: kepala.cookie } : {}),
 }));
+
+import HalamanRingkasan from "../page";
 
 import { GET } from "./route";
 
@@ -190,6 +193,34 @@ describe("GET /ringkasan/ekspor: isi berkas", () => {
         "Total penjualan mentah": 5,
       },
     ]);
+  });
+
+  it("label status dan kategori di berkas sama dengan label di layar Ringkasan untuk baris yang sama (T77)", async () => {
+    const parameter: [string, string][] = [...bulanUji().map((b): [string, string] => ["bulan", b]), ["produk", data.kodeB]];
+    const { kolom, baris } = await baca(await ekspor("viewer", parameter));
+    const html = renderToStaticMarkup(
+      await HalamanRingkasan({ searchParams: Promise.resolve({ bulan: bulanUji(), produk: data.kodeB }) }),
+    );
+    const tr = new RegExp(`<tr[^>]*data-baris="${data.tokoB.nama}\\|${data.kodeB}".*?</tr>`).exec(html)?.[0] ?? "";
+    expect(tr).not.toBe("");
+    /** Teks terlihat satu sel kategori di layar (tanpa teks khusus pembaca layar). */
+    const selLayar = (kategori: string) => {
+      const td = new RegExp(`<td[^>]*data-kategori="${kategori}"[^>]*>(.*?)</td>`).exec(tr)?.[1] ?? "";
+      return td.replace(/<span class="sr-only">.*?<\/span>/g, "").replace(/<[^>]+>/g, " ");
+    };
+    const kategoriLayar = [...tr.matchAll(/data-kategori="([^"]+)"/g)].map((m) => m[1]);
+    expect(kolom.filter((k) => k.startsWith("Kelengkapan ")).map((k) => k.slice("Kelengkapan ".length))).toEqual(kategoriLayar);
+    const [b] = baris;
+    for (const kategori of kategoriLayar) {
+      const kelengkapan = b[`Kelengkapan ${kategori}`];
+      if (typeof kelengkapan === "string") {
+        // Penanda parsial di layar adalah badge status; teksnya sama persis dengan isi sel berkas.
+        const badge = new RegExp(`<td[^>]*data-kategori="${kategori}"[^>]*>.*?data-status="parsial"[^>]*>(.*?)</span>`).exec(tr)?.[1] ?? "";
+        expect(badge.replace(/<[^>]+>/g, "").trim()).toBe(kelengkapan);
+      }
+      if (b[`Rata-rata Ringkasan ${kategori}`] === "—") expect(selLayar(kategori).trim()).toBe("—");
+    }
+    expect(b["Kelengkapan Senin–Kamis"]).toBe("Parsial");
   });
 
   it("tanpa periode diterapkan atau dengan filter yang tidak ada di data: ditolak dengan pesan", async () => {

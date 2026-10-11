@@ -4,9 +4,12 @@ import { formatAngka, formatBulanImpor, formatBulanLaporan, formatWaktu } from "
 import { formatTanggal } from "@/domain/kalender";
 import type { RencanaFinal } from "@/server/gudang/rencana-final";
 
+import { labelStatusBarisRencanaFinal } from "../../label-status-baris";
+
 // Berkas ekspor rencana final (T64; PRD A7 ▶ Keputusan 2026-10-09: .xlsx). Semua isinya dari snapshot finalisasi:
 // gudang, tanggal kirim, toko, waktu finalisasi, identitas sumber penjualan, ranking, lalu baris rencana (varian,
-// kebutuhan, stok, buffer, jumlah kirim, status). Nilai kosong/tidak tersedia ditulis "—", bukan 0 (DESIGN §7, §8).
+// kebutuhan, stok, buffer, jumlah kirim, status dengan label yang sama seperti layar rincian, T77). Nilai
+// kosong/tidak tersedia ditulis "—", bukan 0 (DESIGN §7, §8).
 
 const TIDAK_TERSEDIA = "—";
 
@@ -54,7 +57,7 @@ export function buatBerkasEkspor(rencana: RencanaFinal): Buffer {
     angkaAtauTidakTersedia(b.stokAkhir),
     angkaAtauTidakTersedia(b.persenBuffer),
     angkaAtauTidakTersedia(b.jumlahKirim),
-    b.status,
+    labelStatusBarisRencanaFinal[b.status],
   ]);
 
   const wb = XLSX.utils.book_new();
