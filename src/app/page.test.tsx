@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { tanggalWib } from "@/app/admin/impor/format";
-import { parseTanggalBisnis } from "@/domain/kalender";
+import { formatTanggal, geserHari, namaHari, type NamaHari, type TanggalBisnis } from "@/domain/kalender";
 import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
 import {
@@ -14,6 +14,7 @@ import {
   jadwalToko,
   periodeSumberGudang,
   produk,
+  rencanaFinal,
   snapshotLibur,
   tokoDraftRencana,
   usulanJadwal,
@@ -61,8 +62,28 @@ vi.mock("next/headers", () => ({
 
 import Beranda from "./page";
 
-/** Senin, 19-10-2026: tanggal kirim draft uji (jadwal toko uji: Senin). */
-const TANGGAL_KIRIM = parseTanggalBisnis("2026-10-19");
+/** Hari ini (WIB). Tanggal kirim uji dihitung relatif terhadapnya karena kartu operator hanya melihat hari ini dan sesudahnya. */
+const hariIni = tanggalWib(new Date());
+
+/** Tanggal pertama yang jatuh pada `hari`, mulai hari ini (termasuk hari ini). */
+function hariBerikutnya(hari: NamaHari): TanggalBisnis {
+  let t = hariIni;
+  while (namaHari(t) !== hari) t = geserHari(t, 1);
+  return t;
+}
+
+/** Tanggal terakhir yang jatuh pada `hari`, sebelum hari ini. */
+function hariSebelumnya(hari: NamaHari): TanggalBisnis {
+  let t = geserHari(hariIni, -1);
+  while (namaHari(t) !== hari) t = geserHari(t, -1);
+  return t;
+}
+
+/** Hari kirim terdekat yang mungkin: hari ini, atau Senin bila hari ini Minggu (Minggu bukan hari kirim, PRD A5). */
+const tanggalKirimTerdekat = namaHari(hariIni) === "Minggu" ? geserHari(hariIni, 1) : hariIni;
+
+type HariKirimUji = Exclude<NamaHari, "Minggu">;
+const hariKirim = (t: TanggalBisnis) => namaHari(t) as HariKirimUji;
 
 let idAdmin: string;
 /** Gudang penugasan operator uji. */
@@ -123,15 +144,62 @@ async function buatProdukUji(statusKeluargaAroma: "belum-dipetakan" | "tanpa-aro
   });
 }
 
-/** Toko uji terhubung ke `idGudang` dengan jadwal aktif mingguan `hari` H−2; mengembalikan id toko dan versi jadwalnya. */
-async function tokoBerjadwal(idGudang: number, hari: "Senin" | "Rabu") {
-  const t = await buatTokoUji();
+/**
+ * Toko uji terhubung ke `idGudang` dengan jadwal aktif `hari` H−2 (mingguan, atau dua mingguan dengan `tanggalJangkar`);
+ * mengembalikan id toko dan versi jadwalnya.
+ */
+async function tokoBerjadwal(
+  idGudang: number,
+  hari: HariKirimUji,
+  { aktif = true, tanggalJangkar = null }: { aktif?: boolean; tanggalJangkar?: TanggalBisnis | null } = {},
+) {
+  const t = await buatTokoUji({ aktif });
   await db.insert(hubunganTokoGudang).values({ tokoId: t.id, gudangId: idGudang });
   const [jadwal] = await db
     .insert(jadwalToko)
-    .values({ tokoId: t.id, pola: "mingguan", hariKirim: [{ hari, persiapanHari: 2 }], dibuatOleh: idAdmin })
+    .values({
+      tokoId: t.id,
+      pola: tanggalJangkar === null ? "mingguan" : "dua-mingguan",
+      hariKirim: [{ hari, persiapanHari: 2 }],
+      tanggalJangkar,
+      dibuatOleh: idAdmin,
+    })
     .returning({ id: jadwalToko.id });
   return { id: t.id, versiJadwal: jadwal.id };
+}
+
+/** Id rencana final buatan test, dihapus di akhir agar tidak terbaca berkas test lain. */
+const rencanaFinalUji: number[] = [];
+
+/** Rencana final versi 1 untuk toko–tanggal kirim, ditulis langsung (tanpa finalisasi; isi snapshot seadanya). */
+async function buatRencanaFinalUji(idGudang: number, tokoId: number, tanggalKirim: TanggalBisnis, versiRankingId: number) {
+  const [baris] = await db
+    .insert(rencanaFinal)
+    .values({
+      gudangId: idGudang,
+      namaGudang: "Gudang Uji",
+      tokoId,
+      namaToko: "Toko Uji",
+      tanggalKirim,
+      versi: 1,
+      difinalisasiOleh: idAdmin,
+      namaPemfinalisasi: "Uji admin",
+      bulanSumber: ["2026-06"],
+      versiPeriodeSumber: 1,
+      impor: [],
+      versiRankingId,
+      bulanRanking: bulanBerjalan,
+      versiRanking: 1,
+      versiJadwal: 1,
+      jadwal: { pola: "mingguan", hariKirim: [{ hari: hariKirim(tanggalKirim), persiapanHari: 2 }], tanggalJangkar: null },
+      persiapanHari: 2,
+      panjangCakupan: 7,
+      revisiKalender: 0,
+      perubahanKategori: [],
+      cakupan: [],
+    })
+    .returning({ id: rencanaFinal.id });
+  rencanaFinalUji.push(baris.id);
 }
 
 /**
@@ -147,13 +215,16 @@ async function buatDraftUji({
   versiRankingId,
   mutakhir,
   toko,
+  tokoAktif = true,
 }: {
   idGudang: number;
-  tanggalKirim: string;
-  hari: "Senin" | "Rabu";
+  tanggalKirim: TanggalBisnis;
+  hari: HariKirimUji;
   versiRankingId: number;
   mutakhir: boolean;
   toko: { jumlahTertahan: 0 | 1 | 2 }[];
+  /** `false` = toko-tokonya dinonaktifkan, agar jadwalnya tidak ikut menentukan tanggal kirim terdekat gudang. */
+  tokoAktif?: boolean;
 }) {
   const [periode] = await db
     .insert(periodeSumberGudang)
@@ -174,7 +245,7 @@ async function buatDraftUji({
     })
     .returning({ id: draftRencana.id });
   for (const { jumlahTertahan } of toko) {
-    const t = await tokoBerjadwal(idGudang, hari);
+    const t = await tokoBerjadwal(idGudang, hari, { aktif: tokoAktif });
     const [tokoDraft] = await db
       .insert(tokoDraftRencana)
       .values({ draftId: draft.id, tokoId: t.id, versiJadwal: t.versiJadwal, persiapanHari: 2, panjangCakupan: 7, cakupan: [], perubahanKategori: [] })
@@ -209,6 +280,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (rencanaFinalUji.length > 0) await db.delete(rencanaFinal).where(inArray(rencanaFinal.id, rencanaFinalUji));
   // Draft dan toko uji dilepas agar berkas test lain (mis. periode sumber Gudang Jabodetabek) tidak terhalang FK (T75).
   await db.delete(draftRencana).where(inArray(draftRencana.gudangId, [cibubur, jabodetabek]));
   await db.delete(hubunganTokoGudang).where(inArray(hubunganTokoGudang.gudangId, [cibubur, jabodetabek]));
@@ -378,14 +450,28 @@ describe("/ (beranda)", () => {
     expect(html).toContain("Semua beres");
   });
 
-  it("operator hanya melihat kartu gudang penugasannya; data gudang lain tidak dihitung", async () => {
+  it("operator hanya melihat kartu gudang penugasannya; data gudang lain dan draft tanggal kirim yang lewat tidak dihitung", async () => {
     const versiRankingId = await publikasikanRankingUji({ keluarga: [], idPengguna: idAdmin, bulanRanking: bulanBerjalan });
-    // Gudang penugasan: satu draft perlu dihitung ulang (tanpa baris tertahan), satu draft mutakhir dengan satu toko
-    // yang punya 2 baris tertahan dan satu toko tanpa masalah.
-    await buatDraftUji({ idGudang: cibubur, tanggalKirim: "2026-10-14", hari: "Rabu", versiRankingId, mutakhir: false, toko: [{ jumlahTertahan: 0 }] });
+    const rabu = hariBerikutnya("Rabu");
+    const senin = hariBerikutnya("Senin");
+    // Gudang penugasan: satu draft perlu dihitung ulang (tanpa baris tertahan), dan (di bawah) satu draft mutakhir dengan
+    // satu toko yang punya 2 baris tertahan dan satu toko tanpa masalah.
+    await buatDraftUji({ idGudang: cibubur, tanggalKirim: rabu, hari: "Rabu", versiRankingId, mutakhir: false, toko: [{ jumlahTertahan: 0 }] });
+    // Draft gudang penugasan yang tanggal kirimnya sudah lewat: perlu dihitung ulang dan punya toko tertahan, tetapi
+    // tidak dihitung (DESIGN §9 ▶ Keputusan T79: hanya tanggal kirim hari ini dan sesudahnya).
     await buatDraftUji({
       idGudang: cibubur,
-      tanggalKirim: TANGGAL_KIRIM,
+      tanggalKirim: hariSebelumnya("Jumat"),
+      hari: "Jumat",
+      versiRankingId,
+      mutakhir: false,
+      toko: [{ jumlahTertahan: 1 }],
+      tokoAktif: false,
+    });
+    // Dibuat terakhir untuk gudang ini: setiap draft uji menetapkan periode sumber baru.
+    await buatDraftUji({
+      idGudang: cibubur,
+      tanggalKirim: senin,
       hari: "Senin",
       versiRankingId,
       mutakhir: true,
@@ -394,7 +480,7 @@ describe("/ (beranda)", () => {
     // Gudang lain: draft perlu dihitung ulang dengan dua toko tertahan; tidak boleh dihitung.
     await buatDraftUji({
       idGudang: jabodetabek,
-      tanggalKirim: TANGGAL_KIRIM,
+      tanggalKirim: senin,
       hari: "Senin",
       versiRankingId,
       mutakhir: false,
@@ -412,6 +498,8 @@ describe("/ (beranda)", () => {
     expect(html).toContain("Gudang Cibubur");
     expect(html).not.toContain("Gudang Jabodetabek");
 
+    // Tanggal kirim terdekat gudang = Rabu atau Senin terdekat; belum ada toko yang difinalisasi untuk tanggal itu.
+    const terdekat = rabu < senin ? rabu : senin;
     expect(kartu(html)).toEqual({
       "draft-perlu-dihitung-ulang": {
         jumlah: 1,
@@ -422,6 +510,11 @@ describe("/ (beranda)", () => {
         jumlah: 1,
         href: `/pengiriman-gudang/${cibubur}`,
         teks: expect.stringContaining("Toko dengan baris tertahan"),
+      },
+      "toko-belum-final": {
+        jumlah: terdekat === rabu ? 1 : 2,
+        href: `/pengiriman-gudang/${cibubur}?tanggal=${terdekat}`,
+        teks: expect.stringContaining("Toko belum difinalisasi untuk tanggal kirim terdekat"),
       },
     });
     expect(Object.values(kartu(html)).every((k) => k.teks.includes("Gudang Cibubur"))).toBe(true);
@@ -434,5 +527,49 @@ describe("/ (beranda)", () => {
       ["/ringkasan", "Ringkasan"],
       ["/kalender", "Kalender"],
     ]);
+  });
+
+  it("operator: toko aktif yang mengirim pada tanggal kirim terdekat gudangnya dan belum final dihitung, walaupun draft belum dihitung", async () => {
+    // Gudang penugasan dimulai tanpa toko dan draft dari test sebelumnya.
+    await db.delete(draftRencana).where(eq(draftRencana.gudangId, cibubur));
+    await db.delete(hubunganTokoGudang).where(eq(hubunganTokoGudang.gudangId, cibubur));
+    const versiRankingId = await publikasikanRankingUji({ keluarga: [], idPengguna: idAdmin, bulanRanking: bulanBerjalan });
+    const t = tanggalKirimTerdekat;
+    const hari = hariKirim(t);
+    const besok = namaHari(geserHari(t, 1)) === "Minggu" ? geserHari(t, 2) : geserHari(t, 1);
+
+    // Mengirim pada tanggal kirim terdekat: A (sudah final), B (final hanya untuk tanggal lain), C (belum final).
+    const tokoA = await tokoBerjadwal(cibubur, hari);
+    const tokoB = await tokoBerjadwal(cibubur, hari);
+    const tokoC = await tokoBerjadwal(cibubur, hari);
+    await buatRencanaFinalUji(cibubur, tokoA.id, t, versiRankingId);
+    await buatRencanaFinalUji(cibubur, tokoB.id, geserHari(t, -7), versiRankingId);
+    // Tidak dihitung: toko nonaktif berjadwal pada hari itu, toko dua mingguan di pekan lain, toko yang mengirim sesudah
+    // tanggal itu, dan toko gudang lain yang belum final.
+    await tokoBerjadwal(cibubur, hari, { aktif: false });
+    await tokoBerjadwal(cibubur, hari, { tanggalJangkar: geserHari(t, 7) });
+    await tokoBerjadwal(cibubur, hariKirim(besok));
+    await tokoBerjadwal(jabodetabek, hari);
+
+    const operator = await kepalaPenggunaUji("viewer");
+    await tugaskanOperator({ idPengguna: operator.id, idGudang: cibubur, hakTindakan: [] });
+    kepala.cookie = operator.cookie;
+    const sebelum = kartu(await buka());
+    expect(sebelum).toEqual({
+      "toko-belum-final": {
+        jumlah: 2,
+        href: `/pengiriman-gudang/${cibubur}?tanggal=${t}`,
+        teks: expect.stringContaining("Toko belum difinalisasi untuk tanggal kirim terdekat"),
+      },
+    });
+    expect(sebelum["toko-belum-final"]!.teks).toContain("Gudang Cibubur");
+    expect(sebelum["toko-belum-final"]!.teks).toContain(formatTanggal(t));
+
+    // Semua toko yang mengirim pada tanggal itu sudah final → kartu hilang, Semua beres.
+    await buatRencanaFinalUji(cibubur, tokoB.id, t, versiRankingId);
+    await buatRencanaFinalUji(cibubur, tokoC.id, t, versiRankingId);
+    const sesudah = await buka();
+    expect(kartu(sesudah)).toEqual({});
+    expect(sesudah).toContain("Semua beres");
   });
 });

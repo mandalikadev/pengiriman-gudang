@@ -4,6 +4,7 @@ import {
   CircleCheck,
   FileSpreadsheet,
   RefreshCcw,
+  Store,
   Tags,
   TriangleAlert,
   Trophy,
@@ -13,6 +14,7 @@ import Link from "next/link";
 
 import { formatAngka, formatBulanImpor, formatBulanLaporan, formatWaktu, tanggalWib } from "@/app/admin/impor/format";
 import { StatusCacheLaporan } from "@/components/status-cache-laporan";
+import { formatTanggal } from "@/domain/kalender";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { wajibMasuk } from "@/server/auth/kewenangan";
@@ -33,6 +35,7 @@ const tampilanKartu: Record<KartuPerluTindakan["jenis"], { label: string; tujuan
   "impor-gagal-atau-menunggu": { label: "Impor gagal atau menunggu diaktifkan", tujuan: "Impor", ikon: FileSpreadsheet },
   "draft-perlu-dihitung-ulang": { label: "Draft perlu dihitung ulang", tujuan: "Pengiriman Gudang", ikon: RefreshCcw },
   "toko-baris-tertahan": { label: "Toko dengan baris tertahan", tujuan: "Pengiriman Gudang", ikon: TriangleAlert },
+  "toko-belum-final": { label: "Toko belum difinalisasi untuk tanggal kirim terdekat", tujuan: "Pengiriman Gudang", ikon: Store },
 };
 
 /** Pintasan 2–4 tombol ke halaman utama peran itu (DESIGN §9 ▶ Keputusan). */
@@ -59,7 +62,7 @@ function Kartu({ kartu, bulanBerjalan }: { kartu: KartuPerluTindakan; bulanBerja
   const { label, tujuan, ikon: Ikon } = tampilanKartu[kartu.jenis];
   const keterangan =
     kartu.gudang !== undefined
-      ? kartu.gudang.nama
+      ? [kartu.gudang.nama, kartu.tanggalKirim ? formatTanggal(kartu.tanggalKirim) : null].filter(Boolean).join(" · ")
       : kartu.jenis === "ranking-bulan-berjalan"
         ? formatBulanLaporan(bulanBerjalan)
         : null;
@@ -156,8 +159,9 @@ function Pintasan({ peran }: { peran: PeranTampil }) {
 
 export default async function Beranda() {
   const pengguna = await wajibMasuk();
-  const bulanBerjalan = tanggalWib(new Date()).slice(0, 7);
-  const isi = await muatIsiBeranda(pengguna, bulanBerjalan);
+  const hariIni = tanggalWib(new Date());
+  const bulanBerjalan = hariIni.slice(0, 7);
+  const isi = await muatIsiBeranda(pengguna, hariIni);
   const namaGudang = isi.gudangDitugaskan.map((g) => g.nama).join(", ");
 
   return (
