@@ -7,6 +7,7 @@ import type { HasilSimpan } from "@/components/keadaan-simpan";
 import { wajibAdmin } from "@/server/auth/kewenangan";
 import { hubungkanTokoKeGudang, type HasilTambahToko } from "@/server/gudang/hubungan";
 import { tetapkanPeriodeSumber } from "@/server/gudang/periode-sumber";
+import { tetapkanAktifToko } from "@/server/gudang/status-toko";
 
 /** Hasil tambah toko massal: hasil per toko (CODING_STANDARDS "Operasi massal mengembalikan hasil per item"). */
 export type HasilTambahTokoMassal =
@@ -57,6 +58,33 @@ export async function tetapkanPeriodeSumberGudang(input: unknown): Promise<Hasil
   try {
     revalidatePath(PATH_HALAMAN);
     revalidatePath(`/pengiriman-gudang/${isian.data.idGudang}`);
+  } catch {
+    return { keadaan: "tersimpanGagalMuatUlang" };
+  }
+  return { keadaan: "berhasil" };
+}
+
+const skemaStatusToko = z.object({
+  idToko: z.number({ error: "Toko tidak ditemukan. Muat ulang halaman." }).int({
+    error: "Toko tidak ditemukan. Muat ulang halaman.",
+  }),
+  aktif: z.boolean({ error: "Status toko tidak dikenal." }),
+});
+
+/**
+ * Mengaktifkan atau menonaktifkan satu toko (T76). Hanya admin (diperiksa di server sebelum membaca atau menulis data).
+ * Hasil yang belum pasti tidak diulang di sini; klien menampilkannya lewat `usePenyimpanan`.
+ */
+export async function ubahStatusToko(input: unknown): Promise<HasilSimpan> {
+  await wajibAdmin();
+  const isian = skemaStatusToko.safeParse(input);
+  if (!isian.success) return { keadaan: "gagal", pesan: isian.error.issues[0].message };
+
+  if (!(await tetapkanAktifToko(isian.data.idToko, isian.data.aktif))) {
+    return { keadaan: "gagal", pesan: "Toko tidak ditemukan. Muat ulang halaman." };
+  }
+  try {
+    revalidatePath(PATH_HALAMAN);
   } catch {
     return { keadaan: "tersimpanGagalMuatUlang" };
   }

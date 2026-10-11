@@ -61,15 +61,13 @@ Data UAT tersimpan di Docker. Jika `pnpm uat` dijalankan lagi, data sebelumnya m
 
 **Mulai UAT dari awal (menghapus semua data UAT):** hentikan `pnpm uat` dengan Ctrl+C, jalankan `docker compose down -v`, lalu jalankan `pnpm uat` lagi. Perintah `down -v` **menghapus semua data UAT** di laptop ini: impor, pengguna, rencana, dan lainnya.
 
-### Langkah teknis tambahan: menonaktifkan toko
+### Menonaktifkan dan mengaktifkan toko
 
-Aplikasi belum punya layar untuk menonaktifkan toko. Beberapa skenario (A1.6, A3.6, A6.20) menguji perilaku toko nonaktif. Untuk skenario itu, jalankan perintah berikut di terminal **kedua**, di folder repo. Contoh ini memakai toko `LMK`:
+Beberapa skenario (A1.6, A3.6, A6.20) menguji perilaku toko nonaktif. Status toko diubah di layar, sebagai **admin**:
 
-```
-docker compose exec postgres psql -U mandalika -d mandalika -c "update toko set aktif = false where nama = 'LMK'"
-```
-
-Untuk mengaktifkannya lagi, ganti `false` dengan `true`. Jika Anda tidak ingin menjalankan perintah ini, tulis `Tidak bisa diuji` di skenario-skenario itu.
+1. Buka **Gudang**. Di tabel "Daftar toko" (bagian "Tambah toko ke gudang"), cari baris tokonya, misalnya `LMK`.
+2. Tekan **Nonaktifkan** di kolom "Tindakan", lalu tekan **OK** di kotak konfirmasi. Di bawah tombol tampil "Berhasil disimpan", dan kolom "Status" toko itu menjadi "Nonaktif".
+3. Untuk mengaktifkannya lagi, tekan **Aktifkan** di baris yang sama, lalu **OK**. Kolom "Status" kembali "Aktif".
 
 ## Akun uji
 
@@ -98,7 +96,7 @@ Untuk berganti akun, tekan **Keluar** di menu, lalu masuk dengan akun lain. Cara
 | A3.3 | Di "Tambah toko ke gudang", pilih gudang **Pusat**, centang **PMS** dan **PMJ**, tekan "Tambahkan toko terpilih". | Hasil per toko tampil: "2 dari 2 toko ditambahkan.", masing-masing "Berhasil" dengan keterangan "Ditambahkan ke Pusat." | | |
 | A3.4 | Pilih **Gudang Bandung**, centang **PVJ**, **PASKAL**, dan juga **PMS**. Tekan "Tambahkan toko terpilih". | "2 dari 3 toko ditambahkan." PVJ dan PASKAL "Berhasil". PMS "Terkait gudang lain" dengan keterangan bahwa PMS sudah terhubung ke Pusat dan satu toko hanya boleh terhubung ke satu gudang. | | |
 | A3.5 | Pilih **Pusat** lagi, centang **PMS**, tekan tombolnya. | PMS "Sudah terhubung", dengan keterangan bahwa tidak ada yang diubah. | | |
-| A3.6 | *(Butuh langkah teknis: nonaktifkan LMK.)* Muat ulang halaman, pilih Pusat, centang **LMK**, tekan tombolnya. Setelah itu aktifkan LMK lagi. | LMK berstatus "Nonaktif" di daftar. Hasilnya "Nonaktif" dengan keterangan "Tidak ditambahkan: toko berstatus nonaktif." | | |
+| A3.6 | Nonaktifkan **LMK** (lihat "Menonaktifkan dan mengaktifkan toko"). Pilih Pusat, centang **LMK**, tekan "Tambahkan toko terpilih". Setelah itu tekan "Aktifkan" di baris LMK. | LMK berstatus "Nonaktif" di daftar. Hasilnya "Nonaktif" dengan keterangan "Tidak ditambahkan: toko berstatus nonaktif." | | |
 | A3.7 | Buka **Pengguna**. Buat empat akun dari tabel "Akun uji", semuanya dengan peran **viewer**. | Setiap akun berhasil dibuat dan tampil di "Daftar pengguna" berstatus "Aktif". Pilihan peran hanya "viewer" dan "admin". | | |
 | A3.8 | Coba buat akun dengan email yang sudah dipakai. | Muncul "Email sudah dipakai pengguna lain." Tidak ada akun ganda. | | |
 | A3.9 | Di baris akun admin Anda sendiri, tekan "Nonaktifkan". | Ditolak dengan pesan "Akun sendiri tidak bisa dinonaktifkan." | | |
@@ -122,7 +120,7 @@ Semua langkah di bagian ini memakai akun **admin**.
 | A1.3 | Periksa isi halaman tinjau. | "Identitas impor" menampilkan nama file, sheet, bulan impor, ukuran, dan SHA-256. "Ringkasan per toko" menampilkan cakupan tanggal, jumlah tanggal, sel terisi, dan "Total penjualan mentah" per toko. Di "Masalah" ada peringatan bahwa kolom tanggal invalid `31/6` kosong dan dilewati. Tidak ada error. | | |
 | A1.4 | Tekan "Aktifkan". | "Berhasil disimpan — Impor ini sekarang aktif." Status menjadi "Aktif". Bagian "Produk baru" berisi produk yang baru didaftarkan, berstatus keluarga aroma belum dipetakan. | | |
 | A1.5 | Buka **Ringkasan** sebelum mengimpor `JULI (S)`. Lihat pilihan bulan. | Ada bulan Juli, karena 29–30 Juni masuk laporan Juli. Jika Juli diterapkan, angkanya bertanda "Parsial", karena tanggal Juli lainnya belum teramati. | | |
-| A1.6 | *(Butuh langkah teknis: nonaktifkan LMK sebelum mengunggah.)* Unggah `MEI (S)` (2026, Mei), tinjau, lalu aktifkan. Setelah itu aktifkan LMK lagi. | Di "Masalah" ada peringatan bahwa toko LMK nonaktif tetapi datanya tetap dibaca. Di "Ringkasan per toko", LMK bertanda "Toko nonaktif". Impor tetap bisa diaktifkan. | | |
+| A1.6 | Sebelum mengunggah, nonaktifkan **LMK** di **Gudang** (lihat "Menonaktifkan dan mengaktifkan toko"). Unggah `MEI (S)` (2026, Mei), tinjau, lalu aktifkan impornya. Setelah itu aktifkan LMK lagi di **Gudang**. | Di "Masalah" ada peringatan bahwa toko LMK nonaktif tetapi datanya tetap dibaca. Di "Ringkasan per toko", LMK bertanda "Toko nonaktif". Impor tetap bisa diaktifkan. | | |
 | A1.7 | Unggah dan aktifkan juga `APRIL (S)` (April), `JULI (S)` (Juli), dan `AGUSTUS (S)` (Agustus), masing-masing dengan tahun 2026. | Setiap impor bisa diaktifkan. Di "Daftar impor", setiap bulan punya satu impor "Aktif". | | |
 | A1.8 | Unggah `JUNI (S)` sekali lagi untuk Juni 2026 dan tinjau. | Sebelum diaktifkan, halaman memberi tahu bahwa impor aktif Juni saat ini akan diarsipkan. Setelah "Aktifkan", impor lama berstatus "Diarsipkan" dan yang baru "Aktif". Hanya ada satu impor aktif untuk Juni. | | |
 | A1.9 | Unggah `JUNI (S)` dengan Bulan impor **Juli** (salah bulan). | Status "Siap ditinjau" dengan error bahwa tanggal di blok toko bukan bulan impor 2026-07, beserta lokasi selnya. Tombol "Aktifkan" tidak bisa ditekan: "Tidak bisa diaktifkan: ada … error. Perbaiki di Excel, lalu unggah ulang." Impor aktif Juli **tidak** berubah. | | |
@@ -291,7 +289,7 @@ Bagian ini butuh keluarga aroma, ranking pusat, dan pemetaan produk. Semuanya di
 | A6.17 | Isi stok **negatif** (misalnya −3) untuk satu produk otomatis dan satu produk manual. Simpan. | Produk otomatis mendapat masalah "Stok negatif" yang menahan finalisasi. Produk manual tetap "Manual", tidak tertahan, dan stoknya tetap tersimpan dan ditampilkan. | | |
 | A6.18 | Isi stok dengan teks atau angka desimal. | Ditolak: "Isi bilangan bulat, atau kosongkan jika belum diketahui." | | |
 | A6.19 | Jika ada produk yang tidak punya rata-rata untuk satu kategori di periode sumber, lihat barisnya. | "Kebutuhan tidak tersedia", dengan daftar "Tanpa rata-rata:" berisi tanggal dan kategori yang tidak punya rata-rata. Jika tidak ada produk seperti itu, tulis `Tidak bisa diuji`. | | |
-| A6.20 | *(Butuh langkah teknis: hubungkan LMK ke Pusat dan beri jadwal Senin dulu, lalu nonaktifkan LMK.)* Hitung ulang draft 19-10-2026. Setelah itu aktifkan LMK lagi. | LMK tidak masuk draft. Halaman menampilkan "Toko LMK nonaktif tetapi masih punya jadwal aktif". | | |
+| A6.20 | Hubungkan LMK ke Pusat dan beri jadwal Senin dulu, lalu, sebagai admin, nonaktifkan LMK di **Gudang** (lihat "Menonaktifkan dan mengaktifkan toko"). Hitung ulang draft 19-10-2026. Setelah itu, sebagai admin, aktifkan LMK lagi di **Gudang**. | LMK tidak masuk draft. Halaman menampilkan "Toko LMK nonaktif tetapi masih punya jadwal aktif". | | |
 
 ## A7. Menyimpan dan memfinalisasi
 
