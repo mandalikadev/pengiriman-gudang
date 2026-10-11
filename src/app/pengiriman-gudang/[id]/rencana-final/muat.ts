@@ -20,12 +20,12 @@ export async function muatGudangLihat(id: string) {
 
 /**
  * Rencana final `idRencana` milik gudang `id`, dibaca dari snapshot dengan `baca` (`bacaRencanaFinal` untuk layar
- * berhasil, `bacaRincianRencanaFinal` untuk rincian riwayat).
+ * berhasil, `bacaRincianRencanaFinal` untuk rincian riwayat), beserta gudangnya (termasuk hak tindakan pengguna di sana).
  */
 export async function muatRencanaFinal<T>(id: string, idRencana: string, baca: (idGudang: number, idRencana: number) => Promise<T | null>) {
   if (!ID_VALID.test(idRencana)) notFound();
-  const idGudang = (await muatGudangLihat(id)).id;
-  const rencana = await baca(idGudang, Number(idRencana));
+  const gudang = await muatGudangLihat(id);
+  const rencana = await baca(gudang.id, Number(idRencana));
   if (rencana === null) notFound();
-  return { idGudang, rencana };
+  return { idGudang: gudang.id, gudang, rencana };
 }

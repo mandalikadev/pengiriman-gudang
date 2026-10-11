@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { formatWaktu } from "@/app/admin/impor/format";
+import { TombolEkspor } from "@/app/ringkasan/tombol-ekspor";
 import { BadgeStatus } from "@/components/badge-status";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, parseTanggalBisnis } from "@/domain/kalender";
@@ -21,7 +22,8 @@ const kelasTautan =
 
 const JUMLAH_KOLOM = 7;
 
-function BarisRencana({ idGudang, rencana }: { idGudang: number; rencana: RingkasanRencanaFinal }) {
+function BarisRencana({ idGudang, rencana, bolehEkspor }: { idGudang: number; rencana: RingkasanRencanaFinal; bolehEkspor: boolean }) {
+  const keterangan = `rencana final ${rencana.toko.nama} ${formatTanggal(rencana.tanggalKirim)} versi ${rencana.versi}`;
   return (
     <TableRow
       data-rencana-final={rencana.id}
@@ -48,17 +50,19 @@ function BarisRencana({ idGudang, rencana }: { idGudang: number; rencana: Ringka
       <TableCell className="align-top">{rencana.difinalisasiOleh}</TableCell>
       <TableCell className="align-top">{formatWaktu(rencana.difinalisasiPada)}</TableCell>
       <TableCell className="align-top">
-        <Link
-          href={`/pengiriman-gudang/${idGudang}/rencana-final/${rencana.id}/rincian`}
-          data-tautan-rincian-final={rencana.id}
-          className={`${kelasTautan} underline underline-offset-4`}
-        >
-          Rincian
-          <span className="sr-only">
-            {" "}
-            rencana final {rencana.toko.nama} {formatTanggal(rencana.tanggalKirim)} versi {rencana.versi}
-          </span>
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/pengiriman-gudang/${idGudang}/rencana-final/${rencana.id}/rincian`}
+            data-tautan-rincian-final={rencana.id}
+            className={`${kelasTautan} underline underline-offset-4`}
+          >
+            Rincian
+            <span className="sr-only">{` ${keterangan}`}</span>
+          </Link>
+          {bolehEkspor ? (
+            <TombolEkspor url={`/pengiriman-gudang/${idGudang}/rencana-final/${rencana.id}/ekspor`} keterangan={keterangan} />
+          ) : null}
+        </div>
       </TableCell>
     </TableRow>
   );
@@ -69,6 +73,7 @@ function BarisRencana({ idGudang, rencana }: { idGudang: number; rencana: Ringka
  * dan toko, siapa dan kapan memfinalisasi, dibaca dari snapshot; semua versi tetap tampil dengan status Final, versi
  * baru ditandai "Versi N menggantikan versi N−1" (PRD A7 ▶ Keputusan 2026-10-11, T62). Filter `?tanggal=YYYY-MM-DD` dan
  * `?toko=<id>`. Bisa dibuka semua pengguna yang boleh melihat Pengiriman Gudang gudang itu (akses diperiksa di server).
+ * Tombol ekspor (.xlsx) per versi hanya tampil bagi pengguna dengan hak `ekspor` di gudang itu (T64).
  */
 export default async function HalamanRiwayatRencanaFinal({
   params,
@@ -126,7 +131,7 @@ export default async function HalamanRiwayatRencanaFinal({
                 <TableHead>Difinalisasi oleh</TableHead>
                 <TableHead>Waktu finalisasi</TableHead>
                 <TableHead>
-                  <span className="sr-only">Rincian rencana final</span>
+                  <span className="sr-only">Rincian dan ekspor rencana final</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -138,7 +143,9 @@ export default async function HalamanRiwayatRencanaFinal({
                   </TableCell>
                 </TableRow>
               ) : (
-                daftar.map((r) => <BarisRencana key={r.id} idGudang={gudang.id} rencana={r} />)
+                daftar.map((r) => (
+                  <BarisRencana key={r.id} idGudang={gudang.id} rencana={r} bolehEkspor={gudang.hakTindakan.includes("ekspor")} />
+                ))
               )}
             </TableBody>
           </Table>

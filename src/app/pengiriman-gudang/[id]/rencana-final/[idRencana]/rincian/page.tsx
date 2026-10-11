@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
 
 import { formatAngka, formatBulanImpor, formatBulanLaporan, formatWaktu } from "@/app/admin/impor/format";
+import { TombolEkspor } from "@/app/ringkasan/tombol-ekspor";
 import { BadgeStatus } from "@/components/badge-status";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -209,7 +210,8 @@ function TabelBaris({ idGudang, rencana, terbuka }: { idGudang: number; rencana:
  * ranking, jadwal, dan kalender yang dipakai, semuanya dibaca dari snapshot saat finalisasi (bukan data terkini).
  * `?rincian=<kode produk>` membuka rincian perhitungan satu baris. Semua versi berstatus Final; versi baru ditandai
  * "Versi N menggantikan versi N−1" beserta alasannya (PRD A7 ▶ Keputusan 2026-10-11, T62). Bisa dibuka semua pengguna
- * yang boleh melihat Pengiriman Gudang gudang itu (akses diperiksa di server).
+ * yang boleh melihat Pengiriman Gudang gudang itu (akses diperiksa di server). Tombol ekspor (.xlsx) hanya tampil bagi
+ * pengguna dengan hak `ekspor` di gudang itu (T64); route ekspor memeriksa hak itu lagi di server.
  */
 export default async function HalamanRincianRencanaFinal({
   params,
@@ -219,7 +221,7 @@ export default async function HalamanRincianRencanaFinal({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id, idRencana } = await params;
-  const { idGudang, rencana } = await muatRencanaFinal(id, idRencana, bacaRincianRencanaFinal);
+  const { idGudang, gudang, rencana } = await muatRencanaFinal(id, idRencana, bacaRincianRencanaFinal);
   const rincian = (await searchParams)?.rincian;
 
   return (
@@ -255,6 +257,7 @@ export default async function HalamanRincianRencanaFinal({
         <dt className="text-muted-foreground">Varian</dt>
         <dd className="font-semibold tabular-nums">{formatAngka(rencana.baris.length)}</dd>
       </dl>
+      {gudang.hakTindakan.includes("ekspor") ? <TombolEkspor url={`/pengiriman-gudang/${idGudang}/rencana-final/${rencana.id}/ekspor`} /> : null}
       <p className="text-muted-foreground">
         Rincian ini dibaca dari snapshot saat finalisasi dan tidak berubah walaupun data penjualan, kalender, jadwal, atau
         ranking pusat diperbarui kemudian. Finalisasi hanya menyatakan rencana kebutuhan barang telah disimpan. Ini bukan
