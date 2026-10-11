@@ -60,6 +60,7 @@ Untuk Senin–Kamis, penempatan minggu dan bulan laporan mengikuti hari Kamis da
 > ▶ Keputusan (2026-10-09): ekspor laporan dalam format Excel (`.xlsx`).
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): semua pengguna yang sudah masuk (admin, operator, viewer) boleh melihat Ringkasan dan mengekspor laporan.
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): filter "kategori" di Ringkasan adalah kategori **produk**. Kategori hari menjadi kolom tabel.
+> ▶ Keputusan (2026-10-11, UAT terhadap sistem ASOY): Ringkasan menampilkan **4 kartu** di atas tabel, satu per kategori hari (`Senin–Kamis`, `Jumat`, `Sabtu`, `Minggu`). Angka kartu = **jumlah Rata-rata Ringkasan per baris produk–toko** (yang sudah dibulatkan per baris sesuai tahap c) dari **seluruh hasil filter yang sedang diterapkan** (toko, periode, kategori produk, cari), bukan hanya baris pada halaman tabel yang sedang dibuka. Baris yang nilainya tidak tersedia tidak menambah apa pun; nol yang teramati menambah 0. Label kecil kartu: "Jumlah rata-rata produk/toko · seluruh hasil filter" — bukan "total penjualan".
 
 ### A3. Ketika saya mengelola gudang dan pengguna
 

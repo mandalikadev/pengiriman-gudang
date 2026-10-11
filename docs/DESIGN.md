@@ -93,6 +93,11 @@ Hanya mode terang (ADR-0010).
 > - **Layar < 1024 px:** bar atas tipis berisi logo dan tombol menu; tombol membuka sidebar sebagai menu tarik `rounded-3xl`.
 > - Item tetap hanya untuk halaman yang sudah ada dan boleh dibuka peran itu. Konten utama berada di sebelah kanan sidebar; lebar konten tetap mengikuti §9.
 
+> ▶ Keputusan (2026-10-11, UAT): kelompok **Laporan**, **Operasional**, dan **Admin** di sidebar bisa **dibuka-tutup (dropdown)**.
+> - Judul kelompok menjadi tombol dengan ikon `ChevronDown` (berputar saat terbuka), memakai `aria-expanded` dan `aria-controls`. Beranda tetap item tunggal. Data dan Organisasi tetap subjudul di dalam Admin, tidak dilipat terpisah.
+> - Keadaan awal: kelompok yang berisi halaman aktif terbuka; kelompok lain tertutup. Pilihan buka/tutup pengguna diingat di browser itu; kelompok yang berisi halaman aktif selalu terbuka.
+> - Berlaku sama di sidebar desktop dan menu tarik layar < 1024 px.
+
 Ikon: lucide-react, stroke 2. Ukuran 20 px di zona kerja dan 28 px di zona suasana. Ikon fitur diletakkan dalam wadah `rounded-2xl bg-primary/10`.
 
 ## 7. Bahasa visual status
