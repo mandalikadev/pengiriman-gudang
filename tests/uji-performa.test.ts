@@ -25,12 +25,12 @@ describe("persentil (nearest-rank)", () => {
 });
 
 describe("data sintetis", () => {
-  it("36 keluarga → 360 produk unik; display tester dan kertas tester manual", () => {
-    const produk = daftarProdukSintetis(36);
-    expect(produk).toHaveLength(360);
-    expect(new Set(produk.map((p) => p.kode)).size).toBe(360);
+  it("50 keluarga → 500 produk unik; display tester dan kertas tester manual", () => {
+    const produk = daftarProdukSintetis(50);
+    expect(produk).toHaveLength(500);
+    expect(new Set(produk.map((p) => p.kode)).size).toBe(500);
     const manual = produk.filter((p) => klasifikasiProduk(p.kode, p.kategori).klasifikasi === "manual");
-    expect(manual).toHaveLength(72);
+    expect(manual).toHaveLength(100);
   });
 
   it("sheet sintetis terbaca tanpa masalah: 25 blok toko, semua tanggal bulan valid, sel sesuai jumlahSel", () => {

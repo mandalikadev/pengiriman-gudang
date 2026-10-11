@@ -1,4 +1,4 @@
-// Uji performa PRD C1 (T65) dengan data sintetis 12 bulan, 25 toko, 360 produk.
+// Uji performa PRD C1 (T65) dengan data sintetis 12 bulan, 25 toko, 500 produk (PRD C1 ▶ Keputusan 2026-10-11, T65).
 // Jalankan: pnpm perf   (tidak termasuk pnpm verify)
 //
 // Butuh PostgreSQL dan MinIO yang sama dengan pengembangan lokal (`docker compose up -d`). DATABASE_URL dan S3_* dibaca
@@ -9,7 +9,8 @@
 // ranking, draft gudang besar dan kecil) → `next build` + `next start` → masuk sebagai operator → ukur:
 //   1. Ringkasan dengan filter 1–12 bulan (p95 per jumlah bulan dan gabungan; target < 1 s).
 //   2. Membaca dan memvalidasi satu sheet setelah unggah selesai (handler worker `prosesImpor`; target < 60 s).
-//   3. Halaman Pengiriman Gudang satu gudang (p95; target < 1,5 s).
+//   3. Halaman Pengiriman Gudang satu gudang (p95; target < 1,5 s): ringkasan draft per toko seperti saat halaman dibuka
+//      (tanpa `?toko=`), dan sebagai pembanding halaman dengan satu toko dibuka (`?toko=<id>`, T73).
 // Waktu halaman = permintaan HTTP sampai seluruh isi respons diterima, berurutan (satu pengguna), setelah pemanasan.
 // Pengukuran lokal: database di mesin yang sama, bukan region Singapura (PRD C1); hasil di hosting bisa berbeda (OD-04).
 import { spawn, type ChildProcess } from "node:child_process";
@@ -34,7 +35,8 @@ const URL_DASAR = `http://localhost:${PORT}`;
 
 /** Bulan impor sintetis: 12 bulan berurutan. */
 const BULAN_IMPOR = Array.from({ length: 12 }, (_, i) => ({ tahun: i < 3 ? 2025 : 2026, bulan: ((i + 9) % 12) + 1 }));
-const JUMLAH_KELUARGA = 36;
+/** 50 keluarga × 10 varian = 500 produk. */
+const JUMLAH_KELUARGA = 50;
 /**
  * Gudang yang diukur dan banyaknya toko terhubung. Hubungan toko–gudang yang sebenarnya belum ada (OD-12), jadi diukur
  * gudang besar (20 toko) dan gudang kecil (5 toko); semua toko mengirim pada tanggal draft. Bersama-sama = 25 toko.
@@ -214,7 +216,7 @@ async function buatData() {
   const bulanImpor = new Set(BULAN_IMPOR.map(({ tahun, bulan }) => `${tahun}-${String(bulan).padStart(2, "0")}`));
   const bulanPeriode = (await bulanTersediaUntukPeriode()).filter((b) => bulanImpor.has(b));
 
-  const gudangDiukur: { id: number; nama: string; jumlahToko: number; jumlahBaris: number }[] = [];
+  const gudangDiukur: { id: number; nama: string; jumlahToko: number; jumlahBaris: number; idTokoDibuka: number }[] = [];
   let tokoBerikutnya = 0;
   for (const { nama, jumlahToko } of GUDANG_DIUKUR) {
     const [gudang] = await db.select({ id: schema.gudang.id }).from(schema.gudang).where(eq(schema.gudang.nama, nama));
@@ -249,7 +251,7 @@ async function buatData() {
       jumlahBaris = baris.length;
       catat(`draft ${nama} ${tanggal}: ${baris.length} baris, dihitung dalam ${detik(draft.ms)}`);
     }
-    gudangDiukur.push({ id: gudang.id, nama, jumlahToko, jumlahBaris });
+    gudangDiukur.push({ id: gudang.id, nama, jumlahToko, jumlahBaris, idTokoDibuka: tokoGudang[0].id });
   }
 
   const [{ jumlahSel }] = await db.select({ jumlahSel: sql<number>`count(*)::int` }).from(schema.selPenjualan);
@@ -354,12 +356,19 @@ try {
     catat(`Ringkasan ${jumlahBulan} bulan: p50 ${detik(persentil(sampel, 50))}, p95 ${detik(persentil(sampel, 95))}`);
   }
 
-  // 3. Pengiriman Gudang satu gudang (draft terakhir dihitung tampil).
-  const pengiriman: { nama: string; jumlahToko: number; jumlahBaris: number; sampel: number[] }[] = [];
+  // 3. Pengiriman Gudang satu gudang (draft terakhir dihitung tampil): ringkasan per toko seperti saat halaman dibuka, lalu
+  // satu toko dibuka (`?toko=`, T73). Penanda: baris ringkasan toko pertama / baris draft produk pertama toko itu.
+  const pengiriman: { nama: string; jumlahToko: number; jumlahBaris: number; tampilan: string; sampel: number[] }[] = [];
   for (const g of data.gudangDiukur) {
-    const sampel = await sampelHalaman(`/pengiriman-gudang/${g.id}`, cookie, "15GL-A01", SAMPEL_PENGIRIMAN_PER_GUDANG);
-    pengiriman.push({ ...g, sampel });
-    catat(`Pengiriman Gudang ${g.nama} (${g.jumlahToko} toko, ${g.jumlahBaris} baris draft): p50 ${detik(persentil(sampel, 50))}, p95 ${detik(persentil(sampel, 95))}`);
+    const tampilan = [
+      { nama: "ringkasan per toko", jalur: `/pengiriman-gudang/${g.id}`, penanda: `data-ringkasan-toko="${g.idTokoDibuka}"` },
+      { nama: "satu toko dibuka", jalur: `/pengiriman-gudang/${g.id}?toko=${g.idTokoDibuka}`, penanda: 'data-kode-produk="15GL-A01"' },
+    ];
+    for (const t of tampilan) {
+      const sampel = await sampelHalaman(t.jalur, cookie, t.penanda, SAMPEL_PENGIRIMAN_PER_GUDANG);
+      pengiriman.push({ ...g, tampilan: t.nama, sampel });
+      catat(`Pengiriman Gudang ${g.nama} (${g.jumlahToko} toko, ${g.jumlahBaris} baris draft), ${t.nama}: p50 ${detik(persentil(sampel, 50))}, p95 ${detik(persentil(sampel, 95))}`);
+    }
   }
 
   const ringkasanGabungan = ringkasanPerPeriode.flatMap((r) => r.sampel);
@@ -380,7 +389,7 @@ try {
       tercapai: sheetTerlama < TARGET.sheetMs,
     },
     ...pengiriman.map((g) => ({
-      kegiatan: `Membuka halaman Pengiriman Gudang untuk satu gudang: ${g.nama}, ${g.jumlahToko} toko, ${g.jumlahBaris} baris draft`,
+      kegiatan: `Membuka halaman Pengiriman Gudang untuk satu gudang: ${g.nama}, ${g.jumlahToko} toko, ${g.jumlahBaris} baris draft — ${g.tampilan}`,
       terukur: `p95 ${detik(persentil(g.sampel, 95))} (${g.sampel.length} sampel)`,
       target: "p95 < 1,5 detik",
       tercapai: persentil(g.sampel, 95) < TARGET.pengirimanMs,

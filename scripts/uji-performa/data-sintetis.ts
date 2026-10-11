@@ -1,8 +1,8 @@
 import * as XLSX from "xlsx";
 
 // Data sintetis uji performa (T65, PRD C1): workbook penjualan berbentuk sama dengan sheet `<BULAN> (S)` (PRD A1, B8)
-// untuk 25 toko dan ±360 produk. Deterministik (PRNG berbenih), tanpa data bisnis asli (CODING_STANDARDS).
-// Kepadatan sel ±9% → ±25 ribu sel bernilai per bulan, sesuai perkiraan ADR-0002.
+// untuk 25 toko dan 500 produk (PRD C1 ▶ Keputusan 2026-10-11, T65). Deterministik (PRNG berbenih), tanpa data bisnis asli (CODING_STANDARDS).
+// Kepadatan sel ±9% → ±38 ribu sel bernilai per bulan untuk 500 produk (ADR-0002 memperkirakan ±25 ribu untuk ±360 produk).
 
 const NAMA_SHEET = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"];
 
@@ -28,7 +28,7 @@ const VARIAN: readonly { awalan: string; akhiran: string; ukuran: string; katego
   { awalan: "KT", akhiran: "", ukuran: "-", kategori: "KTP" },
 ];
 
-/** `jumlahKeluarga` × 10 varian; 36 keluarga = 360 produk. */
+/** `jumlahKeluarga` × 10 varian; 50 keluarga = 500 produk. */
 export function daftarProdukSintetis(jumlahKeluarga: number): ProdukSintetis[] {
   return Array.from({ length: jumlahKeluarga }, (_, i) => {
     const nomor = String(i + 1).padStart(2, "0");
