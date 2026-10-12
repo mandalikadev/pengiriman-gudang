@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../../src/server/db";
 import { impor, user } from "../../src/server/db/schema";
 import { aktifkanImpor } from "../../src/server/impor/impor";
-import { buatWorkbookUji, imporUji, sheetPenjualanUji } from "../../src/server/impor/uji-bantu";
+import { buatWorkbookUji, imporUji, sheetPenjualanUji, tahunUjiBebas } from "../../src/server/impor/uji-bantu";
 import { EMAIL_ADMIN_E2E, SANDI_ADMIN_E2E } from "./siapkan";
 
 /** Impor satu sheet lewat lapisan server; worker memprosesnya, lalu impor diaktifkan (worker menghitung cache). */
@@ -62,7 +62,7 @@ async function masuk(page: import("@playwright/test").Page) {
 }
 
 test("Ringkasan: pilih bulan → Terapkan → periode aktif tampil; mengubah pilihan tanpa Terapkan tidak mengubah hasil", async ({ page }) => {
-  const tahun = randomInt(3000, 9000);
+  const tahun = await tahunUjiBebas();
   const kode = `E2E${randomUUID().slice(0, 8).toUpperCase()}-GOR`;
   const [admin] = await db.select({ id: user.id }).from(user).where(eq(user.email, EMAIL_ADMIN_E2E));
   await imporAktif(admin.id, "MARET (S)", tahun, 3, kode, [1, 2, 3, 4, 5, 6, 7]);
@@ -131,7 +131,7 @@ test("Ringkasan: pilih bulan → Terapkan → periode aktif tampil; mengubah pil
 });
 
 test("Ringkasan: filter kategori produk dan produk berlaku setelah Terapkan, tersimpan di URL, dan bisa dikosongkan", async ({ page }) => {
-  const tahun = randomInt(3000, 9000);
+  const tahun = await tahunUjiBebas();
   const akhiran = randomUUID().slice(0, 8).toUpperCase();
   const [k1, k2] = [`E2EA${akhiran}-GOR`, `E2EB${akhiran}-GOR`];
   const kategoriX = `KAT X E2E ${akhiran}`;

@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 
-import { eq, max } from "drizzle-orm";
+import { eq, like, max } from "drizzle-orm";
 
 import { db } from "@/server/db";
 import { barisRanking, keluargaAroma, versiRanking } from "@/server/db/schema";
@@ -12,6 +12,28 @@ import { daftarkanRanking, kunciObjekRankingBaru } from "./ranking";
 // Bantuan khusus test: workbook ranking kecil buatan sendiri (CODING_STANDARDS: data bisnis asli tidak di-commit).
 
 type Sel = string | number | null;
+
+const tahunDicadangkan = new Set<number>();
+
+/**
+ * Tahun ranking acak 3000–8999 yang belum dipakai `versi_ranking.bulan_ranking` di database test bersama dan belum
+ * dikembalikan sebelumnya dalam proses test ini, agar nomor versi per bulan ranking tidak terpengaruh unggahan berkas
+ * test lain (T96).
+ */
+export async function tahunRankingUjiBebas() {
+  for (;;) {
+    const tahun = randomInt(3000, 9000);
+    if (tahunDicadangkan.has(tahun)) continue;
+    const [dipakai] = await db
+      .select({ id: versiRanking.id })
+      .from(versiRanking)
+      .where(like(versiRanking.bulanRanking, `${tahun}-%`))
+      .limit(1);
+    if (dipakai) continue;
+    tahunDicadangkan.add(tahun);
+    return tahun;
+  }
+}
 
 /** Workbook dengan sheet RANKING SALES; `baris` = [RANK, VARIANT, QTY SALES] setelah header. */
 export function workbookRankingUji(baris: Sel[][]) {

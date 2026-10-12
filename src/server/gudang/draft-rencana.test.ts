@@ -18,7 +18,7 @@ import {
   tokoDraftRencana,
   versiRanking,
 } from "@/server/db/schema";
-import { kodeProdukUji, tahunUji } from "@/server/impor/uji-bantu";
+import { kodeProdukUji, tahunUjiBebas } from "@/server/impor/uji-bantu";
 import { bacaRevisiKalender, hitungUlangCacheLaporan } from "@/server/laporan/cache";
 import { aktifkanImporJuniUji, kuantitasJuniMenurutHari } from "@/server/laporan/uji-bantu";
 import { buatKeluargaUji, publikasikanRankingUji } from "@/server/ranking/uji-bantu";
@@ -143,7 +143,7 @@ beforeAll(async () => {
     { ...jadwalSenin, tokoId: tokoNonaktif.id },
   ]);
 
-  const tahunContoh = tahunUji();
+  const tahunContoh = await tahunUjiBebas();
   const sesuaiContoh = kuantitasJuniMenurutHari(tahunContoh, SEMUA_HARI_JUNI, (nama) => golden.rataRata[kategoriHari(nama)]);
   await aktifkanImporJuniUji({
     idAdmin,
@@ -162,7 +162,7 @@ beforeAll(async () => {
   });
 
   // Pertengahan Juni tanpa hari Minggu: kategori Minggu tidak punya rata-rata di periode sumber.
-  const tahunTanpaMinggu = tahunUji();
+  const tahunTanpaMinggu = await tahunUjiBebas();
   const hariTanpaMinggu = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].filter(
     (h) => kuantitasJuniMenurutHari(tahunTanpaMinggu, [h], (nama) => (nama === "Minggu" ? 1 : 0))[0] === 0,
   );
@@ -174,7 +174,7 @@ beforeAll(async () => {
     produk: [produkUji(kode.tanpaMinggu, hariTanpaMinggu.map(() => 3))],
   });
 
-  const tahunSelasa = tahunUji();
+  const tahunSelasa = await tahunUjiBebas();
   await aktifkanImporJuniUji({
     idAdmin,
     tahun: tahunSelasa,
@@ -182,7 +182,7 @@ beforeAll(async () => {
     hari: SEMUA_HARI_JUNI,
     produk: [produkUji(kodeProdukUji("GOR"), SEMUA_HARI_JUNI.map(() => 2))],
   });
-  const tahunTanpaJadwal = tahunUji();
+  const tahunTanpaJadwal = await tahunUjiBebas();
   await aktifkanImporJuniUji({
     idAdmin,
     tahun: tahunTanpaJadwal,
@@ -191,7 +191,7 @@ beforeAll(async () => {
     produk: [produkUji(kodeProdukUji("GOR"), SEMUA_HARI_JUNI.map(() => 2))],
   });
 
-  const tahunNonaktif = tahunUji();
+  const tahunNonaktif = await tahunUjiBebas();
   await aktifkanImporJuniUji({
     idAdmin,
     tahun: tahunNonaktif,

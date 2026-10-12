@@ -16,7 +16,7 @@ import { tugaskanOperator } from "@/server/gudang/penugasan";
 import { tetapkanPeriodeSumber } from "@/server/gudang/periode-sumber";
 import { simpanStokToko } from "@/server/gudang/stok-draft";
 import { buatTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
-import { kodeProdukUji, tahunUji } from "@/server/impor/uji-bantu";
+import { kodeProdukUji, tahunUjiBebas } from "@/server/impor/uji-bantu";
 import { buatPerubahanKategori } from "@/server/kalender/perubahan-kategori";
 import { hitungUlangCacheLaporan } from "@/server/laporan/cache";
 import { aktifkanImporJuniUji, kuantitasJuniMenurutHari } from "@/server/laporan/uji-bantu";
@@ -91,7 +91,7 @@ beforeAll(async () => {
     })),
   );
   // Satu impor aktif per bulan impor (ADR-0002): setiap toko memakai tahun uji sendiri.
-  const [tahunSiap, tahunTertahan] = [tahunUji(), tahunUji()];
+  const [tahunSiap, tahunTertahan] = [await tahunUjiBebas(), await tahunUjiBebas()];
   const sesuaiContoh = kuantitasJuniMenurutHari(tahunSiap, SEMUA_HARI_JUNI, (nama) => golden.rataRata[kategoriHari(nama)]);
   await aktifkanImporJuniUji({ idAdmin, tahun: tahunSiap, namaToko: tokoSiap.nama, hari: SEMUA_HARI_JUNI, produk: [produkUji(kode.siap, sesuaiContoh)] });
   await aktifkanImporJuniUji({

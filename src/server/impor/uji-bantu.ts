@@ -1,6 +1,10 @@
 import { randomInt, randomUUID } from "node:crypto";
 
+import { eq } from "drizzle-orm";
 import * as XLSX from "xlsx";
+
+import { db } from "@/server/db";
+import { impor } from "@/server/db/schema";
 
 import { daftarkanImpor, kunciObjekBaru } from "./impor";
 import { buatUrlUnggah } from "./penyimpanan";
@@ -12,9 +16,22 @@ type Sel = string | number | null;
 
 export type ProdukUji = { kode: string; nama: string; ukuran: string; kategori: string; kuantitas: Sel[] };
 
-/** Tahun impor acak agar impor aktif buatan test lain (dan run sebelumnya) tidak bertabrakan. */
-export function tahunUji() {
-  return randomInt(3000, 9000);
+const tahunDicadangkan = new Set<number>();
+
+/**
+ * Tahun impor acak 3000–8999 yang belum dipakai `impor.tahun_impor` di database test bersama dan belum dikembalikan
+ * sebelumnya dalam proses test ini, agar impor aktif buatan berkas test lain tidak bertabrakan (T96) dan dua pemanggilan
+ * berurutan sebelum insert tidak mendapat tahun yang sama.
+ */
+export async function tahunUjiBebas() {
+  for (;;) {
+    const tahun = randomInt(3000, 9000);
+    if (tahunDicadangkan.has(tahun)) continue;
+    const [dipakai] = await db.select({ id: impor.id }).from(impor).where(eq(impor.tahunImpor, tahun)).limit(1);
+    if (dipakai) continue;
+    tahunDicadangkan.add(tahun);
+    return tahun;
+  }
 }
 
 export function kodeProdukUji(akhiran = "GOR") {

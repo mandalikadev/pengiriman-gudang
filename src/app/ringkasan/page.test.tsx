@@ -7,7 +7,7 @@ import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { buatTokoUji } from "@/server/gudang/uji-bantu";
 import { aktifkanImpor } from "@/server/impor/impor";
 import { pastikanBucket } from "@/server/impor/penyimpanan";
-import { buatWorkbookUji, imporUji, kodeProdukUji, sheetPenjualanUji, tahunUji, type ProdukUji } from "@/server/impor/uji-bantu";
+import { buatWorkbookUji, imporUji, kodeProdukUji, sheetPenjualanUji, tahunUjiBebas, type ProdukUji } from "@/server/impor/uji-bantu";
 import { hitungUlangCacheLaporan } from "@/server/laporan/cache";
 import { parseTanggalBisnis, posisiLaporan, type KategoriDasar } from "@/domain/kalender";
 
@@ -181,7 +181,7 @@ describe("/ringkasan: bulan tidak berurutan", () => {
 describe("/ringkasan: viewer, pagination, dan pilihan", () => {
   it("viewer (tanpa penugasan gudang) membuka halaman dan melihat semua toko (OD-07)", async () => {
     const admin = await buatPenggunaUji("admin");
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const [tokoA, tokoB] = [await buatTokoUji(), await buatTokoUji()];
     const [kodeA, kodeB] = [kodeProdukUji(), kodeProdukUji()];
     await imporAktif({ idAdmin: admin.id, toko: tokoA.nama, tahun, bulan: 4, hari: [1, 2], produk: [produkUji(kodeA, [1, 2])] });
@@ -197,7 +197,7 @@ describe("/ringkasan: viewer, pagination, dan pilihan", () => {
 
   it("pagination di server: 51 pasangan → 50 baris di halaman 1, 1 baris di halaman 2", async () => {
     const admin = await buatPenggunaUji("admin");
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const toko = await buatTokoUji();
     const produk = Array.from({ length: 51 }, () => produkUji(kodeProdukUji(), [1]));
     await imporAktif({ idAdmin: admin.id, toko: toko.nama, tahun, bulan: 8, hari: [3], produk });
@@ -236,7 +236,7 @@ describe("/ringkasan: filter toko, kategori produk, dan produk (T35)", () => {
    */
   async function siapkan() {
     const admin = await buatPenggunaUji("admin");
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const [tokoA, tokoB] = [await buatTokoUji(), await buatTokoUji()];
     const [k1, k2, k3] = [kodeProdukUji(), kodeProdukUji(), kodeProdukUji()];
     const [x, y] = [`KAT X ${k1}`, `KAT Y ${k2}`];
@@ -326,7 +326,7 @@ describe("/ringkasan: filter toko, kategori produk, dan produk (T35)", () => {
 
   it("pagination dan jumlah baris mengikuti hasil filter; tautan halaman membawa filter", async () => {
     const admin = await buatPenggunaUji("admin");
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const toko = await buatTokoUji();
     const kategori = `KAT P ${kodeProdukUji()}`;
     const produk = [
@@ -720,7 +720,7 @@ describe("/ringkasan: kartu jumlah rata-rata per kategori hari (T80, PRD A2 ▶ 
    */
   async function siapkan() {
     const admin = await buatPenggunaUji("admin");
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const [tokoA, tokoB] = [await buatTokoUji(), await buatTokoUji()];
     const kodeP = Array.from({ length: 51 }, () => kodeProdukUji());
     const [kodeQ, kodeR, kodeS] = [kodeProdukUji(), kodeProdukUji(), kodeProdukUji()];

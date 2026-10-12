@@ -1,12 +1,12 @@
-import { randomInt, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import { expect, test } from "@playwright/test";
 
-import { buatWorkbookUji, sheetPenjualanUji } from "../../src/server/impor/uji-bantu";
+import { buatWorkbookUji, sheetPenjualanUji, tahunUjiBebas } from "../../src/server/impor/uji-bantu";
 import { EMAIL_ADMIN_E2E, SANDI_ADMIN_E2E } from "./siapkan";
 
 test("alur bahagia: admin mengunggah dua sheet sekaligus, keduanya diproses, lalu meninjau dan mengaktifkan satu impor", async ({ page }) => {
-  const tahun = randomInt(3000, 9000);
+  const tahun = await tahunUjiBebas();
   const kode = `E2E${randomUUID().slice(0, 8).toUpperCase()}-GOR`;
   const workbook = buatWorkbookUji({
     "JUNI (S)": sheetPenjualanUji({

@@ -5,7 +5,7 @@ import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { buatTokoUji } from "@/server/gudang/uji-bantu";
 import { aktifkanImpor } from "@/server/impor/impor";
 import { pastikanBucket } from "@/server/impor/penyimpanan";
-import { buatWorkbookUji, imporUji, kodeProdukUji, sheetPenjualanUji, tahunUji } from "@/server/impor/uji-bantu";
+import { buatWorkbookUji, imporUji, kodeProdukUji, sheetPenjualanUji, tahunUjiBebas } from "@/server/impor/uji-bantu";
 
 const kepala = vi.hoisted(() => ({ cookie: "" }));
 vi.mock("next/headers", () => ({
@@ -38,7 +38,7 @@ function produk(kode: string, kuantitas: (number | null)[], kategori = "15ML GLI
 
 describe("/admin/impor/[id]", () => {
   it("belum masuk → halaman masuk; viewer → 404", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const toko = await buatTokoUji();
     const id = await imporUji({
       isi: buatWorkbookUji({ "JUNI (S)": sheetPenjualanUji({ toko: toko.nama, bulan: 6, hari: [1], produk: [produk(kodeProdukUji(), [1])] }) }),
@@ -57,7 +57,7 @@ describe("/admin/impor/[id]", () => {
   });
 
   it("menampilkan ringkasan per toko, daftar masalah (lokasi + cara memperbaiki), dan produk baru; Aktifkan dinonaktifkan dengan alasan", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const toko = await buatTokoUji();
     const biasa = kodeProdukUji();
     const tester = kodeProdukUji("T");
@@ -105,7 +105,7 @@ describe("/admin/impor/[id]", () => {
   });
 
   it("toko nonaktif: peringatan di daftar masalah, penanda di ringkasan per toko, dan Aktifkan tetap bisa", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const nonaktif = await buatTokoUji({ aktif: false });
     const aktif = await buatTokoUji();
     const kode = kodeProdukUji();
@@ -137,7 +137,7 @@ describe("/admin/impor/[id]", () => {
   });
 
   it("data produk berubah: peringatan per kode (lama → baru, termasuk klasifikasi) sebelum aktivasi, tanpa menahan Aktifkan", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const toko = await buatTokoUji();
     const berubah = kodeProdukUji();
     const sama = kodeProdukUji();
@@ -169,7 +169,7 @@ describe("/admin/impor/[id]", () => {
   });
 
   it("data produk sama dengan master → peringatan data produk berubah tidak muncul", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const toko = await buatTokoUji();
     const isi = buatWorkbookUji({ "JUNI (S)": sheetPenjualanUji({ toko: toko.nama, bulan: 6, hari: [1], produk: [produk(kodeProdukUji(), [1])] }) });
     const lama = await imporUji({ isi, tahunImpor: tahun, idPengguna: idAdmin });
@@ -182,7 +182,7 @@ describe("/admin/impor/[id]", () => {
   });
 
   it("impor tanpa error bisa diaktifkan dan memberi tahu impor aktif yang akan diarsipkan", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const toko = await buatTokoUji();
     const isi = buatWorkbookUji({ "JUNI (S)": sheetPenjualanUji({ toko: toko.nama, bulan: 6, hari: [1], produk: [produk(kodeProdukUji(), [1])] }) });
     const lama = await imporUji({ isi, tahunImpor: tahun, idPengguna: idAdmin });
@@ -204,7 +204,7 @@ describe("/admin/impor/[id]", () => {
     const toko = await buatTokoUji();
     const id = await imporUji({
       isi: buatWorkbookUji({ "JUNI (S)": sheetPenjualanUji({ toko: toko.nama, bulan: 6, hari: [1], produk: [produk(kodeProdukUji(), [1])] }) }),
-      tahunImpor: tahunUji(),
+      tahunImpor: await tahunUjiBebas(),
       idPengguna: idAdmin,
       proses: false,
     });
@@ -216,7 +216,7 @@ describe("/admin/impor/[id]", () => {
   });
 
   it("impor gagal menampilkan alasannya", async () => {
-    const id = await imporUji({ isi: new TextEncoder().encode("PK\u0003\u0004rusak"), tahunImpor: tahunUji(), idPengguna: idAdmin });
+    const id = await imporUji({ isi: new TextEncoder().encode("PK\u0003\u0004rusak"), tahunImpor: await tahunUjiBebas(), idPengguna: idAdmin });
     const html = await tampil(id);
     expect(html).toContain('data-status-impor="gagal"');
     expect(html).toContain("File tidak bisa dibaca sebagai workbook Excel.");

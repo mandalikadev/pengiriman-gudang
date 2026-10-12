@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { eq, inArray } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -24,7 +26,7 @@ import type { MasalahBarisDraft } from "@/server/gudang/masalah-draft";
 import { tugaskanOperator } from "@/server/gudang/penugasan";
 import { buatTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
 import { kunciObjekBaru } from "@/server/impor/impor";
-import { kodeProdukUji, tahunUji } from "@/server/impor/uji-bantu";
+import { kodeProdukUji, tahunUjiBebas } from "@/server/impor/uji-bantu";
 import { bacaKunciVersi } from "@/server/laporan/cache";
 import { buatSnapshotUji, tahunLiburUji } from "@/server/libur/uji-bantu";
 import { publikasikanRankingUji } from "@/server/ranking/uji-bantu";
@@ -93,7 +95,7 @@ let jabodetabek: number;
 /** Bulan berjalan `YYYY-MM` (WIB), untuk kartu ranking. */
 const bulanBerjalan = tanggalWib(new Date()).slice(0, 7);
 /** Impor aktif buatan test: yang terakhir diaktifkan, jadi tampil di status data. */
-const sheetAktif = `UJI T79 ${tahunUji()} (S)`;
+const sheetAktif = `UJI T79 ${randomUUID().slice(0, 8).toUpperCase()} (S)`;
 
 /**
  * Database test dipakai bersama berkas test lain: tindakan yang mereka tinggalkan (usulan menunggu, snapshot menunggu,
@@ -124,7 +126,7 @@ async function buatImporUji(status: "gagal" | "siap-ditinjau" | "diunggah" | "ak
     ukuranByte: 1,
     kunciObjek: kunciObjekBaru(),
     namaSheet,
-    tahunImpor: tahunUji(),
+    tahunImpor: await tahunUjiBebas(),
     bulanImpor: 6,
     status,
     diunggahOleh: idAdmin,
