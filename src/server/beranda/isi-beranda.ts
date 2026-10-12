@@ -1,7 +1,7 @@
 import { and, asc, count, countDistinct, desc, eq, gte, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 
-import { tanggalKirimMenurutJadwal } from "@/domain/jadwal";
+import { tanggalKirimBerikutnya, tanggalKirimMenurutJadwal } from "@/domain/jadwal";
 import { geserHari, parseTanggalBisnis, type TanggalBisnis } from "@/domain/kalender";
 import type { PenggunaMasuk } from "@/server/auth/kewenangan";
 import { db } from "@/server/db";
@@ -186,12 +186,6 @@ async function jumlahTokoBarisTertahan(idGudang: number, hariIni: TanggalBisnis)
 }
 
 /**
- * Setiap jadwal yang lolos `periksaJadwal` punya paling sedikit satu hari kirim yang berulang tiap 7 hari (mingguan,
- * 2×/3× seminggu) atau tiap 14 hari (dua mingguan), jadwal itu pasti punya tanggal kirim dalam 14 hari mulai hari ini.
- */
-const RENTANG_CARI_TANGGAL_KIRIM = 14;
-
-/**
  * Tanggal kirim terdekat gudang `idGudang` (hari ini atau sesudahnya) beserta toko aktif yang mengirim pada tanggal itu
  * dan belum punya rencana final untuk tanggal itu. `null` bila tidak ada toko aktif berjadwal. Toko nonaktif tidak
  * mengirim walaupun masih punya jadwal aktif (PRD A6 ▶ Keputusan 2026-10-10), jadi tidak ikut menentukan tanggalnya.
@@ -203,23 +197,24 @@ async function tokoBelumFinalTerdekat(
   const berjadwal = (await jadwalTokoGudang(idGudang)).flatMap(({ id, aktif, jadwal }) =>
     aktif && jadwal !== null ? [{ id, jadwal }] : [],
   );
-  for (let i = 0; i < RENTANG_CARI_TANGGAL_KIRIM; i += 1) {
-    const tanggalKirim = geserHari(hariIni, i);
-    const mengirim = berjadwal.filter((t) => tanggalKirimMenurutJadwal(t.jadwal, tanggalKirim).kirim).map((t) => t.id);
-    if (mengirim.length === 0) continue;
-    const sudahFinal = await db
-      .selectDistinct({ tokoId: rencanaFinal.tokoId })
-      .from(rencanaFinal)
-      .where(
-        and(
-          eq(rencanaFinal.gudangId, idGudang),
-          eq(rencanaFinal.tanggalKirim, tanggalKirim),
-          inArray(rencanaFinal.tokoId, mengirim),
-        ),
-      );
-    return { tanggalKirim, jumlah: mengirim.length - sudahFinal.length };
-  }
-  return null;
+  // Tanggal kirim pertama tiap toko mulai hari ini (= sesudah kemarin) menurut domain, untuk semua pola termasuk 1× sebulan.
+  const kemarin = geserHari(hariIni, -1);
+  const tanggalKirim = berjadwal
+    .map((t) => tanggalKirimBerikutnya(t.jadwal, kemarin))
+    .reduce<TanggalBisnis | null>((terdekat, calon) => (terdekat === null || calon < terdekat ? calon : terdekat), null);
+  if (tanggalKirim === null) return null;
+  const mengirim = berjadwal.filter((t) => tanggalKirimMenurutJadwal(t.jadwal, tanggalKirim).kirim).map((t) => t.id);
+  const sudahFinal = await db
+    .selectDistinct({ tokoId: rencanaFinal.tokoId })
+    .from(rencanaFinal)
+    .where(
+      and(
+        eq(rencanaFinal.gudangId, idGudang),
+        eq(rencanaFinal.tanggalKirim, tanggalKirim),
+        inArray(rencanaFinal.tokoId, mengirim),
+      ),
+    );
+  return { tanggalKirim, jumlah: mengirim.length - sudahFinal.length };
 }
 
 /** Gudang penugasan beserta tanggal kirim terdekatnya dan jumlah toko yang belum final untuk tanggal itu. */

@@ -6,7 +6,7 @@ export type PolaJadwal = MasukanJadwal["pola"];
 export type Persiapan = MasukanJadwal["hariKirim"][number]["persiapan"];
 export type HariKirim = Jadwal["hariKirim"][number]["hari"];
 
-export const daftarPolaJadwal = ["mingguan", "2x-seminggu", "3x-seminggu", "dua-mingguan"] as const satisfies readonly PolaJadwal[];
+export const daftarPolaJadwal = ["mingguan", "2x-seminggu", "3x-seminggu", "dua-mingguan", "1x-sebulan"] as const satisfies readonly PolaJadwal[];
 
 export const daftarPersiapan = ["H", "H-1", "H-2"] as const satisfies readonly Persiapan[];
 
@@ -18,6 +18,7 @@ export const labelPola: Record<PolaJadwal, string> = {
   "2x-seminggu": "2× seminggu",
   "3x-seminggu": "3× seminggu",
   "dua-mingguan": "Dua mingguan",
+  "1x-sebulan": "1× sebulan",
 };
 
 /** Persiapan tersimpan (jumlah hari) → pilihan form `H` / `H-1` / `H-2`. */

@@ -169,6 +169,13 @@
       "when": 1791817453130,
       "tag": "0023_panjang_cakupan_jarak_kirim",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791818715633,
+      "tag": "0024_pola_sebulan",
+      "breakpoints": true
     }
   ]
 }

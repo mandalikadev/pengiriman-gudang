@@ -178,6 +178,23 @@ describe("operator Pusat yang berhak mengatur jadwal", () => {
     expect(jadwal?.versi).not.toBe(lama.id);
   });
 
+  it("jadwal 1× sebulan tersimpan dengan satu hari kirim; tanggal jangkar yang dikirim diabaikan (T92)", async () => {
+    const t = await tokoDiGudang(pusat);
+    await expect(
+      simpanJadwal({
+        idGudang: pusat,
+        idToko: t.id,
+        pola: "1x-sebulan",
+        hariKirim: [{ hari: "Selasa", persiapan: "H-1" }],
+        tanggalJangkar: "2026-10-14",
+      }),
+    ).resolves.toEqual({ keadaan: "berhasil" });
+
+    expect(await riwayat(t.id)).toMatchObject([
+      { pola: "1x-sebulan", hariKirim: [{ hari: "Selasa", persiapanHari: 1 }], tanggalJangkar: null, status: "aktif", dibuatOleh: idOperator },
+    ]);
+  });
+
   it("database menolak jadwal aktif kedua untuk toko yang sama", async () => {
     const t = await tokoDiGudang(pusat);
     await simpanJadwal(seninKamis(t.id));

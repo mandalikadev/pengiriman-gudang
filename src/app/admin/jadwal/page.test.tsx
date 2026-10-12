@@ -108,6 +108,22 @@ describe("/admin/jadwal", () => {
     expect(baris(buat, "Pola")).toMatch(/—.*Mingguan.*Berubah/);
   });
 
+  it("usulan 1× sebulan: label pola \"1× sebulan\" di rincian usulan (T92)", async () => {
+    const pengusul = await buatPenggunaUji("viewer");
+    const t = await tokoDiBandung();
+    await usulkanJadwalToko({
+      idGudang: bandung,
+      idToko: t.id,
+      masukan: { pola: "1x-sebulan", hariKirim: [{ hari: "Selasa", persiapan: "H-1" }], tanggalJangkar: null },
+      idPengguna: pengusul.id,
+    });
+
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+    const isi = kartu(await buka(), t.nama);
+    expect(baris(isi, "Pola")).toMatch(/—.*1× sebulan.*Berubah/);
+    expect(baris(isi, "Hari kirim \\(persiapan\\)")).toMatch(/—.*Selasa \(H−1\).*Berubah/);
+  });
+
   it("usulan nonaktifkan: kolom usulan tanpa jadwal", async () => {
     const pengusul = await buatPenggunaUji("viewer");
     const t = await tokoDiBandung();

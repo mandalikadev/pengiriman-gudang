@@ -2,7 +2,7 @@ import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { tanggalWib } from "@/app/admin/impor/format";
-import { geserHari, namaHari, type NamaHari, type TanggalBisnis } from "@/domain/kalender";
+import { geserHari, namaHari, parseTanggalBisnis, type NamaHari, type TanggalBisnis } from "@/domain/kalender";
 import { buatPenggunaUji } from "@/server/auth/uji-bantu";
 import type { PenggunaMasuk } from "@/server/auth/kewenangan";
 import { db } from "@/server/db";
@@ -315,5 +315,32 @@ describe("Mulai di sini: operator (per gudang, tanggal kirim terdekat)", () => {
       "Gudang Jabodetabek",
     ]);
     expect(daftarGudang(isi, jabodetabek)).toMatchObject({ tanggalKirim: null, langkah: [] });
+  });
+});
+
+describe("tanggal kirim terdekat — pola 1× sebulan (T92, PRD A5 ▶ Keputusan 2026-10-12)", () => {
+  it("toko 1× sebulan Senin: dari Senin 2026-10-12, tanggal kirim terdekat Senin pertama November 2026-11-02 (21 hari lagi), di kartu Perlu tindakan dan Mulai di sini", async () => {
+    // Gudang hanya berisi toko 1× sebulan ini, agar toko lain tidak menentukan tanggal kirim terdekat.
+    await db.delete(hubunganTokoGudang).where(eq(hubunganTokoGudang.gudangId, cibubur));
+    const t = await buatTokoUji();
+    await db.insert(hubunganTokoGudang).values({ tokoId: t.id, gudangId: cibubur });
+    await db.insert(jadwalToko).values({
+      tokoId: t.id,
+      pola: "1x-sebulan",
+      hariKirim: [{ hari: "Senin", persiapanHari: 1 }],
+      tanggalJangkar: null,
+      dibuatOleh: admin.id,
+    });
+
+    const isi = await muatIsiBeranda(await operatorUji([cibubur]), parseTanggalBisnis("2026-10-12"));
+
+    expect(isi.kartu?.find((k) => k.jenis === "toko-belum-final")).toEqual({
+      jenis: "toko-belum-final",
+      jumlah: 1,
+      href: `/pengiriman-gudang/${cibubur}?tanggal=2026-11-02`,
+      gudang: expect.objectContaining({ id: cibubur }),
+      tanggalKirim: "2026-11-02",
+    });
+    expect(daftarGudang(isi, cibubur).tanggalKirim).toBe("2026-11-02");
   });
 });

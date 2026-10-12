@@ -1,7 +1,10 @@
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { parseTanggalBisnis } from "@/domain/kalender";
 import { buatPenggunaUji } from "@/server/auth/uji-bantu";
+import { db } from "@/server/db";
+import { jadwalToko } from "@/server/db/schema";
 
 import { bacaDraftRencana, hitungDraftRencana } from "./draft-rencana";
 import { bacaRencanaFinal, finalisasiRencanaToko } from "./rencana-final";
@@ -63,5 +66,20 @@ describe("draft rencana menyimpan panjang cakupan hasil hitung dari jadwal", () 
     const rencana = await bacaRencanaFinal(bandung, hasil.idRencana);
     expect(rencana?.jadwal).toMatchObject({ pola: "2x-seminggu", persiapanHari: 1, panjangCakupan: 4 });
     expect(rencana?.kalender.cakupan.map((c) => c.tanggal)).toEqual(["2026-10-21", "2026-10-22", "2026-10-23", "2026-10-24", "2026-10-25"]);
+  });
+});
+
+describe("draft rencana pola 1× sebulan menyimpan panjang cakupan 30 (T92, PRD A6 ▶ Revisi 2026-10-12)", () => {
+  it("1× sebulan Senin (H−1), kirim Senin pertama November 2026-11-02 → panjang cakupan 30, cakupan 2026-11-01 s.d. 2026-12-01", async () => {
+    await db
+      .update(jadwalToko)
+      .set({ pola: "1x-sebulan", hariKirim: [{ hari: "Senin", persiapanHari: 1 }], tanggalJangkar: null })
+      .where(eq(jadwalToko.tokoId, toko.id));
+    const hasil = await tokoDraft(parseTanggalBisnis("2026-11-02"));
+    expect(hasil).toMatchObject({ persiapanHari: 1, panjangCakupan: 30 });
+    const cakupan = hasil?.cakupan?.map((c) => c.tanggal) ?? [];
+    expect([cakupan.length, cakupan[0], cakupan.at(-1)]).toEqual([31, "2026-11-01", "2026-12-01"]);
+    // Senin–Kamis 18 × 5 + Jumat 4 × 5 + Sabtu 4 × 8 + Minggu 5 × 7 (jumlah hari sheet PHASE 2 workbook pemilik).
+    expect(hasil?.baris.find((b) => b.kodeProduk === kodeProduk)).toMatchObject({ klasifikasi: "otomatis", kebutuhan: 177 });
   });
 });

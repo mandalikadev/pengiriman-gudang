@@ -1,11 +1,11 @@
 // Tanggal kirim dari satu jadwal toko (PRD A5 termasuk ▶ Keputusan perencanaan M2–M3 pekan jangkar; PRD A6).
 // Jadwal yang lolos periksaJadwal menentukan apakah suatu tanggal adalah tanggal kirim (H),
 // beserta persiapan (p) dan panjang cakupan (L) pengiriman itu: jarak ke tanggal kirim berikutnya
-// (PRD A6 ▶ Revisi 2026-10-12, UAT ketiga).
+// (PRD A6 ▶ Revisi 2026-10-12, UAT ketiga), kecuali 1× sebulan dengan L = 30 (PRD A5 ▶ Keputusan 2026-10-12).
 
 import { geserHari, namaHari, parseTanggalBisnis, selisihHari, type NamaHari, type TanggalBisnis } from "./kalender";
 
-type PolaJadwal = "mingguan" | "2x-seminggu" | "3x-seminggu" | "dua-mingguan";
+type PolaJadwal = "mingguan" | "2x-seminggu" | "3x-seminggu" | "dua-mingguan" | "1x-sebulan";
 
 /** Persiapan per hari kirim: H, H−1, atau H−2. */
 type Persiapan = "H" | "H-1" | "H-2";
@@ -35,7 +35,7 @@ type HasilTanggalKirim =
   | {
       kirim: true;
       persiapanHari: 0 | 1 | 2;
-      /** L: jumlah hari dari H sampai sehari sebelum tanggal kirim berikutnya (1–14 untuk pola yang ada). */
+      /** L: jumlah hari dari H sampai sehari sebelum tanggal kirim berikutnya (1–14); 1× sebulan selalu 30. */
       panjangCakupan: number;
     };
 
@@ -44,10 +44,14 @@ const LABEL_POLA: Record<PolaJadwal, string> = {
   "2x-seminggu": "2× seminggu",
   "3x-seminggu": "3× seminggu",
   "dua-mingguan": "dua mingguan",
+  "1x-sebulan": "1× sebulan",
 };
 
 /** Jumlah hari kirim tepat per pola; dua mingguan minimal 1. */
-const JUMLAH_HARI_TEPAT: Partial<Record<PolaJadwal, number>> = { mingguan: 1, "2x-seminggu": 2, "3x-seminggu": 3 };
+const JUMLAH_HARI_TEPAT: Partial<Record<PolaJadwal, number>> = { mingguan: 1, "2x-seminggu": 2, "3x-seminggu": 3, "1x-sebulan": 1 };
+
+/** L tetap pola 1× sebulan: siklus 30 hari seperti workbook (PRD A6 ▶ Revisi 2026-10-12). */
+const PANJANG_CAKUPAN_SEBULAN = 30;
 
 const PERSIAPAN_HARI: Record<Persiapan, 0 | 1 | 2> = { H: 0, "H-1": 1, "H-2": 2 };
 
@@ -130,6 +134,13 @@ function pekanKirimDuaMingguan(tanggalJangkar: TanggalBisnis, tanggal: TanggalBi
   return sisaBagiNonNegatif(selisih, 14) === 0;
 }
 
+/**
+ * Kemunculan pertama hari itu di bulan kalendernya: tanggal 1–7 (PRD A5 ▶ Keputusan 2026-10-12, pola 1× sebulan).
+ */
+function kemunculanPertamaDalamBulan(tanggal: TanggalBisnis): boolean {
+  return Number(tanggal.slice(8, 10)) <= 7;
+}
+
 /** Entri hari kirim jadwal bila `tanggal` adalah tanggal kirim, atau `null`. */
 function hariKirimPada(jadwal: Jadwal, tanggal: TanggalBisnis): Jadwal["hariKirim"][number] | null {
   const hari = namaHari(tanggal);
@@ -145,15 +156,21 @@ function hariKirimPada(jadwal: Jadwal, tanggal: TanggalBisnis): Jadwal["hariKiri
       return null;
     }
   }
+  if (jadwal.pola === "1x-sebulan" && !kemunculanPertamaDalamBulan(tanggal)) {
+    return null;
+  }
   return hariKirim;
 }
 
-/** Jarak terjauh antara dua tanggal kirim berurutan untuk pola yang ada (dua mingguan satu hari kirim). */
-const JARAK_KIRIM_TERJAUH = 14;
+/**
+ * Jarak terjauh antara dua tanggal kirim berurutan untuk pola yang ada: 1× sebulan, kemunculan pertama hari itu di bulan
+ * berikutnya paling lambat 35 hari kemudian (mis. Senin 2026-11-02 → Senin 2026-12-07).
+ */
+const JARAK_KIRIM_TERJAUH = 35;
 
 /**
  * Tanggal kirim pertama sesudah `tanggal` (tidak termasuk `tanggal` itu) menurut jadwal yang sama, melintasi akhir
- * minggu dan, untuk dua mingguan, pekan non-kirim (PRD A5, A6 ▶ Revisi 2026-10-12).
+ * minggu, pekan non-kirim dua mingguan, dan bulan berikutnya untuk 1× sebulan (PRD A5, A6 ▶ Revisi 2026-10-12).
  */
 export function tanggalKirimBerikutnya(jadwal: Jadwal, tanggal: TanggalBisnis): TanggalBisnis {
   for (let jarak = 1; jarak <= JARAK_KIRIM_TERJAUH; jarak++) {
@@ -162,12 +179,13 @@ export function tanggalKirimBerikutnya(jadwal: Jadwal, tanggal: TanggalBisnis): 
       return calon;
     }
   }
-  throw new RangeError("Jadwal tanpa tanggal kirim dalam 14 hari; periksa dengan periksaJadwal.");
+  throw new RangeError(`Jadwal tanpa tanggal kirim dalam ${JARAK_KIRIM_TERJAUH} hari; periksa dengan periksaJadwal.`);
 }
 
 /**
  * Apakah `tanggal` adalah tanggal kirim menurut jadwal, beserta p dan L-nya (PRD A5, A6). L = jumlah hari dari H sampai
- * sehari sebelum tanggal kirim berikutnya (PRD A6 ▶ Revisi 2026-10-12, UAT ketiga).
+ * sehari sebelum tanggal kirim berikutnya (PRD A6 ▶ Revisi 2026-10-12, UAT ketiga); khusus 1× sebulan L = 30 walaupun
+ * pengiriman bulan berikutnya bisa 28 atau 35 hari kemudian.
  */
 export function tanggalKirimMenurutJadwal(jadwal: Jadwal, tanggal: TanggalBisnis): HasilTanggalKirim {
   const hariKirim = hariKirimPada(jadwal, tanggal);
@@ -177,6 +195,7 @@ export function tanggalKirimMenurutJadwal(jadwal: Jadwal, tanggal: TanggalBisnis
   return {
     kirim: true,
     persiapanHari: hariKirim.persiapanHari,
-    panjangCakupan: selisihHari(tanggal, tanggalKirimBerikutnya(jadwal, tanggal)),
+    panjangCakupan:
+      jadwal.pola === "1x-sebulan" ? PANJANG_CAKUPAN_SEBULAN : selisihHari(tanggal, tanggalKirimBerikutnya(jadwal, tanggal)),
   };
 }

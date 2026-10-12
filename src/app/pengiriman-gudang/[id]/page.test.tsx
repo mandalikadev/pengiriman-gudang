@@ -276,6 +276,17 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
     expect(salin).toContain("Terapkan ke toko terpilih");
   });
 
+  it("jadwal 1× sebulan tampil dengan label pola \"1× sebulan\" tanpa tanggal jangkar (T92)", async () => {
+    const pembuat = await buatPenggunaUji("viewer");
+    const t = await buatTokoUji();
+    await db.insert(hubunganTokoGudang).values({ tokoId: t.id, gudangId: pusat });
+    await db.insert(jadwalToko).values({ tokoId: t.id, pola: "1x-sebulan", hariKirim: [{ hari: "Selasa", persiapanHari: 1 }], dibuatOleh: pembuat.id });
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+
+    const baris = barisJadwal(await buka(pusat), t.id);
+    expect(baris).toMatch(/1× sebulan<\/td><td[^>]*>Selasa \(H−1\)<\/td><td[^>]*>—<\/td>/);
+  });
+
   it("operator Pusat tanpa kelola-usulan-jadwal melihat jadwal hanya-baca", async () => {
     const { berjadwal } = await siapkanTokoPusat();
     const operator = await kepalaPenggunaUji("viewer");

@@ -136,6 +136,19 @@ describe("operator gudang selain Pusat mengusulkan jadwal", () => {
     expect(await riwayatJadwal(t.id)).toEqual([]);
   });
 
+  it("usulan 1× sebulan berhasil dan menunggu persetujuan; jadwal aktif tetap (T92)", async () => {
+    const t = await tokoDiGudang(bali);
+    const awal = await jadwalAwal(t.id);
+    await expect(
+      usulkanJadwal({ idGudang: bali, idToko: t.id, pola: "1x-sebulan", hariKirim: [{ hari: "Senin", persiapan: "H" }], tanggalJangkar: null }),
+    ).resolves.toEqual({ keadaan: "berhasil" });
+
+    expect(await daftarUsulan(t.id)).toMatchObject([
+      { jenis: "ubah", pola: "1x-sebulan", hariKirim: [{ hari: "Senin", persiapanHari: 0 }], tanggalJangkar: null, status: "menunggu", diusulkanOleh: idOperator },
+    ]);
+    expect(await riwayatJadwal(t.id)).toEqual([awal]);
+  });
+
   it("usulan penonaktifan → jenis nonaktifkan tanpa isi; jadwal aktif tetap aktif", async () => {
     const t = await tokoDiGudang(bali);
     const awal = await jadwalAwal(t.id);
