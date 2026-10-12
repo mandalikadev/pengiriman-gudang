@@ -23,7 +23,7 @@ import type { MasalahBarisDraft } from "@/server/gudang/masalah-draft";
 import { tugaskanOperator } from "@/server/gudang/penugasan";
 import { buatTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
 import { kunciObjekBaru } from "@/server/impor/impor";
-import { kodeProdukUji, tahunUji } from "@/server/impor/uji-bantu";
+import { kodeProdukUji, tahunUjiBebas } from "@/server/impor/uji-bantu";
 import { bacaKunciVersi } from "@/server/laporan/cache";
 import { publikasikanRankingUji } from "@/server/ranking/uji-bantu";
 
@@ -172,7 +172,7 @@ describe("Mulai di sini: admin", () => {
       ukuranByte: 1,
       kunciObjek: kunciObjekBaru(),
       namaSheet: "JUNI (S)",
-      tahunImpor: tahunUji(),
+      tahunImpor: await tahunUjiBebas(),
       bulanImpor: 6,
       status: "siap-ditinjau",
       diunggahOleh: admin.id,
@@ -217,7 +217,7 @@ describe("Mulai di sini: admin", () => {
       ukuranByte: 1,
       kunciObjek: kunciObjekBaru(),
       namaSheet: "JUNI (S)",
-      tahunImpor: tahunUji(),
+      tahunImpor: await tahunUjiBebas(),
       bulanImpor: 6,
       status: "aktif",
       diunggahOleh: admin.id,
