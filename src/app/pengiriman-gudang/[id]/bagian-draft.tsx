@@ -67,6 +67,20 @@ function MasalahTanpaVarian() {
   );
 }
 
+/**
+ * Peringatan "kiriman sebelumnya belum sampai" (PRD A6 ▶ Keputusan 2026-10-12, T93): hari persiapan jatuh pada atau
+ * sebelum tanggal kirim sebelumnya menurut jadwal versi draft. Ikon + teks `warning` (DESIGN §7); tidak menahan finalisasi.
+ */
+function PeringatanKirimanSebelumnya({ tanggal }: { tanggal: TanggalBisnis | null }) {
+  if (tanggal === null) return null;
+  return (
+    <p data-kiriman-sebelumnya-belum-sampai={tanggal} className="flex items-start gap-2 font-semibold">
+      <TriangleAlert aria-hidden strokeWidth={2} className="size-5 shrink-0 text-warning" />
+      Kiriman {formatTanggal(tanggal)} belum sampai saat persiapan. Pastikan jumlahnya ikut dihitung di stok akhir.
+    </p>
+  );
+}
+
 /** Ringkasan masalah per toko: jumlah baris tertahan (ikon + teks, DESIGN §7). */
 function RingkasanTertahan({ jumlah }: { jumlah: number }) {
   const Ikon = jumlah > 0 ? TriangleAlert : CircleCheck;
@@ -248,6 +262,7 @@ function TabelToko({
         </p>
         {toko.baris.length === 0 ? null : <RingkasanTertahan jumlah={toko.jumlahTertahan} />}
       </div>
+      <PeringatanKirimanSebelumnya tanggal={toko.kirimanSebelumnyaBelumSampai} />
       {toko.baris.length === 0 ? (
         <MasalahTanpaVarian />
       ) : inputStok === null ? (

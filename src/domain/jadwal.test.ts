@@ -3,7 +3,15 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseTanggalBisnis, type KategoriDasar } from "./kalender";
 import { hitungKebutuhanKirim } from "./pengiriman";
-import { periksaJadwal, tanggalKirimBerikutnya, tanggalKirimMenurutJadwal, type Jadwal, type MasukanJadwal } from "./jadwal";
+import {
+  kirimanSebelumnyaBelumSampai,
+  periksaJadwal,
+  tanggalKirimBerikutnya,
+  tanggalKirimMenurutJadwal,
+  tanggalKirimSebelumnya,
+  type Jadwal,
+  type MasukanJadwal,
+} from "./jadwal";
 
 function jadwalValid(masukan: MasukanJadwal): Jadwal {
   const hasil = periksaJadwal(masukan);
@@ -406,5 +414,82 @@ describe("pola 1× sebulan (PRD A5 ▶ Keputusan 2026-10-12, A6 ▶ Revisi: L = 
       keadaan: "valid",
       jadwal: { pola: "1x-sebulan", hariKirim: [{ hari: "Senin", persiapanHari: 2 }], tanggalJangkar: null },
     });
+  });
+});
+
+describe("tanggalKirimSebelumnya — tanggal kirim terakhir sebelum tanggal itu menurut jadwal", () => {
+  const sebelumnya = (jadwal: Jadwal, tanggal: string) => tanggalKirimSebelumnya(jadwal, parseTanggalBisnis(tanggal));
+  const smb = jadwalValid({
+    pola: "2x-seminggu",
+    hariKirim: [
+      { hari: "Senin", persiapan: "H" },
+      { hari: "Kamis", persiapan: "H-1" },
+    ],
+    tanggalJangkar: null,
+  });
+
+  it("dari tanggal kirim: hari kirim sebelumnya, melintasi akhir minggu", () => {
+    expect(sebelumnya(smb, "2026-10-22")).toBe("2026-10-19");
+    expect(sebelumnya(smb, "2026-10-19")).toBe("2026-10-15");
+  });
+
+  it("dua mingguan: melewati pekan non-kirim", () => {
+    const bxc = jadwalValid({ pola: "dua-mingguan", hariKirim: [{ hari: "Rabu", persiapan: "H-1" }], tanggalJangkar: "2026-10-14" });
+    expect(sebelumnya(bxc, "2026-10-28")).toBe("2026-10-14");
+  });
+
+  it("1× sebulan: kemunculan pertama hari itu di bulan sebelumnya (35 hari sebelumnya bila perlu)", () => {
+    const seninH = jadwalValid({ pola: "1x-sebulan", hariKirim: [{ hari: "Senin", persiapan: "H" }], tanggalJangkar: null });
+    expect(sebelumnya(seninH, "2026-12-07")).toBe("2026-11-02");
+    expect(sebelumnya(seninH, "2026-11-02")).toBe("2026-10-05");
+  });
+});
+
+describe('kirimanSebelumnyaBelumSampai — peringatan "kiriman sebelumnya belum sampai" (PRD A6 ▶ Keputusan 2026-10-12, UAT ketiga)', () => {
+  const belumSampai = (jadwal: Jadwal, tanggal: string) => kirimanSebelumnyaBelumSampai(jadwal, parseTanggalBisnis(tanggal));
+
+  it("LWB 3× seminggu Senin/Rabu/Jumat H−1: kirim Rabu 2026-10-21, sebelumnya Senin 19 (jarak 2), p = 1 → tidak ada peringatan", () => {
+    const lwb = jadwalValid({
+      pola: "3x-seminggu",
+      hariKirim: [
+        { hari: "Senin", persiapan: "H-1" },
+        { hari: "Rabu", persiapan: "H-1" },
+        { hari: "Jumat", persiapan: "H-1" },
+      ],
+      tanggalJangkar: null,
+    });
+    expect(belumSampai(lwb, "2026-10-21")).toBeNull();
+  });
+
+  it("3× seminggu Senin (H−1), Selasa (H−1), Jumat (H): kirim Selasa 2026-10-20, sebelumnya Senin 19 (jarak 1), p = 1 → peringatan kiriman 2026-10-19", () => {
+    const jadwal = jadwalValid({
+      pola: "3x-seminggu",
+      hariKirim: [
+        { hari: "Senin", persiapan: "H-1" },
+        { hari: "Selasa", persiapan: "H-1" },
+        { hari: "Jumat", persiapan: "H" },
+      ],
+      tanggalJangkar: null,
+    });
+    expect(belumSampai(jadwal, "2026-10-20")).toBe("2026-10-19");
+  });
+
+  it("SMB 2× seminggu Senin (H), Kamis (H−1): kirim Kamis 2026-10-22, sebelumnya Senin 19 (jarak 3), p = 1 → tidak ada peringatan", () => {
+    const smb = jadwalValid({
+      pola: "2x-seminggu",
+      hariKirim: [
+        { hari: "Senin", persiapan: "H" },
+        { hari: "Kamis", persiapan: "H-1" },
+      ],
+      tanggalJangkar: null,
+    });
+    expect(belumSampai(smb, "2026-10-22")).toBeNull();
+  });
+
+  it("1× seminggu dan dua mingguan dengan p ≤ 2 → tidak pernah ada peringatan", () => {
+    const mingguan = jadwalValid({ pola: "mingguan", hariKirim: [{ hari: "Senin", persiapan: "H-2" }], tanggalJangkar: null });
+    expect(belumSampai(mingguan, "2026-10-19")).toBeNull();
+    const duaMingguan = jadwalValid({ pola: "dua-mingguan", hariKirim: [{ hari: "Rabu", persiapan: "H-2" }], tanggalJangkar: "2026-10-14" });
+    expect(belumSampai(duaMingguan, "2026-10-28")).toBeNull();
   });
 });

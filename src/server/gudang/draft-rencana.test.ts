@@ -544,6 +544,8 @@ describe("hitungDraftRencana", () => {
       panjangCakupan: 7,
       // Persiapan H−1: cakupan golden tanpa tanggal H−2.
       cakupan: golden.kasusCakupan.tanggalCakupan.slice(1).map(({ tanggal, kategoriEfektif }) => ({ tanggal, kategoriEfektif, sumberKategori: "dasar" })),
+      // Mingguan, p = 1: tidak pernah ada peringatan kiriman sebelumnya (T93).
+      kirimanSebelumnyaBelumSampai: null,
       jumlahTertahan: 0,
       baris: [],
       perluDihitungUlang: [],

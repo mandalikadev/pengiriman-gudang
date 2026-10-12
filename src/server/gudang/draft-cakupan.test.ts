@@ -6,7 +6,7 @@ import { buatPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
 import { jadwalToko } from "@/server/db/schema";
 
-import { bacaDraftRencana, hitungDraftRencana } from "./draft-rencana";
+import { bacaDraftRencana, bacaRingkasanDraft, hitungDraftRencana } from "./draft-rencana";
 import { bacaRencanaFinal, finalisasiRencanaToko } from "./rencana-final";
 import { simpanStokToko } from "./stok-draft";
 import { bersihkanTokoSmbUji, siapkanTokoSmbUji } from "./uji-bantu-cakupan";
@@ -19,13 +19,14 @@ import { idGudangUji } from "./uji-bantu";
 const SENIN = parseTanggalBisnis("2026-10-19");
 const KAMIS = parseTanggalBisnis("2026-10-22");
 
+let idAdmin: string;
 let idOperator: string;
 let bandung: number;
 let toko: { id: number; nama: string };
 let kodeProduk: string;
 
 beforeAll(async () => {
-  const idAdmin = (await buatPenggunaUji("admin")).id;
+  idAdmin = (await buatPenggunaUji("admin")).id;
   idOperator = (await buatPenggunaUji("viewer")).id;
   bandung = await idGudangUji("Gudang Bandung");
   ({ toko, kodeProduk } = await siapkanTokoSmbUji({ idGudang: bandung, idAdmin }));
@@ -81,5 +82,69 @@ describe("draft rencana pola 1× sebulan menyimpan panjang cakupan 30 (T92, PRD 
     expect([cakupan.length, cakupan[0], cakupan.at(-1)]).toEqual([31, "2026-11-01", "2026-12-01"]);
     // Senin–Kamis 18 × 5 + Jumat 4 × 5 + Sabtu 4 × 8 + Minggu 5 × 7 (jumlah hari sheet PHASE 2 workbook pemilik).
     expect(hasil?.baris.find((b) => b.kodeProduk === kodeProduk)).toMatchObject({ klasifikasi: "otomatis", kebutuhan: 177 });
+  });
+});
+
+describe('draft rencana: peringatan "kiriman sebelumnya belum sampai" dari jadwal versi draft (T93, PRD A6 ▶ Keputusan 2026-10-12)', () => {
+  const SELASA = parseTanggalBisnis("2026-10-20");
+
+  it("3× seminggu Senin (H−1), Selasa (H−1), Jumat (H): kirim Selasa 2026-10-20 → kiriman Senin 2026-10-19 belum sampai", async () => {
+    await db
+      .update(jadwalToko)
+      .set({
+        pola: "3x-seminggu",
+        hariKirim: [
+          { hari: "Senin", persiapanHari: 1 },
+          { hari: "Selasa", persiapanHari: 1 },
+          { hari: "Jumat", persiapanHari: 0 },
+        ],
+        tanggalJangkar: null,
+      })
+      .where(eq(jadwalToko.tokoId, toko.id));
+    expect(await tokoDraft(SELASA)).toMatchObject({ persiapanHari: 1, kirimanSebelumnyaBelumSampai: "2026-10-19" });
+    const ringkasan = await bacaRingkasanDraft(bandung, SELASA, toko.id);
+    expect(ringkasan?.tokoDibuka).toMatchObject({ id: toko.id, kirimanSebelumnyaBelumSampai: "2026-10-19" });
+  });
+
+  it("SMB kirim Kamis 2026-10-22 (p = 1, jarak 3) → tidak ada peringatan", async () => {
+    await db
+      .update(jadwalToko)
+      .set({
+        pola: "2x-seminggu",
+        hariKirim: [
+          { hari: "Senin", persiapanHari: 0 },
+          { hari: "Kamis", persiapanHari: 1 },
+        ],
+        tanggalJangkar: null,
+      })
+      .where(eq(jadwalToko.tokoId, toko.id));
+    expect(await tokoDraft(KAMIS)).toMatchObject({ kirimanSebelumnyaBelumSampai: null });
+  });
+
+  it("jadwal yang berubah sesudah draft dihitung tidak mengubah peringatan draft itu", async () => {
+    await db
+      .update(jadwalToko)
+      .set({
+        pola: "3x-seminggu",
+        hariKirim: [
+          { hari: "Senin", persiapanHari: 1 },
+          { hari: "Selasa", persiapanHari: 1 },
+          { hari: "Jumat", persiapanHari: 0 },
+        ],
+      })
+      .where(eq(jadwalToko.tokoId, toko.id));
+    await tokoDraft(SELASA);
+    await db
+      .update(jadwalToko)
+      .set({ status: "nonaktif", dinonaktifkanOleh: idAdmin, dinonaktifkanPada: new Date() })
+      .where(eq(jadwalToko.tokoId, toko.id));
+    await db.insert(jadwalToko).values({
+      tokoId: toko.id,
+      pola: "mingguan",
+      hariKirim: [{ hari: "Selasa", persiapanHari: 1 }],
+      dibuatOleh: idAdmin,
+    });
+    const hasil = (await bacaDraftRencana(bandung, SELASA))?.toko.find((t) => t.id === toko.id);
+    expect(hasil).toMatchObject({ perluDihitungUlang: ["jadwal"], kirimanSebelumnyaBelumSampai: "2026-10-19" });
   });
 });

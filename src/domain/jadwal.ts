@@ -183,6 +183,34 @@ export function tanggalKirimBerikutnya(jadwal: Jadwal, tanggal: TanggalBisnis): 
 }
 
 /**
+ * Tanggal kirim terakhir sebelum `tanggal` (tidak termasuk `tanggal` itu) menurut jadwal yang sama; pasangan
+ * `tanggalKirimBerikutnya` (PRD A6 ▶ Keputusan 2026-10-12, peringatan "kiriman sebelumnya belum sampai").
+ */
+export function tanggalKirimSebelumnya(jadwal: Jadwal, tanggal: TanggalBisnis): TanggalBisnis {
+  for (let jarak = 1; jarak <= JARAK_KIRIM_TERJAUH; jarak++) {
+    const calon = geserHari(tanggal, -jarak);
+    if (hariKirimPada(jadwal, calon) !== null) {
+      return calon;
+    }
+  }
+  throw new RangeError(`Jadwal tanpa tanggal kirim dalam ${JARAK_KIRIM_TERJAUH} hari; periksa dengan periksaJadwal.`);
+}
+
+/**
+ * Peringatan "kiriman sebelumnya belum sampai" (PRD A6 ▶ Keputusan 2026-10-12, UAT ketiga): tanggal kirim sebelumnya
+ * menurut jadwal bila hari persiapan pengiriman `tanggalKirim` (H−p) jatuh pada atau sebelum tanggal itu, yaitu
+ * p ≥ jarak dari pengiriman sebelumnya; `null` bila tidak ada peringatan atau `tanggalKirim` bukan tanggal kirim.
+ */
+export function kirimanSebelumnyaBelumSampai(jadwal: Jadwal, tanggalKirim: TanggalBisnis): TanggalBisnis | null {
+  const hariKirim = hariKirimPada(jadwal, tanggalKirim);
+  if (hariKirim === null) {
+    return null;
+  }
+  const sebelumnya = tanggalKirimSebelumnya(jadwal, tanggalKirim);
+  return hariKirim.persiapanHari >= selisihHari(sebelumnya, tanggalKirim) ? sebelumnya : null;
+}
+
+/**
  * Apakah `tanggal` adalah tanggal kirim menurut jadwal, beserta p dan L-nya (PRD A5, A6). L = jumlah hari dari H sampai
  * sehari sebelum tanggal kirim berikutnya (PRD A6 ▶ Revisi 2026-10-12, UAT ketiga); khusus 1× sebulan L = 30 walaupun
  * pengiriman bulan berikutnya bisa 28 atau 35 hari kemudian.

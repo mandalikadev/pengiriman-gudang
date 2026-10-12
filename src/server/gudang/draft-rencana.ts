@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { and, asc, count, desc, eq, inArray, max, sql } from "drizzle-orm";
 
+import { kirimanSebelumnyaBelumSampai } from "@/domain/jadwal";
 import { parseTanggalBisnis, type KategoriDasar, type TanggalBisnis } from "@/domain/kalender";
 import { hitungRingkasan } from "@/domain/laporan";
 import { rincianJumlahKirim } from "@/domain/angka";
@@ -13,6 +14,7 @@ import {
   cacheRataRataBulanan,
   draftRencana,
   gudang,
+  jadwalToko,
   produk,
   rencanaFinal,
   toko,
@@ -24,6 +26,7 @@ import {
 import { bacaPerubahanKategori, bacaRevisiKalender, versiCacheAktif } from "@/server/laporan/cache";
 import { rankingBerlaku } from "@/server/ranking/ranking";
 
+import { bacaJangkar } from "./jadwal";
 import { periksaHitungUlang, perubahanKategoriMengenai, tokoYangMengirim, type AlasanHitungUlang, type TokoKirim } from "./dasar-draft";
 import { URUTAN_MASALAH, type MasalahBarisDraft } from "./masalah-draft";
 import { bacaPeriodeSumberPerhitungan } from "./periode-sumber";
@@ -408,6 +411,11 @@ export type TokoDraft = {
   panjangCakupan: number;
   /** Tanggal cakupan beserta kategori efektif dan sumbernya; `null` = draft dihitung sebelum T60. */
   cakupan: (Omit<TanggalCakupanDraft, "tanggal"> & { tanggal: TanggalBisnis })[] | null;
+  /**
+   * Tanggal kirim sebelumnya yang belum sampai saat persiapan menurut jadwal versi draft (PRD A6 ▶ Keputusan 2026-10-12,
+   * T93); `null` = tidak ada peringatan. Hanya keterangan: tidak menahan finalisasi dan tidak mengubah angka.
+   */
+  kirimanSebelumnyaBelumSampai: TanggalBisnis | null;
   /** Ringkasan masalah: jumlah baris yang tertahan (punya masalah). */
   jumlahTertahan: number;
   baris: BarisDraft[];
@@ -498,6 +506,8 @@ type TokoTersimpan = {
   persiapanHari: 0 | 1 | 2;
   panjangCakupan: number;
   cakupan: TanggalCakupanDraft[] | null;
+  /** Isi jadwal versi draft (`versiJadwal`); baris jadwal tidak pernah diubah, perubahan jadwal = baris baru. */
+  jadwal: Pick<typeof jadwalToko.$inferSelect, "pola" | "hariKirim" | "tanggalJangkar">;
 };
 
 /** Bagian draft yang sama untuk bacaan lengkap dan ringkasan: keterangan tingkat draft dan daftar toko tanpa baris. */
@@ -548,9 +558,11 @@ async function bacaKepalaDraft(idGudang: number, tanggalKirim: TanggalBisnis | u
       persiapanHari: tokoDraftRencana.persiapanHari,
       panjangCakupan: tokoDraftRencana.panjangCakupan,
       cakupan: tokoDraftRencana.cakupan,
+      jadwal: { pola: jadwalToko.pola, hariKirim: jadwalToko.hariKirim, tanggalJangkar: jadwalToko.tanggalJangkar },
     })
     .from(tokoDraftRencana)
     .innerJoin(toko, eq(toko.id, tokoDraftRencana.tokoId))
+    .innerJoin(jadwalToko, eq(jadwalToko.id, tokoDraftRencana.versiJadwal))
     .where(eq(tokoDraftRencana.draftId, draft.id))
     .orderBy(asc(toko.nama), asc(tokoDraftRencana.tokoId));
 
@@ -631,6 +643,10 @@ function susunTokoDraft(kepala: KepalaDraft, t: TokoTersimpan, barisToko: BarisD
     persiapanHari: t.persiapanHari,
     panjangCakupan: t.panjangCakupan,
     cakupan: cakupan?.map((c) => ({ ...c, tanggal: parseTanggalBisnis(c.tanggal) })) ?? null,
+    kirimanSebelumnyaBelumSampai: kirimanSebelumnyaBelumSampai(
+      { ...t.jadwal, tanggalJangkar: bacaJangkar(t.jadwal.tanggalJangkar) },
+      kepala.keterangan.tanggalKirim,
+    ),
     jumlahTertahan: barisToko.filter((b) => b.masalah.length > 0).length,
     baris: barisToko,
     perluDihitungUlang: kepala.perluDihitungUlangToko(t.id),
