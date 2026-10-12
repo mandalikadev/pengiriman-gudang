@@ -2,6 +2,7 @@ import {
   CalendarCheck,
   CalendarDays,
   CircleCheck,
+  CircleDashed,
   FileSpreadsheet,
   RefreshCcw,
   Store,
@@ -18,10 +19,17 @@ import { formatTanggal } from "@/domain/kalender";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { wajibMasuk } from "@/server/auth/kewenangan";
-import { muatIsiBeranda, type IsiBeranda, type KartuPerluTindakan, type PeranTampil } from "@/server/beranda/isi-beranda";
+import {
+  muatIsiBeranda,
+  type DaftarLangkah,
+  type IsiBeranda,
+  type KartuPerluTindakan,
+  type LangkahMulai,
+  type PeranTampil,
+} from "@/server/beranda/isi-beranda";
 
-// Beranda (T79): zona suasana (DESIGN §1) berisi sapaan, kartu "Perlu tindakan" sesuai peran, status data, dan
-// pintasan (DESIGN §9 ▶ Keputusan 2026-10-11). Semua data dibaca dari yang tersimpan (PRD C1) di server setelah sesi
+// Beranda (T79): zona suasana (DESIGN §1) berisi sapaan, kartu "Mulai di sini" (T94, DESIGN §9 ▶ Keputusan 2026-10-12),
+// kartu "Perlu tindakan" sesuai peran, status data, dan pintasan (DESIGN §9 ▶ Keputusan 2026-10-11). Semua data dibaca dari yang tersimpan (PRD C1) di server setelah sesi
 // diperiksa, dan kartu operator dibatasi ke gudang penugasan pengguna (`muatIsiBeranda`).
 
 const labelPeran: Record<PeranTampil, string> = { admin: "Admin", operator: "Operator", viewer: "Viewer" };
@@ -54,6 +62,45 @@ const pintasanPeran: Record<PeranTampil, { href: string; label: string }[]> = {
     { href: "/ringkasan", label: "Ringkasan" },
     { href: "/kalender", label: "Kalender" },
   ],
+};
+
+/** Judul, satu kalimat penjelasan, dan nama halaman tujuan setiap langkah "Mulai di sini"; nomor = urutan dari server. */
+const tampilanLangkah: Record<LangkahMulai["jenis"], { judul: string; penjelasan: string; tujuan: string }> = {
+  "impor-penjualan": {
+    judul: "Impor penjualan",
+    penjelasan: "Unggah file Excel penjualan, tinjau hasilnya, lalu aktifkan agar laporan memakai data terbaru.",
+    tujuan: "Impor",
+  },
+  "terbitkan-ranking": {
+    judul: "Terbitkan ranking pusat",
+    penjelasan: "Unggah file ranking lalu publikasikan agar buffer setiap gudang mengikuti ranking itu.",
+    tujuan: "Ranking",
+  },
+  "periksa-pemetaan": {
+    judul: "Periksa pemetaan produk",
+    penjelasan: "Pastikan setiap produk sudah punya keluarga aroma atau ditandai tanpa aroma.",
+    tujuan: "Pemetaan produk",
+  },
+  "setujui-usulan-jadwal": {
+    judul: "Setujui usulan jadwal",
+    penjelasan: "Tinjau usulan jadwal kirim dari operator, lalu setujui atau tolak.",
+    tujuan: "Persetujuan jadwal",
+  },
+  "hitung-kebutuhan": {
+    judul: "Hitung kebutuhan",
+    penjelasan: "Hitung draft rencana kirim semua toko yang mengirim pada tanggal ini.",
+    tujuan: "Pengiriman Gudang",
+  },
+  "isi-stok": {
+    judul: "Isi stok dan bereskan masalah",
+    penjelasan: "Isi stok akhir (unggah file stok atau ketik), lalu bereskan baris yang masih tertahan.",
+    tujuan: "Pengiriman Gudang",
+  },
+  finalisasi: {
+    judul: "Finalisasi",
+    penjelasan: "Finalisasi rencana kirim setiap toko yang mengirim pada tanggal ini.",
+    tujuan: "Pengiriman Gudang",
+  },
 };
 
 const fokusTerlihat = "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
@@ -98,6 +145,101 @@ function SemuaBeres() {
       <CircleCheck aria-hidden strokeWidth={2} className="size-7 shrink-0 text-success" />
       Semua beres. Tidak ada yang perlu ditindak saat ini.
     </p>
+  );
+}
+
+/**
+ * Status langkah (DESIGN §7): ikon + teks; ikon memakai token `success` (Selesai) atau `muted-foreground` (Belum), teks
+ * `foreground`. Ikon 28 px sesuai zona suasana (DESIGN §6).
+ */
+function StatusLangkah({ selesai }: { selesai: boolean }) {
+  return (
+    <span data-status-langkah={selesai ? "selesai" : "belum"} className="flex items-center gap-2 font-semibold text-foreground">
+      {selesai ? (
+        <CircleCheck aria-hidden strokeWidth={2} className="size-7 shrink-0 text-success" />
+      ) : (
+        <CircleDashed aria-hidden strokeWidth={2} className="size-7 shrink-0 text-muted-foreground" />
+      )}
+      {selesai ? "Selesai" : "Belum"}
+    </span>
+  );
+}
+
+function Langkah({ langkah, nomor }: { langkah: LangkahMulai; nomor: number }) {
+  const { judul, penjelasan, tujuan } = tampilanLangkah[langkah.jenis];
+  return (
+    <li data-langkah={langkah.jenis} className="flex flex-col gap-4 sm:flex-row sm:items-center">
+      <span
+        data-nomor-langkah
+        className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10 font-heading text-xl font-bold text-primary"
+      >
+        {nomor}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="font-semibold text-foreground">{judul}</span>
+        <span className="text-muted-foreground">{penjelasan}</span>
+      </span>
+      <span className="flex flex-wrap items-center gap-3">
+        <StatusLangkah selesai={langkah.selesai} />
+        <Link
+          href={langkah.href}
+          className={cn(buttonVariants({ size: "lg", variant: "outline" }), "hover:scale-105 active:scale-95")}
+        >
+          Buka {tujuan}
+        </Link>
+      </span>
+    </li>
+  );
+}
+
+/** Satu daftar langkah: semua selesai → "Semua langkah beres" tanpa daftar (ikon + teks, token `success`). */
+function IsiDaftarLangkah({ daftar, berjudul }: { daftar: DaftarLangkah; berjudul: boolean }) {
+  const judul =
+    daftar.untuk === "gudang"
+      ? [daftar.gudang.nama, daftar.tanggalKirim ? `Tanggal kirim ${formatTanggal(daftar.tanggalKirim)}` : null]
+          .filter(Boolean)
+          .join(" · ")
+      : berjudul
+        ? "Admin"
+        : null;
+  const semuaSelesai = daftar.langkah.every((l) => l.selesai);
+  const isi =
+    daftar.untuk === "gudang" && daftar.tanggalKirim === null ? (
+      <p className="text-muted-foreground">Belum ada toko aktif berjadwal di gudang ini, jadi belum ada tanggal kirim terdekat.</p>
+    ) : semuaSelesai ? (
+      <p data-semua-langkah-beres className="flex items-center gap-3 text-lg font-semibold text-foreground">
+        <CircleCheck aria-hidden strokeWidth={2} className="size-7 shrink-0 text-success" />
+        Semua langkah beres.
+      </p>
+    ) : (
+      <ol className="flex flex-col gap-6">
+        {daftar.langkah.map((l, i) => (
+          <Langkah key={l.jenis} langkah={l} nomor={i + 1} />
+        ))}
+      </ol>
+    );
+  return (
+    <div className="flex flex-col gap-4">
+      {judul ? <h3 className="text-xl font-bold text-foreground">{judul}</h3> : null}
+      {isi}
+    </div>
+  );
+}
+
+function MulaiDiSini({ daftar }: { daftar: DaftarLangkah[] }) {
+  return (
+    <section
+      aria-labelledby="judul-mulai-di-sini"
+      data-mulai-di-sini
+      className="flex flex-col gap-6 rounded-3xl border border-border/60 bg-card p-6 shadow-soft md:p-8"
+    >
+      <h2 id="judul-mulai-di-sini" className="text-2xl font-bold md:text-3xl">
+        Mulai di sini
+      </h2>
+      {daftar.map((d) => (
+        <IsiDaftarLangkah key={d.untuk === "gudang" ? `gudang-${d.gudang.id}` : "admin"} daftar={d} berjudul={daftar.length > 1} />
+      ))}
+    </section>
   );
 }
 
@@ -178,6 +320,8 @@ export default async function Beranda() {
             {namaGudang ? <span> · {namaGudang}</span> : null}
           </p>
         </header>
+
+        {isi.mulaiDiSini === null ? null : <MulaiDiSini daftar={isi.mulaiDiSini} />}
 
         {isi.kartu === null ? null : <PerluTindakan kartu={isi.kartu} bulanBerjalan={bulanBerjalan} />}
 

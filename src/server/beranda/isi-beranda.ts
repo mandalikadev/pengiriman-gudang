@@ -40,6 +40,16 @@ import { muatStatusCacheLaporan, type StatusCacheLaporan } from "@/server/lapora
 //   pada tanggal itu dan belum punya rencana final untuk tanggal itu, walaupun draft tanggal itu belum dihitung.
 // Definisi kartu operator: DESIGN §9 ▶ Keputusan (2026-10-11, T79).
 // Kewenangan: pemanggil sudah memeriksa sesi (`wajibMasuk`); kartu operator hanya untuk gudang penugasan pengguna.
+//
+// Kartu "Mulai di sini" (T94; DESIGN §9 ▶ Keputusan 2026-10-12, UAT ketiga): langkah kerja bernomor per peran beserta
+// status Selesai/Belum, juga hanya dari yang tersimpan:
+// - admin: (1) impor penjualan selesai = ada impor `aktif` dan tidak ada impor `siap-ditinjau`; (2) terbitkan ranking
+//   selesai = ada ranking berlaku (versi berstatus `dipublikasikan`); (3) periksa pemetaan selesai = tidak ada produk
+//   `belum-dipetakan`; (4) setujui usulan jadwal selesai = tidak ada usulan `menunggu`;
+// - operator, per gudang penugasan, untuk tanggal kirim terdekat gudang (definisi T79 di atas): (1) hitung kebutuhan
+//   selesai = draft tanggal itu ada; (2) isi stok selesai = draft itu ada dan tidak punya baris tertahan; (3) finalisasi
+//   selesai = semua toko aktif yang mengirim tanggal itu sudah punya rencana final. Gudang tanpa tanggal kirim terdekat
+//   tidak punya langkah.
 
 /** Peran yang ditampilkan (istilah CONTEXT.md): operator = bukan admin, tetapi ditugaskan ke gudang. */
 export type PeranTampil = "admin" | "operator" | "viewer";
@@ -67,6 +77,23 @@ export type KartuPerluTindakan =
       tanggalKirim?: TanggalBisnis;
     };
 
+type JenisLangkahAdmin = "impor-penjualan" | "terbitkan-ranking" | "periksa-pemetaan" | "setujui-usulan-jadwal";
+type JenisLangkahOperator = "hitung-kebutuhan" | "isi-stok" | "finalisasi";
+
+/** Satu langkah "Mulai di sini" dengan tautan ke halamannya; urutan dalam daftar = nomor langkah. */
+export type LangkahMulai = { jenis: JenisLangkahAdmin | JenisLangkahOperator; selesai: boolean; href: string };
+
+/** Satu daftar langkah: langkah admin, atau langkah satu gudang penugasan untuk tanggal kirim terdekatnya. */
+export type DaftarLangkah =
+  | { untuk: "admin"; langkah: LangkahMulai[] }
+  | {
+      untuk: "gudang";
+      gudang: GudangRingkas;
+      /** `null` = gudang tanpa toko aktif berjadwal; daftar langkahnya kosong. */
+      tanggalKirim: TanggalBisnis | null;
+      langkah: LangkahMulai[];
+    };
+
 type ImporAktifTerakhir = {
   namaSheet: string;
   namaFile: string;
@@ -81,6 +108,8 @@ export type IsiBeranda = {
   gudangDitugaskan: GudangRingkas[];
   /** Kartu berjumlah > 0 dalam urutan tampil; `null` untuk viewer (tidak punya bagian Perlu tindakan). */
   kartu: KartuPerluTindakan[] | null;
+  /** Daftar "Mulai di sini": langkah admin (khusus admin), lalu satu daftar per gudang penugasan; `null` untuk viewer. */
+  mulaiDiSini: DaftarLangkah[] | null;
   statusData: { imporAktifTerakhir: ImporAktifTerakhir | null; statusCache: StatusCacheLaporan | null };
 };
 
@@ -193,19 +222,21 @@ async function tokoBelumFinalTerdekat(
   return null;
 }
 
+/** Gudang penugasan beserta tanggal kirim terdekatnya dan jumlah toko yang belum final untuk tanggal itu. */
+type GudangTerdekat = { gudang: GudangRingkas; belumFinal: { tanggalKirim: TanggalBisnis; jumlah: number } | null };
+
 /**
  * Kartu operator per gudang penugasan (urut gudang), dalam urutan issue T79, hanya yang jumlahnya > 0. Kartu toko belum
  * final menautkan ke draft tanggal kirim terdekat (`?tanggal=`); halaman tujuan menampilkan "Belum ada draft" bila
  * draft tanggal itu belum dihitung.
  */
-async function perluTindakanOperator(daftarGudang: readonly GudangRingkas[], hariIni: TanggalBisnis): Promise<KartuPerluTindakan[]> {
+async function perluTindakanOperator(daftarGudang: readonly GudangTerdekat[], hariIni: TanggalBisnis): Promise<KartuPerluTindakan[]> {
   const perGudang = await Promise.all(
-    daftarGudang.map(async (g): Promise<KartuPerluTindakan[]> => {
+    daftarGudang.map(async ({ gudang: g, belumFinal }): Promise<KartuPerluTindakan[]> => {
       const href = `/pengiriman-gudang/${g.id}`;
-      const [perluDihitungUlang, barisTertahan, belumFinal] = await Promise.all([
+      const [perluDihitungUlang, barisTertahan] = await Promise.all([
         jumlahDraftPerluDihitungUlang(g.id, hariIni),
         jumlahTokoBarisTertahan(g.id, hariIni),
-        tokoBelumFinalTerdekat(g.id, hariIni),
       ]);
       const kartu: KartuPerluTindakan[] = [
         { jenis: "draft-perlu-dihitung-ulang", jumlah: perluDihitungUlang, href, gudang: g },
@@ -224,6 +255,57 @@ async function perluTindakanOperator(daftarGudang: readonly GudangRingkas[], har
     }),
   );
   return perGudang.flat().filter((k) => k.jumlah > 0);
+}
+
+/** Langkah admin "Mulai di sini" dalam urutan kerja (DESIGN §9 ▶ Keputusan 2026-10-12). */
+async function langkahAdmin(): Promise<LangkahMulai[]> {
+  const [imporAktif, imporSiapDitinjau, rankingDipublikasikan, produkBelumDipetakan, usulan] = await Promise.all([
+    jumlahBaris(impor, eq(impor.status, "aktif")),
+    jumlahBaris(impor, eq(impor.status, "siap-ditinjau")),
+    jumlahBaris(versiRanking, eq(versiRanking.status, "dipublikasikan")),
+    jumlahBaris(produk, eq(produk.statusKeluargaAroma, "belum-dipetakan")),
+    jumlahBaris(usulanJadwal, eq(usulanJadwal.status, "menunggu")),
+  ]);
+  return [
+    { jenis: "impor-penjualan", selesai: imporAktif > 0 && imporSiapDitinjau === 0, href: "/admin/impor" },
+    { jenis: "terbitkan-ranking", selesai: rankingDipublikasikan > 0, href: "/admin/ranking" },
+    { jenis: "periksa-pemetaan", selesai: produkBelumDipetakan === 0, href: "/admin/pemetaan-produk" },
+    { jenis: "setujui-usulan-jadwal", selesai: usulan === 0, href: "/admin/jadwal" },
+  ];
+}
+
+/** Daftar langkah operator satu gudang untuk tanggal kirim terdekatnya (DESIGN §9 ▶ Keputusan 2026-10-12). */
+async function langkahGudang({ gudang: g, belumFinal }: GudangTerdekat): Promise<DaftarLangkah> {
+  if (belumFinal === null) return { untuk: "gudang", gudang: g, tanggalKirim: null, langkah: [] };
+  const { tanggalKirim } = belumFinal;
+  const [draft] = await db
+    .select({ id: draftRencana.id })
+    .from(draftRencana)
+    .where(and(eq(draftRencana.gudangId, g.id), eq(draftRencana.tanggalKirim, tanggalKirim)));
+  const barisTertahan =
+    draft === undefined
+      ? 0
+      : await jumlahBaris(
+          barisDraftRencana,
+          and(
+            inArray(
+              barisDraftRencana.tokoDraftId,
+              db.select({ id: tokoDraftRencana.id }).from(tokoDraftRencana).where(eq(tokoDraftRencana.draftId, draft.id)),
+            ),
+            sql`jsonb_array_length(${barisDraftRencana.masalah}) > 0`,
+          ),
+        );
+  const href = `/pengiriman-gudang/${g.id}?tanggal=${tanggalKirim}`;
+  return {
+    untuk: "gudang",
+    gudang: g,
+    tanggalKirim,
+    langkah: [
+      { jenis: "hitung-kebutuhan", selesai: draft !== undefined, href },
+      { jenis: "isi-stok", selesai: draft !== undefined && barisTertahan === 0, href },
+      { jenis: "finalisasi", selesai: belumFinal.jumlah === 0, href },
+    ],
+  };
 }
 
 /** Impor yang terakhir diaktifkan di antara impor aktif, atau `null` bila belum ada impor aktif. */
@@ -245,16 +327,21 @@ async function imporAktifTerakhir(): Promise<ImporAktifTerakhir | null> {
 
 /**
  * Isi beranda untuk pengguna yang sudah masuk. `hariIni` = tanggal saat ini (WIB): batas tanggal kirim kartu operator,
- * dan bulannya = bulan berjalan kartu ranking. Admin yang juga ditugaskan ke gudang melihat kartu admin dan kartu gudang
- * penugasannya.
+ * dan bulannya = bulan berjalan kartu ranking. Admin yang juga ditugaskan ke gudang melihat kartu dan langkah "Mulai di
+ * sini" admin serta milik gudang penugasannya.
  */
 export async function muatIsiBeranda(pengguna: PenggunaMasuk, hariIni: TanggalBisnis): Promise<IsiBeranda> {
   const bulanBerjalan = hariIni.slice(0, 7);
   const daftarGudang = await gudangDitugaskan(pengguna.id);
   const peran: PeranTampil = pengguna.peran === "admin" ? "admin" : daftarGudang.length > 0 ? "operator" : "viewer";
-  const [kartuAdmin, kartuOperator, imporTerakhir, statusCache] = await Promise.all([
+  const gudangTerdekat = await Promise.all(
+    daftarGudang.map(async (g): Promise<GudangTerdekat> => ({ gudang: g, belumFinal: await tokoBelumFinalTerdekat(g.id, hariIni) })),
+  );
+  const [kartuAdmin, kartuOperator, daftarAdmin, daftarPerGudang, imporTerakhir, statusCache] = await Promise.all([
     peran === "admin" ? perluTindakanAdmin(bulanBerjalan) : Promise.resolve([]),
-    perluTindakanOperator(daftarGudang, hariIni),
+    perluTindakanOperator(gudangTerdekat, hariIni),
+    peran === "admin" ? langkahAdmin().then((langkah): DaftarLangkah[] => [{ untuk: "admin", langkah }]) : Promise.resolve([]),
+    Promise.all(gudangTerdekat.map(langkahGudang)),
     imporAktifTerakhir(),
     muatStatusCacheLaporan(),
   ]);
@@ -262,6 +349,7 @@ export async function muatIsiBeranda(pengguna: PenggunaMasuk, hariIni: TanggalBi
     peran,
     gudangDitugaskan: daftarGudang,
     kartu: peran === "viewer" ? null : [...kartuAdmin, ...kartuOperator],
+    mulaiDiSini: peran === "viewer" ? null : [...daftarAdmin, ...daftarPerGudang],
     statusData: { imporAktifTerakhir: imporTerakhir, statusCache },
   };
 }

@@ -320,6 +320,23 @@ function pintasan(html: string) {
   return [...nav.matchAll(/<a [^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/g)].map((m) => [m[1], m[2]!.replace(/<[^>]+>/g, "").trim()]);
 }
 
+/** Bagian "Mulai di sini" (T94), atau "" bila tidak tampil. */
+const bagianMulai = (html: string) => /<section [^>]*data-mulai-di-sini[^>]*>(.*?)<\/section>/.exec(html)?.[1] ?? "";
+
+/** Langkah "Mulai di sini" dalam urutan tampil: [nomor, jenis, status, href tombol, teks]. */
+function langkahMulai(html: string) {
+  return [...bagianMulai(html).matchAll(/<li [^>]*data-langkah="([^"]+)"[^>]*>(.*?)<\/li>/g)].map((m) => {
+    const isi = m[2]!;
+    return {
+      nomor: /data-nomor-langkah[^>]*>(\d+)</.exec(isi)?.[1],
+      jenis: m[1],
+      status: /data-status-langkah="([^"]+)"/.exec(isi)?.[1],
+      href: /<a [^>]*href="([^"]+)"/.exec(isi)?.[1]?.replaceAll("&amp;", "&"),
+      teks: isi.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+    };
+  });
+}
+
 const statusData = (html: string) => /<p[^>]*data-status-data[^>]*>(.*?)<\/p>/.exec(html)?.[1] ?? "";
 
 describe("/ (beranda)", () => {
@@ -336,6 +353,9 @@ describe("/ (beranda)", () => {
     expect(html).toContain(">Viewer<");
     expect(html).not.toContain("Perlu tindakan");
     expect(html).not.toContain("Semua beres");
+    // Viewer tidak mendapat kartu Mulai di sini (T94).
+    expect(html).not.toContain("Mulai di sini");
+    expect(bagianMulai(html)).toBe("");
     expect(kartu(html)).toEqual({});
 
     // Status data: impor aktif terakhir dan status cache laporan (T33), satu baris.
@@ -370,6 +390,17 @@ describe("/ (beranda)", () => {
     expect(kosong).toContain("Semua beres");
     expect(kosong).toContain("lucide-circle-check");
     expect(kosong).toContain("text-success");
+
+    // Mulai di sini (T94): impor aktif tanpa yang menunggu ditinjau, ranking berlaku, pemetaan lengkap, tanpa usulan
+    // menunggu → "Semua langkah beres" tanpa daftar, di atas Perlu tindakan.
+    const mulai = bagianMulai(html);
+    expect(mulai).toContain("Mulai di sini");
+    expect(langkahMulai(html)).toEqual([]);
+    const beres = /<p[^>]*data-semua-langkah-beres[^>]*>(.*?)<\/p>/.exec(mulai)?.[1] ?? "";
+    expect(beres).toContain("Semua langkah beres");
+    expect(beres).toContain("lucide-circle-check");
+    expect(beres).toContain("text-success");
+    expect(html.indexOf("Mulai di sini")).toBeLessThan(html.indexOf("Perlu tindakan"));
 
     expect(pintasan(html)).toEqual([
       ["/admin/impor", "Impor"],
@@ -431,6 +462,22 @@ describe("/ (beranda)", () => {
       "impor-gagal-atau-menunggu",
     ]);
 
+    // Mulai di sini (T94): empat langkah admin bernomor sesuai urutan kerja. Ranking berlaku (dipublikasikan di test
+    // sebelumnya) sudah ada; impor menunggu ditinjau, produk belum dipetakan, dan usulan menunggu membuat langkah lain Belum.
+    const langkah = langkahMulai(await buka());
+    expect(langkah.map(({ nomor, jenis, status, href }) => [nomor, jenis, status, href])).toEqual([
+      ["1", "impor-penjualan", "belum", "/admin/impor"],
+      ["2", "terbitkan-ranking", "selesai", "/admin/ranking"],
+      ["3", "periksa-pemetaan", "belum", "/admin/pemetaan-produk"],
+      ["4", "setujui-usulan-jadwal", "belum", "/admin/jadwal"],
+    ]);
+    expect(langkah.map((l) => l.teks)).toEqual([
+      expect.stringMatching(/^1 Impor penjualan .+ Belum Buka Impor$/),
+      expect.stringMatching(/^2 Terbitkan ranking pusat .+ Selesai Buka Ranking$/),
+      expect.stringMatching(/^3 Periksa pemetaan produk .+ Belum Buka Pemetaan produk$/),
+      expect.stringMatching(/^4 Setujui usulan jadwal .+ Belum Buka Persetujuan jadwal$/),
+    ]);
+
     // Ranking bulan berjalan dipublikasikan → kartunya hilang; kartu lain tetap.
     await publikasikanRankingUji({ keluarga: [], idPengguna: idAdmin, bulanRanking: bulanBerjalan });
     const sesudah = kartu(await buka());
@@ -448,6 +495,10 @@ describe("/ (beranda)", () => {
     expect(html).toContain("Gudang Cibubur");
     expect(kartu(html)).toEqual({});
     expect(html).toContain("Semua beres");
+    // Mulai di sini (T94): gudang tanpa toko berjadwal → keterangan singkat tanpa langkah.
+    expect(bagianMulai(html)).toContain("Gudang Cibubur");
+    expect(bagianMulai(html)).toContain("Belum ada toko aktif berjadwal");
+    expect(langkahMulai(html)).toEqual([]);
   });
 
   it("operator hanya melihat kartu gudang penugasannya; data gudang lain dan draft tanggal kirim yang lewat tidak dihitung", async () => {
@@ -571,5 +622,39 @@ describe("/ (beranda)", () => {
     const sesudah = await buka();
     expect(kartu(sesudah)).toEqual({});
     expect(sesudah).toContain("Semua beres");
+  });
+
+  it("operator dengan dua gudang: Mulai di sini berisi satu daftar per gudang, langkah membuka halaman gudang dengan tanggal kirim terdekat", async () => {
+    await db.delete(draftRencana).where(inArray(draftRencana.gudangId, [cibubur, jabodetabek]));
+    await db.delete(hubunganTokoGudang).where(inArray(hubunganTokoGudang.gudangId, [cibubur, jabodetabek]));
+    const t = tanggalKirimTerdekat;
+    await tokoBerjadwal(cibubur, hariKirim(t));
+
+    const operator = await kepalaPenggunaUji("viewer");
+    await tugaskanOperator({ idPengguna: operator.id, idGudang: cibubur, hakTindakan: [] });
+    await tugaskanOperator({ idPengguna: operator.id, idGudang: jabodetabek, hakTindakan: [] });
+    kepala.cookie = operator.cookie;
+    const html = await buka();
+
+    const mulai = bagianMulai(html);
+    expect(mulai).toContain("Mulai di sini");
+    expect(html.indexOf("Mulai di sini")).toBeLessThan(html.indexOf("Perlu tindakan"));
+    // Daftar Gudang Cibubur (tanggal kirim terdekat) lalu Gudang Jabodetabek (tanpa toko berjadwal).
+    expect(mulai.indexOf("Gudang Cibubur")).toBeLessThan(mulai.indexOf("Gudang Jabodetabek"));
+    expect(mulai).toContain(formatTanggal(t));
+    expect(mulai).toContain("Belum ada toko aktif berjadwal");
+
+    const href = `/pengiriman-gudang/${cibubur}?tanggal=${t}`;
+    const langkah = langkahMulai(html);
+    expect(langkah.map(({ nomor, jenis, status, href: h }) => [nomor, jenis, status, h])).toEqual([
+      ["1", "hitung-kebutuhan", "belum", href],
+      ["2", "isi-stok", "belum", href],
+      ["3", "finalisasi", "belum", href],
+    ]);
+    expect(langkah.map((l) => l.teks)).toEqual([
+      expect.stringMatching(/^1 Hitung kebutuhan .+ Belum Buka Pengiriman Gudang$/),
+      expect.stringMatching(/^2 Isi stok dan bereskan masalah .*unggah file stok atau ketik.* Belum Buka Pengiriman Gudang$/),
+      expect.stringMatching(/^3 Finalisasi .+ Belum Buka Pengiriman Gudang$/),
+    ]);
   });
 });
