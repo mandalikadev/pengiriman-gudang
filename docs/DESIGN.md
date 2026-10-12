@@ -98,6 +98,13 @@ Hanya mode terang (ADR-0010).
 > - Keadaan awal: kelompok yang berisi halaman aktif terbuka; kelompok lain tertutup. Pilihan buka/tutup pengguna diingat di browser itu; kelompok yang berisi halaman aktif selalu terbuka.
 > - Berlaku sama di sidebar desktop dan menu tarik layar < 1024 px.
 
+> ▶ Keputusan (2026-10-12, UAT ketiga): susunan sidebar **mengikuti urutan kerja**, menggantikan daftar kelompok pada keputusan 2026-10-11 di atas. Perilaku buka-tutup tetap.
+> - **Beranda** (item tunggal).
+> - **Pekerjaan rutin**: Impor penjualan (admin), Ranking pusat (admin), Persetujuan jadwal (admin), Pengiriman Gudang (admin dan operator). Untuk operator kelompok ini hanya berisi Pengiriman Gudang.
+> - **Laporan**: Ringkasan, Kalender.
+> - **Pengaturan** (hanya admin), dengan subjudul **Data master** (Keluarga aroma, Pemetaan produk, Alias nama stok, Libur) dan **Organisasi** (Gudang, Pengguna, Penugasan).
+> - Urutan item di dalam kelompok sesuai urutan di atas. Aturan visibilitas per peran tidak berubah. Viewer melihat Beranda dan Laporan saja.
+
 Ikon: lucide-react, stroke 2. Ukuran 20 px di zona kerja dan 28 px di zona suasana. Ikon fitur diletakkan dalam wadah `rounded-2xl bg-primary/10`.
 
 ## 7. Bahasa visual status
@@ -141,6 +148,12 @@ Kolom "Token" menentukan warna **ikon** dan latar badge, bukan warna teks. Teks 
 > - **Status data** (satu baris kecil): impor aktif terakhir dan status cache laporan.
 > - **Pintasan** 2–4 tombol ke halaman utama peran itu: admin (Impor, Ringkasan, Gudang), operator (Pengiriman Gudang, Ringkasan, Kalender).
 > - **Viewer:** sapaan, status data, dan pintasan ke Ringkasan dan Kalender saja.
+
+> ▶ Keputusan (2026-10-12, UAT ketiga): kartu **"Mulai di sini"** di beranda, di atas "Perlu tindakan", untuk admin dan operator.
+> - Isinya daftar langkah bernomor sesuai urutan kerja. Setiap langkah menampilkan status **Selesai** (ikon + teks, §7) atau **Belum**, satu kalimat penjelasan, dan tombol ke halamannya. Status dibaca dari data tersimpan (PRD C1).
+> - **Admin:** (1) Impor penjualan: selesai jika ada minimal satu impor aktif dan tidak ada impor "Siap ditinjau". (2) Terbitkan ranking pusat: selesai jika sudah ada ranking yang berlaku. (3) Periksa pemetaan produk: selesai jika tidak ada produk belum dipetakan. (4) Setujui usulan jadwal: selesai jika tidak ada usulan menunggu.
+> - **Operator** (per gudang yang ditugaskan, untuk tanggal kirim terdekat seperti definisi T79): (1) Hitung kebutuhan: selesai jika draft tanggal itu sudah ada. (2) Isi stok dan bereskan masalah (unggah file stok atau ketik): selesai jika tidak ada baris tertahan di draft itu. (3) Finalisasi: selesai jika semua toko yang mengirim tanggal itu sudah final. Tombol langkah operator membuka halaman gudang dengan tanggal kirim itu.
+> - Jika semua langkah selesai, kartu menampilkan "Semua langkah beres" tanpa daftar panjang. Viewer tidak mendapat kartu ini.
 
 > ▶ Keputusan (2026-10-11, T79): definisi kartu "Perlu tindakan" di beranda.
 > - **"Toko yang belum difinalisasi untuk tanggal kirim terdekat" (operator):** tanggal kirim terdekat = tanggal kirim paling dekat (hari ini atau sesudahnya) menurut jadwal aktif toko-toko gudang itu, satu tanggal per gudang. Yang dihitung: toko aktif yang mengirim pada tanggal itu dan belum punya rencana final untuk tanggal itu, walaupun draft tanggal itu belum dihitung.

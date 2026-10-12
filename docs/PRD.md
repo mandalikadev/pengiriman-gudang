@@ -122,6 +122,11 @@ Bedakan bulan sumber penjualan, bulan ranking, dan tanggal kirim. Ketiganya memp
 
 Setiap toko mempunyai satu jadwal aktif yang dapat berisi beberapa hari pengiriman. Pengiriman menggunakan Senin–Sabtu, dengan pola mingguan, dua atau tiga kali seminggu, atau dua mingguan. Pola dua mingguan membutuhkan tanggal jangkar agar pekan pengirimannya jelas.
 
+> ▶ Keputusan (2026-10-12, UAT ketiga, workbook pemilik "Phase 1_2" sheet PHASE 2): pola baru **1× sebulan**.
+> - Satu hari kirim per toko (Senin–Sabtu, dipilih per toko; tidak selalu Senin) dengan persiapan H, H−1, atau H−2.
+> - Tanggal kirim = kemunculan **pertama** hari itu di setiap bulan kalender (misalnya Selasa pertama setiap bulan). Tidak memakai tanggal jangkar.
+> - Pembuatan dan perubahan jadwal 1× sebulan mengikuti aturan jadwal yang sama (usulan operator + persetujuan admin untuk gudang non-Pusat).
+
 Setiap hari pengiriman dapat memiliki persiapan H, H−1, atau H−2. Operator dapat menyalin template jadwal ke beberapa toko, tetapi masing-masing toko tetap memiliki pengaturan dan status persetujuan sendiri.
 
 Pembuatan, perubahan, dan penonaktifan jadwal empat gudang selain Pusat memerlukan persetujuan admin. Pengaturan langsung Pusat mengikuti kewenangan yang telah ditetapkan. Usulan yang belum disetujui tidak menggantikan jadwal aktif.
@@ -173,6 +178,19 @@ Misalkan H adalah tanggal kirim, p adalah jumlah hari persiapan, dan L adalah pa
 Cakupan dihitung dari H−p sampai H+L−1, termasuk kedua tanggal tersebut. Jadi jumlah hari cakupan adalah L+p. Setiap pengiriman tetap memakai cakupan penuh, meskipun jadwal pengiriman berikutnya lebih dekat atau cakupannya bertumpang tindih.
 
 Kebutuhan barang adalah penjumlahan rata-rata penjualan sesuai kategori efektif setiap tanggal dalam cakupan tersebut.
+
+> ▶ Revisi (2026-10-12, UAT ketiga, workbook pemilik "Phase 1_2" sheet PHASE 2 dan DATABASE): **panjang cakupan L mengikuti jarak ke pengiriman berikutnya.** Dua paragraf di atas tentang nilai L dan "cakupan penuh meskipun jadwal pengiriman berikutnya lebih dekat" tidak berlaku lagi.
+> - Cakupan tetap H−p sampai H+L−1 (L+p hari). **L = jumlah hari dari H sampai sehari sebelum tanggal kirim berikutnya menurut jadwal aktif toko itu.** Jadi cakupan berakhir sehari sebelum pengiriman berikutnya.
+> - Hasilnya: 1× seminggu L = 7; dua mingguan dengan satu hari kirim L = 14; 2× dan 3× seminggu L = selisih hari ke hari kirim berikutnya (melintasi akhir minggu bila perlu). Dua mingguan dengan lebih dari satu hari kirim mengikuti aturan yang sama.
+> - Khusus **1× sebulan: L = 30** (siklus 30 hari seperti di workbook), walaupun pengiriman bulan berikutnya bisa 28 atau 35 hari kemudian.
+> - Hari persiapan pengiriman berikutnya boleh tumpang tindih dengan cakupan pengiriman sebelumnya dan tetap dihitung di keduanya, seperti di workbook.
+> - Contoh (SMB, 2× seminggu: Senin H, Kamis H−1; rata-rata PW110P-GOR Senin–Kamis 5, Jumat 5, Sabtu 8, Minggu 7): kirim Senin → cakupan Senin–Rabu (L = 3, p = 0), kebutuhan 15; kirim Kamis → cakupan Rabu–Minggu (L = 4, p = 1), kebutuhan 30. Sebelumnya sistem memakai L = 7 untuk keduanya (40 + 40).
+> - Rata-rata, kategori efektif, buffer ranking (20% / 10%), dan rumus jumlah kirim tidak berubah. Buffer tetap mengikuti ranking pusat, bukan satu angka manual seperti di workbook.
+> - Rencana final yang sudah ada tidak berubah (snapshot). Golden `jumlah-kirim.json` (pola mingguan, L = 7) tetap berlaku.
+
+> ▶ Keputusan (2026-10-12, UAT ketiga): peringatan **"kiriman sebelumnya belum sampai"**.
+> - Jika hari persiapan (H−p) jatuh pada atau sebelum tanggal kirim sebelumnya menurut jadwal aktif toko itu (p ≥ jarak dari pengiriman sebelumnya), draft toko itu menampilkan peringatan: "Kiriman <hari, tanggal> belum sampai saat persiapan. Pastikan jumlahnya ikut dihitung di stok akhir."
+> - Peringatan tampil dengan ikon + teks dan **tidak** menahan finalisasi.
 
 Jumlah kirim = nilai terbesar antara 0 dan pembulatan ke atas dari:
 (Kebutuhan barang − Stok akhir) × (1 + Buffer).

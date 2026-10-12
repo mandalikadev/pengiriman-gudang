@@ -95,3 +95,7 @@ Daftar hal yang **belum diputuskan pemilik**. Agen tidak mengimplementasikan per
 | Ringkasan: "Pilih semua"/"Kosongkan" untuk Toko dan Kategori produk (2026-10-12) | PRD A2; T87 |
 | Seed data master (produk, keluarga aroma, pemetaan, alias nama stok) sebagai konfirmasi admin awal; seed UAT (periode sumber, akun operator) (2026-10-12) | PRD A3; T88, T89 |
 | Tombol "Isi 0 untuk stok yang kosong" (produk otomatis, isian belum disimpan) (2026-10-12) | PRD A6; T90 |
+| Panjang cakupan L = jarak ke tanggal kirim berikutnya menurut jadwal (2×/3× seminggu tidak lagi 7); 1× sebulan L = 30 (2026-10-12, workbook Phase 1_2) | PRD A6; T91 |
+| Pola 1× sebulan: hari kirim per toko, kemunculan pertama hari itu setiap bulan (2026-10-12) | PRD A5; T92 |
+| Peringatan "kiriman sebelumnya belum sampai" bila p ≥ jarak dari pengiriman sebelumnya, tidak menahan finalisasi (2026-10-12) | PRD A6; T93 |
+| Kartu "Mulai di sini" di beranda dan sidebar menurut urutan kerja (2026-10-12) | DESIGN §6; T94, T95 |

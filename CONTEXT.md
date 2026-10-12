@@ -124,7 +124,8 @@ Tanggal barang dikirim dari gudang.
 Rentang tanggal H−p sampai H+L−1, inklusif.
 
 **Panjang cakupan (L)**:
-7 untuk pola mingguan (termasuk dua atau tiga kali seminggu); 14 untuk dua mingguan.
+Jumlah hari dari tanggal kirim sampai sehari sebelum tanggal kirim berikutnya menurut jadwal aktif (1× seminggu 7, dua mingguan 14, 2×/3× seminggu selisih ke hari kirim berikutnya); khusus 1× sebulan 30.
+_Avoid_: menganggap L selalu 7 untuk pola mingguan
 
 **Tanggal jangkar**:
 Tanggal yang menentukan pekan kirim untuk pola dua mingguan.
