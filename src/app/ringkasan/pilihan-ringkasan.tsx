@@ -18,15 +18,6 @@ type OpsiProduk = { kode: string; nama: string | null };
 /** Pilihan yang sedang dipakai (dari URL). */
 type Terapan = { bulan: readonly string[]; toko: readonly string[]; kategoriProduk: readonly string[]; produk: readonly string[] };
 
-function Chip({ name, value, label, defaultChecked }: { name: string; value: string; label: string; defaultChecked: boolean }) {
-  return (
-    <label className={kelasChip}>
-      <input type="checkbox" name={name} value={value} defaultChecked={defaultChecked} className="size-4 accent-primary outline-none" />
-      {label}
-    </label>
-  );
-}
-
 function Bagian({ judul, keterangan, children }: { judul: string; keterangan?: string; children: ReactNode }) {
   return (
     <fieldset className="flex flex-col gap-2">
@@ -34,6 +25,64 @@ function Bagian({ judul, keterangan, children }: { judul: string; keterangan?: s
       {keterangan ? <p className="text-muted-foreground">{keterangan}</p> : null}
       {children}
     </fieldset>
+  );
+}
+
+/**
+ * Satu grup chip centang (toko atau kategori produk) dengan tombol "Pilih semua" dan "Kosongkan" (T87, PRD A2).
+ * Tombol hanya mengubah pilihan yang sedang diedit; hasil baru berubah setelah Terapkan. `namaGrup` dipakai pada
+ * label tombol untuk pembaca layar ("Pilih semua toko").
+ */
+function GrupCentang({
+  judul,
+  namaGrup,
+  name,
+  opsi,
+  terapan,
+}: {
+  judul: string;
+  namaGrup: string;
+  name: string;
+  opsi: { value: string; label: string }[];
+  terapan: readonly string[];
+}) {
+  const [terpilih, setTerpilih] = useState(() => new Set(terapan));
+
+  function ubah(value: string, centang: boolean) {
+    setTerpilih((lama) => {
+      const baru = new Set(lama);
+      if (centang) baru.add(value);
+      else baru.delete(value);
+      return baru;
+    });
+  }
+
+  return (
+    <Bagian judul={judul}>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" size="sm" variant="outline" aria-label={`Pilih semua ${namaGrup}`} onClick={() => setTerpilih(new Set(opsi.map((o) => o.value)))}>
+          Pilih semua
+        </Button>
+        <Button type="button" size="sm" variant="outline" aria-label={`Kosongkan pilihan ${namaGrup}`} onClick={() => setTerpilih(new Set())}>
+          Kosongkan
+        </Button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {opsi.map((o) => (
+          <label key={o.value} className={kelasChip}>
+            <input
+              type="checkbox"
+              name={name}
+              value={o.value}
+              checked={terpilih.has(o.value)}
+              onChange={(e) => ubah(o.value, e.target.checked)}
+              className="size-4 accent-primary outline-none"
+            />
+            {o.label}
+          </label>
+        ))}
+      </div>
+    </Bagian>
   );
 }
 
@@ -161,20 +210,20 @@ export function PilihanRingkasan({
               </label>
             ))}
           </fieldset>
-          <Bagian judul="Toko">
-            <div className="flex flex-wrap gap-2">
-              {opsiFilter.toko.map((t) => (
-                <Chip key={t.id} name="toko" value={String(t.id)} label={t.nama} defaultChecked={terapan.toko.includes(String(t.id))} />
-              ))}
-            </div>
-          </Bagian>
-          <Bagian judul="Kategori produk">
-            <div className="flex flex-wrap gap-2">
-              {opsiFilter.kategoriProduk.map((k) => (
-                <Chip key={k} name="kategoriProduk" value={k} label={k} defaultChecked={terapan.kategoriProduk.includes(k)} />
-              ))}
-            </div>
-          </Bagian>
+          <GrupCentang
+            judul="Toko"
+            namaGrup="toko"
+            name="toko"
+            opsi={opsiFilter.toko.map((t) => ({ value: String(t.id), label: t.nama }))}
+            terapan={terapan.toko}
+          />
+          <GrupCentang
+            judul="Kategori produk"
+            namaGrup="kategori produk"
+            name="kategoriProduk"
+            opsi={opsiFilter.kategoriProduk.map((k) => ({ value: k, label: k }))}
+            terapan={terapan.kategoriProduk}
+          />
           <FilterProduk opsi={opsiFilter.produk} terapan={terapan.produk} />
         </CardContent>
         <CardFooter className="flex-wrap">

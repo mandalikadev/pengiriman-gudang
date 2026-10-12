@@ -171,6 +171,20 @@ test("Ringkasan: filter kategori produk dan produk berlaku setelah Terapkan, ter
   await expect(page).toHaveURL(new RegExp(`/ringkasan\\?bulan=${tahun}-03$`));
   await expect(baris2).toBeVisible();
 
+  // T87: "Pilih semua" dan "Kosongkan" hanya mengubah pilihan; URL dan hasil belum berubah sebelum Terapkan.
+  const urlTanpaFilter = page.url();
+  await page.getByRole("button", { name: "Pilih semua kategori produk" }).click();
+  await expect(page.getByRole("checkbox", { name: kategoriX })).toBeChecked();
+  await page.getByRole("button", { name: "Pilih semua toko" }).click();
+  await expect(page.getByRole("checkbox", { name: "PMS", exact: true })).toBeChecked();
+  expect(page.url()).toBe(urlTanpaFilter);
+  await page.getByRole("button", { name: "Kosongkan pilihan kategori produk" }).click();
+  await page.getByRole("button", { name: "Kosongkan pilihan toko" }).click();
+  await expect(page.getByRole("checkbox", { name: kategoriX })).not.toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "PMS", exact: true })).not.toBeChecked();
+  await expect(baris2).toBeVisible();
+  expect(page.url()).toBe(urlTanpaFilter);
+
   // Cari produk (teks biasa pada kode), centang, lalu Terapkan.
   await page.getByRole("searchbox", { name: "Cari kode atau nama produk" }).fill(`e2eb${akhiran}`.toLowerCase());
   await page.getByRole("checkbox", { name: k2 }).check();
