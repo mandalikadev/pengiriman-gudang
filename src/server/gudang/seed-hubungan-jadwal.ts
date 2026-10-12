@@ -41,14 +41,14 @@ const JADWAL_AWAL: readonly BarisJadwalAwal[] = [
   { gudang: "Gudang Bandung", toko: "PVJ", ...mingguan("Selasa", H1) },
 ];
 
-const PESAN_TANPA_ADMIN = "Jalankan pnpm db:seed-admin dulu.";
+export const PESAN_TANPA_ADMIN = "Jalankan pnpm db:seed-admin dulu.";
 
 type HasilSeedHubunganJadwal =
   | { keadaan: "berhasil"; hubunganDibuat: number; jadwalDibuat: number }
   | { keadaan: "gagal"; pesan: typeof PESAN_TANPA_ADMIN };
 
 /** Admin aktif (peran admin, tidak dinonaktifkan) yang paling awal dibuat, atau `null`. */
-async function adminPertama(tx: Tx) {
+export async function adminPertama(tx: Tx) {
   const [baris] = await tx
     .select({ id: user.id })
     .from(user)

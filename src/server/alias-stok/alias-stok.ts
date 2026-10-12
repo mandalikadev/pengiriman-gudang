@@ -16,13 +16,18 @@ export type HasilTambahAlias =
 
 export type BarisAliasStok = { alias: string; kodeProduk: string; namaProduk: string };
 
-/** Master produk dan alias tersimpan, dimuat sekali untuk satu rangkaian penambahan. */
-type Konteks = { produk: Map<string, ProdukMaster>; alias: AliasNamaStok[] };
+/** Koneksi database, atau transaksi pemanggil (seed data master, T88). */
+type Eksekutor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-async function muatKonteks(): Promise<Konteks> {
-  const master = await db.select({ kode: produk.kode, nama: produk.nama }).from(produk);
-  const alias = await db.select({ alias: aliasNamaStok.alias, kodeProduk: aliasNamaStok.kodeProduk }).from(aliasNamaStok);
-  return { produk: new Map(master.map((p) => [p.kode.toUpperCase(), p])), alias };
+/** Master produk dan alias tersimpan, dimuat sekali untuk satu rangkaian penambahan. */
+type Konteks = { eksekutor: Eksekutor; produk: Map<string, ProdukMaster>; alias: AliasNamaStok[] };
+
+async function muatKonteks(eksekutor: Eksekutor): Promise<Konteks> {
+  const master = await eksekutor.select({ kode: produk.kode, nama: produk.nama }).from(produk);
+  const alias = await eksekutor
+    .select({ alias: aliasNamaStok.alias, kodeProduk: aliasNamaStok.kodeProduk })
+    .from(aliasNamaStok);
+  return { eksekutor, produk: new Map(master.map((p) => [p.kode.toUpperCase(), p])), alias };
 }
 
 function sebutProduk(konteks: Konteks, kode: string): string {
@@ -56,13 +61,13 @@ async function tambahSatu(
   }
 
   // Alias unik ditegakkan primary key; konflik hanya terjadi jika admin lain menambahkannya bersamaan.
-  const ditambah = await db
+  const ditambah = await konteks.eksekutor
     .insert(aliasNamaStok)
     .values({ alias, kodeProduk, dibuatOleh: idPengguna })
     .onConflictDoNothing({ target: aliasNamaStok.alias })
     .returning({ kodeProduk: aliasNamaStok.kodeProduk });
   if (ditambah.length === 0) {
-    const [ada] = await db
+    const [ada] = await konteks.eksekutor
       .select({ kodeProduk: aliasNamaStok.kodeProduk })
       .from(aliasNamaStok)
       .where(eq(aliasNamaStok.alias, alias));
@@ -77,18 +82,20 @@ export async function tambahAliasStok(
   isian: { alias: string; kodeProduk: string },
   idPengguna: string,
 ): Promise<HasilTambahAlias> {
-  return tambahSatu(await muatKonteks(), isian, idPengguna);
+  return tambahSatu(await muatKonteks(db), isian, idPengguna);
 }
 
 /**
  * Menambah alias dari tabel unggahan, baris demi baris, dengan hasil per baris. Baris yang ditolak tidak menahan baris
- * lain. Alias ganda di dalam file (setelah normalisasi): yang pertama diproses, berikutnya ditolak.
+ * lain. Alias ganda di dalam file (setelah normalisasi): yang pertama diproses, berikutnya ditolak. `eksekutor` diisi
+ * transaksi pemanggil jika penambahan harus ikut transaksi itu (seed data master, T88).
  */
 export async function tambahAliasDariTabel(
   baris: readonly { nomor: number; alias: string; kodeProduk: string }[],
   idPengguna: string,
+  eksekutor: Eksekutor = db,
 ): Promise<(HasilTambahAlias & { nomor: number })[]> {
-  const konteks = await muatKonteks();
+  const konteks = await muatKonteks(eksekutor);
   const barisPertama = new Map<string, number>();
   const hasil: (HasilTambahAlias & { nomor: number })[] = [];
   for (const b of baris) {

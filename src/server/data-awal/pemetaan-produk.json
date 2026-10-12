@@ -1,0 +1,1797 @@
+[
+  {
+    "kodeProduk": "100-ALK",
+    "status": "tanpa-aroma",
+    "keluarga": null
+  },
+  {
+    "kodeProduk": "15GL-GOR",
+    "status": "terpetakan",
+    "keluarga": "GORGEOUS TUBEROSE"
+  },
+  {
+    "kodeProduk": "15GL-HOL",
+    "status": "terpetakan",
+    "keluarga": "HOLY SWEET"
+  },
+  {
+    "kodeProduk": "15GL-ICO",
+    "status": "terpetakan",
+    "keluarga": "ICON"
+  },
+  {
+    "kodeProduk": "15GL-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "15GL-NO1",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "15GL-ONL",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "15GL-REM",
+    "status": "terpetakan",
+    "keluarga": "REMEMBER ME"
+  },
+  {
+    "kodeProduk": "15GL-ROM",
+    "status": "terpetakan",
+    "keluarga": "ROMANTICA EXOTICA"
+  },
+  {
+    "kodeProduk": "15GL-THE",
+    "status": "terpetakan",
+    "keluarga": "THE ONLY ONE"
+  },
+  {
+    "kodeProduk": "15GL-VAN",
+    "status": "terpetakan",
+    "keluarga": "VANILLA MANGO"
+  },
+  {
+    "kodeProduk": "15GM-24H",
+    "status": "terpetakan",
+    "keluarga": "24HOURS"
+  },
+  {
+    "kodeProduk": "15GM-DAY",
+    "status": "terpetakan",
+    "keluarga": "DAY"
+  },
+  {
+    "kodeProduk": "15GM-HYP",
+    "status": "terpetakan",
+    "keluarga": "HYPNOTIZED"
+  },
+  {
+    "kodeProduk": "15GM-ICO",
+    "status": "terpetakan",
+    "keluarga": "ICON"
+  },
+  {
+    "kodeProduk": "15GM-NO1",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "15GM-ONL",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "15GM-SIG",
+    "status": "terpetakan",
+    "keluarga": "SIGNATURE"
+  },
+  {
+    "kodeProduk": "15GW-FOR",
+    "status": "terpetakan",
+    "keluarga": "FORBIDDEN TEMPTATION"
+  },
+  {
+    "kodeProduk": "15GW-GOR",
+    "status": "terpetakan",
+    "keluarga": "GORGEOUS TUBEROSE"
+  },
+  {
+    "kodeProduk": "15GW-HOL",
+    "status": "terpetakan",
+    "keluarga": "HOLY SWEET"
+  },
+  {
+    "kodeProduk": "15GW-IRR",
+    "status": "terpetakan",
+    "keluarga": "IRRESISTIBLE"
+  },
+  {
+    "kodeProduk": "15GW-LAD",
+    "status": "terpetakan",
+    "keluarga": "LADY BOSS"
+  },
+  {
+    "kodeProduk": "15GW-REM",
+    "status": "terpetakan",
+    "keluarga": "REMEMBER ME"
+  },
+  {
+    "kodeProduk": "15GW-ROM",
+    "status": "terpetakan",
+    "keluarga": "ROMANTICA EXOTICA"
+  },
+  {
+    "kodeProduk": "15GW-SED",
+    "status": "terpetakan",
+    "keluarga": "SEDUCTION"
+  },
+  {
+    "kodeProduk": "15GW-SWE",
+    "status": "terpetakan",
+    "keluarga": "SWEET CHERRY ROSE"
+  },
+  {
+    "kodeProduk": "15GW-VAN",
+    "status": "terpetakan",
+    "keluarga": "VANILLA MANGO"
+  },
+  {
+    "kodeProduk": "A10M-24H",
+    "status": "terpetakan",
+    "keluarga": "24HOURS"
+  },
+  {
+    "kodeProduk": "A10M-CHA",
+    "status": "terpetakan",
+    "keluarga": "CHAMPION"
+  },
+  {
+    "kodeProduk": "A10M-DAY",
+    "status": "terpetakan",
+    "keluarga": "DAY"
+  },
+  {
+    "kodeProduk": "A10M-FEE",
+    "status": "terpetakan",
+    "keluarga": "FEELING GOOD"
+  },
+  {
+    "kodeProduk": "A10M-FOR",
+    "status": "terpetakan",
+    "keluarga": "FORBIDDEN TEMPTATION"
+  },
+  {
+    "kodeProduk": "A10M-GOR",
+    "status": "terpetakan",
+    "keluarga": "GORGEOUS TUBEROSE"
+  },
+  {
+    "kodeProduk": "A10M-HOL",
+    "status": "terpetakan",
+    "keluarga": "HOLY SWEET"
+  },
+  {
+    "kodeProduk": "A10M-HYP",
+    "status": "terpetakan",
+    "keluarga": "HYPNOTIZED"
+  },
+  {
+    "kodeProduk": "A10M-ICO",
+    "status": "terpetakan",
+    "keluarga": "ICON"
+  },
+  {
+    "kodeProduk": "A10M-IRR",
+    "status": "terpetakan",
+    "keluarga": "IRRESISTIBLE"
+  },
+  {
+    "kodeProduk": "A10M-KIS",
+    "status": "terpetakan",
+    "keluarga": "KISS FROM A ROSE"
+  },
+  {
+    "kodeProduk": "A10M-LAD",
+    "status": "terpetakan",
+    "keluarga": "LADY BOSS"
+  },
+  {
+    "kodeProduk": "A10M-MOR",
+    "status": "terpetakan",
+    "keluarga": "MORNING GRASS"
+  },
+  {
+    "kodeProduk": "A10M-NO1",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "A10M-ONL",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "A10M-PRI",
+    "status": "terpetakan",
+    "keluarga": "PRINCESS"
+  },
+  {
+    "kodeProduk": "A10M-REB",
+    "status": "terpetakan",
+    "keluarga": "REBEL"
+  },
+  {
+    "kodeProduk": "A10M-REM",
+    "status": "terpetakan",
+    "keluarga": "REMEMBER ME"
+  },
+  {
+    "kodeProduk": "A10M-ROM",
+    "status": "terpetakan",
+    "keluarga": "ROMANTICA EXOTICA"
+  },
+  {
+    "kodeProduk": "A10M-SED",
+    "status": "terpetakan",
+    "keluarga": "SEDUCTION"
+  },
+  {
+    "kodeProduk": "A10M-SEN",
+    "status": "terpetakan",
+    "keluarga": "SENSUAL OBSESSION"
+  },
+  {
+    "kodeProduk": "A10M-SIG",
+    "status": "terpetakan",
+    "keluarga": "SIGNATURE"
+  },
+  {
+    "kodeProduk": "A10M-SWE",
+    "status": "terpetakan",
+    "keluarga": "SWEET CHERRY ROSE"
+  },
+  {
+    "kodeProduk": "A10M-UNS",
+    "status": "terpetakan",
+    "keluarga": "UNSTOPPABLE"
+  },
+  {
+    "kodeProduk": "A10M-VAN",
+    "status": "terpetakan",
+    "keluarga": "VANILLA MANGO"
+  },
+  {
+    "kodeProduk": "A10M-YES",
+    "status": "terpetakan",
+    "keluarga": "YES I AM"
+  },
+  {
+    "kodeProduk": "BUK-L",
+    "status": "tanpa-aroma",
+    "keluarga": null
+  },
+  {
+    "kodeProduk": "BUK-M",
+    "status": "tanpa-aroma",
+    "keluarga": null
+  },
+  {
+    "kodeProduk": "BUK-S",
+    "status": "tanpa-aroma",
+    "keluarga": null
+  },
+  {
+    "kodeProduk": "DD-GS15-B",
+    "status": "terpetakan",
+    "keluarga": "GIFT SET BOX"
+  },
+  {
+    "kodeProduk": "DD-GS15-W",
+    "status": "terpetakan",
+    "keluarga": "GIFT SET BOX"
+  },
+  {
+    "kodeProduk": "DD-HAM-THE",
+    "status": "terpetakan",
+    "keluarga": "THE ONLY ONE"
+  },
+  {
+    "kodeProduk": "DD-HAM120-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "DP100E-24H",
+    "status": "terpetakan",
+    "keluarga": "24HOURS"
+  },
+  {
+    "kodeProduk": "DP100E-DAY",
+    "status": "terpetakan",
+    "keluarga": "DAY"
+  },
+  {
+    "kodeProduk": "DP100E-HYP",
+    "status": "terpetakan",
+    "keluarga": "HYPNOTIZED"
+  },
+  {
+    "kodeProduk": "DP100E-ICO",
+    "status": "terpetakan",
+    "keluarga": "ICON"
+  },
+  {
+    "kodeProduk": "DP100E-MOR",
+    "status": "terpetakan",
+    "keluarga": "MORNING GRASS"
+  },
+  {
+    "kodeProduk": "DP100E-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "DP100E-NO1",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "DP100E-ONL",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "DP100E-ONL-T",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "DP100E-REB",
+    "status": "terpetakan",
+    "keluarga": "REBEL"
+  },
+  {
+    "kodeProduk": "DP100E-SIG",
+    "status": "terpetakan",
+    "keluarga": "SIGNATURE"
+  },
+  {
+    "kodeProduk": "DP100E-YES",
+    "status": "terpetakan",
+    "keluarga": "YES I AM"
+  },
+  {
+    "kodeProduk": "DP100P-24H",
+    "status": "terpetakan",
+    "keluarga": "24HOURS"
+  },
+  {
+    "kodeProduk": "DP100P-CHA-T",
+    "status": "terpetakan",
+    "keluarga": "CHAMPION"
+  },
+  {
+    "kodeProduk": "DP100P-DAY",
+    "status": "terpetakan",
+    "keluarga": "DAY"
+  },
+  {
+    "kodeProduk": "DP100P-HYP",
+    "status": "terpetakan",
+    "keluarga": "HYPNOTIZED"
+  },
+  {
+    "kodeProduk": "DP100P-MOR",
+    "status": "terpetakan",
+    "keluarga": "MORNING GRASS"
+  },
+  {
+    "kodeProduk": "DP100P-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "DP100P-NO1",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "DP100P-NO1-T",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "DP100P-ONL",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "DP100P-REB",
+    "status": "terpetakan",
+    "keluarga": "REBEL"
+  },
+  {
+    "kodeProduk": "DP100P-SIG",
+    "status": "terpetakan",
+    "keluarga": "SIGNATURE"
+  },
+  {
+    "kodeProduk": "DP100P-YES",
+    "status": "terpetakan",
+    "keluarga": "YES I AM"
+  },
+  {
+    "kodeProduk": "DP120E-24H",
+    "status": "terpetakan",
+    "keluarga": "24HOURS"
+  },
+  {
+    "kodeProduk": "DP120E-CHA-T",
+    "status": "terpetakan",
+    "keluarga": "CHAMPION"
+  },
+  {
+    "kodeProduk": "DP120E-DAY",
+    "status": "terpetakan",
+    "keluarga": "DAY"
+  },
+  {
+    "kodeProduk": "DP120E-HYP",
+    "status": "terpetakan",
+    "keluarga": "HYPNOTIZED"
+  },
+  {
+    "kodeProduk": "DP120E-ICO",
+    "status": "terpetakan",
+    "keluarga": "ICON"
+  },
+  {
+    "kodeProduk": "DP120E-MOR",
+    "status": "terpetakan",
+    "keluarga": "MORNING GRASS"
+  },
+  {
+    "kodeProduk": "DP120E-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "DP120E-NO1",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "DP120E-ONL",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "DP120E-ONL-R",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "DP120E-ONL-T",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "DP120E-REB",
+    "status": "terpetakan",
+    "keluarga": "REBEL"
+  },
+  {
+    "kodeProduk": "DP120E-SIG",
+    "status": "terpetakan",
+    "keluarga": "SIGNATURE"
+  },
+  {
+    "kodeProduk": "DP120E-YES",
+    "status": "terpetakan",
+    "keluarga": "YES I AM"
+  },
+  {
+    "kodeProduk": "DP120P-24H",
+    "status": "terpetakan",
+    "keluarga": "24HOURS"
+  },
+  {
+    "kodeProduk": "DP120P-CHA",
+    "status": "terpetakan",
+    "keluarga": "CHAMPION"
+  },
+  {
+    "kodeProduk": "DP120P-DAY",
+    "status": "terpetakan",
+    "keluarga": "DAY"
+  },
+  {
+    "kodeProduk": "DP120P-HYP",
+    "status": "terpetakan",
+    "keluarga": "HYPNOTIZED"
+  },
+  {
+    "kodeProduk": "DP120P-MOR",
+    "status": "terpetakan",
+    "keluarga": "MORNING GRASS"
+  },
+  {
+    "kodeProduk": "DP120P-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "DP120P-NO1",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "DP120P-NO1-T",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "DP120P-ONL",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "DP120P-ONL-R",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "DP120P-REB",
+    "status": "terpetakan",
+    "keluarga": "REBEL"
+  },
+  {
+    "kodeProduk": "DP120P-SIG",
+    "status": "terpetakan",
+    "keluarga": "SIGNATURE"
+  },
+  {
+    "kodeProduk": "DP120P-YES",
+    "status": "terpetakan",
+    "keluarga": "YES I AM"
+  },
+  {
+    "kodeProduk": "DW110E-FEE",
+    "status": "terpetakan",
+    "keluarga": "FEELING GOOD"
+  },
+  {
+    "kodeProduk": "DW110E-FOR",
+    "status": "terpetakan",
+    "keluarga": "FORBIDDEN TEMPTATION"
+  },
+  {
+    "kodeProduk": "DW110E-GOR",
+    "status": "terpetakan",
+    "keluarga": "GORGEOUS TUBEROSE"
+  },
+  {
+    "kodeProduk": "DW110E-GOR-T",
+    "status": "terpetakan",
+    "keluarga": "GORGEOUS TUBEROSE"
+  },
+  {
+    "kodeProduk": "DW110E-HOL",
+    "status": "terpetakan",
+    "keluarga": "HOLY SWEET"
+  },
+  {
+    "kodeProduk": "DW110E-HOL-T",
+    "status": "terpetakan",
+    "keluarga": "HOLY SWEET"
+  },
+  {
+    "kodeProduk": "DW110E-IRR",
+    "status": "terpetakan",
+    "keluarga": "IRRESISTIBLE"
+  },
+  {
+    "kodeProduk": "DW110E-KIS",
+    "status": "terpetakan",
+    "keluarga": "KISS FROM A ROSE"
+  },
+  {
+    "kodeProduk": "DW110E-LAD",
+    "status": "terpetakan",
+    "keluarga": "LADY BOSS"
+  },
+  {
+    "kodeProduk": "DW110E-PRI",
+    "status": "terpetakan",
+    "keluarga": "PRINCESS"
+  },
+  {
+    "kodeProduk": "DW110E-REM",
+    "status": "terpetakan",
+    "keluarga": "REMEMBER ME"
+  },
+  {
+    "kodeProduk": "DW110E-ROM",
+    "status": "terpetakan",
+    "keluarga": "ROMANTICA EXOTICA"
+  },
+  {
+    "kodeProduk": "DW110E-SED",
+    "status": "terpetakan",
+    "keluarga": "SEDUCTION"
+  },
+  {
+    "kodeProduk": "DW110E-SEN",
+    "status": "terpetakan",
+    "keluarga": "SENSUAL OBSESSION"
+  },
+  {
+    "kodeProduk": "DW110E-SWE",
+    "status": "terpetakan",
+    "keluarga": "SWEET CHERRY ROSE"
+  },
+  {
+    "kodeProduk": "DW110E-THE",
+    "status": "terpetakan",
+    "keluarga": "THE ONLY ONE"
+  },
+  {
+    "kodeProduk": "DW110E-UNS",
+    "status": "terpetakan",
+    "keluarga": "UNSTOPPABLE"
+  },
+  {
+    "kodeProduk": "DW110E-UNS-T",
+    "status": "terpetakan",
+    "keluarga": "UNSTOPPABLE"
+  },
+  {
+    "kodeProduk": "DW110E-VAN",
+    "status": "terpetakan",
+    "keluarga": "VANILLA MANGO"
+  },
+  {
+    "kodeProduk": "DW110P-FEE",
+    "status": "terpetakan",
+    "keluarga": "FEELING GOOD"
+  },
+  {
+    "kodeProduk": "DW110P-GOR",
+    "status": "terpetakan",
+    "keluarga": "GORGEOUS TUBEROSE"
+  },
+  {
+    "kodeProduk": "DW110P-GOR-T",
+    "status": "terpetakan",
+    "keluarga": "GORGEOUS TUBEROSE"
+  },
+  {
+    "kodeProduk": "DW110P-HOL",
+    "status": "terpetakan",
+    "keluarga": "HOLY SWEET"
+  },
+  {
+    "kodeProduk": "DW110P-HOL-T",
+    "status": "terpetakan",
+    "keluarga": "HOLY SWEET"
+  },
+  {
+    "kodeProduk": "DW110P-IRR",
+    "status": "terpetakan",
+    "keluarga": "IRRESISTIBLE"
+  },
+  {
+    "kodeProduk": "DW110P-KIS",
+    "status": "terpetakan",
+    "keluarga": "KISS FROM A ROSE"
+  },
+  {
+    "kodeProduk": "DW110P-LAD",
+    "status": "terpetakan",
+    "keluarga": "LADY BOSS"
+  },
+  {
+    "kodeProduk": "DW110P-PRI",
+    "status": "terpetakan",
+    "keluarga": "PRINCESS"
+  },
+  {
+    "kodeProduk": "DW110P-REM",
+    "status": "terpetakan",
+    "keluarga": "REMEMBER ME"
+  },
+  {
+    "kodeProduk": "DW110P-ROM",
+    "status": "terpetakan",
+    "keluarga": "ROMANTICA EXOTICA"
+  },
+  {
+    "kodeProduk": "DW110P-SED",
+    "status": "terpetakan",
+    "keluarga": "SEDUCTION"
+  },
+  {
+    "kodeProduk": "DW110P-SEN",
+    "status": "terpetakan",
+    "keluarga": "SENSUAL OBSESSION"
+  },
+  {
+    "kodeProduk": "DW110P-SWE",
+    "status": "terpetakan",
+    "keluarga": "SWEET CHERRY ROSE"
+  },
+  {
+    "kodeProduk": "DW110P-THE",
+    "status": "terpetakan",
+    "keluarga": "THE ONLY ONE"
+  },
+  {
+    "kodeProduk": "DW110P-UNS",
+    "status": "terpetakan",
+    "keluarga": "UNSTOPPABLE"
+  },
+  {
+    "kodeProduk": "DW110P-VAN",
+    "status": "terpetakan",
+    "keluarga": "VANILLA MANGO"
+  },
+  {
+    "kodeProduk": "GS15-B",
+    "status": "terpetakan",
+    "keluarga": "GIFT SET BOX"
+  },
+  {
+    "kodeProduk": "GS15-W",
+    "status": "terpetakan",
+    "keluarga": "GIFT SET BOX"
+  },
+  {
+    "kodeProduk": "HAM120E-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "HAM120P-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "HAME-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "HAME-THE",
+    "status": "terpetakan",
+    "keluarga": "THE ONLY ONE"
+  },
+  {
+    "kodeProduk": "HAMP-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "HAMP-THE",
+    "status": "terpetakan",
+    "keluarga": "THE ONLY ONE"
+  },
+  {
+    "kodeProduk": "KEM-CAN",
+    "status": "tanpa-aroma",
+    "keluarga": null
+  },
+  {
+    "kodeProduk": "KEM-GIF",
+    "status": "tanpa-aroma",
+    "keluarga": null
+  },
+  {
+    "kodeProduk": "KEM-KAR",
+    "status": "tanpa-aroma",
+    "keluarga": null
+  },
+  {
+    "kodeProduk": "KEM-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "KEM-PAP",
+    "status": "tanpa-aroma",
+    "keluarga": null
+  },
+  {
+    "kodeProduk": "KEM-THE",
+    "status": "terpetakan",
+    "keluarga": "THE ONLY ONE"
+  },
+  {
+    "kodeProduk": "KTB-GOR",
+    "status": "terpetakan",
+    "keluarga": "GORGEOUS TUBEROSE"
+  },
+  {
+    "kodeProduk": "KTB-HOL",
+    "status": "terpetakan",
+    "keluarga": "HOLY SWEET"
+  },
+  {
+    "kodeProduk": "KTB-NO1",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "KTB-ONL",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "KTL-24H",
+    "status": "terpetakan",
+    "keluarga": "24HOURS"
+  },
+  {
+    "kodeProduk": "KTL-CHA",
+    "status": "terpetakan",
+    "keluarga": "CHAMPION"
+  },
+  {
+    "kodeProduk": "KTL-DAY",
+    "status": "terpetakan",
+    "keluarga": "DAY"
+  },
+  {
+    "kodeProduk": "KTL-FEE",
+    "status": "terpetakan",
+    "keluarga": "FEELING GOOD"
+  },
+  {
+    "kodeProduk": "KTL-FOR",
+    "status": "terpetakan",
+    "keluarga": "FORBIDDEN TEMPTATION"
+  },
+  {
+    "kodeProduk": "KTL-GOR",
+    "status": "terpetakan",
+    "keluarga": "GORGEOUS TUBEROSE"
+  },
+  {
+    "kodeProduk": "KTL-HOL",
+    "status": "terpetakan",
+    "keluarga": "HOLY SWEET"
+  },
+  {
+    "kodeProduk": "KTL-HYP",
+    "status": "terpetakan",
+    "keluarga": "HYPNOTIZED"
+  },
+  {
+    "kodeProduk": "KTL-ICO",
+    "status": "terpetakan",
+    "keluarga": "ICON"
+  },
+  {
+    "kodeProduk": "KTL-IRR",
+    "status": "terpetakan",
+    "keluarga": "IRRESISTIBLE"
+  },
+  {
+    "kodeProduk": "KTL-KIS",
+    "status": "terpetakan",
+    "keluarga": "KISS FROM A ROSE"
+  },
+  {
+    "kodeProduk": "KTL-LAD",
+    "status": "terpetakan",
+    "keluarga": "LADY BOSS"
+  },
+  {
+    "kodeProduk": "KTL-MOR",
+    "status": "terpetakan",
+    "keluarga": "MORNING GRASS"
+  },
+  {
+    "kodeProduk": "KTL-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "KTL-NO1",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "KTL-ONL",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "KTL-POL",
+    "status": "tanpa-aroma",
+    "keluarga": null
+  },
+  {
+    "kodeProduk": "KTL-PRI",
+    "status": "terpetakan",
+    "keluarga": "PRINCESS"
+  },
+  {
+    "kodeProduk": "KTL-REB",
+    "status": "terpetakan",
+    "keluarga": "REBEL"
+  },
+  {
+    "kodeProduk": "KTL-REM",
+    "status": "terpetakan",
+    "keluarga": "REMEMBER ME"
+  },
+  {
+    "kodeProduk": "KTL-ROM",
+    "status": "terpetakan",
+    "keluarga": "ROMANTICA EXOTICA"
+  },
+  {
+    "kodeProduk": "KTL-SED",
+    "status": "terpetakan",
+    "keluarga": "SEDUCTION"
+  },
+  {
+    "kodeProduk": "KTL-SEN",
+    "status": "terpetakan",
+    "keluarga": "SENSUAL OBSESSION"
+  },
+  {
+    "kodeProduk": "KTL-SIG",
+    "status": "terpetakan",
+    "keluarga": "SIGNATURE"
+  },
+  {
+    "kodeProduk": "KTL-SWE",
+    "status": "terpetakan",
+    "keluarga": "SWEET CHERRY ROSE"
+  },
+  {
+    "kodeProduk": "KTL-THE",
+    "status": "terpetakan",
+    "keluarga": "THE ONLY ONE"
+  },
+  {
+    "kodeProduk": "KTL-UNS",
+    "status": "terpetakan",
+    "keluarga": "UNSTOPPABLE"
+  },
+  {
+    "kodeProduk": "KTL-VAN",
+    "status": "terpetakan",
+    "keluarga": "VANILLA MANGO"
+  },
+  {
+    "kodeProduk": "KTL-YES",
+    "status": "terpetakan",
+    "keluarga": "YES I AM"
+  },
+  {
+    "kodeProduk": "KTP-24H",
+    "status": "terpetakan",
+    "keluarga": "24HOURS"
+  },
+  {
+    "kodeProduk": "KTP-CHA",
+    "status": "terpetakan",
+    "keluarga": "CHAMPION"
+  },
+  {
+    "kodeProduk": "KTP-DAY",
+    "status": "terpetakan",
+    "keluarga": "DAY"
+  },
+  {
+    "kodeProduk": "KTP-FEE",
+    "status": "terpetakan",
+    "keluarga": "FEELING GOOD"
+  },
+  {
+    "kodeProduk": "KTP-FOR",
+    "status": "terpetakan",
+    "keluarga": "FORBIDDEN TEMPTATION"
+  },
+  {
+    "kodeProduk": "KTP-GOR",
+    "status": "terpetakan",
+    "keluarga": "GORGEOUS TUBEROSE"
+  },
+  {
+    "kodeProduk": "KTP-HOL",
+    "status": "terpetakan",
+    "keluarga": "HOLY SWEET"
+  },
+  {
+    "kodeProduk": "KTP-HYP",
+    "status": "terpetakan",
+    "keluarga": "HYPNOTIZED"
+  },
+  {
+    "kodeProduk": "KTP-ICO",
+    "status": "terpetakan",
+    "keluarga": "ICON"
+  },
+  {
+    "kodeProduk": "KTP-IRR",
+    "status": "terpetakan",
+    "keluarga": "IRRESISTIBLE"
+  },
+  {
+    "kodeProduk": "KTP-KIS",
+    "status": "terpetakan",
+    "keluarga": "KISS FROM A ROSE"
+  },
+  {
+    "kodeProduk": "KTP-LAD",
+    "status": "terpetakan",
+    "keluarga": "LADY BOSS"
+  },
+  {
+    "kodeProduk": "KTP-MOR",
+    "status": "terpetakan",
+    "keluarga": "MORNING GRASS"
+  },
+  {
+    "kodeProduk": "KTP-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "KTP-NO1",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "KTP-ONL",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "KTP-PEL",
+    "status": "tanpa-aroma",
+    "keluarga": null
+  },
+  {
+    "kodeProduk": "KTP-POL",
+    "status": "tanpa-aroma",
+    "keluarga": null
+  },
+  {
+    "kodeProduk": "KTP-PRI",
+    "status": "terpetakan",
+    "keluarga": "PRINCESS"
+  },
+  {
+    "kodeProduk": "KTP-REB",
+    "status": "terpetakan",
+    "keluarga": "REBEL"
+  },
+  {
+    "kodeProduk": "KTP-REM",
+    "status": "terpetakan",
+    "keluarga": "REMEMBER ME"
+  },
+  {
+    "kodeProduk": "KTP-ROM",
+    "status": "terpetakan",
+    "keluarga": "ROMANTICA EXOTICA"
+  },
+  {
+    "kodeProduk": "KTP-SED",
+    "status": "terpetakan",
+    "keluarga": "SEDUCTION"
+  },
+  {
+    "kodeProduk": "KTP-SEN",
+    "status": "terpetakan",
+    "keluarga": "SENSUAL OBSESSION"
+  },
+  {
+    "kodeProduk": "KTP-SIG",
+    "status": "terpetakan",
+    "keluarga": "SIGNATURE"
+  },
+  {
+    "kodeProduk": "KTP-SWE",
+    "status": "terpetakan",
+    "keluarga": "SWEET CHERRY ROSE"
+  },
+  {
+    "kodeProduk": "KTP-THE",
+    "status": "terpetakan",
+    "keluarga": "THE ONLY ONE"
+  },
+  {
+    "kodeProduk": "KTP-UNS",
+    "status": "terpetakan",
+    "keluarga": "UNSTOPPABLE"
+  },
+  {
+    "kodeProduk": "KTP-VAN",
+    "status": "terpetakan",
+    "keluarga": "VANILLA MANGO"
+  },
+  {
+    "kodeProduk": "KTP-YES",
+    "status": "terpetakan",
+    "keluarga": "YES I AM"
+  },
+  {
+    "kodeProduk": "PB15-HS",
+    "status": "tanpa-aroma",
+    "keluarga": null
+  },
+  {
+    "kodeProduk": "PP100E-24H",
+    "status": "terpetakan",
+    "keluarga": "24HOURS"
+  },
+  {
+    "kodeProduk": "PP100E-DAY",
+    "status": "terpetakan",
+    "keluarga": "DAY"
+  },
+  {
+    "kodeProduk": "PP100E-HYP",
+    "status": "terpetakan",
+    "keluarga": "HYPNOTIZED"
+  },
+  {
+    "kodeProduk": "PP100E-ICO",
+    "status": "terpetakan",
+    "keluarga": "ICON"
+  },
+  {
+    "kodeProduk": "PP100E-MOR",
+    "status": "terpetakan",
+    "keluarga": "MORNING GRASS"
+  },
+  {
+    "kodeProduk": "PP100E-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "PP100E-NO1",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "PP100E-ONL",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "PP100E-REB",
+    "status": "terpetakan",
+    "keluarga": "REBEL"
+  },
+  {
+    "kodeProduk": "PP100E-SIG",
+    "status": "terpetakan",
+    "keluarga": "SIGNATURE"
+  },
+  {
+    "kodeProduk": "PP100E-YES",
+    "status": "terpetakan",
+    "keluarga": "YES I AM"
+  },
+  {
+    "kodeProduk": "PP100P-24H",
+    "status": "terpetakan",
+    "keluarga": "24HOURS"
+  },
+  {
+    "kodeProduk": "PP100P-DAY",
+    "status": "terpetakan",
+    "keluarga": "DAY"
+  },
+  {
+    "kodeProduk": "PP100P-HYP",
+    "status": "terpetakan",
+    "keluarga": "HYPNOTIZED"
+  },
+  {
+    "kodeProduk": "PP100P-MOR",
+    "status": "terpetakan",
+    "keluarga": "MORNING GRASS"
+  },
+  {
+    "kodeProduk": "PP100P-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "PP100P-NO1",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "PP100P-ONL",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "PP100P-REB",
+    "status": "terpetakan",
+    "keluarga": "REBEL"
+  },
+  {
+    "kodeProduk": "PP100P-SIG",
+    "status": "terpetakan",
+    "keluarga": "SIGNATURE"
+  },
+  {
+    "kodeProduk": "PP100P-YES",
+    "status": "terpetakan",
+    "keluarga": "YES I AM"
+  },
+  {
+    "kodeProduk": "PP120E-24H",
+    "status": "terpetakan",
+    "keluarga": "24HOURS"
+  },
+  {
+    "kodeProduk": "PP120E-CHA",
+    "status": "terpetakan",
+    "keluarga": "CHAMPION"
+  },
+  {
+    "kodeProduk": "PP120E-DAY",
+    "status": "terpetakan",
+    "keluarga": "DAY"
+  },
+  {
+    "kodeProduk": "PP120E-HYP",
+    "status": "terpetakan",
+    "keluarga": "HYPNOTIZED"
+  },
+  {
+    "kodeProduk": "PP120E-ICO",
+    "status": "terpetakan",
+    "keluarga": "ICON"
+  },
+  {
+    "kodeProduk": "PP120E-MOR",
+    "status": "terpetakan",
+    "keluarga": "MORNING GRASS"
+  },
+  {
+    "kodeProduk": "PP120E-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "PP120E-NO1",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "PP120E-ONL",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "PP120E-ONL-R",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "PP120E-REB",
+    "status": "terpetakan",
+    "keluarga": "REBEL"
+  },
+  {
+    "kodeProduk": "PP120E-SIG",
+    "status": "terpetakan",
+    "keluarga": "SIGNATURE"
+  },
+  {
+    "kodeProduk": "PP120E-YES",
+    "status": "terpetakan",
+    "keluarga": "YES I AM"
+  },
+  {
+    "kodeProduk": "PP120P-24H",
+    "status": "terpetakan",
+    "keluarga": "24HOURS"
+  },
+  {
+    "kodeProduk": "PP120P-CHA",
+    "status": "terpetakan",
+    "keluarga": "CHAMPION"
+  },
+  {
+    "kodeProduk": "PP120P-DAY",
+    "status": "terpetakan",
+    "keluarga": "DAY"
+  },
+  {
+    "kodeProduk": "PP120P-HYP",
+    "status": "terpetakan",
+    "keluarga": "HYPNOTIZED"
+  },
+  {
+    "kodeProduk": "PP120P-MOR",
+    "status": "terpetakan",
+    "keluarga": "MORNING GRASS"
+  },
+  {
+    "kodeProduk": "PP120P-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "PP120P-NO1",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "PP120P-ONL",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "PP120P-ONL-R",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "PP120P-REB",
+    "status": "terpetakan",
+    "keluarga": "REBEL"
+  },
+  {
+    "kodeProduk": "PP120P-SIG",
+    "status": "terpetakan",
+    "keluarga": "SIGNATURE"
+  },
+  {
+    "kodeProduk": "PP120P-YES",
+    "status": "terpetakan",
+    "keluarga": "YES I AM"
+  },
+  {
+    "kodeProduk": "PW100E-SEN",
+    "status": "terpetakan",
+    "keluarga": "SENSUAL OBSESSION"
+  },
+  {
+    "kodeProduk": "PW100E-VAN",
+    "status": "terpetakan",
+    "keluarga": "VANILLA MANGO"
+  },
+  {
+    "kodeProduk": "PW100P-SEN",
+    "status": "terpetakan",
+    "keluarga": "SENSUAL OBSESSION"
+  },
+  {
+    "kodeProduk": "PW100P-VAN",
+    "status": "terpetakan",
+    "keluarga": "VANILLA MANGO"
+  },
+  {
+    "kodeProduk": "PW110E-FEE",
+    "status": "terpetakan",
+    "keluarga": "FEELING GOOD"
+  },
+  {
+    "kodeProduk": "PW110E-FOR",
+    "status": "terpetakan",
+    "keluarga": "FORBIDDEN TEMPTATION"
+  },
+  {
+    "kodeProduk": "PW110E-GOR",
+    "status": "terpetakan",
+    "keluarga": "GORGEOUS TUBEROSE"
+  },
+  {
+    "kodeProduk": "PW110E-HOL",
+    "status": "terpetakan",
+    "keluarga": "HOLY SWEET"
+  },
+  {
+    "kodeProduk": "PW110E-IRR",
+    "status": "terpetakan",
+    "keluarga": "IRRESISTIBLE"
+  },
+  {
+    "kodeProduk": "PW110E-KIS",
+    "status": "terpetakan",
+    "keluarga": "KISS FROM A ROSE"
+  },
+  {
+    "kodeProduk": "PW110E-LAD",
+    "status": "terpetakan",
+    "keluarga": "LADY BOSS"
+  },
+  {
+    "kodeProduk": "PW110E-PRI",
+    "status": "terpetakan",
+    "keluarga": "PRINCESS"
+  },
+  {
+    "kodeProduk": "PW110E-REM",
+    "status": "terpetakan",
+    "keluarga": "REMEMBER ME"
+  },
+  {
+    "kodeProduk": "PW110E-ROM",
+    "status": "terpetakan",
+    "keluarga": "ROMANTICA EXOTICA"
+  },
+  {
+    "kodeProduk": "PW110E-SED",
+    "status": "terpetakan",
+    "keluarga": "SEDUCTION"
+  },
+  {
+    "kodeProduk": "PW110E-SEN",
+    "status": "terpetakan",
+    "keluarga": "SENSUAL OBSESSION"
+  },
+  {
+    "kodeProduk": "PW110E-SWE",
+    "status": "terpetakan",
+    "keluarga": "SWEET CHERRY ROSE"
+  },
+  {
+    "kodeProduk": "PW110E-UNS",
+    "status": "terpetakan",
+    "keluarga": "UNSTOPPABLE"
+  },
+  {
+    "kodeProduk": "PW110E-VAN",
+    "status": "terpetakan",
+    "keluarga": "VANILLA MANGO"
+  },
+  {
+    "kodeProduk": "PW110P-FEE",
+    "status": "terpetakan",
+    "keluarga": "FEELING GOOD"
+  },
+  {
+    "kodeProduk": "PW110P-GOR",
+    "status": "terpetakan",
+    "keluarga": "GORGEOUS TUBEROSE"
+  },
+  {
+    "kodeProduk": "PW110P-HOL",
+    "status": "terpetakan",
+    "keluarga": "HOLY SWEET"
+  },
+  {
+    "kodeProduk": "PW110P-IRR",
+    "status": "terpetakan",
+    "keluarga": "IRRESISTIBLE"
+  },
+  {
+    "kodeProduk": "PW110P-KIS",
+    "status": "terpetakan",
+    "keluarga": "KISS FROM A ROSE"
+  },
+  {
+    "kodeProduk": "PW110P-LAD",
+    "status": "terpetakan",
+    "keluarga": "LADY BOSS"
+  },
+  {
+    "kodeProduk": "PW110P-PRI",
+    "status": "terpetakan",
+    "keluarga": "PRINCESS"
+  },
+  {
+    "kodeProduk": "PW110P-REM",
+    "status": "terpetakan",
+    "keluarga": "REMEMBER ME"
+  },
+  {
+    "kodeProduk": "PW110P-ROM",
+    "status": "terpetakan",
+    "keluarga": "ROMANTICA EXOTICA"
+  },
+  {
+    "kodeProduk": "PW110P-SED",
+    "status": "terpetakan",
+    "keluarga": "SEDUCTION"
+  },
+  {
+    "kodeProduk": "PW110P-SEN",
+    "status": "terpetakan",
+    "keluarga": "SENSUAL OBSESSION"
+  },
+  {
+    "kodeProduk": "PW110P-SWE",
+    "status": "terpetakan",
+    "keluarga": "SWEET CHERRY ROSE"
+  },
+  {
+    "kodeProduk": "PW110P-UNS",
+    "status": "terpetakan",
+    "keluarga": "UNSTOPPABLE"
+  },
+  {
+    "kodeProduk": "PW110P-VAN",
+    "status": "terpetakan",
+    "keluarga": "VANILLA MANGO"
+  },
+  {
+    "kodeProduk": "V2E-24H",
+    "status": "terpetakan",
+    "keluarga": "24HOURS"
+  },
+  {
+    "kodeProduk": "V2E-CHA",
+    "status": "terpetakan",
+    "keluarga": "CHAMPION"
+  },
+  {
+    "kodeProduk": "V2E-DAY",
+    "status": "terpetakan",
+    "keluarga": "DAY"
+  },
+  {
+    "kodeProduk": "V2E-FEE",
+    "status": "terpetakan",
+    "keluarga": "FEELING GOOD"
+  },
+  {
+    "kodeProduk": "V2E-FOR",
+    "status": "terpetakan",
+    "keluarga": "FORBIDDEN TEMPTATION"
+  },
+  {
+    "kodeProduk": "V2E-GOR",
+    "status": "terpetakan",
+    "keluarga": "GORGEOUS TUBEROSE"
+  },
+  {
+    "kodeProduk": "V2E-HOL",
+    "status": "terpetakan",
+    "keluarga": "HOLY SWEET"
+  },
+  {
+    "kodeProduk": "V2E-HYP",
+    "status": "terpetakan",
+    "keluarga": "HYPNOTIZED"
+  },
+  {
+    "kodeProduk": "V2E-ICO",
+    "status": "terpetakan",
+    "keluarga": "ICON"
+  },
+  {
+    "kodeProduk": "V2E-IRR",
+    "status": "terpetakan",
+    "keluarga": "IRRESISTIBLE"
+  },
+  {
+    "kodeProduk": "V2E-KIS",
+    "status": "terpetakan",
+    "keluarga": "KISS FROM A ROSE"
+  },
+  {
+    "kodeProduk": "V2E-LAD",
+    "status": "terpetakan",
+    "keluarga": "LADY BOSS"
+  },
+  {
+    "kodeProduk": "V2E-MOR",
+    "status": "terpetakan",
+    "keluarga": "MORNING GRASS"
+  },
+  {
+    "kodeProduk": "V2E-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "V2E-NO1",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "V2E-ONL",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "V2E-PRI",
+    "status": "terpetakan",
+    "keluarga": "PRINCESS"
+  },
+  {
+    "kodeProduk": "V2E-REB",
+    "status": "terpetakan",
+    "keluarga": "REBEL"
+  },
+  {
+    "kodeProduk": "V2E-REM",
+    "status": "terpetakan",
+    "keluarga": "REMEMBER ME"
+  },
+  {
+    "kodeProduk": "V2E-ROM",
+    "status": "terpetakan",
+    "keluarga": "ROMANTICA EXOTICA"
+  },
+  {
+    "kodeProduk": "V2E-SED",
+    "status": "terpetakan",
+    "keluarga": "SEDUCTION"
+  },
+  {
+    "kodeProduk": "V2E-SEN",
+    "status": "terpetakan",
+    "keluarga": "SENSUAL OBSESSION"
+  },
+  {
+    "kodeProduk": "V2E-SIG",
+    "status": "terpetakan",
+    "keluarga": "SIGNATURE"
+  },
+  {
+    "kodeProduk": "V2E-SWE",
+    "status": "terpetakan",
+    "keluarga": "SWEET CHERRY ROSE"
+  },
+  {
+    "kodeProduk": "V2E-THE",
+    "status": "terpetakan",
+    "keluarga": "THE ONLY ONE"
+  },
+  {
+    "kodeProduk": "V2E-UNS",
+    "status": "terpetakan",
+    "keluarga": "UNSTOPPABLE"
+  },
+  {
+    "kodeProduk": "V2E-VAN",
+    "status": "terpetakan",
+    "keluarga": "VANILLA MANGO"
+  },
+  {
+    "kodeProduk": "V2E-YES",
+    "status": "terpetakan",
+    "keluarga": "YES I AM"
+  },
+  {
+    "kodeProduk": "V2P-24H",
+    "status": "terpetakan",
+    "keluarga": "24HOURS"
+  },
+  {
+    "kodeProduk": "V2P-CHA",
+    "status": "terpetakan",
+    "keluarga": "CHAMPION"
+  },
+  {
+    "kodeProduk": "V2P-DAY",
+    "status": "terpetakan",
+    "keluarga": "DAY"
+  },
+  {
+    "kodeProduk": "V2P-FEE",
+    "status": "terpetakan",
+    "keluarga": "FEELING GOOD"
+  },
+  {
+    "kodeProduk": "V2P-GOR",
+    "status": "terpetakan",
+    "keluarga": "GORGEOUS TUBEROSE"
+  },
+  {
+    "kodeProduk": "V2P-HOL",
+    "status": "terpetakan",
+    "keluarga": "HOLY SWEET"
+  },
+  {
+    "kodeProduk": "V2P-HYP",
+    "status": "terpetakan",
+    "keluarga": "HYPNOTIZED"
+  },
+  {
+    "kodeProduk": "V2P-IRR",
+    "status": "terpetakan",
+    "keluarga": "IRRESISTIBLE"
+  },
+  {
+    "kodeProduk": "V2P-KIS",
+    "status": "terpetakan",
+    "keluarga": "KISS FROM A ROSE"
+  },
+  {
+    "kodeProduk": "V2P-LAD",
+    "status": "terpetakan",
+    "keluarga": "LADY BOSS"
+  },
+  {
+    "kodeProduk": "V2P-MOR",
+    "status": "terpetakan",
+    "keluarga": "MORNING GRASS"
+  },
+  {
+    "kodeProduk": "V2P-MRF",
+    "status": "terpetakan",
+    "keluarga": "MR. FANTASTIC"
+  },
+  {
+    "kodeProduk": "V2P-NO1",
+    "status": "terpetakan",
+    "keluarga": "NO1"
+  },
+  {
+    "kodeProduk": "V2P-ONL",
+    "status": "terpetakan",
+    "keluarga": "ONLY THE BRAVE"
+  },
+  {
+    "kodeProduk": "V2P-PRI",
+    "status": "terpetakan",
+    "keluarga": "PRINCESS"
+  },
+  {
+    "kodeProduk": "V2P-REB",
+    "status": "terpetakan",
+    "keluarga": "REBEL"
+  },
+  {
+    "kodeProduk": "V2P-REM",
+    "status": "terpetakan",
+    "keluarga": "REMEMBER ME"
+  },
+  {
+    "kodeProduk": "V2P-ROM",
+    "status": "terpetakan",
+    "keluarga": "ROMANTICA EXOTICA"
+  },
+  {
+    "kodeProduk": "V2P-SED",
+    "status": "terpetakan",
+    "keluarga": "SEDUCTION"
+  },
+  {
+    "kodeProduk": "V2P-SEN",
+    "status": "terpetakan",
+    "keluarga": "SENSUAL OBSESSION"
+  },
+  {
+    "kodeProduk": "V2P-SIG",
+    "status": "terpetakan",
+    "keluarga": "SIGNATURE"
+  },
+  {
+    "kodeProduk": "V2P-SWE",
+    "status": "terpetakan",
+    "keluarga": "SWEET CHERRY ROSE"
+  },
+  {
+    "kodeProduk": "V2P-THE",
+    "status": "terpetakan",
+    "keluarga": "THE ONLY ONE"
+  },
+  {
+    "kodeProduk": "V2P-UNS",
+    "status": "terpetakan",
+    "keluarga": "UNSTOPPABLE"
+  },
+  {
+    "kodeProduk": "V2P-VAN",
+    "status": "terpetakan",
+    "keluarga": "VANILLA MANGO"
+  },
+  {
+    "kodeProduk": "V2P-YES",
+    "status": "terpetakan",
+    "keluarga": "YES I AM"
+  }
+]

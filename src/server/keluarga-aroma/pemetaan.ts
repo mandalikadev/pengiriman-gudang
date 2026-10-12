@@ -20,6 +20,8 @@ import {
 
 type Keluarga = { id: number; nama: string };
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 /** Keadaan pemetaan satu produk. `keluarga` terisi persis saat status `terpetakan`. */
 export type Pemetaan = { status: StatusKeluargaAroma; keluarga: Keluarga | null };
 
@@ -159,13 +161,15 @@ export async function muatPemetaanProduk(filterStatus: StatusKeluargaAroma | nul
 
 /**
  * Konfirmasi admin atas pemetaan produk, berurutan sesuai `butir`, dalam satu transaksi. Setiap perubahan dicatat di
- * riwayat (siapa, kapan, dari → ke). Hasil per produk.
+ * riwayat (siapa, kapan, dari → ke). Hasil per produk. `induk` diisi transaksi pemanggil (seed data master, T88)
+ * agar konfirmasi ikut transaksi itu (sebagai savepoint).
  */
 export async function terapkanPemetaan(
   idPelaku: string,
   butir: readonly ButirPemetaan[],
+  induk: typeof db | Tx = db,
 ): Promise<HasilPemetaanProduk[]> {
-  return db.transaction(async (tx) => {
+  return induk.transaction(async (tx) => {
     const idKeluarga = [
       ...new Set(butir.flatMap((b) => (b.tujuan.status === "terpetakan" ? [b.tujuan.idKeluarga] : []))),
     ];

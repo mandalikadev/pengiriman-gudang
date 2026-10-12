@@ -1,0 +1,2156 @@
+[
+  {
+    "kode": "100-ALK",
+    "nama": "ALKOHOL",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "15GL-GOR",
+    "nama": "15ML GLITTER - GORGEOUS TUBEROSE",
+    "ukuran": "15ML",
+    "kategori": "15ML GLITTER/LEATHER"
+  },
+  {
+    "kode": "15GL-HOL",
+    "nama": "15ML GLITTER - HOLY SWEET",
+    "ukuran": "15ML",
+    "kategori": "15ML GLITTER/LEATHER"
+  },
+  {
+    "kode": "15GL-ICO",
+    "nama": "15ML LEATHER - ICON",
+    "ukuran": "15ML",
+    "kategori": "15ML GLITTER/LEATHER"
+  },
+  {
+    "kode": "15GL-MRF",
+    "nama": "15ML LEATHER - MR. FANTASTIC",
+    "ukuran": "15ML",
+    "kategori": "15ML GLITTER/LEATHER"
+  },
+  {
+    "kode": "15GL-NO1",
+    "nama": "15ML LEATHER - NO1",
+    "ukuran": "15ML",
+    "kategori": "15ML GLITTER/LEATHER"
+  },
+  {
+    "kode": "15GL-ONL",
+    "nama": "15ML LEATHER - ONLY THE BRAVE",
+    "ukuran": "15ML",
+    "kategori": "15ML GLITTER/LEATHER"
+  },
+  {
+    "kode": "15GL-REM",
+    "nama": "15ML LEATHER - REMEMBER ME",
+    "ukuran": "15ML",
+    "kategori": "15ML GLITTER/LEATHER"
+  },
+  {
+    "kode": "15GL-ROM",
+    "nama": "15ML GLITTER - ROMANTICA EXOTICA",
+    "ukuran": "15ML",
+    "kategori": "15ML GLITTER/LEATHER"
+  },
+  {
+    "kode": "15GL-THE",
+    "nama": "15ML LEATHER - THE ONLY ONE",
+    "ukuran": "15ML",
+    "kategori": "15ML GLITTER/LEATHER"
+  },
+  {
+    "kode": "15GL-VAN",
+    "nama": "15ML GLITTER - VANILLA MANGO",
+    "ukuran": "15ML",
+    "kategori": "15ML GLITTER/LEATHER"
+  },
+  {
+    "kode": "15GM-24H",
+    "nama": "15ML GLASS MAN - 24HOURS",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "15GM-DAY",
+    "nama": "15ML GLASS MAN - DAY",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "15GM-HYP",
+    "nama": "15ML GLASS MAN - HYPNOTIZED",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "15GM-ICO",
+    "nama": "15ML GLASS MAN - ICON",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "15GM-NO1",
+    "nama": "15ML GLASS MAN - NO1",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "15GM-ONL",
+    "nama": "15ML GLASS MAN - ONLY THE BRAVE",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "15GM-SIG",
+    "nama": "15ML GLASS MAN - SIGNATURE",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "15GW-FOR",
+    "nama": "15ML GLASS WOMAN - FORBIDDEN TEMPTATION",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "15GW-GOR",
+    "nama": "15ML GLASS WOMAN - GORGEOUS TUBEROSE",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "15GW-HOL",
+    "nama": "15ML GLASS WOMAN - HOLY SWEET",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "15GW-IRR",
+    "nama": "15ML GLASS WOMAN - IRRESISTIBLE",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "15GW-LAD",
+    "nama": "15ML GLASS WOMAN - LADY BOSS",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "15GW-REM",
+    "nama": "15ML GLASS WOMAN - REMEMBER ME",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "15GW-ROM",
+    "nama": "15ML GLASS WOMAN - ROMANTICA EXOTICA",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "15GW-SED",
+    "nama": "15ML GLASS WOMAN - SEDUCTION",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "15GW-SWE",
+    "nama": "15ML GLASS WOMAN - SWEET CHERRY ROSE",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "15GW-VAN",
+    "nama": "15ML GLASS WOMAN - VANILLA MANGO",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "A10M-24H",
+    "nama": "24HOURS - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-CHA",
+    "nama": "CHAMPION - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-DAY",
+    "nama": "DAY - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-FEE",
+    "nama": "FEELING GOOD - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-FOR",
+    "nama": "FORBIDDEN TEMPTATION - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-GOR",
+    "nama": "GORGEOUS TUBEROSE - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-HOL",
+    "nama": "HOLY SWEET - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-HYP",
+    "nama": "HYPNOTIZED - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-ICO",
+    "nama": "ICON - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-IRR",
+    "nama": "IRRESISTIBLE - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-KIS",
+    "nama": "KISS FROM A ROSE - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-LAD",
+    "nama": "LADY BOSS - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-MOR",
+    "nama": "MORNING GRASS - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-NO1",
+    "nama": "NO1 - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-ONL",
+    "nama": "ONLY THE BRAVE - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-PRI",
+    "nama": "PRINCESS - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-REB",
+    "nama": "REBEL - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-REM",
+    "nama": "REMEMBER ME - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-ROM",
+    "nama": "ROMANTICA EXOTICA - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-SED",
+    "nama": "SEDUCTION - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-SEN",
+    "nama": "SENSUAL OBSESSION - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-SIG",
+    "nama": "SIGNATURE - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-SWE",
+    "nama": "SWEET CHERRY ROSE - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-UNS",
+    "nama": "UNSTOPPABLE - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-VAN",
+    "nama": "VANILLA MANGO - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "A10M-YES",
+    "nama": "YES I AM - 10ML ATOMIZER",
+    "ukuran": "10ML",
+    "kategori": "ATOMIZER"
+  },
+  {
+    "kode": "BUK-L",
+    "nama": "BOX UK L",
+    "ukuran": "PENUNJANG",
+    "kategori": "KEMASAN"
+  },
+  {
+    "kode": "BUK-M",
+    "nama": "BOX UK M",
+    "ukuran": "PENUNJANG",
+    "kategori": "KEMASAN"
+  },
+  {
+    "kode": "BUK-S",
+    "nama": "BOX UK S",
+    "ukuran": "PENUNJANG",
+    "kategori": "KEMASAN"
+  },
+  {
+    "kode": "DD-GS15-B",
+    "nama": "DISPLAY DUMMY GIFT SET 15ML HITAM",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DD-GS15-W",
+    "nama": "DISPLAY DUMMY GIFT SET 15ML PUTIH",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DD-HAM-THE",
+    "nama": "DISPLAY DUMMY HAMPERS - THE ONLY ONE",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DD-HAM120-MRF",
+    "nama": "DISPLAY DUMMY HAMPERS - MR. FANTASTIC 120ML",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DP100E-24H",
+    "nama": "DISPLAY EXTRAIT - 24HOURS",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100E-DAY",
+    "nama": "DISPLAY EXTRAIT - DAY",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100E-HYP",
+    "nama": "DISPLAY EXTRAIT - HYPNOTIZED",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100E-ICO",
+    "nama": "DISPLAY EXTRAIT-ICON",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100E-MOR",
+    "nama": "DISPLAY EXTRAIT - MORNING GRASS",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100E-MRF",
+    "nama": "DISPLAY EXTRAIT - MR. FANTASTIC",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100E-NO1",
+    "nama": "DISPLAY EXTRAIT - NO1",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100E-ONL",
+    "nama": "DISPLAY EXTRAIT - ONLY THE BRAVE",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100E-ONL-T",
+    "nama": "DISPLAY EXTRAIT - ONLY THE BRAVE TESTER",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100E-REB",
+    "nama": "DISPLAY EXTRAIT - REBEL",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100E-SIG",
+    "nama": "DISPLAY EXTRAIT - SIGNATURE",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100E-YES",
+    "nama": "DISPLAY EXTRAIT - YES I AM",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100P-24H",
+    "nama": "DISPLAY PARFUM INTENSE - 24HOURS",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100P-CHA-T",
+    "nama": "DISPLAY EXTRAIT - 100ML CHAMPION TESTER",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "DP100P-DAY",
+    "nama": "DISPLAY PARFUM INTENSE - DAY",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100P-HYP",
+    "nama": "DISPLAY PARFUM INTENSE - HYPNOTIZED",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100P-MOR",
+    "nama": "DISPLAY PARFUM INTENSE - MORNING GRASS",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100P-MRF",
+    "nama": "DISPLAY PARFUM INTENSE - MR. FANTASTIC",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100P-NO1",
+    "nama": "DISPLAY PARFUM INTENSE - NO1",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100P-NO1-T",
+    "nama": "DISPLAY PARFUM INTENSE - NO1 TESTER",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100P-ONL",
+    "nama": "DISPLAY PARFUM INTENSE - ONLY THE BRAVE",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100P-REB",
+    "nama": "DISPLAY PARFUM INTENSE - REBEL",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100P-SIG",
+    "nama": "DISPLAY PARFUM INTENSE - SIGNATURE",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP100P-YES",
+    "nama": "DISPLAY PARFUM INTENSE - YES I AM",
+    "ukuran": "D100ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120E-24H",
+    "nama": "DISPLAY EXTRAIT - 120ML 24HOURS",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120E-CHA-T",
+    "nama": "DISPLAY EXTRAIT - 120ML CHAMPION TESTER",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120E-DAY",
+    "nama": "DISPLAY EXTRAIT - 120ML DAY",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120E-HYP",
+    "nama": "DISPLAY EXTRAIT - 120ML HYPNOTIZED",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120E-ICO",
+    "nama": "DISPLAY EXTRAIT - 120ML ICON",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120E-MOR",
+    "nama": "DISPLAY EXTRAIT - 120ML MORNING GRASS",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120E-MRF",
+    "nama": "DISPLAY EXTRAIT - 120ML MR. FANTASTIC",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120E-NO1",
+    "nama": "DISPLAY EXTRAIT - 120ML NO1",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120E-ONL",
+    "nama": "DISPLAY EXTRAIT - 120ML ONLY THE BRAVE",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120E-ONL-R",
+    "nama": "DISPLAY EXTRAIT - 120ML ONLY THE BRAVE REWORK",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120E-ONL-T",
+    "nama": "DISPLAY EXTRAIT - 120ML ONLY THE BRAVE TESTER",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120E-REB",
+    "nama": "DISPLAY EXTRAIT - 120ML REBEL",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120E-SIG",
+    "nama": "DISPLAY EXTRAIT - 120ML SIGNATURE",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120E-YES",
+    "nama": "DISPLAY EXTRAIT - 120ML YES I AM",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120P-24H",
+    "nama": "DISPLAY PARFUM INTENSE - 120ML 24HOURS",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120P-CHA",
+    "nama": "DISPLAY PARFUM INTENSE - 120ML CHAMPION",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120P-DAY",
+    "nama": "DISPLAY PARFUM INTENSE - 120ML DAY",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120P-HYP",
+    "nama": "DISPLAY PARFUM INTENSE - 120ML HYPNOTIZED",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120P-MOR",
+    "nama": "DISPLAY PARFUM INTENSE - 120ML MORNING GRASS",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120P-MRF",
+    "nama": "DISPLAY PARFUM INTENSE - 120ML MR. FANTASTIC",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120P-NO1",
+    "nama": "DISPLAY PARFUM INTENSE - 120ML NO1",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120P-NO1-T",
+    "nama": "DISPLAY PARFUM INTENSE - 120ML NO1 TESTER",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "DP120P-ONL",
+    "nama": "DISPLAY PARFUM INTENSE - 120ML ONLY THE BRAVE",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120P-ONL-R",
+    "nama": "DISPLAY PARFUM INTENSE - 120ML ONLY THE BRAVE REWORK",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120P-REB",
+    "nama": "DISPLAY PARFUM INTENSE - 120ML REBEL",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120P-SIG",
+    "nama": "DISPLAY PARFUM INTENSE - 120ML SIGNATURE",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DP120P-YES",
+    "nama": "DISPLAY PARFUM INTENSE - 120ML YES I AM",
+    "ukuran": "D120ML",
+    "kategori": "DISPLAY PRIA"
+  },
+  {
+    "kode": "DW110E-FEE",
+    "nama": "DISPLAY EXTRAIT - FEELING GOOD",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-FOR",
+    "nama": "DISPLAY EXTRAIT - FORBIDDEN TEMPTATION",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-GOR",
+    "nama": "DISPLAY EXTRAIT - GORGEOUS TUBEROSE",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-GOR-T",
+    "nama": "DISPLAY EXTRAIT - GORGEOUS TUBEROSE TESTER",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-HOL",
+    "nama": "DISPLAY EXTRAIT - HOLY SWEET",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-HOL-T",
+    "nama": "DISPLAY EXTRAIT - HOLY SWEET TESTER",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-IRR",
+    "nama": "DISPLAY EXTRAIT - IRRESISTIBLE",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-KIS",
+    "nama": "DISPLAY EXTRAIT - KISS FROM A ROSE",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-LAD",
+    "nama": "DISPLAY EXTRAIT - LADY BOSS",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-PRI",
+    "nama": "DISPLAY EXTRAIT - PRINCESS",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-REM",
+    "nama": "DISPLAY EXTRAIT - REMEMBER ME",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-ROM",
+    "nama": "DISPLAY EXTRAIT - ROMANTICA EXOTICA",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-SED",
+    "nama": "DISPLAY EXTRAIT - SEDUCTION",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-SEN",
+    "nama": "DISPLAY EXTRAIT - SENSUAL OBSESSION",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-SWE",
+    "nama": "DISPLAY EXTRAIT - SWEET CHERRY ROSE",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-THE",
+    "nama": "DISPLAY EXTRAIT - THE ONLY ONE",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-UNS",
+    "nama": "DISPLAY EDP - UNSTOPPABLE",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-UNS-T",
+    "nama": "DISPLAY EXTRAIT - UNSTOPPABLE TESTER",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110E-VAN",
+    "nama": "DISPLAY EXTRAIT - VANILLA MANGO",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110P-FEE",
+    "nama": "DISPLAY PARFUM INTENSE - FEELING GOOD",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110P-GOR",
+    "nama": "DISPLAY PARFUM INTENSE - GORGEOUS TUBEROSE",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110P-GOR-T",
+    "nama": "DISPLAY PARFUM INTENSE - GORGEOUS TUBEROSE TESTER",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110P-HOL",
+    "nama": "DISPLAY PARFUM INTENSE - HOLY SWEET",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110P-HOL-T",
+    "nama": "DISPLAY PARFUM INTENSE - HOLY SWEET TESTER",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110P-IRR",
+    "nama": "DISPLAY PARFUM INTENSE - IRRESISTIBLE",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110P-KIS",
+    "nama": "DISPLAY PARFUM INTENSE - KISS FROM A ROSE",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110P-LAD",
+    "nama": "DISPLAY PARFUM INTENSE - LADY BOSS",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110P-PRI",
+    "nama": "DISPLAY PARFUM INTENSE - PRINCESS",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110P-REM",
+    "nama": "DISPLAY PARFUM INTENSE - REMEMBER ME",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110P-ROM",
+    "nama": "DISPLAY PARFUM INTENSE - ROMANTICA EXOTICA",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110P-SED",
+    "nama": "DISPLAY PARFUM INTENSE - SEDUCTION",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110P-SEN",
+    "nama": "DISPLAY PARFUM INTENSE - SENSUAL OBSESSION",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110P-SWE",
+    "nama": "DISPLAY PARFUM INTENSE - SWEET CHERRY ROSE",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110P-THE",
+    "nama": "DISPLAY PARFUM INTENSE - THE ONLY ONE",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110P-UNS",
+    "nama": "DISPLAY PARFUM INTENSE - UNSTOPPABLE",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "DW110P-VAN",
+    "nama": "DISPLAY PARFUM INTENSE - VANILLA MANGO",
+    "ukuran": "D110ML",
+    "kategori": "DISPLAY WANITA"
+  },
+  {
+    "kode": "GS15-B",
+    "nama": "GIFT SET BOX - HITAM",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "GS15-W",
+    "nama": "GIFT SET BOX - PUTIH",
+    "ukuran": "15ML",
+    "kategori": "GIFT SET"
+  },
+  {
+    "kode": "HAM120E-MRF",
+    "nama": "HAMPERS MR. FANTASTIC - 120ML EXTRAIT",
+    "ukuran": "120ML",
+    "kategori": "HAMPERS"
+  },
+  {
+    "kode": "HAM120P-MRF",
+    "nama": "HAMPERS MR. FANTASTIC - 120ML PARFUM INTENSE",
+    "ukuran": "120ML",
+    "kategori": "HAMPERS"
+  },
+  {
+    "kode": "HAME-MRF",
+    "nama": "HAMPERS MR. FANTASTIC - EXTRAIT",
+    "ukuran": "100ML",
+    "kategori": "HAMPERS"
+  },
+  {
+    "kode": "HAME-THE",
+    "nama": "HAMPERS THE ONLY ONE - EXTRAIT",
+    "ukuran": "110ML",
+    "kategori": "HAMPERS"
+  },
+  {
+    "kode": "HAMP-MRF",
+    "nama": "HAMPERS MR. FANTASTIC - PARFUM INTENSE",
+    "ukuran": "100ML",
+    "kategori": "HAMPERS"
+  },
+  {
+    "kode": "HAMP-THE",
+    "nama": "HAMPERS THE ONLY ONE - PARFUM INTENSE",
+    "ukuran": "110ML",
+    "kategori": "HAMPERS"
+  },
+  {
+    "kode": "KEM-CAN",
+    "nama": "CANVAS BAG MANDALIKA",
+    "ukuran": "PENUNJANG",
+    "kategori": "KEMASAN"
+  },
+  {
+    "kode": "KEM-GIF",
+    "nama": "GIFT CARD",
+    "ukuran": "PENUNJANG",
+    "kategori": "KEMASAN"
+  },
+  {
+    "kode": "KEM-KAR",
+    "nama": "KARTU GARANSI",
+    "ukuran": "PENUNJANG",
+    "kategori": "KEMASAN"
+  },
+  {
+    "kode": "KEM-MRF",
+    "nama": "STICKER GARANSI MR. FANTASTIC",
+    "ukuran": "PENUNJANG",
+    "kategori": "KEMASAN"
+  },
+  {
+    "kode": "KEM-PAP",
+    "nama": "PAPERBAG CREAM",
+    "ukuran": "PENUNJANG",
+    "kategori": "KEMASAN"
+  },
+  {
+    "kode": "KEM-THE",
+    "nama": "STICKER GARANSI THE ONLY ONE",
+    "ukuran": "PENUNJANG",
+    "kategori": "KEMASAN"
+  },
+  {
+    "kode": "KTB-GOR",
+    "nama": "KERTAS TESTER BESAR GORGEOUS TUBEROSE @200",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTB-HOL",
+    "nama": "KERTAS TESTER BESAR HOLY SWEET @200",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTB-NO1",
+    "nama": "KERTAS TESTER BESAR NO1 @200",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTB-ONL",
+    "nama": "KERTAS TESTER BESAR ONLY THE BRAVE @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTL-24H",
+    "nama": "KERTAS TESTER LANDSCAPE 24HOURS @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-CHA",
+    "nama": "KERTAS TESTER LANDSCAPE CHAMPION @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-DAY",
+    "nama": "KERTAS TESTER LANDSCAPE DAY @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-FEE",
+    "nama": "KERTAS TESTER LANDSCAPE FEELING GOOD @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-FOR",
+    "nama": "KERTAS TESTER LANDSCAPE FORBIDDEN TEMPTATION @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-GOR",
+    "nama": "KERTAS TESTER LANDSCAPE GORGEOUS TUBEROSE @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-HOL",
+    "nama": "KERTAS TESTER LANDSCAPE HOLY SWEET @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-HYP",
+    "nama": "KERTAS TESTER LANDSCAPE HYPNOTIZED @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-ICO",
+    "nama": "KERTAS TESTER LANDSCAPE ICON @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-IRR",
+    "nama": "KERTAS TESTER LANDSCAPE IRRESISTIBLE @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-KIS",
+    "nama": "KERTAS TESTER LANDSCAPE KISS FROM A ROSE @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-LAD",
+    "nama": "KERTAS TESTER LANDSCAPE LADY BOSS @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-MOR",
+    "nama": "KERTAS TESTER LANDSCAPE MORNING GRASS @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-MRF",
+    "nama": "KERTAS TESTER LANDSCAPE MR FANTASTIC @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-NO1",
+    "nama": "KERTAS TESTER LANDSCAPE NO1 @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-ONL",
+    "nama": "KERTAS TESTER LANDSCAPE ONLY THE BRAVE @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-POL",
+    "nama": "KERTAS TESTER LANDSCAPE MANDALIKA POLOS @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-PRI",
+    "nama": "KERTAS TESTER LANDSCAPE PRINCESS @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-REB",
+    "nama": "KERTAS TESTER LANDSCAPE REBEL @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-REM",
+    "nama": "KERTAS TESTER LANDSCAPE REMEMBER ME @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-ROM",
+    "nama": "KERTAS TESTER LANDSCAPE ROMANTICA EXOTICA @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-SED",
+    "nama": "KERTAS TESTER LANDSCAPE SEDUCTION @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-SEN",
+    "nama": "KERTAS TESTER LANDSCAPE SENSUAL OBSESSION @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-SIG",
+    "nama": "KERTAS TESTER LANDSCAPE SIGNATURE @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-SWE",
+    "nama": "KERTAS TESTER LANDSCAPE SWEET CHERRY ROSE @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-THE",
+    "nama": "KERTAS TESTER LANDSCAPE THE ONLY ONE @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-UNS",
+    "nama": "KERTAS TESTER LANDSCAPE UNSTOPPABLE @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-VAN",
+    "nama": "KERTAS TESTER LANDSCAPE VANILLA MANGO @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTL-YES",
+    "nama": "KERTAS TESTER LANDSCAPE YES I AM @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTL"
+  },
+  {
+    "kode": "KTP-24H",
+    "nama": "KERTAS TESTER POTRAIT 24HOURS @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-CHA",
+    "nama": "KERTAS TESTER POTRAIT CHAMPION @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-DAY",
+    "nama": "KERTAS TESTER POTRAIT DAY @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-FEE",
+    "nama": "KERTAS TESTER POTRAIT FEELING GOOD @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-FOR",
+    "nama": "KERTAS TESTER POTRAIT FORBIDDEN TEMPTATION @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-GOR",
+    "nama": "KERTAS TESTER POTRAIT GORGEOUS TUBEROSE @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-HOL",
+    "nama": "KERTAS TESTER POTRAIT HOLY SWEET @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-HYP",
+    "nama": "KERTAS TESTER POTRAIT HYPNOTIZED @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-ICO",
+    "nama": "KERTAS TESTER POTRAIT ICON @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-IRR",
+    "nama": "KERTAS TESTER POTRAIT IRRESISTIBLE @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-KIS",
+    "nama": "KERTAS TESTER POTRAIT KISS FROM A ROSE @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-LAD",
+    "nama": "KERTAS TESTER POTRAIT LADY BOSS @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-MOR",
+    "nama": "KERTAS TESTER POTRAIT MORNING GRASS @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-MRF",
+    "nama": "KERTAS TESTER POTRAIT MR FANTASTIC @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-NO1",
+    "nama": "KERTAS TESTER POTRAIT NO1 @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-ONL",
+    "nama": "KERTAS TESTER POTRAIT ONLY THE BRAVE @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-PEL",
+    "nama": "KERTAS TESTER PELURU",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-POL",
+    "nama": "KERTAS TESTER POTRAIT MANDALIKA POLOS @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-PRI",
+    "nama": "KERTAS TESTER POTRAIT PRINCESS @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-REB",
+    "nama": "KERTAS TESTER POTRAIT REBEL @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-REM",
+    "nama": "KERTAS TESTER POTRAIT REMEMBER ME @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-ROM",
+    "nama": "KERTAS TESTER POTRAIT ROMANTICA EXOTICA @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-SED",
+    "nama": "KERTAS TESTER POTRAIT SEDUCTION @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-SEN",
+    "nama": "KERTAS TESTER POTRAIT SENSUAL OBSESSION @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-SIG",
+    "nama": "KERTAS TESTER POTRAIT SIGNATURE @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-SWE",
+    "nama": "KERTAS TESTER POTRAIT SWEET CHERRY ROSE @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-THE",
+    "nama": "KERTAS TESTER POTRAIT THE ONLY ONE @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-UNS",
+    "nama": "KERTAS TESTER POTRAIT UNSTOPPABLE @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-VAN",
+    "nama": "KERTAS TESTER POTRAIT VANILLA MANGO @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "KTP-YES",
+    "nama": "KERTAS TESTER POTRAIT YES I AM @150",
+    "ukuran": "PENUNJANG",
+    "kategori": "KTP"
+  },
+  {
+    "kode": "PB15-HS",
+    "nama": "BOX HEAD SPRAYER",
+    "ukuran": "PENUNJANG",
+    "kategori": "KEMASAN"
+  },
+  {
+    "kode": "PP100E-24H",
+    "nama": "24HOURS - 100ML EXTRAIT",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100E-DAY",
+    "nama": "DAY - 100ML EXTRAIT",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100E-HYP",
+    "nama": "HYPNOTIZED - 100ML EXTRAIT",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100E-ICO",
+    "nama": "ICON - 100ML EXTRAIT",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100E-MOR",
+    "nama": "MORNING GRASS - 100ML EXTRAIT",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100E-MRF",
+    "nama": "MR. FANTASTIC - 100ML EXTRAIT",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100E-NO1",
+    "nama": "NO1 - 100ML EXTRAIT",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100E-ONL",
+    "nama": "ONLY THE BRAVE - 100ML EXTRAIT",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100E-REB",
+    "nama": "REBEL - 100ML EXTRAIT",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100E-SIG",
+    "nama": "SIGNATURE - 100ML EXTRAIT",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100E-YES",
+    "nama": "YES I AM - 100ML EXTRAIT",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100P-24H",
+    "nama": "24HOURS - 100ML PARFUM INTENSE",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100P-DAY",
+    "nama": "DAY - 100ML PARFUM INTENSE",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100P-HYP",
+    "nama": "HYPNOTIZED - 100ML PARFUM INTENSE",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100P-MOR",
+    "nama": "MORNING GRASS - 100ML PARFUM INTENSE",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100P-MRF",
+    "nama": "MR. FANTASTIC - 100ML PARFUM INTENSE",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100P-NO1",
+    "nama": "NO1 - 100ML PARFUM INTENSE",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100P-ONL",
+    "nama": "ONLY THE BRAVE - 100ML PARFUM INTENSE",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100P-REB",
+    "nama": "REBEL - 100ML PARFUM INTENSE",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100P-SIG",
+    "nama": "SIGNATURE - 100ML PARFUM INTENSE",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP100P-YES",
+    "nama": "YES I AM - 100ML PARFUM INTENSE",
+    "ukuran": "100ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120E-24H",
+    "nama": "24HOURS - 120ML EXTRAIT",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120E-CHA",
+    "nama": "CHAMPION - 120ML EXTRAIT",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120E-DAY",
+    "nama": "DAY - 120ML EXTRAIT",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120E-HYP",
+    "nama": "HYPNOTIZED - 120ML EXTRAIT",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120E-ICO",
+    "nama": "ICON - 120ML EXTRAIT",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120E-MOR",
+    "nama": "MORNING GRASS - 120ML EXTRAIT",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120E-MRF",
+    "nama": "MR. FANTASTIC - 120ML EXTRAIT",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120E-NO1",
+    "nama": "NO1 - 120ML EXTRAIT",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120E-ONL",
+    "nama": "ONLY THE BRAVE - 120ML EXTRAIT",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120E-ONL-R",
+    "nama": "ONLY THE BRAVE - 120ML EXTRAIT REWORK",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120E-REB",
+    "nama": "REBEL - 120ML EXTRAIT",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120E-SIG",
+    "nama": "SIGNATURE - 120ML EXTRAIT",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120E-YES",
+    "nama": "YES I AM - 120ML EXTRAIT",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120P-24H",
+    "nama": "24HOURS - 120ML PARFUM INTENSE",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120P-CHA",
+    "nama": "CHAMPION - 120ML PARFUM INTENSE",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120P-DAY",
+    "nama": "DAY - 120ML PARFUM INTENSE",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120P-HYP",
+    "nama": "HYPNOTIZED - 120ML PARFUM INTENSE",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120P-MOR",
+    "nama": "MORNING GRASS - 120ML PARFUM INTENSE",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120P-MRF",
+    "nama": "MR. FANTASTIC - 120ML PARFUM INTENSE",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120P-NO1",
+    "nama": "NO1 - 120ML PARFUM INTENSE",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120P-ONL",
+    "nama": "ONLY THE BRAVE - 120ML PARFUM INTENSE",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120P-ONL-R",
+    "nama": "ONLY THE BRAVE - 120ML PARFUM INTENSE REWORK",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120P-REB",
+    "nama": "REBEL - 120ML PARFUM INTENSE",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120P-SIG",
+    "nama": "SIGNATURE - 120ML PARFUM INTENSE",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PP120P-YES",
+    "nama": "YES I AM - 120ML PARFUM INTENSE",
+    "ukuran": "120ML",
+    "kategori": "PARFUM PRIA"
+  },
+  {
+    "kode": "PW100E-SEN",
+    "nama": "SENSUAL OBSESSION - 100ML M EXTRAIT",
+    "ukuran": "100ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW100E-VAN",
+    "nama": "VANILLA MANGO - 100ML M EXTRAIT",
+    "ukuran": "100ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW100P-SEN",
+    "nama": "SENSUAL OBSESSION - 100ML M PARFUM INTENSE",
+    "ukuran": "100ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW100P-VAN",
+    "nama": "VANILLA MANGO - 100ML M PARFUM INTENSE",
+    "ukuran": "100ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110E-FEE",
+    "nama": "FEELING GOOD - 110ML M EXTRAIT",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110E-FOR",
+    "nama": "FORBIDDEN TEMPTATION - 110ML M EXTRAIT",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110E-GOR",
+    "nama": "GORGEOUS TUBEROSE - 110ML M EXTRAIT",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110E-HOL",
+    "nama": "HOLY SWEET - 110ML M EXTRAIT",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110E-IRR",
+    "nama": "IRRESISTIBLE - 110ML M EXTRAIT",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110E-KIS",
+    "nama": "KISS FROM A ROSE - 110ML M EXTRAIT",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110E-LAD",
+    "nama": "LADY BOSS - 110ML M EXTRAIT",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110E-PRI",
+    "nama": "PRINCESS - 110ML M EXTRAIT",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110E-REM",
+    "nama": "REMEMBER ME - 110ML M EXTRAIT",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110E-ROM",
+    "nama": "ROMANTICA EXOTICA - 110ML M EXTRAIT",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110E-SED",
+    "nama": "SEDUCTION - 110ML M EXTRAIT",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110E-SEN",
+    "nama": "SENSUAL OBSESSION - 110ML M EXTRAIT",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110E-SWE",
+    "nama": "SWEET CHERRY ROSE - 110ML M EXTRAIT",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110E-UNS",
+    "nama": "UNSTOPPABLE - 110ML M EXTRAIT",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110E-VAN",
+    "nama": "VANILLA MANGO - 110ML M EXTRAIT",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110P-FEE",
+    "nama": "FEELING GOOD - 110ML M PARFUM INTENSE",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110P-GOR",
+    "nama": "GORGEOUS TUBEROSE - 110ML M PARFUM INTENSE",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110P-HOL",
+    "nama": "HOLY SWEET - 110ML M PARFUM INTENSE",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110P-IRR",
+    "nama": "IRRESISTIBLE - 110ML M PARFUM INTENSE",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110P-KIS",
+    "nama": "KISS FROM A ROSE - 110ML M PARFUM INTENSE",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110P-LAD",
+    "nama": "LADY BOSS - 110ML M PARFUM INTENSE",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110P-PRI",
+    "nama": "PRINCESS - 110ML M PARFUM INTENSE",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110P-REM",
+    "nama": "REMEMBER ME - 110ML M PARFUM INTENSE",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110P-ROM",
+    "nama": "ROMANTICA EXOTICA - 110ML M PARFUM INTENSE",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110P-SED",
+    "nama": "SEDUCTION - 110ML M PARFUM INTENSE",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110P-SEN",
+    "nama": "SENSUAL OBSESSION - 110ML M PARFUM INTENSE",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110P-SWE",
+    "nama": "SWEET CHERRY ROSE - 110ML M PARFUM INTENSE",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110P-UNS",
+    "nama": "UNSTOPPABLE - 110ML M PARFUM INTENSE",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "PW110P-VAN",
+    "nama": "VANILLA MANGO - 110ML M PARFUM INTENSE",
+    "ukuran": "110ML",
+    "kategori": "PARFUM WANITA"
+  },
+  {
+    "kode": "V2E-24H",
+    "nama": "24HOURS - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-CHA",
+    "nama": "CHAMPION - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-DAY",
+    "nama": "DAY - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-FEE",
+    "nama": "FEELING GOOD - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-FOR",
+    "nama": "FORBIDDEN TEMPTATION - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-GOR",
+    "nama": "GORGEOUS TUBEROSE - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-HOL",
+    "nama": "HOLY SWEET - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-HYP",
+    "nama": "HYPNOTIZED - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-ICO",
+    "nama": "ICON - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-IRR",
+    "nama": "IRRESISTIBLE - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-KIS",
+    "nama": "KISS FROM A ROSE - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-LAD",
+    "nama": "LADY BOSS - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-MOR",
+    "nama": "MORNING GRASS - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-MRF",
+    "nama": "MR. FANTASTIC - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-NO1",
+    "nama": "NO1 - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-ONL",
+    "nama": "ONLY THE BRAVE - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-PRI",
+    "nama": "PRINCESS - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-REB",
+    "nama": "REBEL - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-REM",
+    "nama": "REMEMBER ME - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-ROM",
+    "nama": "ROMANTICA EXOTICA - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-SED",
+    "nama": "SEDUCTION - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-SEN",
+    "nama": "SENSUAL OBSESSION - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-SIG",
+    "nama": "SIGNATURE - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-SWE",
+    "nama": "SWEET CHERRY ROSE - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-THE",
+    "nama": "THE ONLY ONE - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-UNS",
+    "nama": "UNSTOPPABLE - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-VAN",
+    "nama": "VANILLA MANGO - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2E-YES",
+    "nama": "YES I AM - 2ML EXTRAIT",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-24H",
+    "nama": "24HOURS - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-CHA",
+    "nama": "CHAMPION - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-DAY",
+    "nama": "DAY - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-FEE",
+    "nama": "FEELING GOOD - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-GOR",
+    "nama": "GORGEOUS TUBEROSE - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-HOL",
+    "nama": "HOLY SWEET - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-HYP",
+    "nama": "HYPNOTIZED - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-IRR",
+    "nama": "IRRESISTIBLE - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-KIS",
+    "nama": "KISS FROM A ROSE - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-LAD",
+    "nama": "LADY BOSS - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-MOR",
+    "nama": "MORNING GRASS - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-MRF",
+    "nama": "MR. FANTASTIC - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-NO1",
+    "nama": "NO1 - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-ONL",
+    "nama": "ONLY THE BRAVE - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-PRI",
+    "nama": "PRINCESS - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-REB",
+    "nama": "REBEL - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-REM",
+    "nama": "REMEMBER ME - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-ROM",
+    "nama": "ROMANTICA EXOTICA - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-SED",
+    "nama": "SEDUCTION - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-SEN",
+    "nama": "SENSUAL OBSESSION - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-SIG",
+    "nama": "SIGNATURE - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-SWE",
+    "nama": "SWEET CHERRY ROSE - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-THE",
+    "nama": "THE ONLY ONE - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-UNS",
+    "nama": "UNSTOPPABLE - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-VAN",
+    "nama": "VANILLA MANGO - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  },
+  {
+    "kode": "V2P-YES",
+    "nama": "YES I AM - 2ML PARFUM INTENSE",
+    "ukuran": "2ML",
+    "kategori": "VIAL"
+  }
+]

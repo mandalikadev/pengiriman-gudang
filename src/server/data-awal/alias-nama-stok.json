@@ -1,0 +1,822 @@
+[
+  {
+    "alias": "15ML GLITTER/LEATHER - GORGEOUS TUBEROSE",
+    "kodeProduk": "15GL-GOR"
+  },
+  {
+    "alias": "15ML GLITTER/LEATHER - HOLY SWEET",
+    "kodeProduk": "15GL-HOL"
+  },
+  {
+    "alias": "15ML GLITTER/LEATHER - ICON",
+    "kodeProduk": "15GL-ICO"
+  },
+  {
+    "alias": "15ML GLITTER/LEATHER - NO1",
+    "kodeProduk": "15GL-NO1"
+  },
+  {
+    "alias": "15ML GLITTER/LEATHER - ONLY THE BRAVE",
+    "kodeProduk": "15GL-ONL"
+  },
+  {
+    "alias": "15ML GLITTER/LEATHER - REMEMBER ME",
+    "kodeProduk": "15GL-REM"
+  },
+  {
+    "alias": "15ML GLITTER/LEATHER - ROMANTICA EXOTICA",
+    "kodeProduk": "15GL-ROM"
+  },
+  {
+    "alias": "15ML GLITTER/LEATHER - VANILLA MANGO",
+    "kodeProduk": "15GL-VAN"
+  },
+  {
+    "alias": "24HOURS - 100ML EDP",
+    "kodeProduk": "PP100E-24H"
+  },
+  {
+    "alias": "24HOURS - 100ML PARFUM",
+    "kodeProduk": "PP100P-24H"
+  },
+  {
+    "alias": "24HOURS - 120ML EDP",
+    "kodeProduk": "PP120E-24H"
+  },
+  {
+    "alias": "24HOURS - 2ML EDP",
+    "kodeProduk": "V2E-24H"
+  },
+  {
+    "alias": "24HOURS - 2ML PARFUM",
+    "kodeProduk": "V2P-24H"
+  },
+  {
+    "alias": "BOX HEAD SPRAYER - BOX HEAD SPRAYER",
+    "kodeProduk": "PB15-HS"
+  },
+  {
+    "alias": "CHAMPION - 120ML EDP",
+    "kodeProduk": "PP120E-CHA"
+  },
+  {
+    "alias": "CHAMPION - 120ML PARFUM",
+    "kodeProduk": "PP120P-CHA"
+  },
+  {
+    "alias": "CHAMPION - 2ML EDP",
+    "kodeProduk": "V2E-CHA"
+  },
+  {
+    "alias": "CHAMPION - 2ML PARFUM",
+    "kodeProduk": "V2P-CHA"
+  },
+  {
+    "alias": "DAY - 100ML EDP",
+    "kodeProduk": "PP100E-DAY"
+  },
+  {
+    "alias": "DAY - 100ML PARFUM",
+    "kodeProduk": "PP100P-DAY"
+  },
+  {
+    "alias": "DAY - 120ML EDP",
+    "kodeProduk": "PP120E-DAY"
+  },
+  {
+    "alias": "DAY - 2ML EDP",
+    "kodeProduk": "V2E-DAY"
+  },
+  {
+    "alias": "DAY - 2ML PARFUM",
+    "kodeProduk": "V2P-DAY"
+  },
+  {
+    "alias": "DISPLAY DUMMY - DISPLAY DUMMY GIFT SET 15ML HITAM",
+    "kodeProduk": "DD-GS15-B"
+  },
+  {
+    "alias": "DISPLAY DUMMY - DISPLAY DUMMY GIFT SET 15ML PUTIH",
+    "kodeProduk": "DD-GS15-W"
+  },
+  {
+    "alias": "DISPLAY DUMMY - DISPLAY DUMMY HAMPERS - MR. FANTASTIC 120ML",
+    "kodeProduk": "DD-HAM120-MRF"
+  },
+  {
+    "alias": "DISPLAY DUMMY - DISPLAY DUMMY HAMPERS - THE ONLY ONE",
+    "kodeProduk": "DD-HAM-THE"
+  },
+  {
+    "alias": "DISPLAY EDP - 24H 120ML",
+    "kodeProduk": "DP120E-24H"
+  },
+  {
+    "alias": "DISPLAY EDP - 24HOURS",
+    "kodeProduk": "DP100E-24H"
+  },
+  {
+    "alias": "DISPLAY EDP - CHAMPION 120ML TESTER",
+    "kodeProduk": "DP120E-CHA-T"
+  },
+  {
+    "alias": "DISPLAY EDP - DAY",
+    "kodeProduk": "DP100E-DAY"
+  },
+  {
+    "alias": "DISPLAY EDP - DAY 120ML",
+    "kodeProduk": "DP120E-DAY"
+  },
+  {
+    "alias": "DISPLAY EDP - FEELING GOOD",
+    "kodeProduk": "DW110E-FEE"
+  },
+  {
+    "alias": "DISPLAY EDP - FORBIDDEN TEMPTATION",
+    "kodeProduk": "DW110E-FOR"
+  },
+  {
+    "alias": "DISPLAY EDP - GORGEOUS TUBEROSE",
+    "kodeProduk": "DW110E-GOR"
+  },
+  {
+    "alias": "DISPLAY EDP - GORGEOUS TUBEROSE TESTER",
+    "kodeProduk": "DW110E-GOR-T"
+  },
+  {
+    "alias": "DISPLAY EDP - HOLY SWEET",
+    "kodeProduk": "DW110E-HOL"
+  },
+  {
+    "alias": "DISPLAY EDP - HOLY SWEET TESTER",
+    "kodeProduk": "DW110E-HOL-T"
+  },
+  {
+    "alias": "DISPLAY EDP - HYPNO 120ML",
+    "kodeProduk": "DP120E-HYP"
+  },
+  {
+    "alias": "DISPLAY EDP - HYPNOTIZED",
+    "kodeProduk": "DP100E-HYP"
+  },
+  {
+    "alias": "DISPLAY EDP - ICON",
+    "kodeProduk": "DP100E-ICO"
+  },
+  {
+    "alias": "DISPLAY EDP - ICON 120ML",
+    "kodeProduk": "DP120E-ICO"
+  },
+  {
+    "alias": "DISPLAY EDP - IRRESISTIBLE",
+    "kodeProduk": "DW110E-IRR"
+  },
+  {
+    "alias": "DISPLAY EDP - LADY BOSS",
+    "kodeProduk": "DW110E-LAD"
+  },
+  {
+    "alias": "DISPLAY EDP - MORNING 120ML",
+    "kodeProduk": "DP120E-MOR"
+  },
+  {
+    "alias": "DISPLAY EDP - MORNING GRASS",
+    "kodeProduk": "DP100E-MOR"
+  },
+  {
+    "alias": "DISPLAY EDP - MR. FANTASTIC",
+    "kodeProduk": "DP100E-MRF"
+  },
+  {
+    "alias": "DISPLAY EDP - NO1",
+    "kodeProduk": "DP100E-NO1"
+  },
+  {
+    "alias": "DISPLAY EDP - NO1 120ML",
+    "kodeProduk": "DP120E-NO1"
+  },
+  {
+    "alias": "DISPLAY EDP - ONLY THE BRAVE",
+    "kodeProduk": "DP100E-ONL"
+  },
+  {
+    "alias": "DISPLAY EDP - ONLY THE BRAVE 120ML",
+    "kodeProduk": "DP120E-ONL"
+  },
+  {
+    "alias": "DISPLAY EDP - ONLY THE BRAVE 120ML TEST",
+    "kodeProduk": "DP120E-ONL-T"
+  },
+  {
+    "alias": "DISPLAY EDP - ONLY THE BRAVE TESTER",
+    "kodeProduk": "DP100E-ONL-T"
+  },
+  {
+    "alias": "DISPLAY EDP - PRINCESS",
+    "kodeProduk": "DW110E-PRI"
+  },
+  {
+    "alias": "DISPLAY EDP - REBEL",
+    "kodeProduk": "DP100E-REB"
+  },
+  {
+    "alias": "DISPLAY EDP - REMEMBER ME",
+    "kodeProduk": "DW110E-REM"
+  },
+  {
+    "alias": "DISPLAY EDP - ROMANTICA EXOTICA",
+    "kodeProduk": "DW110E-ROM"
+  },
+  {
+    "alias": "DISPLAY EDP - SEDUCTION",
+    "kodeProduk": "DW110E-SED"
+  },
+  {
+    "alias": "DISPLAY EDP - SENSUAL OBSESSION",
+    "kodeProduk": "DW110E-SEN"
+  },
+  {
+    "alias": "DISPLAY EDP - SIGNATURE",
+    "kodeProduk": "DP100E-SIG"
+  },
+  {
+    "alias": "DISPLAY EDP - SIGNATURE 120ML",
+    "kodeProduk": "DP120E-SIG"
+  },
+  {
+    "alias": "DISPLAY EDP - SWEET CHERRY ROSE",
+    "kodeProduk": "DW110E-SWE"
+  },
+  {
+    "alias": "DISPLAY EDP - THE ONLY ONE",
+    "kodeProduk": "DW110E-THE"
+  },
+  {
+    "alias": "DISPLAY EDP - UNSTOPPABLE TESTER",
+    "kodeProduk": "DW110E-UNS-T"
+  },
+  {
+    "alias": "DISPLAY EDP - VANILLA MANGO",
+    "kodeProduk": "DW110E-VAN"
+  },
+  {
+    "alias": "DISPLAY EDP - YES I AM",
+    "kodeProduk": "DP100E-YES"
+  },
+  {
+    "alias": "DISPLAY PARFUM - 24HOURS",
+    "kodeProduk": "DP100P-24H"
+  },
+  {
+    "alias": "DISPLAY PARFUM - CHAMPION 120ML",
+    "kodeProduk": "DP120P-CHA"
+  },
+  {
+    "alias": "DISPLAY PARFUM - DAY",
+    "kodeProduk": "DP100P-DAY"
+  },
+  {
+    "alias": "DISPLAY PARFUM - FEELING GOOD",
+    "kodeProduk": "DW110P-FEE"
+  },
+  {
+    "alias": "DISPLAY PARFUM - GORGEOUS TUBEROSE",
+    "kodeProduk": "DW110P-GOR"
+  },
+  {
+    "alias": "DISPLAY PARFUM - GORGEOUS TUBEROSE TEST",
+    "kodeProduk": "DW110P-GOR-T"
+  },
+  {
+    "alias": "DISPLAY PARFUM - HOLY SWEET",
+    "kodeProduk": "DW110P-HOL"
+  },
+  {
+    "alias": "DISPLAY PARFUM - HOLY SWEET TESTER",
+    "kodeProduk": "DW110P-HOL-T"
+  },
+  {
+    "alias": "DISPLAY PARFUM - HYPNOTIZED",
+    "kodeProduk": "DP100P-HYP"
+  },
+  {
+    "alias": "DISPLAY PARFUM - IRRESISTIBLE",
+    "kodeProduk": "DW110P-IRR"
+  },
+  {
+    "alias": "DISPLAY PARFUM - LADY BOSS",
+    "kodeProduk": "DW110P-LAD"
+  },
+  {
+    "alias": "DISPLAY PARFUM - MORNING GRASS",
+    "kodeProduk": "DP100P-MOR"
+  },
+  {
+    "alias": "DISPLAY PARFUM - MR. FANTASTIC",
+    "kodeProduk": "DP100P-MRF"
+  },
+  {
+    "alias": "DISPLAY PARFUM - MR. FANTASTIC 120ML",
+    "kodeProduk": "DP120P-MRF"
+  },
+  {
+    "alias": "DISPLAY PARFUM - NO1",
+    "kodeProduk": "DP100P-NO1"
+  },
+  {
+    "alias": "DISPLAY PARFUM - NO1 120ML",
+    "kodeProduk": "DP120P-NO1"
+  },
+  {
+    "alias": "DISPLAY PARFUM - NO1 120ML TESTER",
+    "kodeProduk": "DP120P-NO1-T"
+  },
+  {
+    "alias": "DISPLAY PARFUM - NO1 TESTER",
+    "kodeProduk": "DP100P-NO1-T"
+  },
+  {
+    "alias": "DISPLAY PARFUM - ONLY THE BRAVE",
+    "kodeProduk": "DP100P-ONL"
+  },
+  {
+    "alias": "DISPLAY PARFUM - ONLY THE BRAVE 120ML",
+    "kodeProduk": "DP120P-ONL"
+  },
+  {
+    "alias": "DISPLAY PARFUM - PRINCESS",
+    "kodeProduk": "DW110P-PRI"
+  },
+  {
+    "alias": "DISPLAY PARFUM - REBEL",
+    "kodeProduk": "DP100P-REB"
+  },
+  {
+    "alias": "DISPLAY PARFUM - REMEMBER ME",
+    "kodeProduk": "DW110P-REM"
+  },
+  {
+    "alias": "DISPLAY PARFUM - ROMANTICA EXOTICA",
+    "kodeProduk": "DW110P-ROM"
+  },
+  {
+    "alias": "DISPLAY PARFUM - SEDUCTION",
+    "kodeProduk": "DW110P-SED"
+  },
+  {
+    "alias": "DISPLAY PARFUM - SENSUAL OBSESSION",
+    "kodeProduk": "DW110P-SEN"
+  },
+  {
+    "alias": "DISPLAY PARFUM - SIGNATURE",
+    "kodeProduk": "DP100P-SIG"
+  },
+  {
+    "alias": "DISPLAY PARFUM - SWEET CHERRY ROSE",
+    "kodeProduk": "DW110P-SWE"
+  },
+  {
+    "alias": "DISPLAY PARFUM - THE ONLY ONE",
+    "kodeProduk": "DW110P-THE"
+  },
+  {
+    "alias": "DISPLAY PARFUM - VANILLA MANGO",
+    "kodeProduk": "DW110P-VAN"
+  },
+  {
+    "alias": "DISPLAY PARFUM - YES I AM",
+    "kodeProduk": "DP100P-YES"
+  },
+  {
+    "alias": "DISPLAY PARFUM- HYPNO 120ML",
+    "kodeProduk": "DP120P-HYP"
+  },
+  {
+    "alias": "DISPLAY PARFUM-UNSTOPPABLE",
+    "kodeProduk": "DW110P-UNS"
+  },
+  {
+    "alias": "FEELING GOOD - 110ML M EDP",
+    "kodeProduk": "PW110E-FEE"
+  },
+  {
+    "alias": "FEELING GOOD - 110ML M PARFUM",
+    "kodeProduk": "PW110P-FEE"
+  },
+  {
+    "alias": "FEELING GOOD - 2ML EDP",
+    "kodeProduk": "V2E-FEE"
+  },
+  {
+    "alias": "FEELING GOOD - 2ML PARFUM",
+    "kodeProduk": "V2P-FEE"
+  },
+  {
+    "alias": "FORBIDDEN TEMPTATION - 110ML M EDP",
+    "kodeProduk": "PW110E-FOR"
+  },
+  {
+    "alias": "FORBIDDEN TEMPTATION - 2ML EDP",
+    "kodeProduk": "V2E-FOR"
+  },
+  {
+    "alias": "GIFT SET - GIFT SET BOX - HITAM",
+    "kodeProduk": "GS15-B"
+  },
+  {
+    "alias": "GIFT SET - GIFT SET BOX - PUTIH",
+    "kodeProduk": "GS15-W"
+  },
+  {
+    "alias": "GORGEOUS TUBEROSE - 110ML M EDP",
+    "kodeProduk": "PW110E-GOR"
+  },
+  {
+    "alias": "GORGEOUS TUBEROSE - 110ML M PARFUM",
+    "kodeProduk": "PW110P-GOR"
+  },
+  {
+    "alias": "GORGEOUS TUBEROSE - 2ML EDP",
+    "kodeProduk": "V2E-GOR"
+  },
+  {
+    "alias": "GORGEOUS TUBEROSE - 2ML PARFUM",
+    "kodeProduk": "V2P-GOR"
+  },
+  {
+    "alias": "HOLY SWEET - 110ML M EDP",
+    "kodeProduk": "PW110E-HOL"
+  },
+  {
+    "alias": "HOLY SWEET - 110ML M PARFUM",
+    "kodeProduk": "PW110P-HOL"
+  },
+  {
+    "alias": "HOLY SWEET - 2ML EDP",
+    "kodeProduk": "V2E-HOL"
+  },
+  {
+    "alias": "HOLY SWEET - 2ML PARFUM",
+    "kodeProduk": "V2P-HOL"
+  },
+  {
+    "alias": "HYPNOTIZED - 100ML EDP",
+    "kodeProduk": "PP100E-HYP"
+  },
+  {
+    "alias": "HYPNOTIZED - 100ML PARFUM",
+    "kodeProduk": "PP100P-HYP"
+  },
+  {
+    "alias": "HYPNOTIZED - 120ML EDP",
+    "kodeProduk": "PP120E-HYP"
+  },
+  {
+    "alias": "HYPNOTIZED - 120ML PARFUM",
+    "kodeProduk": "PP120P-HYP"
+  },
+  {
+    "alias": "HYPNOTIZED - 2ML EDP",
+    "kodeProduk": "V2E-HYP"
+  },
+  {
+    "alias": "HYPNOTIZED - 2ML PARFUM",
+    "kodeProduk": "V2P-HYP"
+  },
+  {
+    "alias": "ICON - 100ML EDP",
+    "kodeProduk": "PP100E-ICO"
+  },
+  {
+    "alias": "ICON - 120ML EDP",
+    "kodeProduk": "PP120E-ICO"
+  },
+  {
+    "alias": "ICON - 2ML EDP",
+    "kodeProduk": "V2E-ICO"
+  },
+  {
+    "alias": "IRRESISTIBLE - 110ML M EDP",
+    "kodeProduk": "PW110E-IRR"
+  },
+  {
+    "alias": "IRRESISTIBLE - 110ML M PARFUM",
+    "kodeProduk": "PW110P-IRR"
+  },
+  {
+    "alias": "IRRESISTIBLE - 2ML EDP",
+    "kodeProduk": "V2E-IRR"
+  },
+  {
+    "alias": "IRRESISTIBLE - 2ML PARFUM",
+    "kodeProduk": "V2P-IRR"
+  },
+  {
+    "alias": "LADY BOSS - 110ML M EDP",
+    "kodeProduk": "PW110E-LAD"
+  },
+  {
+    "alias": "LADY BOSS - 110ML M PARFUM",
+    "kodeProduk": "PW110P-LAD"
+  },
+  {
+    "alias": "LADY BOSS - 2ML EDP",
+    "kodeProduk": "V2E-LAD"
+  },
+  {
+    "alias": "LADY BOSS - 2ML PARFUM",
+    "kodeProduk": "V2P-LAD"
+  },
+  {
+    "alias": "MORNING GRASS - 100ML EDP",
+    "kodeProduk": "PP100E-MOR"
+  },
+  {
+    "alias": "MORNING GRASS - 100ML PARFUM",
+    "kodeProduk": "PP100P-MOR"
+  },
+  {
+    "alias": "MORNING GRASS - 120ML EDP",
+    "kodeProduk": "PP120E-MOR"
+  },
+  {
+    "alias": "MORNING GRASS - 2ML EDP",
+    "kodeProduk": "V2E-MOR"
+  },
+  {
+    "alias": "MORNING GRASS - 2ML PARFUM",
+    "kodeProduk": "V2P-MOR"
+  },
+  {
+    "alias": "MR. FANTASTIC - 15ML GLITTER/LEATHER MR. FANTASTIC",
+    "kodeProduk": "15GL-MRF"
+  },
+  {
+    "alias": "MR. FANTASTIC - 2ML EDP",
+    "kodeProduk": "V2E-MRF"
+  },
+  {
+    "alias": "MR. FANTASTIC - 2ML PARFUM",
+    "kodeProduk": "V2P-MRF"
+  },
+  {
+    "alias": "MR. FANTASTIC - HAMPERS 120ML EDP",
+    "kodeProduk": "HAM120E-MRF"
+  },
+  {
+    "alias": "MR. FANTASTIC - HAMPERS 120ML PARFUM",
+    "kodeProduk": "HAM120P-MRF"
+  },
+  {
+    "alias": "MR. FANTASTIC - HAMPERS EDP",
+    "kodeProduk": "HAME-MRF"
+  },
+  {
+    "alias": "MR. FANTASTIC - HAMPERS PARFUM",
+    "kodeProduk": "HAMP-MRF"
+  },
+  {
+    "alias": "NO1 - 100ML EDP",
+    "kodeProduk": "PP100E-NO1"
+  },
+  {
+    "alias": "NO1 - 100ML PARFUM",
+    "kodeProduk": "PP100P-NO1"
+  },
+  {
+    "alias": "NO1 - 120ML EDP",
+    "kodeProduk": "PP120E-NO1"
+  },
+  {
+    "alias": "NO1 - 120ML PARFUM",
+    "kodeProduk": "PP120P-NO1"
+  },
+  {
+    "alias": "NO1 - 2ML EDP",
+    "kodeProduk": "V2E-NO1"
+  },
+  {
+    "alias": "NO1 - 2ML PARFUM",
+    "kodeProduk": "V2P-NO1"
+  },
+  {
+    "alias": "ONLY THE BRAVE - 100ML EDP",
+    "kodeProduk": "PP100E-ONL"
+  },
+  {
+    "alias": "ONLY THE BRAVE - 100ML PARFUM",
+    "kodeProduk": "PP100P-ONL"
+  },
+  {
+    "alias": "ONLY THE BRAVE - 120ML EDP",
+    "kodeProduk": "PP120E-ONL"
+  },
+  {
+    "alias": "ONLY THE BRAVE - 120ML PARFUM",
+    "kodeProduk": "PP120P-ONL"
+  },
+  {
+    "alias": "ONLY THE BRAVE - 2ML EDP",
+    "kodeProduk": "V2E-ONL"
+  },
+  {
+    "alias": "ONLY THE BRAVE - 2ML PARFUM",
+    "kodeProduk": "V2P-ONL"
+  },
+  {
+    "alias": "PRINCESS - 110ML M EDP",
+    "kodeProduk": "PW110E-PRI"
+  },
+  {
+    "alias": "PRINCESS - 110ML M PARFUM",
+    "kodeProduk": "PW110P-PRI"
+  },
+  {
+    "alias": "PRINCESS - 2ML EDP",
+    "kodeProduk": "V2E-PRI"
+  },
+  {
+    "alias": "PRINCESS - 2ML PARFUM",
+    "kodeProduk": "V2P-PRI"
+  },
+  {
+    "alias": "REBEL - 100ML EDP",
+    "kodeProduk": "PP100E-REB"
+  },
+  {
+    "alias": "REBEL - 100ML PARFUM",
+    "kodeProduk": "PP100P-REB"
+  },
+  {
+    "alias": "REBEL - 2ML EDP",
+    "kodeProduk": "V2E-REB"
+  },
+  {
+    "alias": "REBEL - 2ML PARFUM",
+    "kodeProduk": "V2P-REB"
+  },
+  {
+    "alias": "REMEMBER ME - 110ML M EDP",
+    "kodeProduk": "PW110E-REM"
+  },
+  {
+    "alias": "REMEMBER ME - 110ML M PARFUM",
+    "kodeProduk": "PW110P-REM"
+  },
+  {
+    "alias": "REMEMBER ME - 2ML EDP",
+    "kodeProduk": "V2E-REM"
+  },
+  {
+    "alias": "REMEMBER ME - 2ML PARFUM",
+    "kodeProduk": "V2P-REM"
+  },
+  {
+    "alias": "ROMANTICA EXOTICA - 110ML M EDP",
+    "kodeProduk": "PW110E-ROM"
+  },
+  {
+    "alias": "ROMANTICA EXOTICA - 110ML M PARFUM",
+    "kodeProduk": "PW110P-ROM"
+  },
+  {
+    "alias": "ROMANTICA EXOTICA - 2ML EDP",
+    "kodeProduk": "V2E-ROM"
+  },
+  {
+    "alias": "ROMANTICA EXOTICA - 2ML PARFUM",
+    "kodeProduk": "V2P-ROM"
+  },
+  {
+    "alias": "SEDUCTION - 110ML M EDP",
+    "kodeProduk": "PW110E-SED"
+  },
+  {
+    "alias": "SEDUCTION - 110ML M PARFUM",
+    "kodeProduk": "PW110P-SED"
+  },
+  {
+    "alias": "SEDUCTION - 2ML EDP",
+    "kodeProduk": "V2E-SED"
+  },
+  {
+    "alias": "SEDUCTION - 2ML PARFUM",
+    "kodeProduk": "V2P-SED"
+  },
+  {
+    "alias": "SENSUAL OBSESSION - 110ML M EDP",
+    "kodeProduk": "PW110E-SEN"
+  },
+  {
+    "alias": "SENSUAL OBSESSION - 110ML M PARFUM",
+    "kodeProduk": "PW110P-SEN"
+  },
+  {
+    "alias": "SENSUAL OBSESSION - 2ML EDP",
+    "kodeProduk": "V2E-SEN"
+  },
+  {
+    "alias": "SENSUAL OBSESSION - 2ML PARFUM",
+    "kodeProduk": "V2P-SEN"
+  },
+  {
+    "alias": "SIGNATURE - 100ML EDP",
+    "kodeProduk": "PP100E-SIG"
+  },
+  {
+    "alias": "SIGNATURE - 100ML PARFUM",
+    "kodeProduk": "PP100P-SIG"
+  },
+  {
+    "alias": "SIGNATURE - 120ML EDP",
+    "kodeProduk": "PP120E-SIG"
+  },
+  {
+    "alias": "SIGNATURE - 2ML EDP",
+    "kodeProduk": "V2E-SIG"
+  },
+  {
+    "alias": "SIGNATURE - 2ML PARFUM",
+    "kodeProduk": "V2P-SIG"
+  },
+  {
+    "alias": "SWEET CHERRY ROSE - 110ML M EDP",
+    "kodeProduk": "PW110E-SWE"
+  },
+  {
+    "alias": "SWEET CHERRY ROSE - 110ML M PARFUM",
+    "kodeProduk": "PW110P-SWE"
+  },
+  {
+    "alias": "SWEET CHERRY ROSE - 2ML EDP",
+    "kodeProduk": "V2E-SWE"
+  },
+  {
+    "alias": "SWEET CHERRY ROSE - 2ML PARFUM",
+    "kodeProduk": "V2P-SWE"
+  },
+  {
+    "alias": "THE ONLY ONE - 2ML EDP",
+    "kodeProduk": "V2E-THE"
+  },
+  {
+    "alias": "THE ONLY ONE - 2ML PARFUM",
+    "kodeProduk": "V2P-THE"
+  },
+  {
+    "alias": "THE ONLY ONE - HAMPERS EDP",
+    "kodeProduk": "HAME-THE"
+  },
+  {
+    "alias": "THE ONLY ONE - HAMPERS PARFUM",
+    "kodeProduk": "HAMP-THE"
+  },
+  {
+    "alias": "UNSTOPPABLE - 110ML M EDP",
+    "kodeProduk": "PW110E-UNS"
+  },
+  {
+    "alias": "UNSTOPPABLE - 110ML M PARFUM",
+    "kodeProduk": "PW110P-UNS"
+  },
+  {
+    "alias": "UNSTOPPABLE - 2ML EDP",
+    "kodeProduk": "V2E-UNS"
+  },
+  {
+    "alias": "UNSTOPPABLE - 2ML PARFUM",
+    "kodeProduk": "V2P-UNS"
+  },
+  {
+    "alias": "VANILLA MANGO - 110ML M EDP",
+    "kodeProduk": "PW110E-VAN"
+  },
+  {
+    "alias": "VANILLA MANGO - 110ML M PARFUM",
+    "kodeProduk": "PW110P-VAN"
+  },
+  {
+    "alias": "VANILLA MANGO - 2ML EDP",
+    "kodeProduk": "V2E-VAN"
+  },
+  {
+    "alias": "VANILLA MANGO - 2ML PARFUM",
+    "kodeProduk": "V2P-VAN"
+  },
+  {
+    "alias": "YES I AM - 100ML EDP",
+    "kodeProduk": "PP100E-YES"
+  },
+  {
+    "alias": "YES I AM - 100ML PARFUM",
+    "kodeProduk": "PP100P-YES"
+  },
+  {
+    "alias": "YES I AM - 2ML EDP",
+    "kodeProduk": "V2E-YES"
+  },
+  {
+    "alias": "YES I AM - 2ML PARFUM",
+    "kodeProduk": "V2P-YES"
+  }
+]
