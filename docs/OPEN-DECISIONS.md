@@ -91,3 +91,7 @@ Daftar hal yang **belum diputuskan pemilik**. Agen tidak mengimplementasikan per
 | T65: uji performa memakai 500 produk (workbook asli 358–359 produk) (2026-10-11) | PRD C1; T65 |
 | OD-12 sebagian: hubungan toko–gudang Gudang Cibubur (16 toko), Gudang Bali (DMB, LWB), Gudang Bandung (PASKAL, PVJ) dari lampiran pemilik; seed UAT menghubungkannya dan mengisi jadwal awal (2026-10-12) | PRD A3, A5; T84 |
 | Unggah file stok per toko di draft (format CSV `;`/`.xlsx`, kolom `Name - Variant`, `Category`, `Ending`), dicocokkan lewat alias nama stok yang dikelola admin, hasil masuk sebagai isian belum disimpan (2026-10-12) | PRD A6; T82, T83 |
+| Impor beberapa sheet sekaligus (bulan dari nama sheet, satu impor per sheet) dan tombol "Aktifkan semua yang siap" (2026-10-12) | PRD A1; T85, T86 |
+| Ringkasan: "Pilih semua"/"Kosongkan" untuk Toko dan Kategori produk (2026-10-12) | PRD A2; T87 |
+| Seed data master (produk, keluarga aroma, pemetaan, alias nama stok) sebagai konfirmasi admin awal; seed UAT (periode sumber, akun operator) (2026-10-12) | PRD A3; T88, T89 |
+| Tombol "Isi 0 untuk stok yang kosong" (produk otomatis, isian belum disimpan) (2026-10-12) | PRD A6; T90 |

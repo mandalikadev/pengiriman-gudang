@@ -27,6 +27,14 @@ Bedakan nol dengan data yang tidak tersedia. Sel penjualan kosong pada tanggal v
 > ▶ Keputusan (OD-01): kuantitas negatif di sel penjualan adalah salah input dan harus diperbaiki di Excel sebelum impor. Pembaca sheet menolaknya sebagai error sehingga impor tidak bisa diaktifkan.
 > ▶ Keputusan (2026-10-09): toko nonaktif di sheet impor tetap diterima, dengan peringatan di halaman tinjau.
 > ▶ Keputusan (2026-10-09): master produk mengikuti impor yang terakhir diaktifkan: nama, ukuran, dan kategori diperbarui, lalu klasifikasi dihitung ulang. Setiap perubahan tampil sebagai peringatan "data produk berubah" di halaman tinjau. Kode produk tetap identitas (ADR-0006). Rencana final tidak terpengaruh karena menyimpan snapshot (A7).
+> ▶ Keputusan (2026-10-12, UAT kedua): impor beberapa sheet sekaligus.
+> - Setelah memilih file, admin boleh mencentang **satu atau lebih** sheet `<BULAN> (S)`. Tahun impor diisi sekali untuk semua sheet terpilih. Bulan impor setiap sheet terisi otomatis dari nama sheet (`JANUARI` … `DESEMBER`, huruf besar/kecil diabaikan) dan tetap bisa diubah; sheet yang nama bulannya tidak dikenali wajib dipilih bulannya.
+> - Dua sheet terpilih dengan tahun–bulan impor yang sama ditolak sebelum diunggah, dengan pesan yang menyebut kedua sheet.
+> - File diunggah satu kali. Setiap sheet terpilih menjadi **satu impor tersendiri** dengan validasi, halaman tinjau, dan status sendiri. Setelah dikirim, admin dibawa ke Daftar impor dan melihat hasil per sheet (berhasil didaftarkan / gagal + alasan).
+> ▶ Keputusan (2026-10-12, UAT kedua): tombol **"Aktifkan semua yang siap"** di Daftar impor.
+> - Mengaktifkan semua impor berstatus "Siap ditinjau" dengan 0 error (peringatan tidak menahan), satu per satu dengan aturan aktivasi yang sama, lalu menampilkan hasil per impor.
+> - Jika ada lebih dari satu impor siap untuk tahun–bulan impor yang sama, impor bulan itu **dilewati** dengan keterangan "Ada lebih dari satu impor siap untuk bulan ini; aktifkan satu per satu dari halaman tinjau." Impor dengan error tampil sebagai dilewati beserta jumlah errornya.
+> - Aktivasi satu per satu dari halaman tinjau tetap ada.
 
 ### A2. Ketika saya membaca laporan penjualan
 
@@ -61,6 +69,7 @@ Untuk Senin–Kamis, penempatan minggu dan bulan laporan mengikuti hari Kamis da
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): semua pengguna yang sudah masuk (admin, operator, viewer) boleh melihat Ringkasan dan mengekspor laporan.
 > ▶ Keputusan (2026-10-09, perencanaan M2–M3): filter "kategori" di Ringkasan adalah kategori **produk**. Kategori hari menjadi kolom tabel.
 > ▶ Keputusan (2026-10-11, UAT terhadap sistem ASOY): Ringkasan menampilkan **4 kartu** di atas tabel, satu per kategori hari (`Senin–Kamis`, `Jumat`, `Sabtu`, `Minggu`). Angka kartu = **jumlah Rata-rata Ringkasan per baris produk–toko** (yang sudah dibulatkan per baris sesuai tahap c) dari **seluruh hasil filter yang sedang diterapkan** (toko, periode, kategori produk, cari), bukan hanya baris pada halaman tabel yang sedang dibuka. Baris yang nilainya tidak tersedia tidak menambah apa pun; nol yang teramati menambah 0. Label kecil kartu: "Jumlah rata-rata produk/toko · seluruh hasil filter" — bukan "total penjualan".
+> ▶ Keputusan (2026-10-12, UAT kedua): filter **Toko** dan **Kategori produk** di Ringkasan masing-masing punya tombol "Pilih semua" dan "Kosongkan". Seperti pilihan lain, hasil baru berubah setelah Terapkan. Pemilih bulan tidak mendapat "Pilih semua" karena dibatasi 1–12 bulan.
 
 ### A3. Ketika saya mengelola gudang dan pengguna
 
@@ -89,6 +98,13 @@ Saya ingin menambahkan beberapa toko sekaligus dengan memilih toko lalu menekan 
 > - PMS, PMJ, QUEEN, MKS, DPM belum ditentukan (tetap OD-12).
 > - Seed UAT (`pnpm uat`) menghubungkan toko di atas ke gudangnya dan mengisi jadwal awal (A5) sebagai **data awal** atas nama admin pertama. Perubahan berikutnya mengikuti alur usulan–persetujuan seperti biasa. Keputusan 2026-10-09 "seed tidak menghubungkan toko" tidak berlaku lagi untuk toko di atas; toko yang masih terbuka tetap dihubungkan penguji lewat halaman admin.
 > ▶ Terbuka: OD-12 untuk PMS, PMJ, QUEEN, MKS, DPM.
+> ▶ Keputusan (2026-10-12, UAT kedua): seed data master dan seed UAT.
+> - **Seed data master** (`pnpm db:seed-master`, juga dijalankan `pnpm uat`) mengisi, dari berkas data di repo yang diturunkan dari file pemilik: master produk (359 produk dari sheet `JUNI (S)`–`AGUSTUS (S)` 2026, klasifikasi dihitung dengan aturan biasa), 29 keluarga aroma (28 baris ranking September 2026 ditambah KISS FROM A ROSE) dengan alias = nama keluarga dan segmen kodenya (GIFT SET BOX: `B` dan `W`), pemetaan produk (347 terpetakan, 12 tanpa aroma) yang tercatat di riwayat pemetaan atas nama admin pertama, dan 205 alias nama stok.
+> - Pemetaan dari seed berlaku sebagai **konfirmasi admin awal** untuk UAT dan instalasi awal. Produk baru yang muncul dari impor berikutnya tetap `belum-dipetakan` dan melewati usulan + konfirmasi admin seperti biasa (ADR-0006 tidak berubah).
+> - Seed idempoten dan **tidak menimpa** perubahan admin: hanya mengisi yang belum ada; produk yang statusnya bukan `belum-dipetakan` tidak diubah. Impor yang diaktifkan kemudian memperbarui nama, ukuran, dan kategori produk seperti biasa.
+> - Asumsi yang ikut dikunci seed, dikonfirmasi lewat UAT 2026-10-12 dan bisa diubah admin dari aplikasi: display dummy `DD-GS15-B`/`DD-GS15-W` masuk GIFT SET BOX (tidak memengaruhi angka, karena GIFT SET BOX di luar tujuh besar sehingga buffernya 10%, sama dengan produk otomatis lain); alias `EDP` = `EXTRAIT` dan `PARFUM` = `PARFUM INTENSE`.
+> - **Seed UAT** (hanya `pnpm uat`, bukan instalasi produksi) menambahkan: periode sumber Juni, Juli, Agustus 2026 untuk Gudang Cibubur, Gudang Bali, dan Gudang Bandung; akun Operator Cibubur, Operator Bali, Operator Bandung (peran viewer) yang ditugaskan ke gudangnya dengan kelima hak tindakan. Kata sandi ketiga akun dari variabel lingkungan `UAT_SANDI_OPERATOR`. Pusat dan Gudang Jabodetabek dibiarkan kosong untuk skenario A3–A5.
+> - Impor penjualan dan ranking pusat **tidak** di-seed: keduanya pekerjaan rutin admin setiap bulan.
 
 ### A4. Ketika saya menentukan sumber perhitungan gudang
 
@@ -213,6 +229,10 @@ Stok yang belum diisi berarti belum diketahui, bukan nol. Stok negatif untuk pro
 > - **Alias nama stok**: nama produk di file stok yang dipetakan ke tepat satu kode produk. Satu produk boleh punya beberapa alias. Nama master produk berlaku sebagai alias bawaan. Pencocokan **persis setelah normalisasi** (trim, spasi ganda menjadi satu, huruf besar; sama dengan alias keluarga aroma), tanpa pencocokan mirip. Hanya admin yang mengelola alias: tambah dan hapus satu per satu, serta unggah tabel alias (CSV `;` atau `.xlsx`, kolom `Nama di file stok` dan `Kode produk`) dengan hasil per baris: ditambahkan, sudah ada (pemetaan sama), atau ditolak (kode produk tidak dikenal, alias sudah dipakai produk lain, atau alias ganda di file). Baris yang ditolak tidak menahan baris lain.
 > - **Unggah stok** dilakukan operator berhak `input-stok` di draft rencana, pada toko yang sedang dibuka; satu file = satu toko. Hasil pembacaan mengisi isian stok toko itu sebagai isian **belum disimpan** (sama seperti diketik manual, termasuk perlindungan draft); operator meninjau lalu menekan "Simpan stok". Varian draft tanpa baris di file tidak berubah. `Ending` kosong = belum diketahui; bilangan bulat negatif diterima dan aturan stok negatif tetap berlaku.
 > - Ringkasan hasil unggahan tampil dekat form stok: jumlah varian terisi; baris **tidak dikenal** (nama tanpa alias) beserta daftar namanya dan keterangan bahwa admin yang memetakan alias; baris **diabaikan** (produk dikenal tetapi bukan varian toko ini di draft); baris **nilai tidak valid** (bukan bilangan bulat, atau nama yang muncul lebih dari sekali di file) beserta nomor barisnya. Hanya baris terisi yang mengubah isian.
+> ▶ Keputusan (2026-10-12, UAT kedua): tombol **"Isi 0 untuk stok yang kosong"** per toko di draft rencana (hak `input-stok`).
+> - Mengisi 0 hanya pada **produk otomatis** yang stok akhirnya masih kosong, sebagai isian **belum disimpan**; operator meninjau lalu menekan "Simpan stok". Produk manual dan stok yang sudah terisi (termasuk stok negatif) tidak diubah.
+> - Tombol menyebut jumlah varian yang akan diisi, misalnya "Isi 0 untuk 110 stok yang kosong", dan tidak bisa ditekan jika jumlahnya 0.
+> - Aturan "stok kosong = belum diketahui, bukan nol" tetap berlaku: nol hanya masuk lewat tindakan eksplisit operator.
 
 
 Display, display tester, dan kertas tester ditangani manual tanpa jumlah kirim atau buffer otomatis. Jangan menganggap semua produk dengan kata “tester” memiliki perlakuan yang sama tanpa konfirmasi.
