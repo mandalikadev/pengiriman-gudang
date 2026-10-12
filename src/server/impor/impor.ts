@@ -34,38 +34,72 @@ type MasukanDaftar = {
   idPengguna: string;
 };
 
-/**
- * Mendaftarkan file yang sudah ada di storage sebagai impor berstatus `diunggah` dan mengirim job worker
- * dalam satu transaksi.
- */
+type MasukanDaftarBanyakSheet = Omit<MasukanDaftar, "namaSheet" | "bulanImpor"> & {
+  sheet: readonly { namaSheet: string; bulanImpor: number }[];
+};
+
+export type HasilDaftarSheet = { namaSheet: string } & ({ keadaan: "berhasil"; idImpor: number } | HasilGagal);
+
+/** Mendaftarkan satu sheet dari satu file sebagai impor. Lihat `daftarkanImporBanyakSheet`. */
 export async function daftarkanImpor(masukan: MasukanDaftar): Promise<{ keadaan: "berhasil"; idImpor: number } | HasilGagal> {
-  if (sheetDiLuarCakupan(masukan.namaSheet)) {
-    return { keadaan: "gagal", pesan: "Sheet MP di luar cakupan saat ini. Pilih sheet penjualan <BULAN> (S)." };
-  }
+  const { namaSheet, bulanImpor, ...file } = masukan;
+  const hasil = await daftarkanImporBanyakSheet({ ...file, sheet: [{ namaSheet, bulanImpor }] });
+  if (hasil.keadaan === "gagal") return hasil;
+  const [satu] = hasil.sheet;
+  return satu.keadaan === "berhasil" ? { keadaan: "berhasil", idImpor: satu.idImpor } : { keadaan: "gagal", pesan: satu.pesan };
+}
+
+/**
+ * Mendaftarkan beberapa sheet dari satu file yang sudah ada di storage (PRD A1, Keputusan 2026-10-12). Setiap sheet
+ * menjadi satu impor berstatus `diunggah` beserta job worker-nya dalam satu transaksi tersendiri, sehingga sheet yang
+ * gagal didaftarkan tidak membatalkan sheet lain. Hasil dikembalikan per sheet, sesuai urutan masukan.
+ */
+export async function daftarkanImporBanyakSheet(
+  masukan: MasukanDaftarBanyakSheet,
+): Promise<{ keadaan: "berhasil"; sheet: HasilDaftarSheet[] } | HasilGagal> {
   if (!POLA_KUNCI.test(masukan.kunci)) {
     return { keadaan: "gagal", pesan: "File unggahan tidak dikenal. Unggah ulang file-nya." };
   }
   const ukuran = await ukuranObjek(masukan.kunci);
   if (ukuran === null) return { keadaan: "gagal", pesan: "File belum ada di storage. Unggah ulang file-nya." };
 
-  return db.transaction(async (tx) => {
-    const [baris] = await tx
-      .insert(impor)
-      .values({
-        namaFile: masukan.namaFile,
-        ukuranByte: ukuran,
-        kunciObjek: masukan.kunci,
-        namaSheet: masukan.namaSheet,
-        tahunImpor: masukan.tahunImpor,
-        bulanImpor: masukan.bulanImpor,
-        diunggahOleh: masukan.idPengguna,
-      })
-      .onConflictDoNothing({ target: impor.kunciObjek })
-      .returning({ id: impor.id });
-    if (!baris) return { keadaan: "gagal", pesan: "File ini sudah didaftarkan sebagai impor." } as const;
-    await kirimJobProsesImpor(tx, baris.id);
-    return { keadaan: "berhasil", idImpor: baris.id } as const;
-  });
+  const hasil: HasilDaftarSheet[] = [];
+  for (const { namaSheet, bulanImpor } of masukan.sheet) {
+    hasil.push({ namaSheet, ...(await daftarkanSatuSheet({ ...masukan, ukuran, namaSheet, bulanImpor })) });
+  }
+  return { keadaan: "berhasil", sheet: hasil };
+}
+
+async function daftarkanSatuSheet(
+  masukan: MasukanDaftar & { ukuran: number },
+): Promise<{ keadaan: "berhasil"; idImpor: number } | HasilGagal> {
+  if (sheetDiLuarCakupan(masukan.namaSheet)) {
+    return { keadaan: "gagal", pesan: "Sheet MP di luar cakupan saat ini. Pilih sheet penjualan <BULAN> (S)." };
+  }
+  try {
+    return await db.transaction(async (tx) => {
+      const [baris] = await tx
+        .insert(impor)
+        .values({
+          namaFile: masukan.namaFile,
+          ukuranByte: masukan.ukuran,
+          kunciObjek: masukan.kunci,
+          namaSheet: masukan.namaSheet,
+          tahunImpor: masukan.tahunImpor,
+          bulanImpor: masukan.bulanImpor,
+          diunggahOleh: masukan.idPengguna,
+        })
+        .onConflictDoNothing({ target: [impor.kunciObjek, impor.namaSheet] })
+        .returning({ id: impor.id });
+      if (!baris) return { keadaan: "gagal", pesan: "Sheet ini dari file yang sama sudah didaftarkan sebagai impor." } as const;
+      await kirimJobProsesImpor(tx, baris.id);
+      return { keadaan: "berhasil", idImpor: baris.id } as const;
+    });
+  } catch (galat) {
+    // Transaksi sheet ini dibatalkan; sheet lain tetap diproses (hasil per sheet).
+    console.error(`[daftarkan-impor] sheet ${masukan.namaSheet}:`, galat);
+    return { keadaan: "gagal", pesan: "Sheet ini gagal didaftarkan karena kesalahan server. Periksa Daftar impor sebelum mencoba lagi." };
+  }
 }
 
 /** Alasan impor tidak bisa diaktifkan, atau `null` jika bisa. Dipakai aktivasi dan tombol Aktifkan. */

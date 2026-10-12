@@ -123,10 +123,10 @@ describe("status cache laporan di halaman Impor (T33)", () => {
 describe("pemilih sheet (ADR-0005)", () => {
   it("sheet MP tampil tetapi tidak bisa dipilih, dengan keterangan di luar cakupan saat ini", () => {
     const html = renderToStaticMarkup(
-      <PilihanSheet daftarSheet={["JUNI (S)", "MP PUSAT (S)", "BARDAT"]} terpilih="" onPilih={() => {}} />,
+      <PilihanSheet daftarSheet={["JUNI (S)", "MP PUSAT (S)", "BARDAT"]} terpilih={{}} onCentang={() => {}} onPilihBulan={() => {}} />,
     );
-    const radio = [...html.matchAll(/<input[^>]*value="([^"]*)"[^>]*>/g)].map((m) => [m[1], m[0].includes("disabled")]);
-    expect(radio).toEqual([
+    const kotak = [...html.matchAll(/<input[^>]*type="checkbox"[^>]*value="([^"]*)"[^>]*>/g)].map((m) => [m[1], m[0].includes("disabled")]);
+    expect(kotak).toEqual([
       ["JUNI (S)", false],
       ["MP PUSAT (S)", true],
       ["BARDAT", false],

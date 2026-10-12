@@ -7,10 +7,18 @@ import { wajibAdmin } from "@/server/auth/kewenangan";
 import * as siklus from "@/server/impor/impor";
 import { buatUrlUnggah } from "@/server/impor/penyimpanan";
 
+import { masalahPilihanSheet } from "./validasi-sheet";
+
 // OD-10: hanya admin yang boleh mengunggah dan mengaktifkan impor. Peran diperiksa di server sebelum data disentuh.
 
 export type HasilMintaUrl = { keadaan: "berhasil"; kunci: string; url: string } | siklus.HasilGagal;
-export type HasilDaftarImpor = { keadaan: "berhasil"; idImpor: number } | siklus.HasilGagal;
+/**
+ * Hasil per sheet (CODING_STANDARDS: operasi massal mengembalikan hasil per item). `gagal` tanpa `sheet` berarti
+ * tidak ada yang ditulis; `gagal` dengan `sheet` berarti semua sheet gagal didaftarkan.
+ */
+export type HasilDaftarImpor =
+  | { keadaan: "berhasil" | "tersimpanGagalMuatUlang"; sheet: siklus.HasilDaftarSheet[] }
+  | (siklus.HasilGagal & { sheet?: siklus.HasilDaftarSheet[] });
 export type HasilAktifkanImpor = { keadaan: "berhasil" | "tersimpanGagalMuatUlang" } | siklus.HasilGagal;
 
 /** Presigned URL untuk mengunggah workbook langsung ke storage. */
@@ -23,31 +31,47 @@ export async function mintaUrlUnggah(): Promise<HasilMintaUrl> {
 const skemaDaftar = z.object({
   kunci: z.string({ error: "File unggahan tidak dikenal. Unggah ulang file-nya." }),
   namaFile: z.string().trim().min(1, "Nama file kosong.").max(255, "Nama file terlalu panjang."),
-  namaSheet: z.string({ error: "Pilih sheet." }).min(1, "Pilih sheet."),
   tahunImpor: z
     .number({ error: "Isi tahun impor empat digit." })
     .int({ error: "Isi tahun impor empat digit." })
     .min(1000, "Isi tahun impor empat digit.")
     .max(9999, "Isi tahun impor empat digit."),
-  bulanImpor: z
-    .number({ error: "Pilih bulan impor." })
-    .int({ error: "Pilih bulan impor." })
-    .min(1, "Pilih bulan impor.")
-    .max(12, "Pilih bulan impor."),
+  sheet: z.array(
+    z.object({
+      namaSheet: z.string({ error: "Pilih sheet." }).min(1, "Pilih sheet."),
+      // Bulan di luar 1–12 diperlakukan sebagai belum dipilih; pesannya menyebut sheet-nya (masalahPilihanSheet).
+      bulanImpor: z.number().int().min(1).max(12).nullable().catch(null),
+    }),
+    { error: "Pilih minimal satu sheet." },
+  ),
 });
 
-/** Mendaftarkan file yang sudah diunggah sebagai impor dan mengantrekan pemrosesannya. */
+/**
+ * Mendaftarkan sheet-sheet terpilih dari file yang sudah diunggah sekali ke storage: satu impor dan satu job worker
+ * per sheet (PRD A1, Keputusan 2026-10-12). Pilihan yang tidak valid (mis. dua sheet berbulan impor sama) ditolak
+ * sebelum ada yang ditulis.
+ */
 export async function daftarkanImpor(input: unknown): Promise<HasilDaftarImpor> {
   const pengguna = await wajibAdmin();
   const isian = skemaDaftar.safeParse(input);
   if (!isian.success) return { keadaan: "gagal", pesan: isian.error.issues[0].message };
-  const hasil = await siklus.daftarkanImpor({ ...isian.data, idPengguna: pengguna.id });
-  if (hasil.keadaan === "berhasil") {
-    try {
-      revalidatePath("/admin/impor");
-    } catch {
-      // Halaman tujuan berikutnya adalah halaman impor yang baru; daftar dimuat ulang saat dibuka.
-    }
+  const { sheet, ...file } = isian.data;
+  const masalah = masalahPilihanSheet({ tahunImpor: String(file.tahunImpor), sheet });
+  if (masalah) return { keadaan: "gagal", pesan: masalah };
+
+  const hasil = await siklus.daftarkanImporBanyakSheet({
+    ...file,
+    sheet: sheet.flatMap(({ namaSheet, bulanImpor }) => (bulanImpor === null ? [] : [{ namaSheet, bulanImpor }])),
+    idPengguna: pengguna.id,
+  });
+  if (hasil.keadaan === "gagal") return hasil;
+  if (hasil.sheet.every((s) => s.keadaan === "gagal")) {
+    return { keadaan: "gagal", pesan: "Tidak ada sheet yang didaftarkan. Lihat alasan per sheet.", sheet: hasil.sheet };
+  }
+  try {
+    revalidatePath("/admin/impor");
+  } catch {
+    return { keadaan: "tersimpanGagalMuatUlang", sheet: hasil.sheet };
   }
   return hasil;
 }

@@ -59,9 +59,19 @@ async function unggahDanDaftarkan(
   { namaSheet = "JUNI (S)", tahunImpor, bulanImpor = JUNI }: { namaSheet?: string; tahunImpor: number; bulanImpor?: number },
 ) {
   const kunci = await unggah(isi);
-  const hasil = await daftarkanImpor({ kunci, namaFile: "penjualan.xlsx", namaSheet, tahunImpor, bulanImpor });
-  if (hasil.keadaan !== "berhasil") throw new Error(hasil.pesan);
-  return hasil.idImpor;
+  const hasil = await daftarkanImpor({ kunci, namaFile: "penjualan.xlsx", tahunImpor, sheet: [{ namaSheet, bulanImpor }] });
+  if (hasil.keadaan === "gagal") throw new Error(hasil.pesan);
+  const [satu] = hasil.sheet;
+  if (satu.keadaan !== "berhasil") throw new Error(satu.pesan);
+  return satu.idImpor;
+}
+
+async function imporDenganKunci(kunci: string) {
+  return db
+    .select({ namaSheet: impor.namaSheet, tahunImpor: impor.tahunImpor, bulanImpor: impor.bulanImpor, status: impor.status })
+    .from(impor)
+    .where(eq(impor.kunciObjek, kunci))
+    .orderBy(asc(impor.id));
 }
 
 /** Impor yang sudah diproses worker dari sheet penjualan bersih satu toko. */
@@ -96,7 +106,7 @@ describe("non-admin ditolak di server (OD-10)", () => {
 
     await expect(mintaUrlUnggah()).rejects.toBeInstanceOf(AksesDitolakError);
     await expect(
-      daftarkanImpor({ kunci, namaFile: "x.xlsx", namaSheet: "JUNI (S)", tahunImpor: 2026, bulanImpor: JUNI }),
+      daftarkanImpor({ kunci, namaFile: "x.xlsx", tahunImpor: 2026, sheet: [{ namaSheet: "JUNI (S)", bulanImpor: JUNI }] }),
     ).rejects.toBeInstanceOf(AksesDitolakError);
     await expect(aktifkanImpor({ idImpor })).rejects.toBeInstanceOf(AksesDitolakError);
 
@@ -341,41 +351,190 @@ describe("impor gagal, belum selesai, atau ber-error tidak mengubah impor aktif"
 });
 
 describe("validasi pendaftaran impor", () => {
-  it("sheet MP di luar cakupan saat ini", async () => {
-    const kunci = await unggah(buatWorkbookUji({ "MP PUSAT (S)": [["SALES"]] }));
-    await expect(
-      daftarkanImpor({ kunci, namaFile: "a.xlsx", namaSheet: "MP PUSAT (S)", tahunImpor: 2026, bulanImpor: JUNI }),
-    ).resolves.toEqual({ keadaan: "gagal", pesan: "Sheet MP di luar cakupan saat ini. Pilih sheet penjualan <BULAN> (S)." });
-    expect(await db.select().from(impor).where(eq(impor.kunciObjek, kunci))).toEqual([]);
-  });
-
-  it("file yang belum ada di storage, kunci asing, atau didaftarkan dua kali ditolak", async () => {
+  it("file yang belum ada di storage atau kunci asing ditolak tanpa tulisan", async () => {
     const minta = await mintaUrlUnggah();
     if (minta.keadaan !== "berhasil") throw new Error(minta.pesan);
-    const dasar = { namaFile: "a.xlsx", namaSheet: "JUNI (S)", tahunImpor: 2026, bulanImpor: JUNI };
+    const dasar = { namaFile: "a.xlsx", tahunImpor: 2026, sheet: [{ namaSheet: "JUNI (S)", bulanImpor: JUNI }] };
 
     await expect(daftarkanImpor({ ...dasar, kunci: minta.kunci })).resolves.toEqual({
       keadaan: "gagal",
       pesan: "File belum ada di storage. Unggah ulang file-nya.",
     });
     await expect(daftarkanImpor({ ...dasar, kunci: "lain/berkas.xlsx" })).resolves.toMatchObject({ keadaan: "gagal" });
-
-    const kunci = await unggah(new Uint8Array([1, 2, 3]));
-    await expect(daftarkanImpor({ ...dasar, kunci })).resolves.toMatchObject({ keadaan: "berhasil" });
-    await expect(daftarkanImpor({ ...dasar, kunci })).resolves.toEqual({
-      keadaan: "gagal",
-      pesan: "File ini sudah didaftarkan sebagai impor.",
-    });
+    expect(await imporDenganKunci(minta.kunci)).toEqual([]);
   });
 
   it("isian tidak valid → gagal dengan pesan", async () => {
     const kunci = await unggah(new Uint8Array([1]));
-    const dasar = { kunci, namaFile: "a.xlsx", namaSheet: "JUNI (S)", tahunImpor: 2026, bulanImpor: JUNI };
-    await expect(daftarkanImpor({ ...dasar, bulanImpor: 13 })).resolves.toEqual({ keadaan: "gagal", pesan: "Pilih bulan impor." });
+    const juni = { namaSheet: "JUNI (S)", bulanImpor: JUNI };
+    const dasar = { kunci, namaFile: "a.xlsx", tahunImpor: 2026, sheet: [juni] };
+    await expect(daftarkanImpor({ ...dasar, sheet: [] })).resolves.toEqual({ keadaan: "gagal", pesan: "Pilih minimal satu sheet." });
+    await expect(daftarkanImpor({ ...dasar, sheet: [{ ...juni, bulanImpor: 13 }] })).resolves.toEqual({
+      keadaan: "gagal",
+      pesan: "Pilih bulan impor untuk sheet JUNI (S).",
+    });
+    await expect(daftarkanImpor({ ...dasar, sheet: [{ ...juni, bulanImpor: null }] })).resolves.toEqual({
+      keadaan: "gagal",
+      pesan: "Pilih bulan impor untuk sheet JUNI (S).",
+    });
     await expect(daftarkanImpor({ ...dasar, tahunImpor: 26 })).resolves.toEqual({ keadaan: "gagal", pesan: "Isi tahun impor empat digit." });
-    await expect(daftarkanImpor({ ...dasar, namaSheet: "" })).resolves.toEqual({ keadaan: "gagal", pesan: "Pilih sheet." });
+    await expect(daftarkanImpor({ ...dasar, sheet: [{ ...juni, namaSheet: "" }] })).resolves.toEqual({ keadaan: "gagal", pesan: "Pilih sheet." });
+    await expect(daftarkanImpor({ ...dasar, sheet: [juni, { ...juni, bulanImpor: 7 }] })).resolves.toEqual({
+      keadaan: "gagal",
+      pesan: "Sheet JUNI (S) dipilih lebih dari sekali.",
+    });
+    expect(await imporDenganKunci(kunci)).toEqual([]);
     await expect(aktifkanImpor({ idImpor: "x" })).resolves.toEqual({ keadaan: "gagal", pesan: "Impor tidak ditemukan." });
     await expect(aktifkanImpor({ idImpor: 2_000_000_000 })).resolves.toEqual({ keadaan: "gagal", pesan: "Impor tidak ditemukan." });
+  });
+});
+
+describe("beberapa sheet sekaligus (T85, PRD A1 Keputusan 2026-10-12)", () => {
+  function workbookJuniJuli(namaToko: string) {
+    return buatWorkbookUji({
+      "JUNI (S)": sheetPenjualanUji({ toko: namaToko, bulan: JUNI, hari: [1], produk: [produkUji([1])] }),
+      "JULI (S)": sheetPenjualanUji({ toko: namaToko, bulan: 7, hari: [1], produk: [produkUji([2])] }),
+      "MP PUSAT (S)": [["SALES"]],
+    });
+  }
+
+  async function jumlahJob(idImpor: number) {
+    const job = await db.execute<{ jumlah: number }>(
+      sql`select count(*)::int as jumlah from pgboss.job where name = 'proses-impor' and (data->>'idImpor')::int = ${idImpor}`,
+    );
+    return job[0].jumlah;
+  }
+
+  it("dua sheet dari satu unggahan → dua impor dengan kunci objek sama, masing-masing satu job, lalu diproses sendiri-sendiri", async () => {
+    const tahun = tahunUji();
+    const toko = await buatTokoUji();
+    const kunci = await unggah(workbookJuniJuli(toko.nama));
+
+    const hasil = await daftarkanImpor({
+      kunci,
+      namaFile: "penjualan.xlsx",
+      tahunImpor: tahun,
+      sheet: [
+        { namaSheet: "JUNI (S)", bulanImpor: JUNI },
+        { namaSheet: "JULI (S)", bulanImpor: 7 },
+      ],
+    });
+    expect(hasil).toEqual({
+      keadaan: "berhasil",
+      sheet: [
+        { namaSheet: "JUNI (S)", keadaan: "berhasil", idImpor: expect.any(Number) },
+        { namaSheet: "JULI (S)", keadaan: "berhasil", idImpor: expect.any(Number) },
+      ],
+    });
+    if (hasil.keadaan === "gagal") throw new Error(hasil.pesan);
+    const id = hasil.sheet.map((s) => (s.keadaan === "berhasil" ? s.idImpor : 0));
+    expect(new Set(id).size).toBe(2);
+
+    expect(await imporDenganKunci(kunci)).toEqual([
+      { namaSheet: "JUNI (S)", tahunImpor: tahun, bulanImpor: JUNI, status: "diunggah" },
+      { namaSheet: "JULI (S)", tahunImpor: tahun, bulanImpor: 7, status: "diunggah" },
+    ]);
+    expect(await jumlahJob(id[0])).toBe(1);
+    expect(await jumlahJob(id[1])).toBe(1);
+
+    for (const idImpor of id) await prosesImpor(idImpor);
+    expect(await statusImpor(...id)).toEqual({ [id[0]]: "siap-ditinjau", [id[1]]: "siap-ditinjau" });
+    const sel = await db
+      .select({ imporId: selPenjualan.imporId, tanggal: selPenjualan.tanggal, kuantitas: selPenjualan.kuantitas })
+      .from(selPenjualan)
+      .where(inArray(selPenjualan.imporId, id))
+      .orderBy(asc(selPenjualan.imporId));
+    expect(sel).toEqual([
+      { imporId: id[0], tanggal: `${tahun}-06-01`, kuantitas: 1 },
+      { imporId: id[1], tanggal: `${tahun}-07-01`, kuantitas: 2 },
+    ]);
+  });
+
+  it("dua sheet dengan bulan impor yang sama ditolak tanpa tulisan; pesannya menyebut kedua sheet", async () => {
+    const toko = await buatTokoUji();
+    const kunci = await unggah(workbookJuniJuli(toko.nama));
+    await expect(
+      daftarkanImpor({
+        kunci,
+        namaFile: "penjualan.xlsx",
+        tahunImpor: 2026,
+        sheet: [
+          { namaSheet: "JUNI (S)", bulanImpor: JUNI },
+          { namaSheet: "JULI (S)", bulanImpor: JUNI },
+        ],
+      }),
+    ).resolves.toEqual({
+      keadaan: "gagal",
+      pesan: "Sheet JUNI (S) dan JULI (S) sama-sama memakai bulan impor Juni 2026. Pilih bulan yang berbeda.",
+    });
+    expect(await imporDenganKunci(kunci)).toEqual([]);
+  });
+
+  it("sheet MP ditolak per sheet; sheet lain tetap didaftarkan", async () => {
+    const tahun = tahunUji();
+    const toko = await buatTokoUji();
+    const kunci = await unggah(workbookJuniJuli(toko.nama));
+    await expect(
+      daftarkanImpor({
+        kunci,
+        namaFile: "penjualan.xlsx",
+        tahunImpor: tahun,
+        sheet: [
+          { namaSheet: "MP PUSAT (S)", bulanImpor: 5 },
+          { namaSheet: "JUNI (S)", bulanImpor: JUNI },
+        ],
+      }),
+    ).resolves.toEqual({
+      keadaan: "berhasil",
+      sheet: [
+        { namaSheet: "MP PUSAT (S)", keadaan: "gagal", pesan: "Sheet MP di luar cakupan saat ini. Pilih sheet penjualan <BULAN> (S)." },
+        { namaSheet: "JUNI (S)", keadaan: "berhasil", idImpor: expect.any(Number) },
+      ],
+    });
+    expect((await imporDenganKunci(kunci)).map((i) => i.namaSheet)).toEqual(["JUNI (S)"]);
+  });
+
+  it("semua sheet gagal didaftarkan → gagal beserta hasil per sheet", async () => {
+    const kunci = await unggah(buatWorkbookUji({ "MP PUSAT (S)": [["SALES"]] }));
+    await expect(
+      daftarkanImpor({ kunci, namaFile: "a.xlsx", tahunImpor: 2026, sheet: [{ namaSheet: "MP PUSAT (S)", bulanImpor: JUNI }] }),
+    ).resolves.toEqual({
+      keadaan: "gagal",
+      pesan: "Tidak ada sheet yang didaftarkan. Lihat alasan per sheet.",
+      sheet: [{ namaSheet: "MP PUSAT (S)", keadaan: "gagal", pesan: "Sheet MP di luar cakupan saat ini. Pilih sheet penjualan <BULAN> (S)." }],
+    });
+    expect(await imporDenganKunci(kunci)).toEqual([]);
+  });
+
+  it("sheet yang sama dari kunci yang sama ditolak; sheet lain di kiriman yang sama tetap didaftarkan", async () => {
+    const tahun = tahunUji();
+    const toko = await buatTokoUji();
+    const kunci = await unggah(workbookJuniJuli(toko.nama));
+    const juni = { namaSheet: "JUNI (S)", bulanImpor: JUNI };
+    await expect(daftarkanImpor({ kunci, namaFile: "a.xlsx", tahunImpor: tahun, sheet: [juni] })).resolves.toMatchObject({
+      keadaan: "berhasil",
+    });
+
+    await expect(
+      daftarkanImpor({ kunci, namaFile: "a.xlsx", tahunImpor: tahun, sheet: [juni, { namaSheet: "JULI (S)", bulanImpor: 7 }] }),
+    ).resolves.toEqual({
+      keadaan: "berhasil",
+      sheet: [
+        { namaSheet: "JUNI (S)", keadaan: "gagal", pesan: "Sheet ini dari file yang sama sudah didaftarkan sebagai impor." },
+        { namaSheet: "JULI (S)", keadaan: "berhasil", idImpor: expect.any(Number) },
+      ],
+    });
+    expect((await imporDenganKunci(kunci)).map((i) => i.namaSheet)).toEqual(["JUNI (S)", "JULI (S)"]);
+  });
+
+  it("tersimpan tetapi gagal memuat ulang tampilan", async () => {
+    const toko = await buatTokoUji();
+    const kunci = await unggah(workbookJuniJuli(toko.nama));
+    kepala.muatUlangGagal = true;
+    await expect(
+      daftarkanImpor({ kunci, namaFile: "a.xlsx", tahunImpor: tahunUji(), sheet: [{ namaSheet: "JUNI (S)", bulanImpor: JUNI }] }),
+    ).resolves.toMatchObject({ keadaan: "tersimpanGagalMuatUlang", sheet: [{ namaSheet: "JUNI (S)", keadaan: "berhasil" }] });
+    expect(await imporDenganKunci(kunci)).toHaveLength(1);
   });
 });
 

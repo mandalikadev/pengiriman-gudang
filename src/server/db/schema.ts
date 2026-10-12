@@ -179,7 +179,8 @@ export const impor = pgTable(
     id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
     namaFile: text("nama_file").notNull(),
     ukuranByte: bigint("ukuran_byte", { mode: "number" }).notNull(),
-    kunciObjek: text("kunci_objek").notNull().unique(),
+    /** Satu file boleh menjadi beberapa impor, satu per sheet (PRD A1, Keputusan 2026-10-12). */
+    kunciObjek: text("kunci_objek").notNull(),
     /** SHA-256 isi file (hex), dihitung worker dari objek di storage. */
     sha256: text("sha256"),
     namaSheet: text("nama_sheet").notNull(),
@@ -199,6 +200,7 @@ export const impor = pgTable(
     diarsipkanPada: timestamp("diarsipkan_pada", { withTimezone: true }),
   },
   (tabel) => [
+    unique("impor_kunci_objek_nama_sheet_unique").on(tabel.kunciObjek, tabel.namaSheet),
     uniqueIndex("impor_satu_aktif_per_bulan")
       .on(tabel.tahunImpor, tabel.bulanImpor)
       .where(sql`${tabel.status} = 'aktif'`),
