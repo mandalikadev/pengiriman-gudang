@@ -26,7 +26,7 @@ type Klien = typeof db | Tx;
 const URUTAN_ALASAN_HITUNG_ULANG = ["periode-sumber", "impor-aktif", "kategori-efektif", "jadwal", "ranking", "pemetaan"] as const;
 export type AlasanHitungUlang = (typeof URUTAN_ALASAN_HITUNG_ULANG)[number];
 
-export type TokoKirim = { tokoId: number; versiJadwal: number; persiapanHari: 0 | 1 | 2; panjangCakupan: 7 | 14 };
+export type TokoKirim = { tokoId: number; versiJadwal: number; persiapanHari: 0 | 1 | 2; panjangCakupan: number };
 
 /**
  * Toko aktif gudang yang menurut jadwal aktifnya mengirim pada `tanggalKirim`, beserta p, L, dan versi jadwal. Toko

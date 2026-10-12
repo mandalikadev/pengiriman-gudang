@@ -1,6 +1,7 @@
 // Tanggal kirim dari satu jadwal toko (PRD A5 termasuk ▶ Keputusan perencanaan M2–M3 pekan jangkar; PRD A6).
 // Jadwal yang lolos periksaJadwal menentukan apakah suatu tanggal adalah tanggal kirim (H),
-// beserta persiapan (p) dan panjang cakupan (L) pengiriman itu.
+// beserta persiapan (p) dan panjang cakupan (L) pengiriman itu: jarak ke tanggal kirim berikutnya
+// (PRD A6 ▶ Revisi 2026-10-12, UAT ketiga).
 
 import { geserHari, namaHari, parseTanggalBisnis, selisihHari, type NamaHari, type TanggalBisnis } from "./kalender";
 
@@ -29,7 +30,14 @@ export type Jadwal = {
 
 type HasilPeriksaJadwal = { keadaan: "valid"; jadwal: Jadwal } | { keadaan: "tidakValid"; pesan: string[] };
 
-type HasilTanggalKirim = { kirim: false } | { kirim: true; persiapanHari: 0 | 1 | 2; panjangCakupan: 7 | 14 };
+type HasilTanggalKirim =
+  | { kirim: false }
+  | {
+      kirim: true;
+      persiapanHari: 0 | 1 | 2;
+      /** L: jumlah hari dari H sampai sehari sebelum tanggal kirim berikutnya (1–14 untuk pola yang ada). */
+      panjangCakupan: number;
+    };
 
 const LABEL_POLA: Record<PolaJadwal, string> = {
   mingguan: "mingguan",
@@ -122,23 +130,53 @@ function pekanKirimDuaMingguan(tanggalJangkar: TanggalBisnis, tanggal: TanggalBi
   return sisaBagiNonNegatif(selisih, 14) === 0;
 }
 
-/** Apakah `tanggal` adalah tanggal kirim menurut jadwal, beserta p dan L-nya (PRD A5, A6). */
-export function tanggalKirimMenurutJadwal(jadwal: Jadwal, tanggal: TanggalBisnis): HasilTanggalKirim {
+/** Entri hari kirim jadwal bila `tanggal` adalah tanggal kirim, atau `null`. */
+function hariKirimPada(jadwal: Jadwal, tanggal: TanggalBisnis): Jadwal["hariKirim"][number] | null {
   const hari = namaHari(tanggal);
   const hariKirim = jadwal.hariKirim.find((entri) => entri.hari === hari);
   if (hariKirim === undefined) {
-    return { kirim: false };
+    return null;
   }
-
   if (jadwal.pola === "dua-mingguan") {
     if (jadwal.tanggalJangkar === null) {
       throw new RangeError("Jadwal dua mingguan tanpa tanggal jangkar; periksa dengan periksaJadwal.");
     }
     if (!pekanKirimDuaMingguan(jadwal.tanggalJangkar, tanggal)) {
-      return { kirim: false };
+      return null;
     }
-    return { kirim: true, persiapanHari: hariKirim.persiapanHari, panjangCakupan: 14 };
   }
+  return hariKirim;
+}
 
-  return { kirim: true, persiapanHari: hariKirim.persiapanHari, panjangCakupan: 7 };
+/** Jarak terjauh antara dua tanggal kirim berurutan untuk pola yang ada (dua mingguan satu hari kirim). */
+const JARAK_KIRIM_TERJAUH = 14;
+
+/**
+ * Tanggal kirim pertama sesudah `tanggal` (tidak termasuk `tanggal` itu) menurut jadwal yang sama, melintasi akhir
+ * minggu dan, untuk dua mingguan, pekan non-kirim (PRD A5, A6 ▶ Revisi 2026-10-12).
+ */
+export function tanggalKirimBerikutnya(jadwal: Jadwal, tanggal: TanggalBisnis): TanggalBisnis {
+  for (let jarak = 1; jarak <= JARAK_KIRIM_TERJAUH; jarak++) {
+    const calon = geserHari(tanggal, jarak);
+    if (hariKirimPada(jadwal, calon) !== null) {
+      return calon;
+    }
+  }
+  throw new RangeError("Jadwal tanpa tanggal kirim dalam 14 hari; periksa dengan periksaJadwal.");
+}
+
+/**
+ * Apakah `tanggal` adalah tanggal kirim menurut jadwal, beserta p dan L-nya (PRD A5, A6). L = jumlah hari dari H sampai
+ * sehari sebelum tanggal kirim berikutnya (PRD A6 ▶ Revisi 2026-10-12, UAT ketiga).
+ */
+export function tanggalKirimMenurutJadwal(jadwal: Jadwal, tanggal: TanggalBisnis): HasilTanggalKirim {
+  const hariKirim = hariKirimPada(jadwal, tanggal);
+  if (hariKirim === null) {
+    return { kirim: false };
+  }
+  return {
+    kirim: true,
+    persiapanHari: hariKirim.persiapanHari,
+    panjangCakupan: selisihHari(tanggal, tanggalKirimBerikutnya(jadwal, tanggal)),
+  };
 }

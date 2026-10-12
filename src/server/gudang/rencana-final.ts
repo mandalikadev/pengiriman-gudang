@@ -280,7 +280,7 @@ export type RencanaFinal = {
   difinalisasiPada: Date;
   sumber: { bulanSumber: string[]; versiPeriodeSumber: number; impor: ImporRencanaFinal[] };
   ranking: { id: number; bulanRanking: string; versi: number };
-  jadwal: JadwalRencanaFinal & { versi: number; persiapanHari: 0 | 1 | 2; panjangCakupan: 7 | 14 };
+  jadwal: JadwalRencanaFinal & { versi: number; persiapanHari: 0 | 1 | 2; panjangCakupan: number };
   kalender: { revisi: number; perubahanKategori: number[]; cakupan: (Omit<TanggalCakupanDraft, "tanggal"> & { tanggal: TanggalBisnis })[] };
   /** Urut kode produk. */
   baris: BarisRencanaFinal[];

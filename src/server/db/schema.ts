@@ -905,7 +905,8 @@ export const tokoDraftRencana = pgTable(
       .notNull()
       .references(() => jadwalToko.id),
     persiapanHari: integer("persiapan_hari").$type<0 | 1 | 2>().notNull(),
-    panjangCakupan: integer("panjang_cakupan").$type<7 | 14>().notNull(),
+    /** L: 1–30 hari, jarak ke tanggal kirim berikutnya menurut jadwal (PRD A6 ▶ Revisi 2026-10-12, T91). */
+    panjangCakupan: integer("panjang_cakupan").notNull(),
     /** Tanggal cakupan beserta kategori efektif dan sumbernya (T60). Kosong = draft dihitung sebelum T60. */
     cakupan: jsonb("cakupan").$type<TanggalCakupanDraft[]>(),
     /**
@@ -918,7 +919,7 @@ export const tokoDraftRencana = pgTable(
   (tabel) => [
     uniqueIndex("toko_draft_rencana_unik").on(tabel.draftId, tabel.tokoId),
     check("toko_draft_rencana_persiapan", sql`${tabel.persiapanHari} in (0, 1, 2)`),
-    check("toko_draft_rencana_panjang_cakupan", sql`${tabel.panjangCakupan} in (7, 14)`),
+    check("toko_draft_rencana_panjang_cakupan", sql`${tabel.panjangCakupan} between 1 and 30`),
   ],
 );
 
@@ -1034,7 +1035,8 @@ export const rencanaFinal = pgTable(
     versiJadwal: integer("versi_jadwal").notNull(),
     jadwal: jsonb("jadwal").$type<JadwalRencanaFinal>().notNull(),
     persiapanHari: integer("persiapan_hari").$type<0 | 1 | 2>().notNull(),
-    panjangCakupan: integer("panjang_cakupan").$type<7 | 14>().notNull(),
+    /** L: 1–30 hari, jarak ke tanggal kirim berikutnya menurut jadwal (PRD A6 ▶ Revisi 2026-10-12, T91). */
+    panjangCakupan: integer("panjang_cakupan").notNull(),
     revisiKalender: integer("revisi_kalender").notNull(),
     perubahanKategori: integer("perubahan_kategori").array().notNull(),
     cakupan: jsonb("cakupan").$type<TanggalCakupanDraft[]>().notNull(),
@@ -1047,7 +1049,7 @@ export const rencanaFinal = pgTable(
       sql`(${tabel.versi} = 1) = (${tabel.alasanFinalisasiUlang} is null) and coalesce(btrim(${tabel.alasanFinalisasiUlang}), 'x') <> ''`,
     ),
     check("rencana_final_persiapan", sql`${tabel.persiapanHari} in (0, 1, 2)`),
-    check("rencana_final_panjang_cakupan", sql`${tabel.panjangCakupan} in (7, 14)`),
+    check("rencana_final_panjang_cakupan", sql`${tabel.panjangCakupan} between 1 and 30`),
   ],
 );
 

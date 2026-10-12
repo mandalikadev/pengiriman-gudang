@@ -18,7 +18,7 @@ const fixture = JSON.parse(
   kasusCakupan: {
     tanggalKirim: string;
     persiapanHari: 0 | 1 | 2;
-    panjangCakupan: 7 | 14;
+    panjangCakupan: number;
     tanggalCakupan: TanggalCakupanFixture[];
     jumlahHari: number;
     kebutuhan: number;
@@ -92,6 +92,21 @@ describe("hitungKebutuhanKirim — cakupan (golden jumlah-kirim kasusCakupan)", 
     expect(cakupan).toHaveLength(14);
     expect(cakupan[0]?.tanggal).toBe("2026-06-08");
     expect(cakupan[13]?.tanggal).toBe("2026-06-21");
+  });
+
+  it("panjang cakupan bilangan bulat 1–30 (PRD A6 ▶ Revisi 2026-10-12): L = 3 → H sampai H+2; 30 diterima", () => {
+    const { cakupan } = hitungKebutuhanKirim(masukan({ persiapanHari: 0, panjangCakupan: 3 }));
+    expect(cakupan.map(({ tanggal }) => tanggal)).toEqual(["2026-06-08", "2026-06-09", "2026-06-10"]);
+    expect(hitungKebutuhanKirim(masukan({ persiapanHari: 0, panjangCakupan: 1 })).cakupan).toHaveLength(1);
+    expect(hitungKebutuhanKirim(masukan({ persiapanHari: 0, panjangCakupan: 30 })).cakupan).toHaveLength(30);
+  });
+
+  it("panjang cakupan di luar 1–30 atau bukan bilangan bulat ditolak", () => {
+    for (const panjangCakupan of [0, 31, 2.5, -7]) {
+      expect(() => hitungKebutuhanKirim(masukan({ panjangCakupan }))).toThrow(
+        `panjangCakupan harus bilangan bulat 1–30, diterima: ${panjangCakupan}`,
+      );
+    }
   });
 
   it("persiapan 1: H−1 sampai H+6 (8 tanggal)", () => {

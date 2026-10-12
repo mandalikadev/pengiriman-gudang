@@ -405,7 +405,7 @@ export type TokoDraft = {
   id: number;
   nama: string;
   persiapanHari: 0 | 1 | 2;
-  panjangCakupan: 7 | 14;
+  panjangCakupan: number;
   /** Tanggal cakupan beserta kategori efektif dan sumbernya; `null` = draft dihitung sebelum T60. */
   cakupan: (Omit<TanggalCakupanDraft, "tanggal"> & { tanggal: TanggalBisnis })[] | null;
   /** Ringkasan masalah: jumlah baris yang tertahan (punya masalah). */
@@ -496,7 +496,7 @@ type TokoTersimpan = {
   id: number;
   nama: string;
   persiapanHari: 0 | 1 | 2;
-  panjangCakupan: 7 | 14;
+  panjangCakupan: number;
   cakupan: TanggalCakupanDraft[] | null;
 };
 

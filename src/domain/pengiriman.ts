@@ -18,8 +18,11 @@ export type MasukanKebutuhanKirim = {
   tanggalKirim: TanggalBisnis;
   /** p: persiapan H, H−1, atau H−2. */
   persiapanHari: 0 | 1 | 2;
-  /** L: 7 untuk mingguan (termasuk 2×/3× seminggu), 14 untuk dua mingguan. */
-  panjangCakupan: 7 | 14;
+  /**
+   * L: bilangan bulat 1–30, jumlah hari dari H sampai sehari sebelum tanggal kirim berikutnya menurut jadwal
+   * (PRD A6 ▶ Revisi 2026-10-12; `tanggalKirimMenurutJadwal`).
+   */
+  panjangCakupan: number;
   toko: string;
   /** Perubahan kategori manual; kategori efektif dihitung lewat `kategoriEfektif` (PRD B4). */
   daftarPerubahan: readonly PerubahanKategori[];
@@ -150,8 +153,8 @@ export function hitungKebutuhanKirim(masukan: MasukanKebutuhanKirim): HasilKebut
   if (![0, 1, 2].includes(persiapanHari)) {
     throw new RangeError(`persiapanHari harus 0, 1, atau 2, diterima: ${persiapanHari}`);
   }
-  if (panjangCakupan !== 7 && panjangCakupan !== 14) {
-    throw new RangeError(`panjangCakupan harus 7 atau 14, diterima: ${String(panjangCakupan)}`);
+  if (!Number.isSafeInteger(panjangCakupan) || panjangCakupan < 1 || panjangCakupan > 30) {
+    throw new RangeError(`panjangCakupan harus bilangan bulat 1–30, diterima: ${panjangCakupan}`);
   }
   if (stokAkhir !== null && !Number.isSafeInteger(stokAkhir)) {
     throw new RangeError(`stokAkhir harus bilangan bulat, diterima: ${stokAkhir}`);

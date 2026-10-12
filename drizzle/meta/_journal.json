@@ -162,6 +162,13 @@
       "when": 1791790052095,
       "tag": "0022_impor_banyak_sheet",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791817453130,
+      "tag": "0023_panjang_cakupan_jarak_kirim",
+      "breakpoints": true
     }
   ]
 }
