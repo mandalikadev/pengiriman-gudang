@@ -15,7 +15,7 @@ import {
   uraiPilihanKelompok,
 } from "./pilihan-kelompok-sidebar";
 
-// T78 — DESIGN §6 ▶ Keputusan (2026-10-11): navigasi berupa sidebar berkelompok.
+// T78 — DESIGN §6 ▶ Keputusan (2026-10-11): navigasi berupa sidebar berkelompok; susunan kelompok T95 (2026-10-12).
 // Desktop (≥ lg): sidebar tetap di kiri, lebar 240 px. Layar kecil: bar atas tipis + menu tarik rounded-3xl.
 // Item hanya untuk halaman yang sudah ada dan boleh dibuka peran itu; penyembunyian ini tambahan,
 // halaman tetap memeriksa sesi dan peran di server (wajibMasuk / wajibAdmin / wajibAksesPengirimanGudang).
@@ -30,9 +30,18 @@ type Item = { href: string; label: string; akses: Akses };
 type KelompokItem = { judul: string | null; item: Item[] };
 type Kelompok = KelompokItem | { judul: string; subkelompok: KelompokItem[] };
 
-// Urutan dan pengelompokan persis DESIGN §6 ▶ Keputusan.
+// Urutan dan pengelompokan persis DESIGN §6 ▶ Keputusan (2026-10-12, UAT ketiga): mengikuti urutan kerja (T95).
 const kelompokMenu: Kelompok[] = [
   { judul: null, item: [{ href: "/", label: "Beranda", akses: "masuk" }] },
+  {
+    judul: "Pekerjaan rutin",
+    item: [
+      { href: "/admin/impor", label: "Impor penjualan", akses: "admin" },
+      { href: "/admin/ranking", label: "Ranking pusat", akses: "admin" },
+      { href: "/admin/jadwal", label: "Persetujuan jadwal", akses: "admin" },
+      { href: "/pengiriman-gudang", label: "Pengiriman Gudang", akses: "pengiriman-gudang" },
+    ],
+  },
   {
     judul: "Laporan",
     item: [
@@ -40,15 +49,12 @@ const kelompokMenu: Kelompok[] = [
       { href: "/kalender", label: "Kalender", akses: "masuk" },
     ],
   },
-  { judul: "Operasional", item: [{ href: "/pengiriman-gudang", label: "Pengiriman Gudang", akses: "pengiriman-gudang" }] },
   {
-    judul: "Admin",
+    judul: "Pengaturan",
     subkelompok: [
       {
-        judul: "Data",
+        judul: "Data master",
         item: [
-          { href: "/admin/impor", label: "Impor", akses: "admin" },
-          { href: "/admin/ranking", label: "Ranking", akses: "admin" },
           { href: "/admin/keluarga-aroma", label: "Keluarga aroma", akses: "admin" },
           { href: "/admin/pemetaan-produk", label: "Pemetaan produk", akses: "admin" },
           { href: "/admin/alias-stok", label: "Alias nama stok", akses: "admin" },
@@ -61,7 +67,6 @@ const kelompokMenu: Kelompok[] = [
           { href: "/admin/gudang", label: "Gudang", akses: "admin" },
           { href: "/admin/pengguna", label: "Pengguna", akses: "admin" },
           { href: "/admin/penugasan", label: "Penugasan", akses: "admin" },
-          { href: "/admin/jadwal", label: "Persetujuan jadwal", akses: "admin" },
         ],
       },
     ],
@@ -81,7 +86,7 @@ function kelompokUntuk(bolehDibuka: (akses: Akses) => boolean): Kelompok[] {
   });
 }
 
-/** Halaman aktif termasuk sub-halamannya (`/admin/impor/12` menandai Impor). Beranda hanya persis `/`. */
+/** Halaman aktif termasuk sub-halamannya (`/admin/impor/12` menandai Impor penjualan). Beranda hanya persis `/`. */
 function halamanAktif(pathname: string, href: string): boolean {
   return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
 }

@@ -1,7 +1,8 @@
 // T81 — pilihan buka/tutup kelompok sidebar, diingat di browser itu (DESIGN §6 ▶ Keputusan 2026-10-11, UAT).
 // Bila localStorage tidak tersedia (mode privat, diblokir), pilihan hanya bertahan di memori tab; tidak ada error.
 
-const KUNCI = "mandalika:sidebar-kelompok";
+// T95: kunci baru untuk susunan kelompok urutan kerja; pilihan dari susunan lama (Operasional/Admin) tidak dibawa.
+const KUNCI = "mandalika:sidebar-kelompok-v2";
 
 let memori: string | null = null;
 const pendengar = new Set<() => void>();

@@ -28,16 +28,18 @@ function judulKelompok(html: string) {
 }
 
 describe("Navigasi: kelompok menu per peran", () => {
-  it("admin melihat Beranda, Laporan, Operasional, dan Admin (Data, Organisasi) dengan item persis DESIGN §6", () => {
+  // T95 — DESIGN §6 ▶ Keputusan (2026-10-12, UAT ketiga): susunan mengikuti urutan kerja.
+  it("admin melihat Beranda, Pekerjaan rutin, Laporan, dan Pengaturan (Data master, Organisasi) dengan item persis DESIGN §6", () => {
     const html = render({ pengguna: ADMIN, tampilkanPengirimanGudang: true, children: null });
-    expect(judulKelompok(html)).toEqual(["Laporan", "Operasional", "Admin", "Data", "Organisasi"]);
+    expect(judulKelompok(html)).toEqual(["Pekerjaan rutin", "Laporan", "Pengaturan", "Data master", "Organisasi"]);
     expect(tautan(html)).toEqual([
       ["/", "Beranda"],
+      ["/admin/impor", "Impor penjualan"],
+      ["/admin/ranking", "Ranking pusat"],
+      ["/admin/jadwal", "Persetujuan jadwal"],
+      ["/pengiriman-gudang", "Pengiriman Gudang"],
       ["/ringkasan", "Ringkasan"],
       ["/kalender", "Kalender"],
-      ["/pengiriman-gudang", "Pengiriman Gudang"],
-      ["/admin/impor", "Impor"],
-      ["/admin/ranking", "Ranking"],
       ["/admin/keluarga-aroma", "Keluarga aroma"],
       ["/admin/pemetaan-produk", "Pemetaan produk"],
       ["/admin/alias-stok", "Alias nama stok"],
@@ -45,23 +47,23 @@ describe("Navigasi: kelompok menu per peran", () => {
       ["/admin/gudang", "Gudang"],
       ["/admin/pengguna", "Pengguna"],
       ["/admin/penugasan", "Penugasan"],
-      ["/admin/jadwal", "Persetujuan jadwal"],
     ]);
   });
 
-  it("operator (punya akses Pengiriman Gudang) tidak melihat kelompok Admin", () => {
+  it("operator: Pekerjaan rutin hanya berisi Pengiriman Gudang, tanpa Pengaturan", () => {
     const html = render({ pengguna: OPERATOR, tampilkanPengirimanGudang: true, children: null });
-    expect(judulKelompok(html)).toEqual(["Laporan", "Operasional"]);
+    expect(judulKelompok(html)).toEqual(["Pekerjaan rutin", "Laporan"]);
     expect(tautan(html)).toEqual([
       ["/", "Beranda"],
+      ["/pengiriman-gudang", "Pengiriman Gudang"],
       ["/ringkasan", "Ringkasan"],
       ["/kalender", "Kalender"],
-      ["/pengiriman-gudang", "Pengiriman Gudang"],
     ]);
     expect(html).not.toContain("/admin/");
+    expect(html).not.toContain("Pengaturan");
   });
 
-  it("viewer tanpa akses Pengiriman Gudang: kelompok Operasional tidak ditampilkan (kelompok kosong disembunyikan)", () => {
+  it("viewer melihat Beranda dan Laporan saja (kelompok kosong disembunyikan)", () => {
     const html = render({ pengguna: VIEWER, tampilkanPengirimanGudang: false, children: null });
     expect(judulKelompok(html)).toEqual(["Laporan"]);
     expect(tautan(html)).toEqual([
@@ -69,7 +71,8 @@ describe("Navigasi: kelompok menu per peran", () => {
       ["/ringkasan", "Ringkasan"],
       ["/kalender", "Kalender"],
     ]);
-    expect(html).not.toContain("Operasional");
+    expect(html).not.toContain("Pekerjaan rutin");
+    expect(html).not.toContain("Pengaturan");
     expect(html).not.toContain("/admin/");
   });
 
@@ -95,7 +98,7 @@ describe("Navigasi: penanda halaman aktif", () => {
     expect(tautanAktif(render({ pengguna: ADMIN, tampilkanPengirimanGudang: true, children: null }, "/"))).toEqual(["/"]);
   });
 
-  it("sub-halaman menandai item induknya (/admin/impor/12 → Impor), bukan Beranda", () => {
+  it("sub-halaman menandai item induknya (/admin/impor/12 → Impor penjualan), bukan Beranda", () => {
     expect(
       tautanAktif(render({ pengguna: ADMIN, tampilkanPengirimanGudang: true, children: null }, "/admin/impor/12")),
     ).toEqual(["/admin/impor"]);

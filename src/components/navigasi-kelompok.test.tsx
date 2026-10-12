@@ -9,7 +9,8 @@ vi.mock("@/app/keluar/aksi", () => ({ keluar: async () => undefined }));
 
 import { Navigasi } from "./navigasi";
 
-// T81 — DESIGN §6 ▶ Keputusan (2026-10-11, UAT): kelompok Laporan, Operasional, dan Admin bisa dibuka-tutup.
+// T81 — DESIGN §6 ▶ Keputusan (2026-10-11, UAT): kelompok sidebar bisa dibuka-tutup.
+// T95 — susunan kelompok mengikuti urutan kerja (▶ Keputusan 2026-10-12): Pekerjaan rutin, Laporan, Pengaturan.
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -80,7 +81,7 @@ function terbuka(nama: string): boolean {
 }
 
 function keadaan() {
-  return { Laporan: terbuka("Laporan"), Operasional: terbuka("Operasional"), Admin: terbuka("Admin") };
+  return { "Pekerjaan rutin": terbuka("Pekerjaan rutin"), Laporan: terbuka("Laporan"), Pengaturan: terbuka("Pengaturan") };
 }
 
 function klik(elemen: Element) {
@@ -100,10 +101,10 @@ describe("judul kelompok sebagai tombol buka-tutup", () => {
 
   it("tombol bisa dipakai keyboard (button type=button), memakai ChevronDown yang berputar saat terbuka", () => {
     pasang("/");
-    const tombol = judul("Operasional");
+    const tombol = judul("Pekerjaan rutin");
     expect(tombol.tagName).toBe("BUTTON");
     expect(tombol.getAttribute("type")).toBe("button");
-    expect(tombol.textContent).toContain("Operasional");
+    expect(tombol.textContent).toContain("Pekerjaan rutin");
     const ikon = tombol.querySelector("svg");
     expect(ikon?.getAttribute("class")).toContain("lucide-chevron-down");
     // Putaran mengikuti aria-expanded tombol (group-aria-expanded), jadi selalu sejalan dengan keadaannya.
@@ -112,55 +113,82 @@ describe("judul kelompok sebagai tombol buka-tutup", () => {
     expect(ikon?.getAttribute("class")).not.toMatch(/(^|\s)rotate-180/);
   });
 
-  it("Beranda tetap item tunggal; Data dan Organisasi tetap subjudul di dalam Admin, bukan tombol", () => {
+  it("Beranda tetap item tunggal; Data master dan Organisasi tetap subjudul di dalam Pengaturan, bukan tombol", () => {
     pasang("/");
-    expect(wadah.querySelectorAll("button[data-kelompok]")).toHaveLength(3);
+    expect([...wadah.querySelectorAll<HTMLButtonElement>("button[data-kelompok]")].map((b) => b.dataset.kelompok)).toEqual([
+      "Pekerjaan rutin",
+      "Laporan",
+      "Pengaturan",
+    ]);
     expect(wadah.querySelector('a[href="/"]')?.closest("[hidden]")).toBeNull();
-    klik(judul("Admin"));
-    const admin = daftar("Admin");
-    expect(admin.querySelector('p[data-kelompok="Data"]')).not.toBeNull();
-    expect(admin.querySelector('p[data-kelompok="Organisasi"]')).not.toBeNull();
-    expect(admin.querySelector('a[href="/admin/impor"]')).not.toBeNull();
-    expect(admin.querySelector('a[href="/admin/jadwal"]')).not.toBeNull();
+    klik(judul("Pengaturan"));
+    const pengaturan = daftar("Pengaturan");
+    expect(pengaturan.querySelector('p[data-kelompok="Data master"]')).not.toBeNull();
+    expect(pengaturan.querySelector('p[data-kelompok="Organisasi"]')).not.toBeNull();
+    expect(pengaturan.querySelector('a[href="/admin/keluarga-aroma"]')).not.toBeNull();
+    expect(pengaturan.querySelector('a[href="/admin/penugasan"]')).not.toBeNull();
+    const rutin = daftar("Pekerjaan rutin");
+    expect(rutin.querySelector('a[href="/admin/impor"]')).not.toBeNull();
+    expect(rutin.querySelector('a[href="/admin/jadwal"]')).not.toBeNull();
   });
 });
 
 describe("keadaan awal", () => {
   it("di beranda semua kelompok tertutup", () => {
     pasang("/");
-    expect(keadaan()).toEqual({ Laporan: false, Operasional: false, Admin: false });
+    expect(keadaan()).toEqual({ "Pekerjaan rutin": false, Laporan: false, Pengaturan: false });
   });
 
   it("halaman /kalender: Laporan terbuka, lainnya tertutup", () => {
     pasang("/kalender");
-    expect(keadaan()).toEqual({ Laporan: true, Operasional: false, Admin: false });
+    expect(keadaan()).toEqual({ "Pekerjaan rutin": false, Laporan: true, Pengaturan: false });
   });
 
-  it("sub-halaman /admin/impor/12: Admin terbuka, lainnya tertutup", () => {
+  it("halaman /admin/impor: Pekerjaan rutin terbuka, lainnya tertutup", () => {
+    pasang("/admin/impor");
+    expect(keadaan()).toEqual({ "Pekerjaan rutin": true, Laporan: false, Pengaturan: false });
+  });
+
+  it("sub-halaman /admin/impor/12: Pekerjaan rutin terbuka, lainnya tertutup", () => {
     pasang("/admin/impor/12");
-    expect(keadaan()).toEqual({ Laporan: false, Operasional: false, Admin: true });
+    expect(keadaan()).toEqual({ "Pekerjaan rutin": true, Laporan: false, Pengaturan: false });
   });
 
-  it("sub-halaman /pengiriman-gudang/3/rencana-final/7: Operasional terbuka, lainnya tertutup", () => {
+  it("halaman /admin/jadwal: Pekerjaan rutin terbuka, lainnya tertutup", () => {
+    pasang("/admin/jadwal");
+    expect(keadaan()).toEqual({ "Pekerjaan rutin": true, Laporan: false, Pengaturan: false });
+  });
+
+  it("sub-halaman /pengiriman-gudang/3/rencana-final/7: Pekerjaan rutin terbuka, lainnya tertutup", () => {
     pasang("/pengiriman-gudang/3/rencana-final/7");
-    expect(keadaan()).toEqual({ Laporan: false, Operasional: true, Admin: false });
+    expect(keadaan()).toEqual({ "Pekerjaan rutin": true, Laporan: false, Pengaturan: false });
+  });
+
+  it("halaman /admin/keluarga-aroma: Pengaturan terbuka, lainnya tertutup", () => {
+    pasang("/admin/keluarga-aroma");
+    expect(keadaan()).toEqual({ "Pekerjaan rutin": false, Laporan: false, Pengaturan: true });
+  });
+
+  it("halaman /admin/penugasan (subjudul Organisasi): Pengaturan terbuka, lainnya tertutup", () => {
+    pasang("/admin/penugasan");
+    expect(keadaan()).toEqual({ "Pekerjaan rutin": false, Laporan: false, Pengaturan: true });
   });
 });
 
 describe("pilihan diingat di browser", () => {
   it("pilihan buka/tutup bertahan setelah pindah halaman", () => {
     pasang("/");
-    klik(judul("Operasional"));
+    klik(judul("Pekerjaan rutin"));
     tampilkan("/ringkasan");
-    expect(keadaan()).toEqual({ Laporan: true, Operasional: true, Admin: false });
+    expect(keadaan()).toEqual({ "Pekerjaan rutin": true, Laporan: true, Pengaturan: false });
   });
 
   it("pilihan bertahan setelah halaman dimuat ulang (komponen dipasang ulang)", () => {
     pasang("/");
-    klik(judul("Admin"));
+    klik(judul("Pengaturan"));
     lepas();
     pasang("/");
-    expect(keadaan()).toEqual({ Laporan: false, Operasional: false, Admin: true });
+    expect(keadaan()).toEqual({ "Pekerjaan rutin": false, Laporan: false, Pengaturan: true });
   });
 
   it("kelompok halaman aktif tetap terbuka walaupun sebelumnya ditutup", () => {
@@ -187,16 +215,22 @@ describe("pilihan diingat di browser", () => {
 
   it("menutup kelompok halaman aktif berlaku sementara di halaman itu, lalu bisa dibuka lagi", () => {
     pasang("/admin/impor/12");
-    klik(judul("Admin"));
-    expect(terbuka("Admin")).toBe(false);
-    klik(judul("Admin"));
-    expect(terbuka("Admin")).toBe(true);
+    klik(judul("Pekerjaan rutin"));
+    expect(terbuka("Pekerjaan rutin")).toBe(false);
+    klik(judul("Pekerjaan rutin"));
+    expect(terbuka("Pekerjaan rutin")).toBe(true);
   });
 
   it("isi penyimpanan yang rusak diabaikan: kembali ke keadaan awal", () => {
-    window.localStorage.setItem("mandalika:sidebar-kelompok", "{bukan json");
+    window.localStorage.setItem("mandalika:sidebar-kelompok-v2", "{bukan json");
     pasang("/ringkasan");
-    expect(keadaan()).toEqual({ Laporan: true, Operasional: false, Admin: false });
+    expect(keadaan()).toEqual({ "Pekerjaan rutin": false, Laporan: true, Pengaturan: false });
+  });
+
+  it("pilihan dari susunan sidebar sebelumnya (sebelum T95) tidak dipakai: mulai dari keadaan awal", () => {
+    window.localStorage.setItem("mandalika:sidebar-kelompok", JSON.stringify({ Laporan: true, Operasional: true, Admin: true }));
+    pasang("/");
+    expect(keadaan()).toEqual({ "Pekerjaan rutin": false, Laporan: false, Pengaturan: false });
   });
 });
 
@@ -209,7 +243,7 @@ describe("tanpa penyimpanan browser", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(gagal);
 
     pasang("/admin/libur");
-    expect(keadaan()).toEqual({ Laporan: false, Operasional: false, Admin: true });
+    expect(keadaan()).toEqual({ "Pekerjaan rutin": false, Laporan: false, Pengaturan: true });
     klik(judul("Laporan"));
     expect(terbuka("Laporan")).toBe(true);
     klik(judul("Laporan"));
@@ -225,7 +259,7 @@ describe("menu tarik layar kecil", () => {
     const sidebar = wadah.querySelector("aside")!;
     expect(sidebar.classList.contains("hidden")).toBe(false);
     expect(sidebar.contains(judul("Laporan"))).toBe(true);
-    expect(keadaan()).toEqual({ Laporan: false, Operasional: false, Admin: true });
+    expect(keadaan()).toEqual({ "Pekerjaan rutin": true, Laporan: false, Pengaturan: false });
 
     klik(judul("Laporan"));
     expect(terbuka("Laporan")).toBe(true);
