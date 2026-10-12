@@ -135,3 +135,43 @@ describe("pemilih sheet (ADR-0005)", () => {
     expect(html.match(/di luar cakupan saat ini/g)).toHaveLength(1);
   });
 });
+
+describe("tombol Aktifkan semua yang siap (T86)", () => {
+  async function jumlahDiTombol() {
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+    const html = renderToStaticMarkup(await HalamanImpor());
+    const cocok = /<button[^>]*>Aktifkan semua yang siap \((\d+)\)<\/button>/.exec(html);
+    if (!cocok) throw new Error("tombol Aktifkan semua yang siap tidak ada");
+    // Tombol berada di bagian Daftar impor.
+    expect(html.indexOf("Daftar impor")).toBeLessThan(html.indexOf(cocok[0]));
+    return Number(cocok[1]);
+  }
+
+  async function imporSiap(kuantitas: number[]) {
+    const admin = await buatPenggunaUji("admin");
+    const toko = await buatTokoUji();
+    const isi = buatWorkbookUji({
+      "JUNI (S)": sheetPenjualanUji({
+        toko: toko.nama,
+        bulan: 6,
+        hari: [1, 2],
+        produk: [{ kode: kodeProdukUji(), nama: "UJI", ukuran: "15ML", kategori: "15ML GLITTER/LEATHER", kuantitas }],
+      }),
+    });
+    return imporUji({ isi, tahunImpor: tahunUji(), idPengguna: admin.id });
+  }
+
+  it("menyebut jumlah impor siap ditinjau tanpa error; impor ber-error dan aktif tidak dihitung", async () => {
+    const awal = await jumlahDiTombol();
+
+    await imporSiap([1, 0]);
+    expect(await jumlahDiTombol()).toBe(awal + 1);
+
+    await imporSiap([-1, 0]);
+    expect(await jumlahDiTombol()).toBe(awal + 1);
+
+    const admin = await buatPenggunaUji("admin");
+    expect(await aktifkanImpor(await imporSiap([2, 0]), admin.id)).toEqual({ keadaan: "berhasil" });
+    expect(await jumlahDiTombol()).toBe(awal + 1);
+  });
+});

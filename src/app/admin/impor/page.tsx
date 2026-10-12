@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { StatusCacheLaporan } from "@/components/status-cache-laporan";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
+import { jumlahImporSiapDiaktifkan } from "@/server/impor/impor";
 import { muatDaftarImpor } from "@/server/impor/tinjau";
 import { muatStatusCacheLaporan } from "@/server/laporan/cache";
 
@@ -24,7 +25,11 @@ export default async function HalamanImpor() {
     if (galat instanceof AksesDitolakError) notFound();
     throw galat;
   }
-  const [daftarImpor, statusCache] = await Promise.all([muatDaftarImpor(), muatStatusCacheLaporan()]);
+  const [daftarImpor, statusCache, jumlahSiap] = await Promise.all([
+    muatDaftarImpor(),
+    muatStatusCacheLaporan(),
+    jumlahImporSiapDiaktifkan(),
+  ]);
 
   const tabelDaftar =
     daftarImpor.length === 0 ? (
@@ -78,7 +83,7 @@ export default async function HalamanImpor() {
         {statusCache ? <StatusCacheLaporan status={statusCache} /> : null}
       </div>
 
-      <AlurUnggahImpor daftarImpor={tabelDaftar} />
+      <AlurUnggahImpor daftarImpor={tabelDaftar} jumlahSiap={jumlahSiap} />
     </main>
   );
 }

@@ -97,3 +97,29 @@ export async function aktifkanImpor(input: unknown): Promise<HasilAktifkanImpor>
   }
   return hasil;
 }
+
+/**
+ * Hasil per impor (CODING_STANDARDS: operasi massal mengembalikan hasil per item). `gagal` dengan `impor` berarti tidak
+ * ada impor yang diaktifkan.
+ */
+export type HasilAktifkanSemuaImpor =
+  | { keadaan: "berhasil" | "tersimpanGagalMuatUlang"; impor: siklus.HasilAktifkanSatuImpor[] }
+  | (siklus.HasilGagal & { impor?: siklus.HasilAktifkanSatuImpor[] });
+
+/** "Aktifkan semua yang siap" di Daftar impor (PRD A1, Keputusan 2026-10-12, UAT kedua). */
+export async function aktifkanSemuaImporSiap(): Promise<HasilAktifkanSemuaImpor> {
+  const pengguna = await wajibAdmin();
+  const hasil = await siklus.aktifkanSemuaImporSiap(pengguna.id);
+  if (hasil.length === 0) return { keadaan: "gagal", pesan: "Tidak ada impor yang siap diaktifkan." };
+  const diaktifkan = hasil.filter((h) => h.keadaan === "diaktifkan");
+  if (diaktifkan.length === 0) {
+    return { keadaan: "gagal", pesan: "Tidak ada impor yang diaktifkan. Lihat keterangan per impor.", impor: hasil };
+  }
+  try {
+    revalidatePath("/admin/impor");
+    for (const h of diaktifkan) revalidatePath(`/admin/impor/${h.idImpor}`);
+  } catch {
+    return { keadaan: "tersimpanGagalMuatUlang", impor: hasil };
+  }
+  return { keadaan: "berhasil", impor: hasil };
+}

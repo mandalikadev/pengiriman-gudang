@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, asc, eq, ne, sql } from "drizzle-orm";
 
 import { klasifikasiProduk } from "@/domain/produk";
 import { db } from "@/server/db";
@@ -190,4 +190,81 @@ export async function aktifkanImpor(idImpor: number, idPengguna: string): Promis
     await kirimJobHitungCacheLaporan(tx);
     return { keadaan: "berhasil" };
   });
+}
+
+const PESAN_BULAN_GANDA = "Ada lebih dari satu impor siap untuk bulan ini; aktifkan satu per satu dari halaman tinjau.";
+
+type ImporSiapDitinjau = {
+  idImpor: number;
+  namaSheet: string;
+  namaFile: string;
+  tahunImpor: number;
+  bulanImpor: number;
+  jumlahError: number;
+};
+
+export type HasilAktifkanSatuImpor = Omit<ImporSiapDitinjau, "jumlahError"> &
+  ({ keadaan: "diaktifkan" } | { keadaan: "dilewati" | "gagal"; pesan: string });
+
+/** Impor berstatus `siap-ditinjau` beserta jumlah error-nya, urut tahun–bulan impor. */
+async function muatImporSiapDitinjau(): Promise<ImporSiapDitinjau[]> {
+  return db
+    .select({
+      idImpor: impor.id,
+      namaSheet: impor.namaSheet,
+      namaFile: impor.namaFile,
+      tahunImpor: impor.tahunImpor,
+      bulanImpor: impor.bulanImpor,
+      jumlahError: sql<number>`(select count(*) from jsonb_array_elements(${impor.masalah}) m where m->>'tingkat' = 'error')::int`,
+    })
+    .from(impor)
+    .where(eq(impor.status, "siap-ditinjau"))
+    .orderBy(asc(impor.tahunImpor), asc(impor.bulanImpor), asc(impor.id));
+}
+
+/** Jumlah impor yang akan dicoba tombol "Aktifkan semua yang siap": siap ditinjau dengan 0 error. */
+export async function jumlahImporSiapDiaktifkan() {
+  return (await muatImporSiapDitinjau()).filter((i) => i.jumlahError === 0).length;
+}
+
+/**
+ * "Aktifkan semua yang siap" (PRD A1, Keputusan 2026-10-12, UAT kedua). Impor siap ditinjau dengan 0 error diaktifkan
+ * satu per satu lewat `aktifkanImpor` (aturan dan transaksi per impor sama), urut tahun–bulan impor. Bulan yang punya
+ * lebih dari satu impor siap ditinjau dilewati seluruhnya; impor dengan error dilewati beserta jumlah error-nya. Satu
+ * impor gagal tidak membatalkan yang lain. Hasil dikembalikan per impor. Pemeriksaan peran ada di server action.
+ */
+export async function aktifkanSemuaImporSiap(idPengguna: string): Promise<HasilAktifkanSatuImpor[]> {
+  const daftar = await muatImporSiapDitinjau();
+  const jumlahPerBulan = new Map<number, number>();
+  for (const i of daftar) {
+    const kunci = i.tahunImpor * 100 + i.bulanImpor;
+    jumlahPerBulan.set(kunci, (jumlahPerBulan.get(kunci) ?? 0) + 1);
+  }
+
+  const hasil: HasilAktifkanSatuImpor[] = [];
+  for (const { jumlahError, ...i } of daftar) {
+    const alasanError = alasanTidakBisaAktif({ status: "siap-ditinjau", jumlahError });
+    if ((jumlahPerBulan.get(i.tahunImpor * 100 + i.bulanImpor) ?? 0) > 1) {
+      hasil.push({ ...i, keadaan: "dilewati", pesan: alasanError ? `${PESAN_BULAN_GANDA} ${alasanError}` : PESAN_BULAN_GANDA });
+    } else if (alasanError) {
+      hasil.push({ ...i, keadaan: "dilewati", pesan: alasanError });
+    } else {
+      hasil.push({ ...i, ...(await aktifkanSatu(i.idImpor, idPengguna)) });
+    }
+  }
+  return hasil;
+}
+
+async function aktifkanSatu(
+  idImpor: number,
+  idPengguna: string,
+): Promise<{ keadaan: "diaktifkan" } | { keadaan: "gagal"; pesan: string }> {
+  try {
+    const hasil = await aktifkanImpor(idImpor, idPengguna);
+    return hasil.keadaan === "berhasil" ? { keadaan: "diaktifkan" } : hasil;
+  } catch (galat) {
+    // Transaksi impor ini dibatalkan; impor lain tetap diproses (hasil per impor), tanpa pengulangan otomatis.
+    console.error(`[aktifkan-semua-impor] impor ${idImpor}:`, galat);
+    return { keadaan: "gagal", pesan: "Impor ini gagal diaktifkan karena kesalahan server. Periksa statusnya di Daftar impor sebelum mencoba lagi." };
+  }
 }

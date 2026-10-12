@@ -28,7 +28,8 @@ vi.mock("next/cache", () => ({
   },
 }));
 
-import { aktifkanImpor, daftarkanImpor, mintaUrlUnggah } from "./aksi";
+import { aktifkanImpor, aktifkanSemuaImporSiap, daftarkanImpor, mintaUrlUnggah } from "./aksi";
+import { NAMA_BULAN } from "./format";
 
 beforeAll(async () => {
   await pastikanBucket();
@@ -660,5 +661,131 @@ describe("master produk mengikuti impor yang terakhir diaktifkan (PRD A1, Keputu
     await aktifkanImpor({ idImpor: await imporSiapDitinjau(tahun, [a]) });
     await aktifkanImpor({ idImpor: await imporSiapDitinjau(tahun, [b]) });
     expect(await masterProduk(a.kode)).toMatchObject({ nama: "NAMA A" });
+  });
+});
+
+describe("Aktifkan semua yang siap (T86, PRD A1 Keputusan 2026-10-12)", () => {
+  /** Tahun yang belum dipakai impor mana pun, agar impor siap buatan test lain tidak sebulan dengan impor test ini. */
+  async function tahunBebas() {
+    for (;;) {
+      const tahun = tahunUji();
+      if ((await db.select({ id: impor.id }).from(impor).where(eq(impor.tahunImpor, tahun))).length === 0) return tahun;
+    }
+  }
+
+  /** Impor siap ditinjau satu toko untuk bulan tertentu; `kuantitas` negatif menghasilkan error. */
+  async function imporSiap(tahunImpor: number, bulanImpor: number, kuantitas: number[] = [2, 0]) {
+    const toko = await buatTokoUji();
+    const namaSheet = `${NAMA_BULAN[bulanImpor - 1].toUpperCase()} (S)`;
+    const isi = buatWorkbookUji({
+      [namaSheet]: sheetPenjualanUji({ toko: toko.nama, bulan: bulanImpor, hari: [1, 2], produk: [produkUji(kuantitas)] }),
+    });
+    const idImpor = await unggahDanDaftarkan(isi, { namaSheet, tahunImpor, bulanImpor });
+    await prosesImpor(idImpor);
+    return idImpor;
+  }
+
+  /** Hasil untuk impor milik test ini saja (impor siap buatan test lain ikut diproses). */
+  async function aktifkanSemuaUntuk(...id: number[]) {
+    const hasil = await aktifkanSemuaImporSiap();
+    if (!("impor" in hasil) || !hasil.impor) throw new Error(`tanpa hasil per impor: ${JSON.stringify(hasil)}`);
+    return { keadaan: hasil.keadaan, impor: hasil.impor.filter((h) => id.includes(h.idImpor)) };
+  }
+
+  it("tiga impor siap (Juni, Juli, Agustus) → ketiganya aktif, hasil urut tahun–bulan impor", async () => {
+    const tahun = await tahunBebas();
+    const agustus = await imporSiap(tahun, 8);
+    const juni = await imporSiap(tahun, JUNI);
+    const juli = await imporSiap(tahun, 7);
+
+    const hasil = await aktifkanSemuaUntuk(agustus, juni, juli);
+
+    expect(hasil.keadaan).toBe("berhasil");
+    expect(hasil.impor).toEqual([
+      { idImpor: juni, namaSheet: "JUNI (S)", namaFile: "penjualan.xlsx", tahunImpor: tahun, bulanImpor: JUNI, keadaan: "diaktifkan" },
+      { idImpor: juli, namaSheet: "JULI (S)", namaFile: "penjualan.xlsx", tahunImpor: tahun, bulanImpor: 7, keadaan: "diaktifkan" },
+      { idImpor: agustus, namaSheet: "AGUSTUS (S)", namaFile: "penjualan.xlsx", tahunImpor: tahun, bulanImpor: 8, keadaan: "diaktifkan" },
+    ]);
+    expect(await statusImpor(juni, juli, agustus)).toEqual({ [juni]: "aktif", [juli]: "aktif", [agustus]: "aktif" });
+  });
+
+  it("dua impor siap untuk Juni + satu Juli → kedua impor Juni dilewati, Juli aktif", async () => {
+    const tahun = await tahunBebas();
+    const juniA = await imporSiap(tahun, JUNI);
+    const juniB = await imporSiap(tahun, JUNI);
+    const juli = await imporSiap(tahun, 7);
+
+    const hasil = await aktifkanSemuaUntuk(juniA, juniB, juli);
+
+    const lewati = "Ada lebih dari satu impor siap untuk bulan ini; aktifkan satu per satu dari halaman tinjau.";
+    expect(hasil.keadaan).toBe("berhasil");
+    expect(hasil.impor).toEqual([
+      expect.objectContaining({ idImpor: juniA, keadaan: "dilewati", pesan: lewati }),
+      expect.objectContaining({ idImpor: juniB, keadaan: "dilewati", pesan: lewati }),
+      expect.objectContaining({ idImpor: juli, keadaan: "diaktifkan" }),
+    ]);
+    expect(await statusImpor(juniA, juniB, juli)).toEqual({ [juniA]: "siap-ditinjau", [juniB]: "siap-ditinjau", [juli]: "aktif" });
+  });
+
+  it("impor dengan error → dilewati beserta jumlah error-nya; impor siap lain tetap diaktifkan", async () => {
+    const tahun = await tahunBebas();
+    const error = await imporSiap(tahun, JUNI, [-1, -2]);
+    const juli = await imporSiap(tahun, 7);
+
+    const hasil = await aktifkanSemuaUntuk(error, juli);
+
+    expect(hasil.impor).toEqual([
+      expect.objectContaining({
+        idImpor: error,
+        keadaan: "dilewati",
+        pesan: "Tidak bisa diaktifkan: ada 2 error. Perbaiki di Excel, lalu unggah ulang.",
+      }),
+      expect.objectContaining({ idImpor: juli, keadaan: "diaktifkan" }),
+    ]);
+    expect(await statusImpor(error, juli)).toEqual({ [error]: "siap-ditinjau", [juli]: "aktif" });
+  });
+
+  it("impor aktif lama untuk bulan yang sama diarsipkan seperti aktivasi satu per satu (ADR-0002)", async () => {
+    const tahun = await tahunBebas();
+    const lama = await imporSiap(tahun, JUNI);
+    await aktifkanImpor({ idImpor: lama });
+    const baru = await imporSiap(tahun, JUNI);
+
+    expect((await aktifkanSemuaUntuk(lama, baru)).impor).toEqual([expect.objectContaining({ idImpor: baru, keadaan: "diaktifkan" })]);
+    expect(await statusImpor(lama, baru)).toEqual({ [lama]: "diarsipkan", [baru]: "aktif" });
+  });
+
+  it("non-admin ditolak di server tanpa perubahan", async () => {
+    const tahun = await tahunBebas();
+    const juni = await imporSiap(tahun, JUNI);
+
+    kepala.cookie = (await kepalaPenggunaUji("viewer")).cookie;
+    await expect(aktifkanSemuaImporSiap()).rejects.toBeInstanceOf(AksesDitolakError);
+    kepala.cookie = "";
+    await expect(aktifkanSemuaImporSiap()).rejects.toMatchObject({ digest: expect.stringContaining("/masuk") });
+
+    expect(await statusImpor(juni)).toEqual({ [juni]: "siap-ditinjau" });
+  });
+
+  it("tersimpan tetapi gagal memuat ulang tampilan", async () => {
+    const juni = await imporSiap(await tahunBebas(), JUNI);
+    kepala.muatUlangGagal = true;
+    const hasil = await aktifkanSemuaUntuk(juni);
+    expect(hasil).toEqual({ keadaan: "tersimpanGagalMuatUlang", impor: [expect.objectContaining({ idImpor: juni, keadaan: "diaktifkan" })] });
+    expect(await statusImpor(juni)).toEqual({ [juni]: "aktif" });
+  });
+
+  it("tidak ada impor yang diaktifkan → gagal beserta hasil per impor", async () => {
+    // Impor siap buatan test lain diselesaikan dulu agar hanya impor ber-error milik test ini yang tersisa.
+    await aktifkanSemuaImporSiap();
+    const error = await imporSiap(await tahunBebas(), JUNI, [-1, 3]);
+    const sisa = (await db.select({ id: impor.id }).from(impor).where(eq(impor.status, "siap-ditinjau"))).map((b) => b.id);
+    expect(sisa).toContain(error);
+
+    const hasil = await aktifkanSemuaImporSiap();
+
+    expect(hasil).toMatchObject({ keadaan: "gagal", pesan: "Tidak ada impor yang diaktifkan. Lihat keterangan per impor." });
+    expect("impor" in hasil && hasil.impor?.find((h) => h.idImpor === error)).toMatchObject({ keadaan: "dilewati" });
+    expect(await statusImpor(error)).toEqual({ [error]: "siap-ditinjau" });
   });
 });
