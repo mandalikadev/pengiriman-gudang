@@ -229,25 +229,26 @@ export async function jumlahImporSiapDiaktifkan() {
 
 /**
  * "Aktifkan semua yang siap" (PRD A1, Keputusan 2026-10-12, UAT kedua). Impor siap ditinjau dengan 0 error diaktifkan
- * satu per satu lewat `aktifkanImpor` (aturan dan transaksi per impor sama), urut tahun–bulan impor. Bulan yang punya
- * lebih dari satu impor siap ditinjau dilewati seluruhnya; impor dengan error dilewati beserta jumlah error-nya. Satu
- * impor gagal tidak membatalkan yang lain. Hasil dikembalikan per impor. Pemeriksaan peran ada di server action.
+ * satu per satu lewat `aktifkanImpor` (aturan dan transaksi per impor sama), urut tahun–bulan impor. "Impor siap" =
+ * siap ditinjau dengan 0 error (PRD A1): bulan yang punya lebih dari satu impor siap dilewati seluruhnya; impor dengan
+ * error selalu dilewati beserta jumlah error-nya dan tidak ikut dihitung. Satu impor gagal tidak membatalkan yang lain. Hasil dikembalikan per impor. Pemeriksaan peran ada di server action.
  */
 export async function aktifkanSemuaImporSiap(idPengguna: string): Promise<HasilAktifkanSatuImpor[]> {
   const daftar = await muatImporSiapDitinjau();
-  const jumlahPerBulan = new Map<number, number>();
+  const jumlahSiapPerBulan = new Map<number, number>();
   for (const i of daftar) {
+    if (i.jumlahError > 0) continue;
     const kunci = i.tahunImpor * 100 + i.bulanImpor;
-    jumlahPerBulan.set(kunci, (jumlahPerBulan.get(kunci) ?? 0) + 1);
+    jumlahSiapPerBulan.set(kunci, (jumlahSiapPerBulan.get(kunci) ?? 0) + 1);
   }
 
   const hasil: HasilAktifkanSatuImpor[] = [];
   for (const { jumlahError, ...i } of daftar) {
     const alasanError = alasanTidakBisaAktif({ status: "siap-ditinjau", jumlahError });
-    if ((jumlahPerBulan.get(i.tahunImpor * 100 + i.bulanImpor) ?? 0) > 1) {
-      hasil.push({ ...i, keadaan: "dilewati", pesan: alasanError ? `${PESAN_BULAN_GANDA} ${alasanError}` : PESAN_BULAN_GANDA });
-    } else if (alasanError) {
+    if (alasanError) {
       hasil.push({ ...i, keadaan: "dilewati", pesan: alasanError });
+    } else if ((jumlahSiapPerBulan.get(i.tahunImpor * 100 + i.bulanImpor) ?? 0) > 1) {
+      hasil.push({ ...i, keadaan: "dilewati", pesan: PESAN_BULAN_GANDA });
     } else {
       hasil.push({ ...i, ...(await aktifkanSatu(i.idImpor, idPengguna)) });
     }

@@ -745,6 +745,25 @@ describe("Aktifkan semua yang siap (T86, PRD A1 Keputusan 2026-10-12)", () => {
     expect(await statusImpor(error, juli)).toEqual({ [error]: "siap-ditinjau", [juli]: "aktif" });
   });
 
+  it("satu impor bersih + satu impor ber-error di bulan yang sama → yang bersih aktif, yang ber-error dilewati dengan jumlah error-nya", async () => {
+    // PRD A1 (Keputusan 2026-10-12): "impor siap" = siap ditinjau dengan 0 error, jadi bulan ini tidak ganda.
+    const tahun = await tahunBebas();
+    const error = await imporSiap(tahun, JUNI, [-1, 3]);
+    const bersih = await imporSiap(tahun, JUNI);
+
+    const hasil = await aktifkanSemuaUntuk(error, bersih);
+
+    expect(hasil.impor).toEqual([
+      expect.objectContaining({
+        idImpor: error,
+        keadaan: "dilewati",
+        pesan: "Tidak bisa diaktifkan: ada 1 error. Perbaiki di Excel, lalu unggah ulang.",
+      }),
+      expect.objectContaining({ idImpor: bersih, keadaan: "diaktifkan" }),
+    ]);
+    expect(await statusImpor(error, bersih)).toEqual({ [error]: "siap-ditinjau", [bersih]: "aktif" });
+  });
+
   it("impor aktif lama untuk bulan yang sama diarsipkan seperti aktivasi satu per satu (ADR-0002)", async () => {
     const tahun = await tahunBebas();
     const lama = await imporSiap(tahun, JUNI);
