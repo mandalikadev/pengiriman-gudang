@@ -155,7 +155,8 @@ Pembuatan, perubahan, dan penonaktifan jadwal empat gudang selain Pusat memerluk
 > | Gudang Bandung | PASKAL | 2× seminggu | Senin (H−1), Jumat (H−1) | — |
 > | Gudang Bandung | PVJ | mingguan | Selasa (H−1) | — |
 >
-> - Bacaan lampiran yang perlu dikonfirmasi pemilik saat UAT: SMS tercantum di Selasa ("1× seminggu") dan Jumat ("2× seminggu") → dibaca 2× seminggu. BXC dan CCM "2 minggu 1× bergantian" → BXC pekan 12-10-2026, CCM pekan berikutnya. Persiapan Bali dan Bandung tidak tertulis → H−1 (PDF Bandung: permintaan masuk paling lambat satu hari sebelum kirim).
+> - Bacaan lampiran yang dipakai: SMS tercantum di Selasa ("1× seminggu") dan Jumat ("2× seminggu") → dibaca 2× seminggu. BXC dan CCM "2 minggu 1× bergantian" → BXC pekan 12-10-2026, CCM pekan berikutnya. Persiapan Bali dan Bandung tidak tertulis → H−1 (PDF Bandung: permintaan masuk paling lambat satu hari sebelum kirim).
+> ▶ Keputusan (2026-10-12, UAT kedua): pemilik **mengonfirmasi** ketiga bacaan di atas: SMS 2× seminggu (Selasa dan Jumat), BXC dan CCM bergantian dua mingguan (jangkar BXC 2026-10-14, CCM 2026-10-21), dan persiapan Bali serta Bandung H−1.
 
 
 Jika jadwal atau dasar perhitungan berubah, draft terkait harus dihitung ulang. Input stok tetap dipertahankan. Rencana yang sudah final tidak berubah mengikuti aturan baru.
