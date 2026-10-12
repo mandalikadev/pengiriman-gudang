@@ -78,6 +78,25 @@ export function pesanPortBentrok(port: number): string {
   ].join("\n");
 }
 
+/** Pesan akhir saat aplikasi siap: alamat, akun admin, akun operator uji (T89), panduan, dan cara berhenti. */
+export function pesanAplikasiSiap({ urlAplikasi, emailAdmin }: { urlAplikasi: string; emailAdmin: string | undefined }) {
+  return [
+    "",
+    "==============================================================",
+    ` Aplikasi siap: ${urlAplikasi}`,
+    ` Masuk sebagai admin: ${emailAdmin ?? "(lihat ADMIN_AWAL_EMAIL di .env)"}`,
+    " Kata sandi admin: lihat ADMIN_AWAL_SANDI di berkas .env",
+    " Akun operator uji: operator.cibubur@example.com (Gudang Cibubur),",
+    "   operator.bali@example.com (Gudang Bali), operator.bandung@example.com (Gudang Bandung)",
+    " Kata sandi operator: lihat UAT_SANDI_OPERATOR di berkas .env",
+    "   (jika kosong, akun operator tidak dibuat)",
+    " Panduan uji: docs/UAT.md",
+    " Berhenti: tekan Ctrl+C di terminal ini.",
+    "==============================================================",
+    "",
+  ].join("\n");
+}
+
 export const PESAN_DOCKER_MATI = [
   "Docker belum menyala.",
   "Buka Docker Desktop, tunggu sampai statusnya \"running\", lalu jalankan pnpm uat lagi.",

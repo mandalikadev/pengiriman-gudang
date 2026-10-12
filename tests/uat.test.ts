@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 import { parse as parseEnv } from "dotenv";
 import { describe, expect, it } from "vitest";
 
-import { isiEnvAwal, pesanPortBentrok, pesanPortLama, portBentrok, portLamaDiEnv } from "../scripts/uat/pesan";
+import { OPERATOR_UAT } from "@/server/gudang/seed-uat";
+
+import { isiEnvAwal, pesanAplikasiSiap, pesanPortBentrok, pesanPortLama, portBentrok, portLamaDiEnv } from "../scripts/uat/pesan";
 
 // Paket UAT lokal (T99): bagian murni `pnpm uat` dan cakupan skenario docs/UAT.md.
 
@@ -21,7 +23,15 @@ describe("isiEnvAwal", () => {
 
   it(".env.example repo memuat semua variabel yang dibutuhkan seed dan aplikasi", () => {
     const hasil = isiEnvAwal(baca(".env.example"), "rahasia-acak");
-    for (const nama of ["DATABASE_URL", "BETTER_AUTH_URL", "ADMIN_AWAL_EMAIL", "ADMIN_AWAL_SANDI", "S3_ENDPOINT", "S3_BUCKET"]) {
+    for (const nama of [
+      "DATABASE_URL",
+      "BETTER_AUTH_URL",
+      "ADMIN_AWAL_EMAIL",
+      "ADMIN_AWAL_SANDI",
+      "S3_ENDPOINT",
+      "S3_BUCKET",
+      "UAT_SANDI_OPERATOR",
+    ]) {
       expect(hasil).toMatch(new RegExp(`^${nama}=.+$`, "m"));
     }
     expect(hasil).toMatch(/^BETTER_AUTH_SECRET=rahasia-acak$/m);
@@ -29,6 +39,33 @@ describe("isiEnvAwal", () => {
 
   it("tanpa BETTER_AUTH_SECRET → error", () => {
     expect(() => isiEnvAwal("DATABASE_URL=x\n", "acak")).toThrow();
+  });
+});
+
+describe("pesanAplikasiSiap (T89)", () => {
+  it("menyebut alamat aplikasi, email admin, tiga akun operator, dan UAT_SANDI_OPERATOR", () => {
+    const pesan = pesanAplikasiSiap({ urlAplikasi: "http://localhost:3100", emailAdmin: "admin@example.com" });
+    expect(pesan).toContain("Aplikasi siap: http://localhost:3100");
+    expect(pesan).toContain("admin@example.com");
+    expect(pesan).toContain("ADMIN_AWAL_SANDI");
+    for (const operator of OPERATOR_UAT) expect(pesan).toContain(operator.email);
+    expect(pesan).toContain("UAT_SANDI_OPERATOR");
+  });
+
+  it("tanpa ADMIN_AWAL_EMAIL → menunjuk ke .env", () => {
+    expect(pesanAplikasiSiap({ urlAplikasi: "http://localhost:3100", emailAdmin: undefined })).toContain(
+      "(lihat ADMIN_AWAL_EMAIL di .env)",
+    );
+  });
+});
+
+describe("seed UAT di pnpm uat (T89)", () => {
+  it("db:seed-uat menjalankan scripts/seed-uat.ts dan dipanggil pnpm uat setelah db:seed-master", () => {
+    const paket = JSON.parse(baca("package.json")) as { scripts: Record<string, string> };
+    expect(paket.scripts["db:seed-uat"]).toBe("tsx scripts/seed-uat.ts");
+    const uat = baca("scripts/uat.ts");
+    expect(uat.indexOf('["db:seed-uat"]')).toBeGreaterThan(uat.indexOf('["db:seed-master"]'));
+    expect(uat.indexOf('["db:seed-master"]')).toBeGreaterThan(-1);
   });
 });
 

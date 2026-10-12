@@ -4,7 +4,7 @@
 // periksa Docker → docker compose up (PostgreSQL + MinIO) →
 // migrasi → seed admin pertama + 5 gudang + 25 toko + hubungan dan jadwal awal Cibubur, Bali, Bandung (T84; PMS, PMJ, QUEEN,
 // MKS, DPM tetap belum terhubung, OD-12) + data master produk, keluarga aroma, pemetaan, alias nama stok (T88) →
-// next build →
+// seed UAT: periode sumber Juni–Agustus 2026 dan akun operator Cibubur, Bali, Bandung (T89) → next build →
 // next start + worker. Berhenti dengan Ctrl+C. Data tersimpan di volume Docker dan tetap ada saat dijalankan lagi.
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -15,6 +15,7 @@ import { config as muatEnv, parse as parseEnv } from "dotenv";
 
 import {
   isiEnvAwal,
+  pesanAplikasiSiap,
   PESAN_DOCKER_MATI,
   PESAN_DOCKER_TIDAK_ADA,
   pesanPortBentrok,
@@ -115,6 +116,11 @@ jalankan(
   "pnpm",
   ["db:seed-master"],
 );
+jalankan(
+  "Menyiapkan periode sumber Juni–Agustus 2026 dan akun operator Cibubur, Bali, Bandung untuk UAT...",
+  "pnpm",
+  ["db:seed-uat"],
+);
 jalankan("Menyiapkan aplikasi (next build, beberapa menit)...", "pnpm", ["build"]);
 
 catat("Menyalakan aplikasi dan worker...");
@@ -142,16 +148,4 @@ for (const proses of daftarProses) {
 }
 
 await tunggu(`${urlAplikasi.origin}/masuk`, "Aplikasi", 120_000);
-console.log(
-  [
-    "",
-    "==============================================================",
-    ` Aplikasi siap: ${urlAplikasi.origin}`,
-    ` Masuk sebagai admin: ${process.env.ADMIN_AWAL_EMAIL ?? "(lihat ADMIN_AWAL_EMAIL di .env)"}`,
-    " Kata sandi admin: lihat ADMIN_AWAL_SANDI di berkas .env",
-    " Panduan uji: docs/UAT.md",
-    " Berhenti: tekan Ctrl+C di terminal ini.",
-    "==============================================================",
-    "",
-  ].join("\n"),
-);
+console.log(pesanAplikasiSiap({ urlAplikasi: urlAplikasi.origin, emailAdmin: process.env.ADMIN_AWAL_EMAIL }));
