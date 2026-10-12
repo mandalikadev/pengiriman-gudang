@@ -4,6 +4,7 @@ import { CircleX } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createContext, useContext, useState, useSyncExternalStore, type ReactNode } from "react";
 
+import { formatAngka } from "@/app/admin/impor/format";
 import { BadgeStatus } from "@/components/badge-status";
 import { usePenyimpanan } from "@/components/keadaan-simpan";
 import { PesanStatusSimpan } from "@/components/pesan-status-simpan";
@@ -21,10 +22,12 @@ import { UnggahStok } from "./unggah-stok";
 // Perlindungan draft: isian yang belum disimpan disimpan di penyimpanan lokal peramban dan dipulihkan setelah muat ulang
 // atau gangguan akses, sampai berhasil disimpan; meninggalkan halaman memunculkan peringatan.
 // Unggah file stok (T83): hasil terisi diterapkan lewat jalur isian yang sama dengan mengetik (`ubahBanyak`).
+// Isi 0 untuk stok yang kosong (T90; PRD A6 ▶ Keputusan 2026-10-12, UAT kedua): tindakan eksplisit operator yang mengisi 0
+// lewat jalur yang sama, hanya pada produk otomatis yang isiannya masih kosong. Stok kosong tetap berarti belum diketahui.
 
 const PESAN_ISIAN_TIDAK_VALID = "Isi bilangan bulat, atau kosongkan jika belum diketahui.";
 
-type StokTersimpan = { kodeProduk: string; stokAkhir: number | null };
+type StokTersimpan = { kodeProduk: string; stokAkhir: number | null; klasifikasi: "manual" | "otomatis" };
 
 /** Isian teks → stok akhir: kosong = `null` (belum diketahui); `undefined` = bukan bilangan bulat yang diterima. */
 function bacaIsianStok(teks: string): number | null | undefined {
@@ -100,6 +103,9 @@ export function FormStokToko({
   }
 
   const tidakValid = berbeda.filter((k) => bacaIsianStok(isian[k]) === undefined);
+  const otomatisKosong = stokTersimpan
+    .filter((s) => s.klasifikasi === "otomatis" && bacaIsianStok(isian[s.kodeProduk]) === null)
+    .map((s) => s.kodeProduk);
 
   return (
     <Konteks.Provider value={{ isian, ubah, menunggu }}>
@@ -136,6 +142,15 @@ export function FormStokToko({
           menunggu={menunggu}
           terapkan={(terisi) => ubahBanyak(Object.fromEntries(terisi.map((s) => [s.kodeProduk, teksStok(s.stokAkhir)])))}
         />
+        <Button
+          type="button"
+          variant="outline"
+          disabled={menunggu || otomatisKosong.length === 0}
+          onClick={() => ubahBanyak(Object.fromEntries(otomatisKosong.map((k) => [k, "0"])))}
+          className="self-start active:scale-95"
+        >
+          {`Isi 0 untuk ${formatAngka(otomatisKosong.length)} stok yang kosong`}
+        </Button>
         {children}
         <div className="flex flex-wrap items-center gap-4">
           <Button type="submit" disabled={menunggu || !belumDisimpan} className="active:scale-95">

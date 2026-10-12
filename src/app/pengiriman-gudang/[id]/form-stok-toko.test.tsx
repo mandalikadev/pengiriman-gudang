@@ -21,17 +21,25 @@ declare global {
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const KUNCI = kunciIsianLokal(3, "2026-06-08", 7);
-const STOK_TERSIMPAN = [
+/** Stok tersimpan per varian; tanpa `klasifikasi` = produk otomatis. */
+type StokUji = { kodeProduk: string; stokAkhir: number | null; klasifikasi?: "manual" | "otomatis" };
+const STOK_TERSIMPAN: StokUji[] = [
   { kodeProduk: "UJI-A", stokAkhir: null },
   { kodeProduk: "UJI-B", stokAkhir: 5 },
 ];
 
 let terpasang: { wadah: HTMLElement; akar: Root } | null = null;
 
-function tampilkan(akar: Root, stokTersimpan: typeof STOK_TERSIMPAN) {
+function tampilkan(akar: Root, stokTersimpan: readonly StokUji[]) {
   act(() =>
     akar.render(
-      <FormStokToko idGudang={3} tanggalKirim="2026-06-08" tokoId={7} namaToko="TOKO UJI" stokTersimpan={stokTersimpan}>
+      <FormStokToko
+        idGudang={3}
+        tanggalKirim="2026-06-08"
+        tokoId={7}
+        namaToko="TOKO UJI"
+        stokTersimpan={stokTersimpan.map((s) => ({ ...s, klasifikasi: s.klasifikasi ?? "otomatis" }))}
+      >
         {stokTersimpan.map((s) => (
           <InputStok key={s.kodeProduk} kodeProduk={s.kodeProduk} />
         ))}
@@ -52,7 +60,7 @@ function buka(stokTersimpan = STOK_TERSIMPAN) {
 }
 
 /** Data server baru tiba (mis. setelah `router.refresh()`) tanpa memasang ulang form. */
-function terimaDataServer(stokTersimpan: typeof STOK_TERSIMPAN) {
+function terimaDataServer(stokTersimpan: readonly StokUji[]) {
   if (terpasang === null) throw new Error("Form belum dipasang.");
   tampilkan(terpasang.akar, stokTersimpan);
 }
@@ -421,5 +429,81 @@ describe("unggah file stok", () => {
     expect(tiruan.unggahStok).toHaveBeenCalledTimes(1);
     expect(wadah.querySelector('[role="alert"]')?.textContent).toContain("File tidak terbaca karena server tidak menjawab. Coba lagi.");
     expect(status(wadah)).toBeNull();
+  });
+});
+
+// PRD A6 ▶ Keputusan (2026-10-12, UAT kedua), T90: tombol "Isi 0 untuk stok yang kosong" mengisi 0 hanya pada produk
+// otomatis yang isiannya (termasuk isian lokal yang belum disimpan) masih kosong, sebagai isian belum disimpan.
+describe("isi 0 untuk stok yang kosong", () => {
+  // Contoh literal issue T90: 3 otomatis kosong, 1 otomatis terisi 5, 1 otomatis −2, 1 manual kosong.
+  const STOK_CONTOH: StokUji[] = [
+    { kodeProduk: "UJI-K1", stokAkhir: null },
+    { kodeProduk: "UJI-K2", stokAkhir: null },
+    { kodeProduk: "UJI-K3", stokAkhir: null },
+    { kodeProduk: "UJI-LIMA", stokAkhir: 5 },
+    { kodeProduk: "UJI-NEG", stokAkhir: -2 },
+    { kodeProduk: "UJI-T", stokAkhir: null, klasifikasi: "manual" },
+  ];
+  const tombolIsiNol = (wadah: HTMLElement) => {
+    const tombol = [...wadah.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.startsWith("Isi 0 untuk"));
+    if (tombol === undefined) throw new Error("Tombol Isi 0 tidak ada.");
+    return tombol;
+  };
+  const nilai = (wadah: HTMLElement) => Object.fromEntries(STOK_CONTOH.map((s) => [s.kodeProduk, isian(wadah, s.kodeProduk).value]));
+  async function tekan(tombol: HTMLButtonElement) {
+    await act(async () => {
+      tombol.click();
+    });
+  }
+
+  it("mengisi 0 hanya pada produk otomatis yang kosong, sebagai belum disimpan; lalu tombol nonaktif", async () => {
+    const wadah = buka(STOK_CONTOH);
+    expect(tombolIsiNol(wadah).textContent).toBe("Isi 0 untuk 3 stok yang kosong");
+    expect(tombolIsiNol(wadah).type).toBe("button");
+    expect(tombolIsiNol(wadah).disabled).toBe(false);
+
+    await tekan(tombolIsiNol(wadah));
+    expect(nilai(wadah)).toEqual({ "UJI-K1": "0", "UJI-K2": "0", "UJI-K3": "0", "UJI-LIMA": "5", "UJI-NEG": "-2", "UJI-T": "" });
+    expect(status(wadah)?.textContent).toBe("Ada perubahan yang belum disimpan");
+    expect(tombolIsiNol(wadah).textContent).toBe("Isi 0 untuk 0 stok yang kosong");
+    expect(tombolIsiNol(wadah).disabled).toBe(true);
+    // Tidak ada tulisan ke server sampai Simpan stok; isian dijaga perlindungan draft.
+    expect(tiruan.simpanStok).not.toHaveBeenCalled();
+    expect(JSON.parse(window.localStorage.getItem(KUNCI) ?? "null")).toEqual({ "UJI-K1": "0", "UJI-K2": "0", "UJI-K3": "0" });
+
+    tiruan.simpanStok.mockResolvedValue({ keadaan: "berhasil" });
+    await kirim(wadah);
+    expect(tiruan.simpanStok).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stok: [
+          { kodeProduk: "UJI-K1", stokAkhir: 0 },
+          { kodeProduk: "UJI-K2", stokAkhir: 0 },
+          { kodeProduk: "UJI-K3", stokAkhir: 0 },
+        ],
+      }),
+    );
+  });
+
+  it("isian lokal yang belum disimpan ikut dihitung, termasuk setelah dipulihkan dari muat ulang", async () => {
+    const wadah = buka(STOK_CONTOH);
+    ketik(isian(wadah, "UJI-K1"), "7");
+    expect(tombolIsiNol(wadah).textContent).toBe("Isi 0 untuk 2 stok yang kosong");
+    ketik(isian(wadah, "UJI-LIMA"), " ");
+    expect(tombolIsiNol(wadah).textContent).toBe("Isi 0 untuk 3 stok yang kosong");
+
+    const setelahMuatUlang = buka(STOK_CONTOH);
+    expect(tombolIsiNol(setelahMuatUlang).textContent).toBe("Isi 0 untuk 3 stok yang kosong");
+    await tekan(tombolIsiNol(setelahMuatUlang));
+    expect(nilai(setelahMuatUlang)).toEqual({ "UJI-K1": "7", "UJI-K2": "0", "UJI-K3": "0", "UJI-LIMA": "0", "UJI-NEG": "-2", "UJI-T": "" });
+    expect(tombolIsiNol(setelahMuatUlang).disabled).toBe(true);
+  });
+
+  it("tanpa produk otomatis yang kosong: tombol menyebut 0 dan tidak bisa ditekan", () => {
+    const wadah = buka([
+      { kodeProduk: "UJI-B", stokAkhir: 5 },
+      { kodeProduk: "UJI-T", stokAkhir: null, klasifikasi: "manual" },
+    ]);
+    expect(tombolIsiNol(wadah).textContent).toBe("Isi 0 untuk 0 stok yang kosong");
+    expect(tombolIsiNol(wadah).disabled).toBe(true);
   });
 });

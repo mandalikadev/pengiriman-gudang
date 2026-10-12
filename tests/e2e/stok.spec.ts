@@ -22,6 +22,7 @@ import { EMAIL_ADMIN_E2E } from "./siapkan";
 // T59: operator dengan hak input-stok mengisi stok akhir di draft rencana → simpan → jumlah kirim tampil.
 // T73: draft tampil sebagai ringkasan per toko; baris dan isian stok tampil setelah toko dibuka.
 // T83: operator mengunggah file stok satu toko → isian terisi (belum disimpan) → simpan → jumlah kirim tampil.
+// T90: "Isi 0 untuk stok yang kosong" → isian 0 (belum disimpan) pada produk otomatis → simpan → baris tertahan berkurang.
 // Contoh PRD A6 / golden `jumlah-kirim.json`: kebutuhan 56, stok 20, keluarga tujuh besar → jumlah kirim 44.
 
 const golden = JSON.parse(readFileSync(join(import.meta.dirname, "../golden/jumlah-kirim.json"), "utf8")) as {
@@ -193,6 +194,46 @@ test("Draft rencana: unggah file stok → isian terisi (belum disimpan) → simp
   await page.reload();
   await expect(form.getByRole("textbox", { name: `Stok akhir ${kode.pw110p}` })).toHaveValue(String(contoh.stokAkhir));
   await expect(form.getByRole("region", { name: "Hasil unggahan file stok" })).toHaveCount(0);
+  await expect(form.getByText("Ada perubahan yang belum disimpan")).toHaveCount(0);
+
+  await db.delete(draftRencana).where(eq(draftRencana.gudangId, jabodetabek));
+});
+
+// T90 (PRD A6 ▶ Keputusan 2026-10-12, UAT kedua): dua produk otomatis berstok kosong (tertahan "Stok belum diisi") dan
+// satu produk manual (display tester, kode berakhiran -T). Isi 0 hanya mengisi kedua produk otomatis.
+test("Draft rencana: isi 0 untuk stok yang kosong → simpan → baris tertahan berkurang", async ({ page }) => {
+  const kode = { gor: kodeProdukUji("GOR"), san: kodeProdukUji("SAN"), tester: kodeProdukUji("GOR-T") };
+  const { operator, jabodetabek, toko } = await siapkanDraft((tahun) => [
+    produkContoh(tahun, kode.gor, "15ML GLITTER - GORGEOUS", "15ML", "15ML GLITTER/LEATHER"),
+    produkContoh(tahun, kode.san, "15ML GLITTER - SANTAL", "15ML", "15ML GLITTER/LEATHER"),
+    produkContoh(tahun, kode.tester, "15ML GLITTER - GORGEOUS TESTER", "15ML", "15ML GLITTER/LEATHER"),
+  ]);
+  await masuk(page, operator.email);
+  await page.goto(`/pengiriman-gudang/${jabodetabek}?tanggal=${TANGGAL_KIRIM}&toko=${toko.id}`);
+
+  const bagianToko = page.locator(`section[data-draft-toko="${toko.id}"]`);
+  const form = page.getByRole("form", { name: `Stok akhir ${toko.nama}` });
+  const isianStok = (k: string) => form.getByRole("textbox", { name: `Stok akhir ${k}` });
+  await expect(bagianToko.locator("[data-jumlah-tertahan]")).toHaveText("2 baris tertahan");
+  await expect(page.locator(`tr[data-kode-produk="${kode.tester}"]`).getByText("Manual").first()).toBeVisible();
+
+  await form.getByRole("button", { name: "Isi 0 untuk 2 stok yang kosong" }).click();
+  await expect(isianStok(kode.gor)).toHaveValue("0");
+  await expect(isianStok(kode.san)).toHaveValue("0");
+  await expect(isianStok(kode.tester)).toHaveValue("");
+  await expect(form.getByText("Ada perubahan yang belum disimpan")).toBeVisible();
+  await expect(form.getByRole("button", { name: "Isi 0 untuk 0 stok yang kosong" })).toBeDisabled();
+  // Belum ada tulisan ke server: baris masih tertahan sampai Simpan stok.
+  await expect(bagianToko.locator("[data-jumlah-tertahan]")).toHaveText("2 baris tertahan");
+
+  await form.getByRole("button", { name: "Simpan stok" }).click();
+  await expect(form.getByRole("status").filter({ hasText: "Berhasil disimpan" })).toBeVisible();
+  await expect(bagianToko.locator("[data-jumlah-tertahan]")).toHaveText("Tidak ada baris tertahan");
+
+  // Muat ulang: stok 0 tersimpan dari server; produk manual tetap kosong.
+  await page.reload();
+  await expect(isianStok(kode.gor)).toHaveValue("0");
+  await expect(isianStok(kode.tester)).toHaveValue("");
   await expect(form.getByText("Ada perubahan yang belum disimpan")).toHaveCount(0);
 
   await db.delete(draftRencana).where(eq(draftRencana.gudangId, jabodetabek));

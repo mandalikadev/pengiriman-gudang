@@ -258,7 +258,7 @@ function TabelToko({
           tanggalKirim={inputStok.tanggalKirim}
           tokoId={toko.id}
           namaToko={toko.nama}
-          stokTersimpan={toko.baris.map((b) => ({ kodeProduk: b.kodeProduk, stokAkhir: b.stokAkhir }))}
+          stokTersimpan={toko.baris.map((b) => ({ kodeProduk: b.kodeProduk, stokAkhir: b.stokAkhir, klasifikasi: b.klasifikasi }))}
         >
           <TabelVarian toko={toko} inputStok={inputStok} rincian={rincian} />
         </FormStokToko>
