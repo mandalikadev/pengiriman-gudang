@@ -136,7 +136,7 @@ lalu jalankan `pnpm uat` lagi. Perintah itu menghapus semua data lokal, termasuk
 | U2.3 | Buka **Admin › Ranking**. Pilih `data-lokal/RANKING-SALES-SEPTEMBER-2026.xlsx`. | Bulan ranking terisi **September** dan tahun **2026** dari nama file (masih bisa diubah). | | |
 | U2.4 | Tekan "Unggah dan tinjau", lalu "Publikasikan". | Halaman tinjau: 28 baris, semuanya cocok ke keluarga aroma; tujuh besar RANK 1–7 (GORGEOUS TUBEROSE, HOLY SWEET, ONLY THE BRAVE, NO1, UNSTOPPABLE, CHAMPION, SEDUCTION). Setelah publikasi: "Ranking ini sekarang berlaku untuk semua gudang." Status "Dipublikasikan", "September 2026 versi 1". | | |
 
-> **Periksa sendiri:** keluarga GIFT SET BOX memakai segmen `B` dan `W`, sehingga `GS15-B`, `GS15-W`, dan dua display dummy `DD-GS15-B`, `DD-GS15-W` masuk keluarga itu. Ini tidak mengubah angka (GIFT SET BOX di luar tujuh besar, buffernya 10% sama dengan produk otomatis lain). Jika ingin diubah, pakai Pemetaan produk.
+> **Sudah dikonfirmasi pemilik (12-10-2026):** keluarga GIFT SET BOX memakai segmen `B` dan `W`, sehingga `GS15-B`, `GS15-W`, dan dua display dummy `DD-GS15-B`, `DD-GS15-W` masuk keluarga itu. Ini tidak mengubah angka (GIFT SET BOX di luar tujuh besar, buffernya 10% sama dengan produk otomatis lain).
 
 ### Babak 3 — Admin: periksa alias nama stok, periode sumber, operator, jadwal
 
