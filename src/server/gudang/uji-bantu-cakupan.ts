@@ -3,7 +3,7 @@ import { eq, inArray } from "drizzle-orm";
 import type { KategoriDasar, NamaHari } from "@/domain/kalender";
 import { db } from "@/server/db";
 import { draftRencana, hubunganTokoGudang, jadwalToko, produk, rencanaFinal } from "@/server/db/schema";
-import { kodeProdukUji, tahunUji } from "@/server/impor/uji-bantu";
+import { kodeProdukUji, tahunUjiBebas } from "@/server/impor/uji-bantu";
 import { hitungUlangCacheLaporan } from "@/server/laporan/cache";
 import { aktifkanImporJuniUji, kuantitasJuniMenurutHari } from "@/server/laporan/uji-bantu";
 import { buatKeluargaUji, publikasikanRankingUji } from "@/server/ranking/uji-bantu";
@@ -37,7 +37,7 @@ export async function siapkanTokoSmbUji({ idGudang, idAdmin }: { idGudang: numbe
     dibuatOleh: idAdmin,
   });
 
-  const tahun = tahunUji();
+  const tahun = await tahunUjiBebas();
   const kodeProduk = kodeProdukUji("GOR");
   await aktifkanImporJuniUji({
     idAdmin,
