@@ -13,7 +13,7 @@ import { hitungDraftRencana } from "../../src/server/gudang/draft-rencana";
 import { tugaskanOperator } from "../../src/server/gudang/penugasan";
 import { tetapkanPeriodeSumber } from "../../src/server/gudang/periode-sumber";
 import { buatTokoUji, idGudangUji } from "../../src/server/gudang/uji-bantu";
-import { kodeProdukUji, tahunUji, type ProdukUji } from "../../src/server/impor/uji-bantu";
+import { kodeProdukUji, tahunUjiBebas, type ProdukUji } from "../../src/server/impor/uji-bantu";
 import { hitungUlangCacheLaporan } from "../../src/server/laporan/cache";
 import { aktifkanImporJuniUji, kuantitasJuniMenurutHari } from "../../src/server/laporan/uji-bantu";
 import { buatKeluargaUji, publikasikanRankingUji } from "../../src/server/ranking/uji-bantu";
@@ -64,7 +64,7 @@ async function siapkanDraft(daftarProduk: (tahun: number) => ProdukUji[]) {
     dibuatOleh: admin.id,
   });
 
-  const tahun = tahunUji();
+  const tahun = await tahunUjiBebas();
   const daftar = daftarProduk(tahun);
   await aktifkanImporJuniUji({ idAdmin: admin.id, tahun, namaToko: toko.nama, hari: SEMUA_HARI_JUNI, produk: daftar });
   await hitungUlangCacheLaporan();

@@ -2,7 +2,7 @@ import { namaHari, parseTanggalBisnis, type NamaHari } from "@/domain/kalender";
 import { buatTokoUji } from "@/server/gudang/uji-bantu";
 import { aktifkanImpor } from "@/server/impor/impor";
 import { pastikanBucket } from "@/server/impor/penyimpanan";
-import { buatWorkbookUji, imporUji, kodeProdukUji, sheetPenjualanUji, tahunUji, type ProdukUji } from "@/server/impor/uji-bantu";
+import { buatWorkbookUji, imporUji, kodeProdukUji, sheetPenjualanUji, tahunUjiBebas, type ProdukUji } from "@/server/impor/uji-bantu";
 import { hitungUlangCacheLaporan } from "@/server/laporan/cache";
 
 // Bantuan khusus test.
@@ -15,7 +15,7 @@ const NAMA_SHEET = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JUL
  */
 export async function siapkanBulanTersediaUji(idAdmin: string, bulan: readonly number[]): Promise<string[]> {
   await pastikanBucket();
-  const tahun = tahunUji();
+  const tahun = await tahunUjiBebas();
   const toko = await buatTokoUji();
   for (const b of bulan) {
     const namaSheet = `${NAMA_SHEET[b - 1]} (S)`;
@@ -44,7 +44,7 @@ export async function siapkanBulanTersediaUji(idAdmin: string, bulan: readonly n
 }
 
 /**
- * Mengaktifkan satu impor kecil `JUNI (S)` untuk satu toko di `tahun` (pakai `tahunUji()`), tanpa menghitung ulang cache
+ * Mengaktifkan satu impor kecil `JUNI (S)` untuk satu toko di `tahun` (pakai `tahunUjiBebas()`), tanpa menghitung ulang cache
  * (pemanggil memanggil `hitungUlangCacheLaporan` sekali setelah semua impor).
  */
 export async function aktifkanImporJuniUji({

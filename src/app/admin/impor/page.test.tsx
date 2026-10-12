@@ -6,7 +6,7 @@ import { db } from "@/server/db";
 import { buatTokoUji } from "@/server/gudang/uji-bantu";
 import { aktifkanImpor } from "@/server/impor/impor";
 import { pastikanBucket } from "@/server/impor/penyimpanan";
-import { buatWorkbookUji, imporUji, kodeProdukUji, sheetPenjualanUji, tahunUji } from "@/server/impor/uji-bantu";
+import { buatWorkbookUji, imporUji, kodeProdukUji, sheetPenjualanUji, tahunUjiBebas } from "@/server/impor/uji-bantu";
 import { hitungUlangCacheLaporan, naikkanRevisiKalender } from "@/server/laporan/cache";
 
 const kepala = vi.hoisted(() => ({ cookie: "" }));
@@ -60,7 +60,7 @@ describe("/admin/impor", () => {
 
   it("admin melihat form unggah dan daftar impor beserta statusnya", async () => {
     const admin = await buatPenggunaUji("admin");
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const id = await imporUji({ isi: buatWorkbookUji({ "JUNI (S)": [["BUKAN"]] }), tahunImpor: tahun, idPengguna: admin.id, proses: false });
     kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
 
@@ -87,7 +87,7 @@ describe("status cache laporan di halaman Impor (T33)", () => {
         produk: [{ kode: kodeProdukUji(), nama: "UJI", ukuran: "15ML", kategori: "15ML GLITTER/LEATHER", kuantitas: [1, null] }],
       }),
     });
-    const idImpor = await imporUji({ isi, tahunImpor: tahunUji(), idPengguna: admin.id });
+    const idImpor = await imporUji({ isi, tahunImpor: await tahunUjiBebas(), idPengguna: admin.id });
     expect(pantau.bacaExcel).toBeGreaterThan(0); // pemantau benar-benar terpasang di jalur worker
     expect(await aktifkanImpor(idImpor, admin.id)).toEqual({ keadaan: "berhasil" });
   }
@@ -158,7 +158,7 @@ describe("tombol Aktifkan semua yang siap (T86)", () => {
         produk: [{ kode: kodeProdukUji(), nama: "UJI", ukuran: "15ML", kategori: "15ML GLITTER/LEATHER", kuantitas }],
       }),
     });
-    return imporUji({ isi, tahunImpor: tahunUji(), idPengguna: admin.id });
+    return imporUji({ isi, tahunImpor: await tahunUjiBebas(), idPengguna: admin.id });
   }
 
   it("menyebut jumlah impor siap ditinjau tanpa error; impor ber-error dan aktif tidak dihitung", async () => {

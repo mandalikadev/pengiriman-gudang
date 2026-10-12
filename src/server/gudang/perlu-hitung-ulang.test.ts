@@ -8,7 +8,7 @@ import { parseTanggalBisnis, type KategoriDasar, type NamaHari } from "@/domain/
 import { buatPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
 import { draftRencana, hubunganTokoGudang, jadwalToko, perubahanKategori, produk } from "@/server/db/schema";
-import { kodeProdukUji, tahunUji } from "@/server/impor/uji-bantu";
+import { kodeProdukUji, tahunUjiBebas } from "@/server/impor/uji-bantu";
 import { batalkanPerubahanKategori, buatPerubahanKategori, revisiPerubahanKategori } from "@/server/kalender/perubahan-kategori";
 import { terapkanPemetaan } from "@/server/keluarga-aroma/pemetaan";
 import { hitungUlangCacheLaporan } from "@/server/laporan/cache";
@@ -102,7 +102,7 @@ beforeAll(async () => {
     { ...jadwalSenin, tokoId: tokoB.id },
   ]);
 
-  [tahunA, tahunB] = [tahunUji(), tahunUji()];
+  [tahunA, tahunB] = [await tahunUjiBebas(), await tahunUjiBebas()];
   sesuaiContoh = kuantitasJuniMenurutHari(tahunA, SEMUA_HARI_JUNI, (nama) => golden.rataRata[kategoriHari(nama)]);
   await aktifkanImporJuniUji({
     idAdmin,
@@ -121,7 +121,7 @@ beforeAll(async () => {
   // Toko tanpa jadwal di luar periode sumber: produknya tidak ada di draft.
   await aktifkanImporJuniUji({
     idAdmin,
-    tahun: tahunUji(),
+    tahun: await tahunUjiBebas(),
     namaToko: tokoBaru.nama,
     hari: SEMUA_HARI_JUNI,
     produk: [produkUji(kode.luarDraft, SEMUA_HARI_JUNI.map(() => 0))],
@@ -165,7 +165,7 @@ describe("draft perlu dihitung ulang saat dasar perhitungan berubah", () => {
   it("impor aktif berubah → ditandai, termasuk sebelum cache laporan selesai dihitung ulang", async () => {
     await aktifkanImporJuniUji({
       idAdmin,
-      tahun: tahunUji(),
+      tahun: await tahunUjiBebas(),
       namaToko: tokoBaru.nama,
       hari: SEMUA_HARI_JUNI,
       produk: [produkUji(kodeProdukUji("GOR"), SEMUA_HARI_JUNI.map(() => 1))],

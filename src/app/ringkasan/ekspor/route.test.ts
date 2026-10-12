@@ -7,7 +7,7 @@ import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { buatTokoUji } from "@/server/gudang/uji-bantu";
 import { aktifkanImpor } from "@/server/impor/impor";
 import { pastikanBucket } from "@/server/impor/penyimpanan";
-import { buatWorkbookUji, imporUji, kodeProdukUji, sheetPenjualanUji, tahunUji, type ProdukUji } from "@/server/impor/uji-bantu";
+import { buatWorkbookUji, imporUji, kodeProdukUji, sheetPenjualanUji, tahunUjiBebas, type ProdukUji } from "@/server/impor/uji-bantu";
 import { hitungUlangCacheLaporan } from "@/server/laporan/cache";
 import { UKURAN_HALAMAN } from "@/server/laporan/ringkasan";
 
@@ -62,7 +62,7 @@ const data = {
 beforeAll(async () => {
   await pastikanBucket();
   const admin = await buatPenggunaUji("admin");
-  data.tahun = tahunUji();
+  data.tahun = await tahunUjiBebas();
   data.tokoA = await buatTokoUji();
   data.tokoB = await buatTokoUji();
   data.kodeA = Array.from({ length: UKURAN_HALAMAN + 1 }, () => kodeProdukUji());

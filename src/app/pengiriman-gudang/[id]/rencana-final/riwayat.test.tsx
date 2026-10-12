@@ -17,7 +17,7 @@ import { tetapkanPeriodeSumber } from "@/server/gudang/periode-sumber";
 import { finalisasiRencanaToko } from "@/server/gudang/rencana-final";
 import { simpanStokToko } from "@/server/gudang/stok-draft";
 import { buatTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
-import { kodeProdukUji, tahunUji } from "@/server/impor/uji-bantu";
+import { kodeProdukUji, tahunUjiBebas } from "@/server/impor/uji-bantu";
 import { buatPerubahanKategori } from "@/server/kalender/perubahan-kategori";
 import { terapkanPemetaan } from "@/server/keluarga-aroma/pemetaan";
 import { hitungUlangCacheLaporan } from "@/server/laporan/cache";
@@ -113,8 +113,8 @@ beforeAll(async () => {
       dibuatOleh: idAdmin,
     })),
   );
-  const tahunB = tahunUji();
-  tahunA = tahunUji();
+  const tahunB = await tahunUjiBebas();
+  tahunA = await tahunUjiBebas();
   sesuaiContoh = kuantitasJuniMenurutHari(tahunA, SEMUA_HARI_JUNI, (nama) => golden.rataRata[kategoriHari(nama)]);
   await aktifkanImporJuniUji({
     idAdmin,

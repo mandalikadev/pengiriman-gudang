@@ -14,7 +14,7 @@ import { daftarHakTindakan, type HakTindakan } from "@/server/gudang/hak-tindaka
 import { tugaskanOperator } from "@/server/gudang/penugasan";
 import { tetapkanPeriodeSumber } from "@/server/gudang/periode-sumber";
 import { buatTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
-import { kodeProdukUji, tahunUji } from "@/server/impor/uji-bantu";
+import { kodeProdukUji, tahunUjiBebas } from "@/server/impor/uji-bantu";
 import { hitungUlangCacheLaporan } from "@/server/laporan/cache";
 import { aktifkanImporJuniUji, kuantitasJuniMenurutHari } from "@/server/laporan/uji-bantu";
 import { buatKeluargaUji, publikasikanRankingUji } from "@/server/ranking/uji-bantu";
@@ -97,7 +97,7 @@ beforeAll(async () => {
     })),
   );
 
-  const tahunContoh = tahunUji();
+  const tahunContoh = await tahunUjiBebas();
   const sesuaiContoh = kuantitasJuniMenurutHari(tahunContoh, SEMUA_HARI_JUNI, (nama) => golden.rataRata[kategoriHari(nama)]);
   await aktifkanImporJuniUji({
     idAdmin,
@@ -111,7 +111,7 @@ beforeAll(async () => {
       produkUji(kode.luar, sesuaiContoh),
     ],
   });
-  const tahunTanpaMinggu = tahunUji();
+  const tahunTanpaMinggu = await tahunUjiBebas();
   const hariTanpaMinggu = [8, 9, 10, 11, 12, 13, 14, 15, 16].filter(
     (h) => kuantitasJuniMenurutHari(tahunTanpaMinggu, [h], (nama) => (nama === "Minggu" ? 1 : 0))[0] === 0,
   );

@@ -14,7 +14,7 @@ import {
   buatWorkbookUji,
   kodeProdukUji,
   sheetPenjualanUji,
-  tahunUji,
+  tahunUjiBebas,
   type ProdukUji,
 } from "@/server/impor/uji-bantu";
 
@@ -101,7 +101,7 @@ async function imporAktifBulan(tahunImpor: number, bulanImpor = JUNI) {
 
 describe("non-admin ditolak di server (OD-10)", () => {
   it("viewer tidak bisa meminta URL unggah, mendaftarkan, atau mengaktifkan impor", async () => {
-    const idImpor = await imporSiapDitinjau(tahunUji());
+    const idImpor = await imporSiapDitinjau(await tahunUjiBebas());
     const kunci = await unggah(new Uint8Array([1]));
     kepala.cookie = (await kepalaPenggunaUji("viewer")).cookie;
 
@@ -116,7 +116,7 @@ describe("non-admin ditolak di server (OD-10)", () => {
   });
 
   it("pengguna yang belum masuk diarahkan ke halaman masuk", async () => {
-    const idImpor = await imporSiapDitinjau(tahunUji());
+    const idImpor = await imporSiapDitinjau(await tahunUjiBebas());
     kepala.cookie = "";
     await expect(mintaUrlUnggah()).rejects.toMatchObject({ digest: expect.stringContaining("/masuk") });
     await expect(aktifkanImpor({ idImpor })).rejects.toMatchObject({ digest: expect.stringContaining("/masuk") });
@@ -126,7 +126,7 @@ describe("non-admin ditolak di server (OD-10)", () => {
 
 describe("unggah → worker → siap ditinjau → aktif", () => {
   it("alur lengkap menyimpan identitas file, sel bernilai, cakupan tanggal, lalu mendaftarkan produk baru saat aktivasi", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const toko = await buatTokoUji();
     const biasa = produkUji([2, 0, null]);
     const tester = produkUji([null, 1, null], { kode: kodeProdukUji("T"), nama: "DISPLAY TESTER UJI" });
@@ -215,14 +215,14 @@ describe("unggah → worker → siap ditinjau → aktif", () => {
   });
 
   it("worker yang menjalankan job yang sama dua kali tidak menggandakan sel", async () => {
-    const idImpor = await imporSiapDitinjau(tahunUji());
+    const idImpor = await imporSiapDitinjau(await tahunUjiBebas());
     await prosesImpor(idImpor);
     const sel = await db.select().from(selPenjualan).where(eq(selPenjualan.imporId, idImpor));
     expect(sel).toHaveLength(2);
   });
 
   it("tersimpan tetapi gagal memuat ulang tampilan", async () => {
-    const idImpor = await imporSiapDitinjau(tahunUji());
+    const idImpor = await imporSiapDitinjau(await tahunUjiBebas());
     kepala.muatUlangGagal = true;
     await expect(aktifkanImpor({ idImpor })).resolves.toEqual({ keadaan: "tersimpanGagalMuatUlang" });
     expect(await statusImpor(idImpor)).toEqual({ [idImpor]: "aktif" });
@@ -231,7 +231,7 @@ describe("unggah → worker → siap ditinjau → aktif", () => {
 
 describe("impor kedua untuk bulan yang sama (ADR-0002)", () => {
   it("mengaktifkan impor kedua mengarsipkan yang pertama dalam satu transaksi", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const pertama = await imporSiapDitinjau(tahun);
     await aktifkanImpor({ idImpor: pertama });
     const kedua = await imporSiapDitinjau(tahun);
@@ -250,7 +250,7 @@ describe("impor kedua untuk bulan yang sama (ADR-0002)", () => {
   });
 
   it("dua aktivasi bersamaan untuk bulan yang sama: tepat satu impor aktif", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const a = await imporSiapDitinjau(tahun);
     const b = await imporSiapDitinjau(tahun);
     const hasil = await Promise.all([aktifkanImpor({ idImpor: a }), aktifkanImpor({ idImpor: b })]);
@@ -260,7 +260,7 @@ describe("impor kedua untuk bulan yang sama (ADR-0002)", () => {
   });
 
   it("impor bulan lain tidak ikut diarsipkan", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const juni = await imporSiapDitinjau(tahun);
     await aktifkanImpor({ idImpor: juni });
     const toko = await buatTokoUji();
@@ -276,7 +276,7 @@ describe("impor kedua untuk bulan yang sama (ADR-0002)", () => {
 
 describe("impor gagal, belum selesai, atau ber-error tidak mengubah impor aktif", () => {
   it("file yang tidak bisa dibaca → gagal; impor aktif tetap", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const aktif = await imporSiapDitinjau(tahun);
     await aktifkanImpor({ idImpor: aktif });
 
@@ -294,7 +294,7 @@ describe("impor gagal, belum selesai, atau ber-error tidak mengubah impor aktif"
   });
 
   it("impor yang belum selesai diproses tidak bisa diaktifkan; impor aktif tetap", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const aktif = await imporSiapDitinjau(tahun);
     await aktifkanImpor({ idImpor: aktif });
     const toko = await buatTokoUji();
@@ -311,7 +311,7 @@ describe("impor gagal, belum selesai, atau ber-error tidak mengubah impor aktif"
   });
 
   it("sheet dengan error → siap ditinjau beserta daftar masalah, tetapi tidak bisa diaktifkan; impor aktif tetap", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const aktif = await imporSiapDitinjau(tahun);
     await aktifkanImpor({ idImpor: aktif });
     const toko = await buatTokoUji();
@@ -336,7 +336,7 @@ describe("impor gagal, belum selesai, atau ber-error tidak mengubah impor aktif"
   });
 
   it("impor yang sudah aktif atau diarsipkan tidak diaktifkan ulang", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const lama = await imporSiapDitinjau(tahun);
     await aktifkanImpor({ idImpor: lama });
     const baru = await imporSiapDitinjau(tahun);
@@ -407,7 +407,7 @@ describe("beberapa sheet sekaligus (T85, PRD A1 Keputusan 2026-10-12)", () => {
   }
 
   it("dua sheet dari satu unggahan → dua impor dengan kunci objek sama, masing-masing satu job, lalu diproses sendiri-sendiri", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const toko = await buatTokoUji();
     const kunci = await unggah(workbookJuniJuli(toko.nama));
 
@@ -472,7 +472,7 @@ describe("beberapa sheet sekaligus (T85, PRD A1 Keputusan 2026-10-12)", () => {
   });
 
   it("sheet MP ditolak per sheet; sheet lain tetap didaftarkan", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const toko = await buatTokoUji();
     const kunci = await unggah(workbookJuniJuli(toko.nama));
     await expect(
@@ -508,7 +508,7 @@ describe("beberapa sheet sekaligus (T85, PRD A1 Keputusan 2026-10-12)", () => {
   });
 
   it("sheet yang sama dari kunci yang sama ditolak; sheet lain di kiriman yang sama tetap didaftarkan", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const toko = await buatTokoUji();
     const kunci = await unggah(workbookJuniJuli(toko.nama));
     const juni = { namaSheet: "JUNI (S)", bulanImpor: JUNI };
@@ -533,7 +533,7 @@ describe("beberapa sheet sekaligus (T85, PRD A1 Keputusan 2026-10-12)", () => {
     const kunci = await unggah(workbookJuniJuli(toko.nama));
     kepala.muatUlangGagal = true;
     await expect(
-      daftarkanImpor({ kunci, namaFile: "a.xlsx", tahunImpor: tahunUji(), sheet: [{ namaSheet: "JUNI (S)", bulanImpor: JUNI }] }),
+      daftarkanImpor({ kunci, namaFile: "a.xlsx", tahunImpor: await tahunUjiBebas(), sheet: [{ namaSheet: "JUNI (S)", bulanImpor: JUNI }] }),
     ).resolves.toMatchObject({ keadaan: "tersimpanGagalMuatUlang", sheet: [{ namaSheet: "JUNI (S)", keadaan: "berhasil" }] });
     expect(await imporDenganKunci(kunci)).toHaveLength(1);
   });
@@ -541,7 +541,7 @@ describe("beberapa sheet sekaligus (T85, PRD A1 Keputusan 2026-10-12)", () => {
 
 describe("toko nonaktif di sheet (PRD A1, Keputusan 2026-10-09)", () => {
   it("satu toko nonaktif → siap ditinjau dengan peringatan untuk toko itu, bisa diaktifkan, dan datanya tersimpan", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const toko = await buatTokoUji({ aktif: false });
     const p = produkUji([4, 0]);
     const idImpor = await unggahDanDaftarkan(
@@ -575,7 +575,7 @@ describe("toko nonaktif di sheet (PRD A1, Keputusan 2026-10-09)", () => {
   });
 
   it("toko aktif tidak menghasilkan peringatan toko nonaktif", async () => {
-    const idImpor = await imporSiapDitinjau(tahunUji());
+    const idImpor = await imporSiapDitinjau(await tahunUjiBebas());
     const [baris] = await db.select().from(impor).where(eq(impor.id, idImpor));
     expect(baris.masalah.filter((m) => m.kode === "toko-nonaktif")).toEqual([]);
   });
@@ -588,7 +588,7 @@ describe("master produk mengikuti impor yang terakhir diaktifkan (PRD A1, Keputu
   }
 
   it("kategori berubah menjadi KTP → setelah aktivasi berklasifikasi manual (kertas-tester); kode, status keluarga aroma, dan pendaftar tetap", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const p = produkUji([1, 1], { nama: "KERTAS UJI LAMA", ukuran: "15ML", kategori: "15ML GLITTER/LEATHER" });
     const pertama = await imporSiapDitinjau(tahun, [p]);
     await aktifkanImpor({ idImpor: pertama });
@@ -613,7 +613,7 @@ describe("master produk mengikuti impor yang terakhir diaktifkan (PRD A1, Keputu
   });
 
   it("kategori KTP kembali ke kategori biasa → otomatis lagi", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const p = produkUji([1, 1], { kategori: "KTP" });
     await aktifkanImpor({ idImpor: await imporSiapDitinjau(tahun, [p]) });
     expect(await masterProduk(p.kode)).toMatchObject({ klasifikasi: "manual", alasanManual: "kertas-tester" });
@@ -623,7 +623,7 @@ describe("master produk mengikuti impor yang terakhir diaktifkan (PRD A1, Keputu
   });
 
   it("mengaktifkan impor bulan lebih lama setelah bulan lebih baru memakai data impor yang terakhir diaktifkan", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const p = produkUji([1, 1], { nama: "NAMA JUNI", ukuran: "15ML", kategori: "15ML GLITTER/LEATHER" });
     const toko = await buatTokoUji();
     const juli = await unggahDanDaftarkan(
@@ -655,7 +655,7 @@ describe("master produk mengikuti impor yang terakhir diaktifkan (PRD A1, Keputu
   });
 
   it("produk yang tidak ada di impor yang diaktifkan tidak berubah", async () => {
-    const tahun = tahunUji();
+    const tahun = await tahunUjiBebas();
     const a = produkUji([1, 1], { nama: "NAMA A" });
     const b = produkUji([1, 1]);
     await aktifkanImpor({ idImpor: await imporSiapDitinjau(tahun, [a]) });
@@ -665,14 +665,6 @@ describe("master produk mengikuti impor yang terakhir diaktifkan (PRD A1, Keputu
 });
 
 describe("Aktifkan semua yang siap (T86, PRD A1 Keputusan 2026-10-12)", () => {
-  /** Tahun yang belum dipakai impor mana pun, agar impor siap buatan test lain tidak sebulan dengan impor test ini. */
-  async function tahunBebas() {
-    for (;;) {
-      const tahun = tahunUji();
-      if ((await db.select({ id: impor.id }).from(impor).where(eq(impor.tahunImpor, tahun))).length === 0) return tahun;
-    }
-  }
-
   /** Impor siap ditinjau satu toko untuk bulan tertentu; `kuantitas` negatif menghasilkan error. */
   async function imporSiap(tahunImpor: number, bulanImpor: number, kuantitas: number[] = [2, 0]) {
     const toko = await buatTokoUji();
@@ -693,7 +685,7 @@ describe("Aktifkan semua yang siap (T86, PRD A1 Keputusan 2026-10-12)", () => {
   }
 
   it("tiga impor siap (Juni, Juli, Agustus) → ketiganya aktif, hasil urut tahun–bulan impor", async () => {
-    const tahun = await tahunBebas();
+    const tahun = await tahunUjiBebas();
     const agustus = await imporSiap(tahun, 8);
     const juni = await imporSiap(tahun, JUNI);
     const juli = await imporSiap(tahun, 7);
@@ -710,7 +702,7 @@ describe("Aktifkan semua yang siap (T86, PRD A1 Keputusan 2026-10-12)", () => {
   });
 
   it("dua impor siap untuk Juni + satu Juli → kedua impor Juni dilewati, Juli aktif", async () => {
-    const tahun = await tahunBebas();
+    const tahun = await tahunUjiBebas();
     const juniA = await imporSiap(tahun, JUNI);
     const juniB = await imporSiap(tahun, JUNI);
     const juli = await imporSiap(tahun, 7);
@@ -728,7 +720,7 @@ describe("Aktifkan semua yang siap (T86, PRD A1 Keputusan 2026-10-12)", () => {
   });
 
   it("impor dengan error → dilewati beserta jumlah error-nya; impor siap lain tetap diaktifkan", async () => {
-    const tahun = await tahunBebas();
+    const tahun = await tahunUjiBebas();
     const error = await imporSiap(tahun, JUNI, [-1, -2]);
     const juli = await imporSiap(tahun, 7);
 
@@ -747,7 +739,7 @@ describe("Aktifkan semua yang siap (T86, PRD A1 Keputusan 2026-10-12)", () => {
 
   it("satu impor bersih + satu impor ber-error di bulan yang sama → yang bersih aktif, yang ber-error dilewati dengan jumlah error-nya", async () => {
     // PRD A1 (Keputusan 2026-10-12): "impor siap" = siap ditinjau dengan 0 error, jadi bulan ini tidak ganda.
-    const tahun = await tahunBebas();
+    const tahun = await tahunUjiBebas();
     const error = await imporSiap(tahun, JUNI, [-1, 3]);
     const bersih = await imporSiap(tahun, JUNI);
 
@@ -765,7 +757,7 @@ describe("Aktifkan semua yang siap (T86, PRD A1 Keputusan 2026-10-12)", () => {
   });
 
   it("impor aktif lama untuk bulan yang sama diarsipkan seperti aktivasi satu per satu (ADR-0002)", async () => {
-    const tahun = await tahunBebas();
+    const tahun = await tahunUjiBebas();
     const lama = await imporSiap(tahun, JUNI);
     await aktifkanImpor({ idImpor: lama });
     const baru = await imporSiap(tahun, JUNI);
@@ -775,7 +767,7 @@ describe("Aktifkan semua yang siap (T86, PRD A1 Keputusan 2026-10-12)", () => {
   });
 
   it("non-admin ditolak di server tanpa perubahan", async () => {
-    const tahun = await tahunBebas();
+    const tahun = await tahunUjiBebas();
     const juni = await imporSiap(tahun, JUNI);
 
     kepala.cookie = (await kepalaPenggunaUji("viewer")).cookie;
@@ -787,7 +779,7 @@ describe("Aktifkan semua yang siap (T86, PRD A1 Keputusan 2026-10-12)", () => {
   });
 
   it("tersimpan tetapi gagal memuat ulang tampilan", async () => {
-    const juni = await imporSiap(await tahunBebas(), JUNI);
+    const juni = await imporSiap(await tahunUjiBebas(), JUNI);
     kepala.muatUlangGagal = true;
     const hasil = await aktifkanSemuaUntuk(juni);
     expect(hasil).toEqual({ keadaan: "tersimpanGagalMuatUlang", impor: [expect.objectContaining({ idImpor: juni, keadaan: "diaktifkan" })] });
@@ -797,7 +789,7 @@ describe("Aktifkan semua yang siap (T86, PRD A1 Keputusan 2026-10-12)", () => {
   it("tidak ada impor yang diaktifkan → gagal beserta hasil per impor", async () => {
     // Impor siap buatan test lain diselesaikan dulu agar hanya impor ber-error milik test ini yang tersisa.
     await aktifkanSemuaImporSiap();
-    const error = await imporSiap(await tahunBebas(), JUNI, [-1, 3]);
+    const error = await imporSiap(await tahunUjiBebas(), JUNI, [-1, 3]);
     const sisa = (await db.select({ id: impor.id }).from(impor).where(eq(impor.status, "siap-ditinjau"))).map((b) => b.id);
     expect(sisa).toContain(error);
 

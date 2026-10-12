@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -12,6 +12,7 @@ import { aliasKeluargaAroma, barisRanking, keluargaAroma, versiRanking } from "@
 import { pastikanBucket } from "@/server/impor/penyimpanan";
 import { buatWorkbookUji } from "@/server/impor/uji-bantu";
 import { muatTinjauRanking, rankingBerlaku } from "@/server/ranking/ranking";
+import { tahunRankingUjiBebas } from "@/server/ranking/uji-bantu";
 
 const kepala = vi.hoisted(() => ({ cookie: "", muatUlangGagal: false }));
 vi.mock("next/headers", () => ({
@@ -132,7 +133,7 @@ describe("unggah → tinjau → publikasi (PRD A6 ▶ OD-05)", () => {
   });
 
   it("versi = nomor urut unggahan per bulan ranking", async () => {
-    const tahunRanking = randomInt(3000, 9000);
+    const tahunRanking = await tahunRankingUjiBebas();
     const pertama = await unggahDanDaftarkan(workbookGolden(), { tahunRanking, bulanRanking: 1 });
     const kedua = await unggahDanDaftarkan(workbookGolden(), { tahunRanking, bulanRanking: 1 });
     const baris = await db

@@ -8,7 +8,7 @@ import { parseTanggalBisnis, type KategoriDasar, type NamaHari } from "@/domain/
 import { buatPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
 import { draftRencana, hubunganTokoGudang, impor, jadwalToko, perubahanKategori, produk, rencanaFinal, toko, user } from "@/server/db/schema";
-import { kodeProdukUji, tahunUji } from "@/server/impor/uji-bantu";
+import { kodeProdukUji, tahunUjiBebas } from "@/server/impor/uji-bantu";
 import { buatPerubahanKategori } from "@/server/kalender/perubahan-kategori";
 import { terapkanPemetaan } from "@/server/keluarga-aroma/pemetaan";
 import { hitungUlangCacheLaporan } from "@/server/laporan/cache";
@@ -115,7 +115,7 @@ beforeAll(async () => {
   const jadwalSenin = { pola: "mingguan" as const, hariKirim: [{ hari: "Senin" as const, persiapanHari: 2 as const }], dibuatOleh: idAdmin };
   await db.insert(jadwalToko).values(semuaToko.map((t) => ({ ...jadwalSenin, tokoId: t.id })));
 
-  [tahunA, tahunB, tahunManual] = [tahunUji(), tahunUji(), tahunUji()];
+  [tahunA, tahunB, tahunManual] = [await tahunUjiBebas(), await tahunUjiBebas(), await tahunUjiBebas()];
   sesuaiContoh = kuantitasJuniMenurutHari(tahunA, SEMUA_HARI_JUNI, (nama) => golden.rataRata[kategoriHari(nama)]);
   await aktifkanImporJuniUji({
     idAdmin,

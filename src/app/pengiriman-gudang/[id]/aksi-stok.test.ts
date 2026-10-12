@@ -16,7 +16,7 @@ import { tugaskanOperator } from "@/server/gudang/penugasan";
 import { tetapkanPeriodeSumber } from "@/server/gudang/periode-sumber";
 import { PESAN_DRAFT_BERUBAH } from "@/server/gudang/stok-draft";
 import { buatTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
-import { buatWorkbookUji, kodeProdukUji, tahunUji } from "@/server/impor/uji-bantu";
+import { buatWorkbookUji, kodeProdukUji, tahunUjiBebas } from "@/server/impor/uji-bantu";
 import { hitungUlangCacheLaporan } from "@/server/laporan/cache";
 import { aktifkanImporJuniUji, kuantitasJuniMenurutHari } from "@/server/laporan/uji-bantu";
 import { buatKeluargaUji, publikasikanRankingUji } from "@/server/ranking/uji-bantu";
@@ -113,7 +113,7 @@ beforeAll(async () => {
     dibuatOleh: idAdmin,
   });
 
-  const tahun = tahunUji();
+  const tahun = await tahunUjiBebas();
   const kuantitas = kuantitasJuniMenurutHari(tahun, SEMUA_HARI_JUNI, (nama) => golden.rataRata[kategoriHari(nama)]);
   await aktifkanImporJuniUji({
     idAdmin,
