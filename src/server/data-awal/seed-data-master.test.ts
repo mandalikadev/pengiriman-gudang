@@ -22,8 +22,10 @@ import { seedDataMaster } from "./seed-data-master";
 
 // Seed data master (T88, PRD A3 ▶ Keputusan 2026-10-12, UAT kedua). Database test dipakai bersama berkas test lain
 // (berurutan, tidak dikosongkan antarberkas): berkas lain bisa sudah membuat produk dengan kode yang sama (mis.
-// PW110P-GOR) atau keluarga bernama sama. Keadaan sebelum seed dicatat, lalu semua yang ditambahkan seed (dan test ini)
-// dihapus di `afterAll`, dan status pemetaan produk yang sudah ada dikembalikan.
+// PW110P-GOR) lalu mengubah status pemetaannya, atau keluarga bernama sama.
+// Keadaan sebelum seed dicatat, produk berkas yang sudah ada dikembalikan ke `belum-dipetakan` supaya hitungan literal
+// berlaku tanpa syarat, lalu di `afterAll` semua yang ditambahkan seed (dan test ini) dihapus dan status pemetaan
+// produk yang sudah ada dipulihkan.
 
 const KODE_BERKAS = berkasProduk.map((p) => p.kode);
 const NAMA_KELUARGA_BERKAS = berkasKeluarga.map((k) => k.nama);
@@ -123,6 +125,11 @@ beforeAll(async () => {
   idAdmin = (await buatPenggunaUji("admin")).id;
   adminDinonaktifkan = await nonaktifkanAdminLain(idAdmin);
   sebelumSeed = await catatKeadaan();
+  // Keadaan awal seperti instalasi baru: produk berkas yang sudah dibuat berkas test lain belum dipetakan.
+  await db
+    .update(produk)
+    .set({ statusKeluargaAroma: "belum-dipetakan", keluargaAromaId: null })
+    .where(inArray(produk.kode, KODE_BERKAS));
 });
 
 afterAll(async () => {
@@ -164,12 +171,11 @@ describe("seedDataMaster", () => {
 
   it("mengisi 359 produk, 29 keluarga (alias + segmen kode), 347 terpetakan + 12 tanpa aroma, dan 205 alias nama stok", async () => {
     const hasil = await seedDataMaster();
-    const produkLama = sebelumSeed.produk.length;
-    const sudahDipetakan = sebelumSeed.produk.filter((p) => p.status !== "belum-dipetakan").length;
     expect(hasil).toMatchObject({
       keadaan: "berhasil",
-      produkDitambahkan: 359 - produkLama,
-      pemetaanDiterapkan: 359 - sudahDipetakan,
+      // Produk berkas yang sudah dibuat berkas test lain tidak ditambahkan ulang.
+      produkDitambahkan: 359 - sebelumSeed.produk.length,
+      pemetaanDiterapkan: 359,
     });
 
     const { produk: daftarProduk, keluarga, alias, segmen, aliasStok } = await barisSeed();
@@ -194,21 +200,23 @@ describe("seedDataMaster", () => {
     expect(await pemetaanProduk("100-ALK")).toEqual({ status: "tanpa-aroma", keluarga: null });
     expect(aliasStok.find((a) => a.alias === "GORGEOUS TUBEROSE - 110ML M PARFUM")?.kodeProduk).toBe("PW110P-GOR");
     expect(daftarProduk.find((p) => p.kode === "DW110E-GOR-T")).toMatchObject({
-      nama: "DISPLAY EXTRAIT - GORGEOUS TUBEROSE TESTER",
       klasifikasi: "manual",
       alasanManual: "display-tester",
-      didaftarkanOlehImporId: null,
     });
+
+    // Produk yang ditambahkan seed: isi persis berkas, tanpa impor pendaftar.
+    const kodeLama = new Set(sebelumSeed.produk.map((p) => p.kode));
+    for (const p of berkasProduk.filter((b) => !kodeLama.has(b.kode))) {
+      expect(daftarProduk.find((d) => d.kode === p.kode), p.kode).toMatchObject({ ...p, didaftarkanOlehImporId: null });
+    }
   });
 
   it("riwayat pemetaan tercatat atas nama admin pertama untuk setiap produk yang dipetakan seed", async () => {
     const { produk: daftarProduk, riwayat } = await barisSeed();
     const riwayatSeed = riwayat.filter((r) => !sebelumSeed.idRiwayat.includes(r.id));
-    const kodeLama = new Map(sebelumSeed.produk.map((p) => [p.kode, p.status]));
-    const dipetakanSeed = daftarProduk.filter((p) => (kodeLama.get(p.kode) ?? "belum-dipetakan") === "belum-dipetakan");
 
-    expect(riwayatSeed).toHaveLength(dipetakanSeed.length);
-    for (const p of dipetakanSeed) {
+    expect(riwayatSeed).toHaveLength(359);
+    for (const p of daftarProduk) {
       expect(riwayatSeed.find((r) => r.kodeProduk === p.kode), p.kode).toMatchObject({
         dariStatus: "belum-dipetakan",
         dariKeluargaId: null,
