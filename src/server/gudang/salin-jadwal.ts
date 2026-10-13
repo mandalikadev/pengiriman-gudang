@@ -1,4 +1,5 @@
 import type { MasukanJadwal } from "@/domain/jadwal";
+import type { TanggalBisnis } from "@/domain/kalender";
 
 import { aturJadwalTetap } from "./jadwal";
 
@@ -24,16 +25,18 @@ export async function salinJadwalKeToko({
   daftarIdToko,
   masukan,
   idPengguna,
+  hariIni,
 }: {
   idGudang: number;
   daftarIdToko: readonly number[];
   masukan: MasukanJadwal;
   idPengguna: string;
+  hariIni: TanggalBisnis;
 }): Promise<HasilSalinToko[]> {
   const hasil: HasilSalinToko[] = [];
   for (const idToko of new Set(daftarIdToko)) {
     try {
-      const satu = await aturJadwalTetap({ idGudang, idToko, masukan, idPengguna });
+      const satu = await aturJadwalTetap({ idGudang, idToko, masukan, idPengguna, hariIni });
       hasil.push(satu.keadaan === "berhasil" ? { idToko, status: "berhasil" } : { idToko, status: "ditolak", pesan: satu.pesan });
     } catch (galat) {
       console.error(`[salin-jadwal] gudang ${idGudang}, toko ${idToko}:`, galat);

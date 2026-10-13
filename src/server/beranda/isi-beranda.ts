@@ -14,8 +14,8 @@ import {
   produk,
   rencanaFinal,
   snapshotLibur,
+  pengirimanDiLuarJadwal,
   tokoDraftRencana,
-  usulanJadwal,
   versiRanking,
 } from "@/server/db/schema";
 import { periksaHitungUlang } from "@/server/gudang/dasar-draft";
@@ -25,7 +25,8 @@ import { muatStatusCacheLaporan, type StatusCacheLaporan } from "@/server/lapora
 // Isi beranda (T79; DESIGN §9 ▶ Keputusan 2026-10-11): sapaan sesuai peran, kartu "Perlu tindakan", dan status data.
 // Semua jumlah dibaca dari yang sudah tersimpan, tanpa menghitung rata-rata maupun membaca Excel (PRD C1). Definisi
 // setiap jumlah mengikuti halaman tujuannya:
-// - usulan jadwal menunggu persetujuan = usulan berstatus `menunggu` (halaman Persetujuan jadwal, T56);
+// - usulan pengiriman di luar jadwal menunggu persetujuan = pengiriman di luar jadwal berstatus `menunggu` (halaman
+//   Persetujuan jadwal, T113);
 // - snapshot libur menunggu ditinjau = snapshot berstatus `menunggu-persetujuan` (halaman Libur, T40);
 // - produk belum dipetakan = produk berstatus keluarga aroma `belum-dipetakan` (filter di Pemetaan produk, T45);
 // - ranking bulan berjalan belum dipublikasikan = tidak ada versi ranking untuk bulan kalender saat ini (WIB) yang
@@ -45,7 +46,7 @@ import { muatStatusCacheLaporan, type StatusCacheLaporan } from "@/server/lapora
 // status Selesai/Belum, juga hanya dari yang tersimpan:
 // - admin: (1) impor penjualan selesai = ada impor `aktif` dan tidak ada impor `siap-ditinjau`; (2) terbitkan ranking
 //   selesai = ada ranking berlaku (versi berstatus `dipublikasikan`); (3) periksa pemetaan selesai = tidak ada produk
-//   `belum-dipetakan`; (4) setujui usulan jadwal selesai = tidak ada usulan `menunggu`;
+//   `belum-dipetakan`; (4) setujui pengiriman di luar jadwal selesai = tidak ada pengiriman di luar jadwal `menunggu`;
 // - operator, per gudang penugasan, untuk tanggal kirim terdekat gudang (definisi T79 di atas): (1) hitung kebutuhan
 //   selesai = draft tanggal itu ada; (2) isi stok selesai = draft itu ada dan tidak punya baris tertahan; (3) finalisasi
 //   selesai = semua toko aktif yang mengirim tanggal itu sudah punya rencana final. Gudang tanpa tanggal kirim terdekat
@@ -130,7 +131,7 @@ async function jumlahBaris(tabel: PgTable, syarat: SQL | undefined): Promise<num
 /** Kartu admin dalam urutan issue T79, hanya yang jumlahnya > 0. `bulanBerjalan` = `YYYY-MM` bulan kalender saat ini. */
 async function perluTindakanAdmin(bulanBerjalan: string): Promise<KartuPerluTindakan[]> {
   const [usulan, snapshot, produkBelumDipetakan, rankingBulanBerjalan, imporTertunda] = await Promise.all([
-    jumlahBaris(usulanJadwal, eq(usulanJadwal.status, "menunggu")),
+    jumlahBaris(pengirimanDiLuarJadwal, eq(pengirimanDiLuarJadwal.status, "menunggu")),
     jumlahBaris(snapshotLibur, eq(snapshotLibur.status, "menunggu-persetujuan")),
     jumlahBaris(produk, eq(produk.statusKeluargaAroma, "belum-dipetakan")),
     jumlahBaris(versiRanking, and(eq(versiRanking.bulanRanking, bulanBerjalan), isNotNull(versiRanking.dipublikasikanPada))),
@@ -259,7 +260,7 @@ async function langkahAdmin(): Promise<LangkahMulai[]> {
     jumlahBaris(impor, eq(impor.status, "siap-ditinjau")),
     jumlahBaris(versiRanking, eq(versiRanking.status, "dipublikasikan")),
     jumlahBaris(produk, eq(produk.statusKeluargaAroma, "belum-dipetakan")),
-    jumlahBaris(usulanJadwal, eq(usulanJadwal.status, "menunggu")),
+    jumlahBaris(pengirimanDiLuarJadwal, eq(pengirimanDiLuarJadwal.status, "menunggu")),
   ]);
   return [
     { jenis: "impor-penjualan", selesai: imporAktif > 0 && imporSiapDitinjau === 0, href: "/admin/impor" },

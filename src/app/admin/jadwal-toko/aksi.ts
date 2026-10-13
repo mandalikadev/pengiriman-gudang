@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { tanggalWib } from "@/app/admin/impor/format";
 import { isianJadwal, skemaJadwal, skemaToko } from "@/app/pengiriman-gudang/[id]/skema-jadwal";
 import type { HasilSimpan } from "@/components/keadaan-simpan";
 import { wajibAdmin } from "@/server/auth/kewenangan";
@@ -11,7 +12,8 @@ import { salinJadwalKeToko, type HasilSalinToko } from "@/server/gudang/salin-ja
 
 // Jadwal tetap diatur admin (T112, PRD A5 ▶ Revisi 2026-10-13): langsung berlaku tanpa usulan, untuk semua gudang
 // termasuk Pusat. Setiap aksi memeriksa admin di server sebelum membaca atau menulis data. Aturan jadwal divalidasi
-// domain (`periksaJadwal`, T54).
+// domain (`periksaJadwal`, T54). Pengiriman di luar jadwal yang tidak lagi sesuai dibatalkan otomatis (T113), sehingga
+// halaman Persetujuan jadwal ikut dimuat ulang.
 
 const skemaSalin = z.object({
   idGudang: z.number().int(),
@@ -26,6 +28,7 @@ function muatUlangHalamanJadwal(idGudang: number) {
   revalidatePath(`/admin/jadwal-toko/${idGudang}`);
   revalidatePath(`/pengiriman-gudang/${idGudang}`);
   revalidatePath(`/usulan-jadwal/${idGudang}`);
+  revalidatePath("/admin/jadwal");
 }
 
 function selesai(idGudang: number, hasil: HasilJadwal): HasilSimpan {
@@ -45,7 +48,7 @@ export async function aturJadwalTetapToko(input: unknown): Promise<HasilSimpan> 
   if (!isian.success) return { keadaan: "gagal", pesan: isian.error.issues[0].message };
 
   const { idGudang, idToko, ...masukan } = isian.data;
-  return selesai(idGudang, await aturJadwalTetap({ idGudang, idToko, masukan, idPengguna: admin.id }));
+  return selesai(idGudang, await aturJadwalTetap({ idGudang, idToko, masukan, idPengguna: admin.id, hariIni: tanggalWib(new Date()) }));
 }
 
 /** Menonaktifkan jadwal tetap satu toko. */
@@ -55,7 +58,7 @@ export async function nonaktifkanJadwalTetapToko(input: unknown): Promise<HasilS
   if (!isian.success) return { keadaan: "gagal", pesan: isian.error.issues[0].message };
 
   const { idGudang, idToko } = isian.data;
-  return selesai(idGudang, await nonaktifkanJadwalTetap({ idGudang, idToko, idPengguna: admin.id }));
+  return selesai(idGudang, await nonaktifkanJadwalTetap({ idGudang, idToko, idPengguna: admin.id, hariIni: tanggalWib(new Date()) }));
 }
 
 /** Hasil salin jadwal: hasil per toko (CODING_STANDARDS "Operasi massal mengembalikan hasil per item"). */
@@ -73,7 +76,7 @@ export async function salinJadwalTetap(input: unknown): Promise<HasilSalinJadwal
   if (!isian.success) return { keadaan: "gagal", pesan: isian.error.issues[0].message };
 
   const { idGudang, daftarIdToko, ...masukan } = isian.data;
-  const hasil = await salinJadwalKeToko({ idGudang, daftarIdToko, masukan, idPengguna: admin.id });
+  const hasil = await salinJadwalKeToko({ idGudang, daftarIdToko, masukan, idPengguna: admin.id, hariIni: tanggalWib(new Date()) });
   if (hasil.some((h) => h.status === "berhasil" || h.status === "belumPasti")) {
     try {
       muatUlangHalamanJadwal(idGudang);

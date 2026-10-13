@@ -35,9 +35,8 @@ type Item = { href: string; label: string; akses: Akses };
 type Kelompok = { judul: string | null; item: Item[] };
 
 // Urutan dan pengelompokan persis DESIGN §6 ▶ Keputusan (2026-10-13 sore, pemilik, T105): kelompok Pengiriman Gudang
-// dihapus, Pengiriman Gudang masuk Pekerjaan rutin. Masa peralihan: Usulkan jadwal toko tepat setelah Pengiriman Gudang,
-// selama halaman lama masih ada; Salin jadwal operator dihapus dan Jadwal toko masuk Data Master (T112). Pilihan
-// buka/tutup tersimpan untuk kelompok lama tidak dibaca lagi.
+// dihapus, Pengiriman Gudang masuk Pekerjaan rutin, diikuti Kirim di luar jadwal (T113). Salin jadwal operator dihapus
+// dan Jadwal toko masuk Data Master (T112). Pilihan buka/tutup tersimpan untuk kelompok lama tidak dibaca lagi.
 const kelompokMenu: Kelompok[] = [
   { judul: null, item: [{ href: "/", label: "Beranda", akses: "masuk" }] },
   {
@@ -47,7 +46,7 @@ const kelompokMenu: Kelompok[] = [
       { href: "/admin/ranking", label: "Ranking pusat", akses: "admin" },
       { href: "/admin/jadwal", label: "Persetujuan jadwal", akses: "admin" },
       { href: "/pengiriman-gudang", label: "Pengiriman Gudang", akses: "pengiriman-gudang" },
-      { href: "/usulan-jadwal", label: "Usulkan jadwal toko", akses: "jadwal-toko" },
+      { href: "/usulan-jadwal", label: "Kirim di luar jadwal", akses: "jadwal-toko" },
     ],
   },
   {

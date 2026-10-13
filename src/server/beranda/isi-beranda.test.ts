@@ -12,11 +12,11 @@ import {
   hubunganTokoGudang,
   impor,
   jadwalToko,
+  pengirimanDiLuarJadwal,
   periodeSumberGudang,
   produk,
   rencanaFinal,
   tokoDraftRencana,
-  usulanJadwal,
   versiRanking,
 } from "@/server/db/schema";
 import type { MasalahBarisDraft } from "@/server/gudang/masalah-draft";
@@ -165,7 +165,7 @@ async function finalkan(idGudang: number, tokoId: number, tanggalKirim: TanggalB
 
 describe("Mulai di sini: admin", () => {
   it("belum ada yang dikerjakan → empat langkah Belum, urut sesuai urutan kerja dengan tautan halamannya", async () => {
-    // Impor menunggu ditinjau, belum ada ranking berlaku, produk belum dipetakan, usulan jadwal menunggu.
+    // Impor menunggu ditinjau, belum ada ranking berlaku, produk belum dipetakan, usulan pengiriman di luar jadwal menunggu.
     await db.insert(impor).values({
       namaFile: "penjualan-uji.xlsx",
       ukuranByte: 1,
@@ -189,10 +189,12 @@ describe("Mulai di sini: admin", () => {
       statusKeluargaAroma: "belum-dipetakan",
     });
     const toko = await buatTokoUji();
-    await db.insert(usulanJadwal).values({
-      jenis: "buat",
-      pola: "mingguan",
-      hariKirim: [{ hari: "Senin", persiapanHari: 0 }],
+    await db.insert(pengirimanDiLuarJadwal).values({
+      gudangId: cibubur,
+      jenis: "tambahan",
+      tanggalKirim: "2099-01-06",
+      persiapanHari: 1,
+      alasan: "Uji T113",
       diusulkanOleh: admin.id,
       tokoId: toko.id,
     });
@@ -226,9 +228,9 @@ describe("Mulai di sini: admin", () => {
     await publikasikanRankingUji({ keluarga: [], idPengguna: admin.id });
     await db.update(produk).set({ statusKeluargaAroma: "tanpa-aroma" }).where(eq(produk.statusKeluargaAroma, "belum-dipetakan"));
     await db
-      .update(usulanJadwal)
+      .update(pengirimanDiLuarJadwal)
       .set({ status: "ditolak", diputuskanOleh: admin.id, diputuskanPada: new Date(), alasanPenolakan: "Uji T94" })
-      .where(eq(usulanJadwal.status, "menunggu"));
+      .where(eq(pengirimanDiLuarJadwal.status, "menunggu"));
 
     const isi = await muatIsiBeranda(admin, hariIni);
     expect(langkahAdmin(isi)).toEqual([

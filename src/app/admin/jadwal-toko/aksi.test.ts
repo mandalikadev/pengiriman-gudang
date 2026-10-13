@@ -1,17 +1,17 @@
 import { asc, eq } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { parseTanggalBisnis } from "@/domain/kalender";
 import { AksesDitolakError } from "@/server/auth/kewenangan";
 import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
-import { hubunganTokoGudang, jadwalToko, usulanJadwal } from "@/server/db/schema";
+import { hubunganTokoGudang, jadwalToko, pengirimanDiLuarJadwal, usulanJadwal } from "@/server/db/schema";
 import { bacaDraftRencana, hitungDraftRencana } from "@/server/gudang/draft-rencana";
 import { jadwalTokoGudang, riwayatJadwalTetapGudang } from "@/server/gudang/jadwal";
 import { tugaskanOperator } from "@/server/gudang/penugasan";
 import { salinJadwalKeToko } from "@/server/gudang/salin-jadwal";
 import { bersihkanTokoSmbUji, siapkanTokoSmbUji } from "@/server/gudang/uji-bantu-cakupan";
-import { buatTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
+import { buatTokoUji, idGudangUji, rencanaFinalUji } from "@/server/gudang/uji-bantu";
 
 const kepala = vi.hoisted(() => ({ cookie: "", muatUlangGagal: false, dimuatUlang: [] as string[] }));
 vi.mock("next/headers", () => ({
@@ -88,7 +88,7 @@ describe("admin mengatur jadwal tetap", () => {
       await expect(aturJadwalTetapToko({ idGudang, idToko: t.id, pola: "mingguan", hariKirim: [{ hari: "Rabu", persiapan: "H-1" }], tanggalJangkar: null })).resolves.toEqual({
         keadaan: "berhasil",
       });
-      expect(kepala.dimuatUlang).toEqual([`/admin/jadwal-toko/${idGudang}`, `/pengiriman-gudang/${idGudang}`, `/usulan-jadwal/${idGudang}`]);
+      expect(kepala.dimuatUlang).toEqual([`/admin/jadwal-toko/${idGudang}`, `/pengiriman-gudang/${idGudang}`, `/usulan-jadwal/${idGudang}`, "/admin/jadwal"]);
       await expect(aturJadwalTetapToko({ idGudang, idToko: t.id, ...pengaturan })).resolves.toEqual({ keadaan: "berhasil" });
 
       const [lama, baru] = await riwayatJadwal(t.id);
@@ -215,7 +215,7 @@ describe("salin jadwal admin ke beberapa toko", () => {
       expect(await daftarUsulan(t.id)).toEqual([]);
     }
     expect(await riwayatJadwal(lain.id)).toEqual([]);
-    expect(kepala.dimuatUlang).toEqual([`/admin/jadwal-toko/${cibubur}`, `/pengiriman-gudang/${cibubur}`, `/usulan-jadwal/${cibubur}`]);
+    expect(kepala.dimuatUlang).toEqual([`/admin/jadwal-toko/${cibubur}`, `/pengiriman-gudang/${cibubur}`, `/usulan-jadwal/${cibubur}`, "/admin/jadwal"]);
   });
 
   it("tanpa toko terpilih → gagal tanpa menulis", async () => {
@@ -247,7 +247,7 @@ describe("salin jadwal admin ke beberapa toko", () => {
     const [a, b] = [await tokoDiGudang(bali), await tokoDiGudang(bali)];
     // Id di luar rentang integer PostgreSQL membuat kueri toko itu gagal.
     const idRusak = 2 ** 40;
-    const hasil = await salinJadwalKeToko({ idGudang: bali, daftarIdToko: [a.id, idRusak, b.id, a.id], masukan: pengaturan, idPengguna });
+    const hasil = await salinJadwalKeToko({ idGudang: bali, daftarIdToko: [a.id, idRusak, b.id, a.id], masukan: pengaturan, idPengguna, hariIni: parseTanggalBisnis("2026-10-15") });
     expect(hasil).toEqual([
       { idToko: a.id, status: "berhasil" },
       { idToko: idRusak, status: "belumPasti", pesan: expect.stringContaining("belum pasti") },
@@ -270,5 +270,103 @@ describe("kewenangan: hanya admin", () => {
       await expect(salinJadwalTetap({ idGudang: pusat, daftarIdToko: [t.id], ...pengaturan })).rejects.toBeInstanceOf(AksesDitolakError);
     }
     expect(await riwayatJadwal(t.id)).toEqual([]);
+  });
+});
+
+// T113 — PRD A5 ▶ Revisi 2026-10-13, Pembatalan otomatis: pengiriman di luar jadwal yang belum lewat dan belum final ikut
+// dibatalkan sistem saat admin menonaktifkan atau mengubah jadwal tetap. Hari ini tetap Kamis 2026-10-15 (WIB).
+describe("pembatalan otomatis pengiriman di luar jadwal", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-15T09:00:00+07:00") });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** 2× seminggu Senin (H) + Kamis (H−1), seperti BOTANI. */
+  const botani = {
+    pola: "2x-seminggu",
+    hariKirim: [
+      { hari: "Senin", persiapan: "H" },
+      { hari: "Kamis", persiapan: "H-1" },
+    ],
+    tanggalJangkar: null,
+  } as const;
+
+  async function tokoBotani() {
+    const t = await tokoDiGudang(cibubur);
+    const admin = await masukAdmin();
+    await expect(aturJadwalTetapToko({ idGudang: cibubur, idToko: t.id, ...botani })).resolves.toEqual({ keadaan: "berhasil" });
+    return { toko: t, admin };
+  }
+
+  async function pengiriman(idToko: number, idPengguna: string, isian: Partial<typeof pengirimanDiLuarJadwal.$inferInsert>) {
+    const [p] = await db
+      .insert(pengirimanDiLuarJadwal)
+      .values({
+        gudangId: cibubur,
+        tokoId: idToko,
+        jenis: "tambahan",
+        tanggalKirim: "2026-10-20",
+        persiapanHari: 1,
+        alasan: "uji",
+        diusulkanOleh: idPengguna,
+        status: "berlaku",
+        diputuskanOleh: idPengguna,
+        diputuskanPada: new Date(),
+        ...isian,
+      })
+      .returning();
+    return p.id;
+  }
+
+  const baca = async (id: number) => (await db.select().from(pengirimanDiLuarJadwal).where(eq(pengirimanDiLuarJadwal.id, id)))[0];
+
+  it("menonaktifkan jadwal tetap → pengiriman menunggu dan berlaku yang belum lewat dan belum final Dibatalkan", async () => {
+    const { toko: t, admin } = await tokoBotani();
+    const berlaku = await pengiriman(t.id, admin.id, {});
+    const menunggu = await pengiriman(t.id, admin.id, { tanggalKirim: "2026-10-21", status: "menunggu", diputuskanOleh: null, diputuskanPada: null });
+    const lewat = await pengiriman(t.id, admin.id, { tanggalKirim: "2026-10-14" });
+    const final = await pengiriman(t.id, admin.id, { tanggalKirim: "2026-10-23" });
+    await rencanaFinalUji({ idGudang: cibubur, idToko: t.id, tanggalKirim: "2026-10-23", idPengguna: admin.id });
+
+    await expect(nonaktifkanJadwalTetapToko({ idGudang: cibubur, idToko: t.id })).resolves.toEqual({ keadaan: "berhasil" });
+
+    for (const id of [berlaku, menunggu]) {
+      const p = await baca(id);
+      expect(p).toMatchObject({ status: "dibatalkan", alasanPembatalan: "Jadwal tetap dinonaktifkan", dibatalkanOleh: null });
+      expect(p.dibatalkanPada).toBeInstanceOf(Date);
+    }
+    expect((await baca(lewat)).status).toBe("berlaku");
+    expect((await baca(final)).status).toBe("berlaku");
+  });
+
+  it("mengubah jadwal tetap sehingga tanggal rutin yang dipindah hilang → Dibatalkan, alasan \"Jadwal tetap berubah\"", async () => {
+    const { toko: t, admin } = await tokoBotani();
+    const pindah = await pengiriman(t.id, admin.id, { jenis: "pindah", tanggalRutinDipindah: "2026-10-19", tanggalKirim: "2026-10-20", persiapanHari: 0 });
+    const tambahan = await pengiriman(t.id, admin.id, { tanggalKirim: "2026-10-24" });
+
+    // Senin tidak lagi hari kirim: Rabu (H) + Kamis (H−1).
+    const baru = { ...botani, hariKirim: [{ hari: "Rabu", persiapan: "H" }, { hari: "Kamis", persiapan: "H-1" }] } as const;
+    await expect(aturJadwalTetapToko({ idGudang: cibubur, idToko: t.id, ...baru })).resolves.toEqual({ keadaan: "berhasil" });
+
+    expect(await baca(pindah)).toMatchObject({ status: "dibatalkan", alasanPembatalan: "Jadwal tetap berubah", dibatalkanOleh: null });
+    // Sabtu 24-10 tetap bukan tanggal rutin: tidak terdampak.
+    expect((await baca(tambahan)).status).toBe("berlaku");
+  });
+
+  it("mengubah jadwal tetap sehingga tanggal tambahan menjadi tanggal rutin → Dibatalkan, alasan \"Tanggal itu sudah menjadi tanggal kirim rutin\"", async () => {
+    const { toko: t, admin } = await tokoBotani();
+    const tambahan = await pengiriman(t.id, admin.id, {});
+
+    // Selasa menjadi hari kirim rutin: Senin (H) + Selasa (H−1).
+    const baru = { ...botani, hariKirim: [{ hari: "Senin", persiapan: "H" }, { hari: "Selasa", persiapan: "H-1" }] } as const;
+    await expect(aturJadwalTetapToko({ idGudang: cibubur, idToko: t.id, ...baru })).resolves.toEqual({ keadaan: "berhasil" });
+
+    expect(await baca(tambahan)).toMatchObject({
+      status: "dibatalkan",
+      alasanPembatalan: "Tanggal itu sudah menjadi tanggal kirim rutin",
+      dibatalkanOleh: null,
+    });
   });
 });

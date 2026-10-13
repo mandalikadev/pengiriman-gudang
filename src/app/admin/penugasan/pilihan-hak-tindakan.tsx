@@ -4,9 +4,10 @@ import { useId } from "react";
 
 import { daftarHakTindakan, type HakTindakan } from "@/server/gudang/hak-tindakan";
 
-// Label antarmuka untuk hak tindakan PRD A3.
+// Label antarmuka untuk hak tindakan PRD A3. Kode `kelola-usulan-jadwal` tetap; labelnya mengikuti PRD A5 ▶ Revisi
+// 2026-10-13 (T113).
 const labelHakTindakan = {
-  "kelola-usulan-jadwal": "Kelola usulan jadwal",
+  "kelola-usulan-jadwal": "Usulkan pengiriman di luar jadwal",
   "input-stok": "Input stok",
   "hitung-kebutuhan": "Hitung kebutuhan",
   finalisasi: "Finalisasi",

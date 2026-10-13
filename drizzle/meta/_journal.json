@@ -183,6 +183,13 @@
       "when": 1791920136113,
       "tag": "0025_gudang_aktif",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791926147136,
+      "tag": "0026_pengiriman_di_luar_jadwal",
+      "breakpoints": true
     }
   ]
 }

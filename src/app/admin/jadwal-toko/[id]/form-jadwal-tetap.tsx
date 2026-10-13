@@ -49,7 +49,7 @@ export function FormJadwalTetap({
         {toko.jadwal ? (
           <DialogKonfirmasi
             judul={`Nonaktifkan jadwal tetap ${toko.nama}?`}
-            akibat="Toko ini tidak lagi punya jadwal tetap, dan draft yang memuat toko ini perlu dihitung ulang."
+            akibat="Toko ini tidak lagi punya jadwal tetap, dan draft yang memuat toko ini perlu dihitung ulang. Pengiriman di luar jadwal toko ini yang belum lewat dan belum final ikut dibatalkan."
             labelTindakan="Nonaktifkan"
             destruktif
             konfirmasi={() =>

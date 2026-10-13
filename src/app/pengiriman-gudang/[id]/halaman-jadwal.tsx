@@ -4,33 +4,37 @@ import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-import { AksesDitolakError, wajibGudangDenganHak } from "@/server/auth/kewenangan";
+import { tanggalWib } from "@/app/admin/impor/format";
+import { AksesDitolakError, wajibGudangDenganHak, wajibMasuk } from "@/server/auth/kewenangan";
 import type { GudangDapatDilihat } from "@/server/gudang/akses";
-import { jadwalTokoGudang } from "@/server/gudang/jadwal";
-import { isianDariJadwal } from "@/server/gudang/pilihan-jadwal";
+import { pilihanTokoPengiriman, riwayatPengirimanDiLuarJadwalGudang } from "@/server/gudang/pengiriman-di-luar-jadwal";
 import { NAMA_GUDANG_PUSAT } from "@/server/gudang/seed-master";
-import { usulanTerakhirPerToko } from "@/server/gudang/usulan-jadwal";
 
-import type { JalurJadwal } from "./form-jadwal";
-
-// T98 — DESIGN §6 ▶ Keputusan (2026-10-13, pemilik): form Usulkan jadwal toko (Pusat: Atur jadwal toko) punya halaman
-// sendiri. Pengguna yang berhak di lebih dari satu gudang memilih gudang dulu; yang berhak di satu gudang langsung masuk.
-// Hak `kelola-usulan-jadwal` diperiksa di server sebelum membaca data. Halaman Salin jadwal operator dihapus (T112).
+// Halaman pengiriman di luar jadwal (T98; T113, PRD A5 ▶ Revisi 2026-10-13; DESIGN §6 ▶ 2026-10-13 sore): operator
+// dengan hak `kelola-usulan-jadwal` mengusulkan pengiriman di luar jadwal di halaman sendiri. Pengguna yang berhak di
+// lebih dari satu gudang memilih gudang dulu; yang berhak di satu gudang langsung masuk. Hak diperiksa di server
+// sebelum membaca data. Jadwal tetap diatur admin (T112), bukan di sini.
 
 export const HREF_HALAMAN_JADWAL = "/usulan-jadwal";
 
-/** Judul halaman form satu toko per jalur: Pusat mengatur langsung, gudang lain mengusulkan. */
-export const judulJadwalToko: Record<JalurJadwal, string> = {
-  langsung: "Atur jadwal toko",
-  usulan: "Usulkan jadwal toko",
+/** Jalur gudang: Pusat langsung berlaku, gudang lain menunggu persetujuan admin. */
+type JalurPengiriman = "langsung" | "usulan";
+
+/** Judul halaman per jalur (DESIGN §6 ▶ 2026-10-13 sore). */
+const judulPengiriman: Record<JalurPengiriman, string> = {
+  langsung: "Atur pengiriman di luar jadwal",
+  usulan: "Usulkan pengiriman di luar jadwal",
 };
+
+/** Judul halaman daftar gudang. */
+export const JUDUL_DAFTAR_GUDANG = judulPengiriman.usulan;
 
 /** Id h1 halaman satu gudang; form di halaman itu memakainya sebagai nama (T103: form tidak mengulang h1). */
 export const ID_JUDUL_HALAMAN_JADWAL = "judul-halaman-jadwal";
 
 /** Judul h1 halaman satu gudang: "<judul> — <gudang>". */
-export function judulHalamanJadwal(jalur: JalurJadwal, namaGudang: string): string {
-  return `${judulJadwalToko[jalur]} — ${namaGudang}`;
+export function judulHalamanJadwal(jalur: JalurPengiriman, namaGudang: string): string {
+  return `${judulPengiriman[jalur]} — ${namaGudang}`;
 }
 
 const kelasTautanKembali =
@@ -81,7 +85,7 @@ export function DaftarGudangJadwal({ judul, daftarGudang }: { judul: string; daf
  * Gudang dan jalurnya (Pusat langsung, gudang lain usulan): tanpa hak `kelola-usulan-jadwal` di gudang itu, atau id
  * tidak dikenal → 404.
  */
-async function muatJalurGudangJadwal(id: string): Promise<{ gudang: GudangDapatDilihat; jalur: JalurJadwal }> {
+async function muatJalurGudangJadwal(id: string): Promise<{ gudang: GudangDapatDilihat; jalur: JalurPengiriman }> {
   if (!/^\d{1,9}$/.test(id)) notFound();
   let daftarGudang;
   try {
@@ -102,21 +106,19 @@ export async function metadataHalamanJadwal(id: string): Promise<Metadata> {
 }
 
 /**
- * Satu gudang untuk halaman jadwal: tanpa hak `kelola-usulan-jadwal` di gudang itu, atau id tidak dikenal → 404.
- * Mengembalikan jalur (Pusat langsung, gudang lain usulan), jadwal aktif per toko, dan usulan terakhir (selain Pusat).
+ * Satu gudang untuk halaman pengiriman di luar jadwal: tanpa hak `kelola-usulan-jadwal` di gudang itu, atau id tidak
+ * dikenal → 404. Mengembalikan jalur, pilihan toko form (toko dengan jadwal tetap aktif), riwayat gudang itu, pengguna,
+ * dan tanggal hari ini (WIB).
  */
 export async function muatGudangJadwal(id: string) {
   const { gudang, jalur } = await muatJalurGudangJadwal(id);
-  const pusat = jalur === "langsung";
-  const daftarToko = await jadwalTokoGudang(gudang.id);
-  const usulanPerToko = pusat ? null : await usulanTerakhirPerToko(gudang.id);
-  const tokoForm = daftarToko.map((t) => ({
-    id: t.id,
-    nama: t.nama,
-    jadwal: t.jadwal ? isianDariJadwal(t.jadwal) : null,
-    adaUsulanMenunggu: usulanPerToko?.get(t.id)?.status === "menunggu",
-  }));
-  return { gudang, jalur, daftarToko, usulanPerToko, tokoForm };
+  const pengguna = await wajibMasuk();
+  const hariIni = tanggalWib(new Date());
+  const [pilihanToko, riwayat] = await Promise.all([
+    pilihanTokoPengiriman(gudang.id, hariIni),
+    riwayatPengirimanDiLuarJadwalGudang(gudang.id),
+  ]);
+  return { gudang, jalur, pilihanToko, riwayat, idPengguna: pengguna.id, hariIni };
 }
 
 /** Kerangka halaman satu gudang: tautan kembali ke daftar gudang, judul (`ID_JUDUL_HALAMAN_JADWAL`), lalu isi. */

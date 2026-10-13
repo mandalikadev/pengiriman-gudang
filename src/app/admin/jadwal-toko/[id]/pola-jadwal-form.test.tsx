@@ -3,18 +3,17 @@ import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("./aksi", () => ({
-  simpanJadwal: vi.fn(),
-  nonaktifkanJadwal: vi.fn(),
-  usulkanJadwal: vi.fn(),
-  usulkanNonaktifJadwal: vi.fn(),
+vi.mock("../aksi", () => ({
+  aturJadwalTetapToko: vi.fn(),
+  nonaktifkanJadwalTetapToko: vi.fn(),
 }));
 
-import { isianTerkirim } from "./bidang-jadwal";
-import { FormJadwal } from "./form-jadwal";
+import { isianTerkirim } from "@/app/pengiriman-gudang/[id]/bidang-jadwal";
 
-// T92: pola 1× sebulan bisa dipilih di form jadwal (PRD A5 ▶ Keputusan 2026-10-12, UAT ketiga). Form salin jadwal
-// pindah ke halaman admin Jadwal toko (T112) dan diuji di sana.
+import { FormJadwalTetap } from "./form-jadwal-tetap";
+
+// T92: pola 1× sebulan bisa dipilih di form jadwal (PRD A5 ▶ Keputusan 2026-10-12, UAT ketiga). Form jadwal operator
+// dihapus (T113); jadwal tetap diatur admin di halaman Jadwal toko (T112), jadi pilihan pola dan hari diuji di form admin.
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -56,15 +55,11 @@ const SEMUA_POLA = [
   ["1x-sebulan", "1× sebulan"],
 ];
 
-const daftarToko = [{ id: 1, nama: "TOKO UJI", jadwal: null, adaUsulanMenunggu: false }];
+const toko = { id: 1, nama: "TOKO UJI", jadwal: null };
 
-describe("pilihan pola 1× sebulan di form jadwal", () => {
-  it("atur jadwal Pusat (langsung)", () => {
-    expect(pilihanPola(tampilkan(<FormJadwal idGudang={1} jalur="langsung" daftarToko={daftarToko} idJudul="judul" />))).toEqual(SEMUA_POLA);
-  });
-
-  it("usulkan jadwal (gudang selain Pusat)", () => {
-    expect(pilihanPola(tampilkan(<FormJadwal idGudang={2} jalur="usulan" daftarToko={daftarToko} idJudul="judul" />))).toEqual(SEMUA_POLA);
+describe("pilihan pola 1× sebulan di form jadwal tetap", () => {
+  it("form jadwal tetap admin menampilkan semua pola", () => {
+    expect(pilihanPola(tampilkan(<FormJadwalTetap idGudang={1} toko={toko} />))).toEqual(SEMUA_POLA);
   });
 });
 
@@ -76,13 +71,9 @@ function pilihanHari(wadah: HTMLElement) {
   return [...wadah.querySelectorAll<HTMLInputElement>('input[type="checkbox"][name="hariKirim"]')].map((c) => c.value);
 }
 
-describe("hari kirim Senin–Minggu di form jadwal", () => {
-  it("atur jadwal Pusat menampilkan tujuh hari berurutan Senin–Minggu", () => {
-    expect(pilihanHari(tampilkan(<FormJadwal idGudang={1} jalur="langsung" daftarToko={daftarToko} idJudul="judul" />))).toEqual(TUJUH_HARI);
-  });
-
-  it("usulkan jadwal menampilkan tujuh hari berurutan Senin–Minggu", () => {
-    expect(pilihanHari(tampilkan(<FormJadwal idGudang={2} jalur="usulan" daftarToko={daftarToko} idJudul="judul" />))).toEqual(TUJUH_HARI);
+describe("hari kirim Senin–Minggu di form jadwal tetap", () => {
+  it("form jadwal tetap admin menampilkan tujuh hari berurutan Senin–Minggu", () => {
+    expect(pilihanHari(tampilkan(<FormJadwalTetap idGudang={1} toko={toko} />))).toEqual(TUJUH_HARI);
   });
 
   it("isianTerkirim mempertahankan Minggu dan mengurutkan hari Senin–Minggu", () => {

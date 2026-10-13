@@ -36,7 +36,7 @@ const labelPeran: Record<PeranTampil, string> = { admin: "Admin", operator: "Ope
 
 /** Label dan ikon fitur setiap jenis kartu; urutan kartu ditentukan `muatIsiBeranda` (urutan issue T79). */
 const tampilanKartu: Record<KartuPerluTindakan["jenis"], { label: string; tujuan: string; ikon: LucideIcon }> = {
-  "usulan-jadwal": { label: "Usulan jadwal menunggu persetujuan", tujuan: "Persetujuan jadwal", ikon: CalendarCheck },
+  "usulan-jadwal": { label: "Usulan pengiriman di luar jadwal menunggu persetujuan", tujuan: "Persetujuan jadwal", ikon: CalendarCheck },
   "snapshot-libur": { label: "Snapshot libur menunggu ditinjau", tujuan: "Libur", ikon: CalendarDays },
   "produk-belum-dipetakan": { label: "Produk belum dipetakan", tujuan: "Pemetaan produk", ikon: Tags },
   "ranking-bulan-berjalan": { label: "Ranking bulan berjalan belum dipublikasikan", tujuan: "Ranking", ikon: Trophy },
@@ -82,8 +82,8 @@ const tampilanLangkah: Record<LangkahMulai["jenis"], { judul: string; penjelasan
     tujuan: "Pemetaan produk",
   },
   "setujui-usulan-jadwal": {
-    judul: "Setujui usulan jadwal",
-    penjelasan: "Tinjau usulan jadwal kirim dari operator, lalu setujui atau tolak.",
+    judul: "Setujui pengiriman di luar jadwal",
+    penjelasan: "Tinjau usulan pengiriman di luar jadwal dari operator, lalu setujui atau tolak.",
     tujuan: "Persetujuan jadwal",
   },
   "hitung-kebutuhan": {

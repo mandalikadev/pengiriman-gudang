@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 
 import { BadgeStatus } from "@/components/badge-status";
 import { Badge } from "@/components/ui/badge";
+import { tanggalWib } from "@/app/admin/impor/format";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { parseTanggalBisnis, type TanggalBisnis } from "@/domain/kalender";
 import { AksesDitolakError, wajibAksesLihatGudang } from "@/server/auth/kewenangan";
@@ -12,8 +13,7 @@ import { tokoTerhubung } from "@/server/gudang/akses";
 import { bacaRingkasanDraft, daftarTanggalDraft } from "@/server/gudang/draft-rencana";
 import { jadwalTokoGudang } from "@/server/gudang/jadwal";
 import { bacaPeriodeSumberPerhitungan } from "@/server/gudang/periode-sumber";
-import { NAMA_GUDANG_PUSAT } from "@/server/gudang/seed-master";
-import { usulanTerakhirPerToko } from "@/server/gudang/usulan-jadwal";
+import { pengirimanAkanDatangPerToko } from "@/server/gudang/pengiriman-di-luar-jadwal";
 
 import { BadgeGudangNonaktif, KeteranganHanyaBaca } from "../hanya-baca";
 import { BagianDraft } from "./bagian-draft";
@@ -62,8 +62,8 @@ function BadgeStatusToko({ aktif }: { aktif: boolean }) {
 
 /**
  * Zona kerja (DESIGN §1). Halaman Pengiriman Gudang satu gudang (T50) dengan kartu Periode sumber (T51) dan bagian
- * Jadwal (T55, T56). Operator dengan hak `kelola-usulan-jadwal` mendapat tautan ke halaman Usulkan/Atur jadwal toko
- * (T98), tempat jadwal Pusat diubah langsung dan jadwal gudang lain diusulkan (PRD A5 ▶ OD-06). Bagian Draft rencana (T58)
+ * Jadwal (T55): jadwal tetap ditambah pengiriman di luar jadwal yang akan datang (T113). Operator dengan hak
+ * `kelola-usulan-jadwal` mendapat tautan "Kirim di luar jadwal" (PRD A5 ▶ Revisi 2026-10-13). Bagian Draft rencana (T58)
  * menampilkan draft yang tersimpan tanpa menghitung saat halaman dibuka (PRD C1), sebagai ringkasan per toko; `?toko=<id>`
  * membuka baris satu toko (T73) dan `?rincian=<id toko>|<kode produk>` membuka rincian perhitungan satu barisnya (T60). Operator dengan hak `finalisasi` memfinalisasi rencana per toko (T62).
  * Tautan Riwayat rencana final (T63) untuk semua yang bisa melihat halaman ini.
@@ -81,12 +81,9 @@ export default async function HalamanPengirimanGudang({
   const daftarToko = await tokoTerhubung(gudang.id);
   const periodeSumber = await bacaPeriodeSumberPerhitungan(gudang.id);
   const daftarJadwal = await jadwalTokoGudang(gudang.id);
-  const pusat = gudang.nama === NAMA_GUDANG_PUSAT;
-  const usulanPerToko = pusat ? null : await usulanTerakhirPerToko(gudang.id);
+  const diLuarJadwalPerToko = await pengirimanAkanDatangPerToko(gudang.id, tanggalWib(new Date()));
   const daftarTanggal = await daftarTanggalDraft(gudang.id);
   const draft = await bacaRingkasanDraft(gudang.id, tanggalDiminta ?? undefined, bacaTokoDiminta(parameter?.toko));
-  // Tautan ke halaman jadwal toko (T98) hanya untuk pengguna dengan hak kelola-usulan-jadwal di gudang ini.
-  const jalurJadwal = gudang.hakTindakan.includes("kelola-usulan-jadwal") ? (pusat ? "langsung" : "usulan") : null;
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
@@ -144,7 +141,13 @@ export default async function HalamanPengirimanGudang({
         </Table>
       </section>
 
-      <BagianJadwal idGudang={gudang.id} daftarToko={daftarJadwal} usulanPerToko={usulanPerToko} tautan={jalurJadwal} />
+      {/* Tautan "Kirim di luar jadwal" (T113) hanya untuk pengguna dengan hak kelola-usulan-jadwal di gudang ini. */}
+      <BagianJadwal
+        idGudang={gudang.id}
+        daftarToko={daftarJadwal}
+        diLuarJadwalPerToko={diLuarJadwalPerToko}
+        tautan={gudang.hakTindakan.includes("kelola-usulan-jadwal")}
+      />
 
       <BagianDraft
         idGudang={gudang.id}

@@ -7,14 +7,14 @@ import { PesanStatusSimpan } from "@/components/pesan-status-simpan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import { setujuiUsulan, tolakUsulan } from "./aksi";
+import { setujuiPengiriman, tolakPengiriman } from "./aksi";
 
 /**
- * Setujui atau Tolak (dengan alasan) satu usulan jadwal (T56). Peran admin dan alasan wajib diperiksa lagi di server.
- * Keputusan yang hasilnya belum pasti tidak diulang otomatis (usePenyimpanan).
+ * Setujui atau Tolak (dengan alasan) satu usulan pengiriman di luar jadwal (T113). Peran admin, syarat, dan alasan wajib
+ * diperiksa lagi di server. Keputusan yang hasilnya belum pasti tidak diulang otomatis (usePenyimpanan).
  */
-export function TindakanUsulan({ idUsulan, toko }: { idUsulan: number; toko: string }) {
-  const id = useId();
+export function TindakanUsulan({ id, toko }: { id: number; toko: string }) {
+  const idAlasan = useId();
   const [alasan, setAlasan] = useState("");
   const { tampilan, hasil, menunggu, tandaiBerubah, simpan } = usePenyimpanan("daftar usulan di halaman ini");
   const sudahDiputuskan = hasil !== null && hasil.keadaan !== "gagal";
@@ -23,26 +23,21 @@ export function TindakanUsulan({ idUsulan, toko }: { idUsulan: number; toko: str
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end gap-4">
-        <Button
-          type="button"
-          disabled={terkunci}
-          className="active:scale-95"
-          onClick={() => simpan(() => setujuiUsulan({ idUsulan }))}
-        >
-          Setujui<span className="sr-only"> usulan jadwal {toko}</span>
+        <Button type="button" disabled={terkunci} className="active:scale-95" onClick={() => simpan(() => setujuiPengiriman({ id }))}>
+          Setujui<span className="sr-only"> usulan pengiriman {toko}</span>
         </Button>
         <form
           className="flex flex-wrap items-end gap-4"
-          aria-label={`Tolak usulan jadwal ${toko}`}
+          aria-label={`Tolak usulan pengiriman ${toko}`}
           onSubmit={(event) => {
             event.preventDefault();
-            simpan(() => tolakUsulan({ idUsulan, alasan }));
+            simpan(() => tolakPengiriman({ id, alasan }));
           }}
         >
-          <label className="flex min-w-64 flex-col gap-2 font-semibold" htmlFor={`${id}-alasan`}>
+          <label className="flex min-w-64 flex-col gap-2 font-semibold" htmlFor={idAlasan}>
             Alasan penolakan
             <Input
-              id={`${id}-alasan`}
+              id={idAlasan}
               name="alasan"
               required
               value={alasan}

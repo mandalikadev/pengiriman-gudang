@@ -221,3 +221,31 @@ export function tanggalKirimMenurutJadwal(jadwal: Jadwal, tanggal: TanggalBisnis
       jadwal.pola === "1x-sebulan" ? PANJANG_CAKUPAN_SEBULAN : selisihHari(tanggal, tanggalKirimBerikutnya(jadwal, tanggal)),
   };
 }
+
+/** Pengiriman di luar jadwal yang berlaku: tanggal kirimnya, dan tanggal rutin yang dipindah (jenis pindah). */
+export type PengirimanDiLuarJadwalBerlaku = {
+  tanggalKirim: TanggalBisnis;
+  /** `null` = jenis tambahan. */
+  tanggalRutinDipindah: TanggalBisnis | null;
+};
+
+/**
+ * Tanggal kirim toko dalam rentang `dari`–`sampai` (inklusif), urut naik (PRD A5 ▶ Revisi 2026-10-13; CONTEXT "Tanggal
+ * kirim toko"): tanggal menurut jadwal tetap, dikurangi tanggal rutin yang dipindah, ditambah tanggal pengiriman di luar
+ * jadwal yang berlaku. `jadwal` = `null` untuk toko tanpa jadwal tetap aktif. `diLuarJadwal` hanya berisi yang berlaku.
+ */
+export function tanggalKirimToko(
+  jadwal: Jadwal | null,
+  diLuarJadwal: readonly PengirimanDiLuarJadwalBerlaku[],
+  dari: TanggalBisnis,
+  sampai: TanggalBisnis,
+): TanggalBisnis[] {
+  const dipindah = new Set<string>(diLuarJadwal.flatMap((p) => (p.tanggalRutinDipindah === null ? [] : [p.tanggalRutinDipindah])));
+  const tambahan = new Set<string>(diLuarJadwal.map((p) => p.tanggalKirim));
+  const hasil: TanggalBisnis[] = [];
+  for (let tanggal = dari; tanggal <= sampai; tanggal = geserHari(tanggal, 1)) {
+    const rutin = jadwal !== null && hariKirimPada(jadwal, tanggal) !== null && !dipindah.has(tanggal);
+    if (rutin || tambahan.has(tanggal)) hasil.push(tanggal);
+  }
+  return hasil;
+}

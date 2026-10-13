@@ -14,12 +14,12 @@ import {
   hubunganTokoGudang,
   impor,
   jadwalToko,
+  pengirimanDiLuarJadwal,
   periodeSumberGudang,
   produk,
   rencanaFinal,
   snapshotLibur,
   tokoDraftRencana,
-  usulanJadwal,
   versiRanking,
 } from "@/server/db/schema";
 import type { MasalahBarisDraft } from "@/server/gudang/masalah-draft";
@@ -103,9 +103,9 @@ const sheetAktif = `UJI T79 ${randomUUID().slice(0, 8).toUpperCase()} (S)`;
  */
 async function bereskanTindakanAdmin() {
   await db
-    .update(usulanJadwal)
+    .update(pengirimanDiLuarJadwal)
     .set({ status: "ditolak", diputuskanOleh: idAdmin, diputuskanPada: new Date(), alasanPenolakan: "Uji T79" })
-    .where(eq(usulanJadwal.status, "menunggu"));
+    .where(eq(pengirimanDiLuarJadwal.status, "menunggu"));
   await db.update(snapshotLibur).set({ status: "diarsipkan" }).where(eq(snapshotLibur.status, "menunggu-persetujuan"));
   await db.update(produk).set({ statusKeluargaAroma: "tanpa-aroma" }).where(eq(produk.statusKeluargaAroma, "belum-dipetakan"));
   await db
@@ -416,10 +416,17 @@ describe("/ (beranda)", () => {
       .update(versiRanking)
       .set({ dipublikasikanPada: null, dipublikasikanOleh: null })
       .where(eq(versiRanking.bulanRanking, bulanBerjalan));
-    // 2 usulan jadwal menunggu (yang ditolak tidak dihitung).
+    // 2 usulan pengiriman di luar jadwal menunggu (yang ditolak tidak dihitung; T113).
     const [tokoA, tokoB, tokoC] = [await buatTokoUji(), await buatTokoUji(), await buatTokoUji()];
-    const usulan = { jenis: "buat" as const, pola: "mingguan" as const, hariKirim: [{ hari: "Senin" as const, persiapanHari: 0 as const }], diusulkanOleh: idAdmin };
-    await db.insert(usulanJadwal).values([
+    const usulan = {
+      gudangId: await idGudangUji("Gudang Bali"),
+      jenis: "tambahan" as const,
+      tanggalKirim: "2099-01-06",
+      persiapanHari: 1 as const,
+      alasan: "Uji",
+      diusulkanOleh: idAdmin,
+    };
+    await db.insert(pengirimanDiLuarJadwal).values([
       { ...usulan, tokoId: tokoA.id },
       { ...usulan, tokoId: tokoB.id },
       { ...usulan, tokoId: tokoC.id, status: "ditolak", diputuskanOleh: idAdmin, diputuskanPada: new Date(), alasanPenolakan: "Uji" },
@@ -440,7 +447,7 @@ describe("/ (beranda)", () => {
     kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
     const sebelum = kartu(await buka());
     expect(sebelum).toEqual({
-      "usulan-jadwal": { jumlah: 2, href: "/admin/jadwal", teks: expect.stringContaining("Usulan jadwal menunggu persetujuan") },
+      "usulan-jadwal": { jumlah: 2, href: "/admin/jadwal", teks: expect.stringContaining("Usulan pengiriman di luar jadwal menunggu persetujuan") },
       "snapshot-libur": { jumlah: 1, href: "/admin/libur", teks: expect.stringContaining("Snapshot libur menunggu ditinjau") },
       "produk-belum-dipetakan": {
         jumlah: 3,
@@ -476,7 +483,7 @@ describe("/ (beranda)", () => {
       expect.stringMatching(/^1 Impor penjualan .+ Belum Buka Impor$/),
       expect.stringMatching(/^2 Terbitkan ranking pusat .+ Selesai Buka Ranking$/),
       expect.stringMatching(/^3 Periksa pemetaan produk .+ Belum Buka Pemetaan produk$/),
-      expect.stringMatching(/^4 Setujui usulan jadwal .+ Belum Buka Persetujuan jadwal$/),
+      expect.stringMatching(/^4 Setujui pengiriman di luar jadwal .+ Belum Buka Persetujuan jadwal$/),
     ]);
 
     // Ranking bulan berjalan dipublikasikan → kartunya hilang; kartu lain tetap.
@@ -571,7 +578,7 @@ describe("/ (beranda)", () => {
     });
     expect(Object.values(kartu(html)).every((k) => k.teks.includes("Gudang Cibubur"))).toBe(true);
     // Kartu admin tidak tampil untuk operator; tanpa Semua beres karena ada kartu.
-    expect(html).not.toContain("Usulan jadwal menunggu persetujuan");
+    expect(html).not.toContain("Usulan pengiriman di luar jadwal menunggu persetujuan");
     expect(html).not.toContain("Semua beres");
 
     expect(pintasan(html)).toEqual([

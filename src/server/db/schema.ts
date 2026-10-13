@@ -788,6 +788,8 @@ export const jadwalToko = pgTable(
 );
 
 // --- Usulan jadwal (T56, PRD A5 ▶ OD-06 dan ▶ Keputusan perencanaan M2–M3) ---
+// Alur lama (CONTEXT "Usulan jadwal"): dihapus T113 (PRD A5 ▶ Revisi 2026-10-13). Datanya tetap disimpan sebagai riwayat;
+// usulan yang masih menunggu ditutup sebagai ditolak oleh migrasi 0026.
 
 export const daftarJenisUsulanJadwal = ["buat", "ubah", "nonaktifkan"] as const;
 export type JenisUsulanJadwal = (typeof daftarJenisUsulanJadwal)[number];
@@ -842,14 +844,98 @@ export const usulanJadwal = pgTable(
       "usulan_jadwal_jangkar_dua_mingguan",
       sql`(coalesce(${tabel.pola}, '') = 'dua-mingguan') = (${tabel.tanggalJangkar} is not null)`,
     ),
+    // T113: usulan menunggu yang ditutup sistem saat alur usulan jadwal tetap dihapus tidak punya pemutus (null = sistem).
     check(
       "usulan_jadwal_jejak_keputusan",
-      sql`(${tabel.status} <> 'menunggu') = (${tabel.diputuskanOleh} is not null and ${tabel.diputuskanPada} is not null)`,
+      sql`(${tabel.status} <> 'menunggu') = (${tabel.diputuskanPada} is not null) and (${tabel.diputuskanOleh} is null or ${tabel.diputuskanPada} is not null)`,
     ),
     check(
       "usulan_jadwal_alasan_penolakan",
       sql`(${tabel.status} = 'ditolak') = (${tabel.alasanPenolakan} is not null)`,
     ),
+  ],
+);
+
+// --- Pengiriman di luar jadwal (T113, PRD A5 ▶ Revisi 2026-10-13) ---
+
+export const daftarJenisPengirimanDiLuarJadwal = ["tambahan", "pindah"] as const;
+export type JenisPengirimanDiLuarJadwal = (typeof daftarJenisPengirimanDiLuarJadwal)[number];
+
+export const daftarStatusPengirimanDiLuarJadwal = ["menunggu", "berlaku", "ditolak", "ditarik", "dibatalkan"] as const;
+export type StatusPengirimanDiLuarJadwal = (typeof daftarStatusPengirimanDiLuarJadwal)[number];
+
+/**
+ * Satu pengiriman untuk satu toko pada satu tanggal yang tidak mengubah jadwal tetap (CONTEXT "Pengiriman di luar
+ * jadwal"): `tambahan`, atau `pindah` dari satu tanggal rutin. Diusulkan operator dengan hak `kelola-usulan-jadwal` di
+ * gudang `gudangId`; di gudang selain Pusat menunggu persetujuan admin, di Pusat langsung berlaku.
+ * Catatan aktivitas (PRD A5 ▶ Revisi 2026-10-13):
+ * - pengusul dan waktunya;
+ * - pemutus (admin yang menyetujui atau menolak) dan waktunya; berlaku tanpa pemutus = langsung berlaku di Pusat;
+ * - alasan penolakan; waktu penarikan oleh pengusul;
+ * - pembatal, waktu, dan alasan pembatalan; pembatal kosong = dibatalkan otomatis oleh sistem.
+ * Paling banyak satu pengiriman menunggu/berlaku per toko + tanggal kirim, dan per toko + tanggal rutin yang dipindah.
+ */
+export const pengirimanDiLuarJadwal = pgTable(
+  "pengiriman_di_luar_jadwal",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    gudangId: integer("gudang_id")
+      .notNull()
+      .references(() => gudang.id),
+    tokoId: integer("toko_id")
+      .notNull()
+      .references(() => toko.id),
+    jenis: text("jenis").$type<JenisPengirimanDiLuarJadwal>().notNull(),
+    tanggalKirim: date("tanggal_kirim", { mode: "string" }).notNull(),
+    persiapanHari: integer("persiapan_hari").$type<0 | 1 | 2>().notNull(),
+    /** Hanya untuk jenis `pindah`. */
+    tanggalRutinDipindah: date("tanggal_rutin_dipindah", { mode: "string" }),
+    alasan: text("alasan").notNull(),
+    status: text("status").$type<StatusPengirimanDiLuarJadwal>().notNull().default("menunggu"),
+    diusulkanOleh: text("diusulkan_oleh")
+      .notNull()
+      .references(() => user.id),
+    diusulkanPada: timestamp("diusulkan_pada", { withTimezone: true }).notNull().defaultNow(),
+    diputuskanOleh: text("diputuskan_oleh").references(() => user.id),
+    diputuskanPada: timestamp("diputuskan_pada", { withTimezone: true }),
+    alasanPenolakan: text("alasan_penolakan"),
+    dibatalkanOleh: text("dibatalkan_oleh").references(() => user.id),
+    dibatalkanPada: timestamp("dibatalkan_pada", { withTimezone: true }),
+    alasanPembatalan: text("alasan_pembatalan"),
+    ditarikPada: timestamp("ditarik_pada", { withTimezone: true }),
+  },
+  (tabel) => [
+    uniqueIndex("pengiriman_di_luar_jadwal_toko_tanggal_kirim_unik")
+      .on(tabel.tokoId, tabel.tanggalKirim)
+      .where(sql`${tabel.status} in ('menunggu', 'berlaku')`),
+    uniqueIndex("pengiriman_di_luar_jadwal_toko_tanggal_rutin_unik")
+      .on(tabel.tokoId, tabel.tanggalRutinDipindah)
+      .where(sql`${tabel.status} in ('menunggu', 'berlaku') and ${tabel.tanggalRutinDipindah} is not null`),
+    index("pengiriman_di_luar_jadwal_gudang_id_idx").on(tabel.gudangId, tabel.id),
+    check("pengiriman_di_luar_jadwal_jenis_dikenal", sql`${tabel.jenis} in (${daftarSql(daftarJenisPengirimanDiLuarJadwal)})`),
+    check(
+      "pengiriman_di_luar_jadwal_status_dikenal",
+      sql`${tabel.status} in (${daftarSql(daftarStatusPengirimanDiLuarJadwal)})`,
+    ),
+    check("pengiriman_di_luar_jadwal_persiapan", sql`${tabel.persiapanHari} in (0, 1, 2)`),
+    check(
+      "pengiriman_di_luar_jadwal_tanggal_rutin_sesuai_jenis",
+      sql`(${tabel.jenis} = 'pindah') = (${tabel.tanggalRutinDipindah} is not null) and ${tabel.tanggalRutinDipindah} is distinct from ${tabel.tanggalKirim}`,
+    ),
+    check("pengiriman_di_luar_jadwal_alasan", sql`btrim(${tabel.alasan}) <> ''`),
+    check(
+      "pengiriman_di_luar_jadwal_jejak_keputusan",
+      sql`(${tabel.diputuskanOleh} is null) = (${tabel.diputuskanPada} is null) and (${tabel.status} not in ('menunggu', 'ditarik') or ${tabel.diputuskanPada} is null) and (${tabel.status} <> 'ditolak' or ${tabel.diputuskanPada} is not null)`,
+    ),
+    check(
+      "pengiriman_di_luar_jadwal_alasan_penolakan",
+      sql`(${tabel.status} = 'ditolak') = (${tabel.alasanPenolakan} is not null) and coalesce(btrim(${tabel.alasanPenolakan}), 'x') <> ''`,
+    ),
+    check(
+      "pengiriman_di_luar_jadwal_jejak_pembatalan",
+      sql`(${tabel.status} = 'dibatalkan') = (${tabel.dibatalkanPada} is not null and ${tabel.alasanPembatalan} is not null) and (${tabel.dibatalkanOleh} is null or ${tabel.status} = 'dibatalkan') and coalesce(btrim(${tabel.alasanPembatalan}), 'x') <> ''`,
+    ),
+    check("pengiriman_di_luar_jadwal_jejak_penarikan", sql`(${tabel.status} = 'ditarik') = (${tabel.ditarikPada} is not null)`),
   ],
 );
 

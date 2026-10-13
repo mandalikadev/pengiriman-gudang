@@ -48,7 +48,7 @@ describe("/admin/penugasan", () => {
     expect(html).toContain("Tugaskan operator");
     expect(html).toContain(operator.email);
     expect(html).toContain("Gudang Jabodetabek");
-    for (const label of ["Kelola usulan jadwal", "Input stok", "Hitung kebutuhan", "Finalisasi", "Ekspor"]) {
+    for (const label of ["Usulkan pengiriman di luar jadwal", "Input stok", "Hitung kebutuhan", "Finalisasi", "Ekspor"]) {
       expect(html).toContain(label);
     }
     expect(html).toMatch(new RegExp(`data-hak="input-stok" data-penugasan="${operator.id}-${jabodetabek}" checked=""`));

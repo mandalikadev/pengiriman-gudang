@@ -4,10 +4,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 
 import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
-import { hubunganTokoGudang, jadwalToko } from "@/server/db/schema";
+import { hubunganTokoGudang, jadwalToko, pengirimanDiLuarJadwal } from "@/server/db/schema";
 import { tugaskanOperator } from "@/server/gudang/penugasan";
 import { buatTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
-import { usulkanJadwalToko, usulkanNonaktifJadwalToko } from "@/server/gudang/usulan-jadwal";
 
 const kepala = vi.hoisted(() => ({ cookie: "" }));
 vi.mock("next/headers", () => ({
@@ -43,7 +42,7 @@ beforeEach(() => {
 
 const buka = async () => renderToStaticMarkup(await HalamanPersetujuanJadwal());
 const kartu = (html: string, toko: string) => new RegExp(`<li data-usulan="\\d+">(?:(?!</li>).)*?${toko}.*?</li>`).exec(html)?.[0] ?? "";
-const baris = (html: string, bagian: string) => new RegExp(`<tr[^>]*data-bagian="${bagian}".*?</tr>`).exec(html)?.[0] ?? "";
+const baris = (html: string, id: number) => new RegExp(`<tr[^>]*data-pengiriman="${id}".*?</tr>`).exec(html)?.[0] ?? "";
 
 describe("/admin/jadwal", () => {
   it("belum masuk → diarahkan ke halaman masuk", async () => {
@@ -60,85 +59,53 @@ describe("/admin/jadwal", () => {
     await expect(HalamanPersetujuanJadwal()).rejects.toMatchObject({ digest: expect.stringContaining("404") });
   });
 
-  it("admin melihat usulan menunggu beserta rincian beda dengan jadwal aktif, dan tombol Setujui/Tolak", async () => {
-    const pengusul = await buatPenggunaUji("viewer");
-    const [berjadwal, baru] = [await tokoDiBandung(), await tokoDiBandung()];
-    await db.insert(jadwalToko).values({
-      tokoId: berjadwal.id,
-      pola: "mingguan",
-      hariKirim: [{ hari: "Senin", persiapanHari: 2 }],
-      dibuatOleh: pengusul.id,
-    });
-    await usulkanJadwalToko({
-      idGudang: bandung,
-      idToko: berjadwal.id,
-      masukan: { pola: "dua-mingguan", hariKirim: [{ hari: "Senin", persiapan: "H-2" }], tanggalJangkar: "2026-06-10" },
-      idPengguna: pengusul.id,
-    });
-    await usulkanJadwalToko({
-      idGudang: bandung,
-      idToko: baru.id,
-      masukan: { pola: "mingguan", hariKirim: [{ hari: "Rabu", persiapan: "H" }], tanggalJangkar: null },
-      idPengguna: pengusul.id,
-    });
-
-    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
-    const html = await buka();
-    // Zona kerja: judul halaman text-2xl md:text-3xl, tanpa blob.
-    expect(html).toContain('<h1 class="text-2xl font-bold md:text-3xl">Persetujuan jadwal</h1>');
-    expect(html).not.toContain("blur-3xl");
-
-    const ubah = kartu(html, berjadwal.nama);
-    expect(ubah).toContain("Gudang Bandung");
-    expect(ubah).toContain('data-status-usulan="menunggu"');
-    expect(ubah).toContain("Menunggu persetujuan");
-    expect(ubah).toContain("lucide-clipboard-list");
-    expect(ubah).toContain("Ubah jadwal");
-    expect(ubah).toMatch(/Diusulkan Uji viewer, \w+, \d{2}-\d{2}-\d{4} pukul \d{2}\.\d{2} WIB/);
-    expect(baris(ubah, "Pola")).toMatch(/Mingguan.*Dua mingguan.*Berubah/);
-    expect(baris(ubah, "Hari kirim \\(persiapan\\)")).toMatch(/Senin \(H−2\).*Senin \(H−2\).*Sama/);
-    expect(baris(ubah, "Tanggal jangkar")).toMatch(/—.*Rabu, 10-06-2026.*Berubah/);
-    expect(ubah).toContain("Setujui");
-    expect(ubah).toContain("Alasan penolakan");
-    expect(ubah).toContain("Tolak");
-
-    const buat = kartu(html, baru.nama);
-    expect(buat).toContain("Buat jadwal");
-    expect(buat).toContain("Toko ini belum punya jadwal aktif.");
-    expect(baris(buat, "Pola")).toMatch(/—.*Mingguan.*Berubah/);
-  });
-
-  it("usulan 1× sebulan: label pola \"1× sebulan\" di rincian usulan (T92)", async () => {
-    const pengusul = await buatPenggunaUji("viewer");
+  // T113 — PRD A5 ▶ Revisi 2026-10-13, Catatan aktivitas: usulan menunggu beserta jadwal tetap toko sebagai pembanding,
+  // ditambah riwayat keputusan (terbaru dulu) dengan "Batalkan" untuk pengiriman berlaku yang belum lewat dan belum final.
+  it("admin melihat usulan menunggu dengan jadwal tetap pembanding, Setujui/Tolak, dan riwayat keputusan dengan Batalkan", async () => {
     const t = await tokoDiBandung();
-    await usulkanJadwalToko({
-      idGudang: bandung,
-      idToko: t.id,
-      masukan: { pola: "1x-sebulan", hariKirim: [{ hari: "Selasa", persiapan: "H-1" }], tanggalJangkar: null },
-      idPengguna: pengusul.id,
-    });
-
-    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
-    const isi = kartu(await buka(), t.nama);
-    expect(baris(isi, "Pola")).toMatch(/—.*1× sebulan.*Berubah/);
-    expect(baris(isi, "Hari kirim \\(persiapan\\)")).toMatch(/—.*Selasa \(H−1\).*Berubah/);
-  });
-
-  it("usulan nonaktifkan: kolom usulan tanpa jadwal", async () => {
-    const pengusul = await buatPenggunaUji("viewer");
-    const t = await tokoDiBandung();
+    const operator = await buatPenggunaUji("viewer");
+    const admin = await buatPenggunaUji("admin");
     await db.insert(jadwalToko).values({
       tokoId: t.id,
-      pola: "mingguan",
-      hariKirim: [{ hari: "Jumat", persiapanHari: 0 }],
-      dibuatOleh: pengusul.id,
+      pola: "2x-seminggu",
+      hariKirim: [
+        { hari: "Senin", persiapanHari: 0 },
+        { hari: "Kamis", persiapanHari: 1 },
+      ],
+      dibuatOleh: admin.id,
     });
-    await usulkanNonaktifJadwalToko({ idGudang: bandung, idToko: t.id, idPengguna: pengusul.id });
-
+    const isi = { gudangId: bandung, tokoId: t.id, persiapanHari: 1 as const, alasan: "permintaan mendesak", diusulkanOleh: operator.id };
+    const [menunggu, berlaku, lewat, ditolak] = await db
+      .insert(pengirimanDiLuarJadwal)
+      .values([
+        { ...isi, jenis: "pindah", tanggalKirim: "2099-01-06", tanggalRutinDipindah: "2099-01-05" },
+        { ...isi, jenis: "tambahan", tanggalKirim: "2099-01-13", status: "berlaku", diputuskanOleh: admin.id, diputuskanPada: new Date("2026-10-10T03:00:00Z") },
+        { ...isi, jenis: "tambahan", tanggalKirim: "2020-01-07", status: "berlaku", diputuskanOleh: admin.id, diputuskanPada: new Date("2026-10-11T03:00:00Z") },
+        { ...isi, jenis: "tambahan", tanggalKirim: "2099-01-20", status: "ditolak", alasanPenolakan: "stok kosong", diputuskanOleh: admin.id, diputuskanPada: new Date("2026-10-12T03:00:00Z") },
+      ])
+      .returning();
     kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
-    const isi = kartu(await buka(), t.nama);
-    expect(isi).toContain("Nonaktifkan jadwal");
-    expect(isi).toContain("Jika disetujui, toko ini tidak lagi punya jadwal aktif.");
-    expect(baris(isi, "Hari kirim \\(persiapan\\)")).toMatch(/Jumat \(H\).*—.*Berubah/);
+
+    const html = await buka();
+    const k = kartu(html, t.nama);
+    expect(k).toContain("Gudang Bandung");
+    expect(k).toContain("Menunggu");
+    expect(k).toContain("Pindahan dari Senin, 05-01-2099 · Selasa, 06-01-2099 (H−1)");
+    expect(k).toContain("2× seminggu: Senin (H), Kamis (H−1)");
+    expect(k).toContain("permintaan mendesak");
+    expect(k).toContain(`Diusulkan Uji viewer`);
+    expect(k).toContain("Setujui");
+    expect(k).toContain("Tolak");
+    expect(html).toContain(`data-usulan="${menunggu.id}"`);
+
+    // Riwayat keputusan: yang menunggu tidak ada; terbaru dulu (ditolak 12-10, lalu 11-10, lalu 10-10).
+    expect(html).not.toContain(`data-pengiriman="${menunggu.id}"`);
+    const urutan = [ditolak.id, lewat.id, berlaku.id].map((id) => html.indexOf(`data-pengiriman="${id}"`));
+    expect(urutan.every((posisi) => posisi > 0)).toBe(true);
+    expect([...urutan].sort((a, b) => a - b)).toEqual(urutan);
+    expect(baris(html, ditolak.id)).toContain("Alasan penolakan: stok kosong");
+    expect(baris(html, berlaku.id)).toContain("Batalkan");
+    expect(baris(html, lewat.id)).not.toContain("Batalkan");
+    expect(baris(html, ditolak.id)).not.toContain("Batalkan");
   });
 });

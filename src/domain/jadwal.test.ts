@@ -9,6 +9,7 @@ import {
   tanggalKirimBerikutnya,
   tanggalKirimMenurutJadwal,
   tanggalKirimSebelumnya,
+  tanggalKirimToko,
   type Jadwal,
   type MasukanJadwal,
 } from "./jadwal";
@@ -562,5 +563,43 @@ describe("hari Minggu sebagai hari kirim (PRD A5 ▶ Revisi 2026-10-13, pemilik)
       tanggalJangkar: null,
     });
     expect(kirimanSebelumnyaBelumSampai(jadwal, parseTanggalBisnis("2026-10-18"))).toBe("2026-10-17");
+  });
+});
+
+// T113 — PRD A5 ▶ Revisi 2026-10-13: tanggal kirim toko = jadwal tetap − tanggal rutin yang dipindah + tanggal
+// pengiriman di luar jadwal yang berlaku. Contoh BOTANI: 2× seminggu Senin (H) dan Kamis (H−1).
+describe("tanggalKirimToko", () => {
+  const botani = jadwalValid({
+    pola: "2x-seminggu",
+    hariKirim: [
+      { hari: "Senin", persiapan: "H" },
+      { hari: "Kamis", persiapan: "H-1" },
+    ],
+    tanggalJangkar: null,
+  });
+  const t = parseTanggalBisnis;
+  const pekan = [t("2026-10-19"), t("2026-10-25")] as const;
+
+  it("tanpa pengiriman di luar jadwal = tanggal menurut jadwal tetap", () => {
+    expect(tanggalKirimToko(botani, [], ...pekan)).toEqual(["2026-10-19", "2026-10-22"]);
+  });
+
+  it("tambahan Selasa 20-10-2026 berlaku: Senin, Selasa, Kamis", () => {
+    const tambahan = [{ tanggalKirim: t("2026-10-20"), tanggalRutinDipindah: null }];
+    expect(tanggalKirimToko(botani, tambahan, ...pekan)).toEqual(["2026-10-19", "2026-10-20", "2026-10-22"]);
+  });
+
+  it("pindah Senin 19-10-2026 ke Selasa 20-10-2026: Senin tidak lagi tanggal kirim", () => {
+    const pindah = [{ tanggalKirim: t("2026-10-20"), tanggalRutinDipindah: t("2026-10-19") }];
+    expect(tanggalKirimToko(botani, pindah, ...pekan)).toEqual(["2026-10-20", "2026-10-22"]);
+  });
+
+  it("pengiriman di luar rentang tidak ikut; toko tanpa jadwal tetap hanya punya tanggal di luar jadwal", () => {
+    const tambahan = [
+      { tanggalKirim: t("2026-10-20"), tanggalRutinDipindah: null },
+      { tanggalKirim: t("2026-10-27"), tanggalRutinDipindah: null },
+    ];
+    expect(tanggalKirimToko(null, tambahan, ...pekan)).toEqual(["2026-10-20"]);
+    expect(tanggalKirimToko(botani, [], t("2026-10-20"), t("2026-10-20"))).toEqual([]);
   });
 });

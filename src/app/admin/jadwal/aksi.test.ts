@@ -1,14 +1,12 @@
-import { asc, eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { eq } from "drizzle-orm";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AksesDitolakError } from "@/server/auth/kewenangan";
-import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
+import { buatPenggunaUji, kepalaPenggunaUji, masukUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
-import { hubunganTokoGudang, jadwalToko, usulanJadwal } from "@/server/db/schema";
-import { jadwalTokoGudang } from "@/server/gudang/jadwal";
+import { hubunganTokoGudang, jadwalToko, pengirimanDiLuarJadwal } from "@/server/db/schema";
 import { tugaskanOperator } from "@/server/gudang/penugasan";
-import { buatTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
-import { daftarUsulanMenunggu, usulkanJadwalToko, usulkanNonaktifJadwalToko } from "@/server/gudang/usulan-jadwal";
+import { buatTokoUji, idGudangUji, rencanaFinalUji } from "@/server/gudang/uji-bantu";
 
 const kepala = vi.hoisted(() => ({ cookie: "", muatUlangGagal: false, dimuatUlang: [] as string[] }));
 vi.mock("next/headers", () => ({
@@ -21,60 +19,27 @@ vi.mock("next/cache", () => ({
   },
 }));
 
-import { setujuiUsulan, tolakUsulan } from "./aksi";
+import { batalkanPengiriman, setujuiPengiriman, tolakPengiriman } from "./aksi";
 
-let pusat: number;
+// T113 — PRD A5 ▶ Revisi 2026-10-13: admin menyetujui atau menolak usulan pengiriman di luar jadwal (syarat diperiksa
+// ulang saat disetujui) dan membatalkan pengiriman yang berlaku. Hari ini tetap Kamis 2026-10-15 (WIB).
+
 let cibubur: number;
-let idPengusul: string;
 
 beforeAll(async () => {
-  pusat = await idGudangUji("Pusat");
   cibubur = await idGudangUji("Gudang Cibubur");
-  idPengusul = (await buatPenggunaUji("viewer")).id;
 });
 
 beforeEach(() => {
   kepala.cookie = "";
   kepala.muatUlangGagal = false;
   kepala.dimuatUlang = [];
+  vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-15T09:00:00+07:00") });
 });
 
-async function tokoCibubur() {
-  const t = await buatTokoUji();
-  await db.insert(hubunganTokoGudang).values({ tokoId: t.id, gudangId: cibubur });
-  return t;
-}
-
-async function jadwalAwal(idToko: number) {
-  const [baris] = await db
-    .insert(jadwalToko)
-    .values({ tokoId: idToko, pola: "mingguan", hariKirim: [{ hari: "Selasa", persiapanHari: 1 }], dibuatOleh: idPengusul })
-    .returning();
-  return baris;
-}
-
-/** Usulan perubahan menjadi 2× seminggu Senin (H−2) + Kamis (H). */
-async function usulkanSeninKamis(idToko: number) {
-  await usulkanJadwalToko({
-    idGudang: cibubur,
-    idToko,
-    masukan: {
-      pola: "2x-seminggu",
-      hariKirim: [
-        { hari: "Senin", persiapan: "H-2" },
-        { hari: "Kamis", persiapan: "H" },
-      ],
-      tanggalJangkar: null,
-    },
-    idPengguna: idPengusul,
-  });
-  const [usulan] = await db.select().from(usulanJadwal).where(eq(usulanJadwal.tokoId, idToko));
-  return usulan;
-}
-
-const riwayatJadwal = (idToko: number) =>
-  db.select().from(jadwalToko).where(eq(jadwalToko.tokoId, idToko)).orderBy(asc(jadwalToko.id));
-const bacaUsulan = async (id: number) => (await db.select().from(usulanJadwal).where(eq(usulanJadwal.id, id)))[0];
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 async function masukAdmin() {
   const admin = await kepalaPenggunaUji("admin");
@@ -82,157 +47,141 @@ async function masukAdmin() {
   return admin;
 }
 
-describe("hanya admin yang bisa menyetujui atau menolak (diperiksa di server)", () => {
-  it("operator berhak di gudang itu ditolak, tanpa mengubah usulan maupun jadwal", async () => {
-    const t = await tokoCibubur();
-    const awal = await jadwalAwal(t.id);
-    const usulan = await usulkanSeninKamis(t.id);
-    const operator = await kepalaPenggunaUji("viewer");
-    await tugaskanOperator({ idPengguna: operator.id, idGudang: cibubur, hakTindakan: ["kelola-usulan-jadwal"] });
-    kepala.cookie = operator.cookie;
-
-    await expect(setujuiUsulan({ idUsulan: usulan.id })).rejects.toBeInstanceOf(AksesDitolakError);
-    await expect(tolakUsulan({ idUsulan: usulan.id, alasan: "Tidak sesuai" })).rejects.toBeInstanceOf(AksesDitolakError);
-    expect(await bacaUsulan(usulan.id)).toEqual(usulan);
-    expect(await riwayatJadwal(t.id)).toEqual([awal]);
+/** Toko uji Cibubur dengan jadwal tetap BOTANI (2× seminggu Senin H, Kamis H−1) dan satu usulan di luar jadwal. */
+async function usulanBotani(isian: Partial<typeof pengirimanDiLuarJadwal.$inferInsert> = {}) {
+  const t = await buatTokoUji();
+  await db.insert(hubunganTokoGudang).values({ tokoId: t.id, gudangId: cibubur });
+  const pembuat = await buatPenggunaUji("admin");
+  await db.insert(jadwalToko).values({
+    tokoId: t.id,
+    pola: "2x-seminggu",
+    hariKirim: [
+      { hari: "Senin", persiapanHari: 0 },
+      { hari: "Kamis", persiapanHari: 1 },
+    ],
+    dibuatOleh: pembuat.id,
   });
+  const operator = await buatPenggunaUji("viewer");
+  await tugaskanOperator({ idPengguna: operator.id, idGudang: cibubur, hakTindakan: ["kelola-usulan-jadwal"] });
+  const [p] = await db
+    .insert(pengirimanDiLuarJadwal)
+    .values({
+      gudangId: cibubur,
+      tokoId: t.id,
+      jenis: "tambahan",
+      tanggalKirim: "2026-10-20",
+      persiapanHari: 1,
+      alasan: "permintaan mendesak",
+      diusulkanOleh: operator.id,
+      ...isian,
+    })
+    .returning();
+  return { toko: t, usulan: p, operator };
+}
 
-  it("pengguna yang belum masuk diarahkan ke halaman masuk", async () => {
-    const t = await tokoCibubur();
-    const usulan = await usulkanSeninKamis(t.id);
-    await expect(setujuiUsulan({ idUsulan: usulan.id })).rejects.toMatchObject({ digest: expect.stringContaining("/masuk") });
-    expect((await bacaUsulan(usulan.id)).status).toBe("menunggu");
+const baca = async (id: number) => (await db.select().from(pengirimanDiLuarJadwal).where(eq(pengirimanDiLuarJadwal.id, id)))[0];
+
+describe("hanya admin yang memutuskan (diperiksa di server)", () => {
+  it("operator berhak di gudang itu ditolak tanpa mengubah usulan", async () => {
+    const { usulan, operator } = await usulanBotani();
+    kepala.cookie = await masukUji(operator.email);
+    await expect(setujuiPengiriman({ id: usulan.id })).rejects.toBeInstanceOf(AksesDitolakError);
+    await expect(tolakPengiriman({ id: usulan.id, alasan: "x" })).rejects.toBeInstanceOf(AksesDitolakError);
+    await expect(batalkanPengiriman({ id: usulan.id, alasan: "x" })).rejects.toBeInstanceOf(AksesDitolakError);
+    expect((await baca(usulan.id)).status).toBe("menunggu");
   });
 });
 
-describe("admin menyetujui usulan", () => {
-  it("jadwal aktif berganti dalam satu transaksi; versi berganti (sinyal T61); usulan mencatat penyetuju", async () => {
-    const t = await tokoCibubur();
-    const awal = await jadwalAwal(t.id);
-    const usulan = await usulkanSeninKamis(t.id);
+describe("admin menyetujui atau menolak", () => {
+  it("setujui → Berlaku dengan pemutus dan waktu tercatat", async () => {
+    const { usulan } = await usulanBotani();
     const admin = await masukAdmin();
 
-    await expect(setujuiUsulan({ idUsulan: usulan.id })).resolves.toEqual({ keadaan: "berhasil" });
-    expect(kepala.dimuatUlang).toEqual(["/admin/jadwal", `/pengiriman-gudang/${cibubur}`]);
+    await expect(setujuiPengiriman({ id: usulan.id })).resolves.toEqual({ keadaan: "berhasil" });
+    expect(kepala.dimuatUlang).toEqual(["/admin/jadwal", `/pengiriman-gudang/${cibubur}`, `/usulan-jadwal/${cibubur}`]);
+    const p = await baca(usulan.id);
+    expect(p).toMatchObject({ status: "berlaku", diputuskanOleh: admin.id, alasanPenolakan: null });
+    expect(p.diputuskanPada).toBeInstanceOf(Date);
 
-    const semua = await riwayatJadwal(t.id);
-    expect(semua).toHaveLength(2);
-    expect(semua[0]).toMatchObject({ id: awal.id, status: "nonaktif", dinonaktifkanOleh: admin.id });
-    expect(semua[1]).toMatchObject({
-      pola: "2x-seminggu",
-      hariKirim: [
-        { hari: "Senin", persiapanHari: 2 },
-        { hari: "Kamis", persiapanHari: 0 },
-      ],
-      status: "aktif",
-    });
-
-    const jadwal = (await jadwalTokoGudang(cibubur)).find((d) => d.id === t.id)?.jadwal;
-    expect(jadwal?.versi).toBe(semua[1].id);
-    expect(jadwal?.versi).not.toBe(awal.id);
-
-    const sesudah = await bacaUsulan(usulan.id);
-    expect(sesudah).toMatchObject({ status: "disetujui", diputuskanOleh: admin.id, alasanPenolakan: null });
-    expect(sesudah.diputuskanPada).toBeInstanceOf(Date);
-    expect((await daftarUsulanMenunggu()).some((u) => u.id === usulan.id)).toBe(false);
-  });
-
-  it("usulan buat menjadi jadwal aktif pertama toko", async () => {
-    const t = await tokoCibubur();
-    const usulan = await usulkanSeninKamis(t.id);
-    expect(usulan.jenis).toBe("buat");
-    await masukAdmin();
-
-    await expect(setujuiUsulan({ idUsulan: usulan.id })).resolves.toEqual({ keadaan: "berhasil" });
-    expect(await riwayatJadwal(t.id)).toMatchObject([{ pola: "2x-seminggu", status: "aktif" }]);
-  });
-
-  it("usulan nonaktifkan menonaktifkan jadwal aktif; toko tidak lagi punya jadwal aktif", async () => {
-    const t = await tokoCibubur();
-    await jadwalAwal(t.id);
-    await usulkanNonaktifJadwalToko({ idGudang: cibubur, idToko: t.id, idPengguna: idPengusul });
-    const [usulan] = await db.select().from(usulanJadwal).where(eq(usulanJadwal.tokoId, t.id));
-    const admin = await masukAdmin();
-
-    await expect(setujuiUsulan({ idUsulan: usulan.id })).resolves.toEqual({ keadaan: "berhasil" });
-    expect(await riwayatJadwal(t.id)).toMatchObject([{ status: "nonaktif", dinonaktifkanOleh: admin.id }]);
-    expect((await jadwalTokoGudang(cibubur)).find((d) => d.id === t.id)?.jadwal).toBeNull();
-  });
-
-  it("usulan yang sudah diputuskan tidak bisa diputuskan lagi", async () => {
-    const t = await tokoCibubur();
-    const usulan = await usulkanSeninKamis(t.id);
-    await masukAdmin();
-    await setujuiUsulan({ idUsulan: usulan.id });
-
-    const pesan = "Usulan ini sudah diputuskan. Muat ulang halaman untuk melihat usulan terbaru.";
-    await expect(setujuiUsulan({ idUsulan: usulan.id })).resolves.toEqual({ keadaan: "gagal", pesan });
-    await expect(tolakUsulan({ idUsulan: usulan.id, alasan: "Terlambat" })).resolves.toEqual({ keadaan: "gagal", pesan });
-    expect(await riwayatJadwal(t.id)).toHaveLength(1);
-    await expect(setujuiUsulan({ idUsulan: 2_000_000_000 })).resolves.toEqual({
+    await expect(setujuiPengiriman({ id: usulan.id })).resolves.toEqual({
       keadaan: "gagal",
-      pesan: "Usulan jadwal tidak ditemukan.",
+      pesan: "Usulan ini tidak lagi menunggu. Muat ulang halaman untuk melihat statusnya.",
     });
   });
 
-  it("toko yang sudah dipindah ke Pusat tidak bisa disetujui lewat usulan", async () => {
-    const t = await tokoCibubur();
-    const usulan = await usulkanSeninKamis(t.id);
-    await db.update(hubunganTokoGudang).set({ gudangId: pusat }).where(eq(hubunganTokoGudang.tokoId, t.id));
-    await masukAdmin();
+  it("tolak dengan alasan → Ditolak dengan alasan; tolak tanpa alasan ditolak", async () => {
+    const { usulan } = await usulanBotani();
+    const admin = await masukAdmin();
 
-    await expect(setujuiUsulan({ idUsulan: usulan.id })).resolves.toMatchObject({ keadaan: "gagal" });
-    expect(await riwayatJadwal(t.id)).toEqual([]);
-    expect((await bacaUsulan(usulan.id)).status).toBe("menunggu");
+    await expect(tolakPengiriman({ id: usulan.id, alasan: "  " })).resolves.toEqual({ keadaan: "gagal", pesan: "Isi alasan penolakan." });
+    await expect(tolakPengiriman({ id: usulan.id })).resolves.toEqual({ keadaan: "gagal", pesan: "Isi alasan penolakan." });
+    expect((await baca(usulan.id)).status).toBe("menunggu");
+
+    await expect(tolakPengiriman({ id: usulan.id, alasan: "stok gudang kosong" })).resolves.toEqual({ keadaan: "berhasil" });
+    const p = await baca(usulan.id);
+    expect(p).toMatchObject({ status: "ditolak", alasanPenolakan: "stok gudang kosong", diputuskanOleh: admin.id });
+    expect(p.diputuskanPada).toBeInstanceOf(Date);
   });
 
-  it("tersimpan tetapi gagal memuat ulang tampilan", async () => {
-    const t = await tokoCibubur();
-    const usulan = await usulkanSeninKamis(t.id);
-    await masukAdmin();
-    kepala.muatUlangGagal = true;
+  it("syarat yang tidak lagi terpenuhi saat persetujuan (tanggal rutin sudah final) → persetujuan ditolak dengan pesan", async () => {
+    const { toko, usulan } = await usulanBotani({ jenis: "pindah", tanggalRutinDipindah: "2026-10-19", persiapanHari: 0 });
+    const admin = await masukAdmin();
+    await rencanaFinalUji({ idGudang: cibubur, idToko: toko.id, tanggalKirim: "2026-10-19", idPengguna: admin.id });
 
-    await expect(setujuiUsulan({ idUsulan: usulan.id })).resolves.toEqual({ keadaan: "tersimpanGagalMuatUlang" });
-    expect((await bacaUsulan(usulan.id)).status).toBe("disetujui");
+    await expect(setujuiPengiriman({ id: usulan.id })).resolves.toEqual({
+      keadaan: "gagal",
+      pesan: "Usulan tidak bisa disetujui. Syarat tidak terpenuhi: tanggal rutin Senin, 19-10-2026 sudah punya rencana final untuk toko ini.",
+    });
+    expect((await baca(usulan.id)).status).toBe("menunggu");
+  });
+
+  it("tanggal kirim yang sudah lewat saat persetujuan → persetujuan ditolak", async () => {
+    const { usulan } = await usulanBotani();
+    await masukAdmin();
+    vi.setSystemTime(new Date("2026-10-21T09:00:00+07:00"));
+    await expect(setujuiPengiriman({ id: usulan.id })).resolves.toMatchObject({
+      keadaan: "gagal",
+      pesan: expect.stringContaining("tanggal kirim Selasa, 20-10-2026 sudah lewat"),
+    });
   });
 });
 
-describe("admin menolak usulan", () => {
-  it("penolakan mencatat alasan, penyetuju, dan waktu; jadwal aktif tidak berubah", async () => {
-    const t = await tokoCibubur();
-    const awal = await jadwalAwal(t.id);
-    const usulan = await usulkanSeninKamis(t.id);
+describe("admin membatalkan pengiriman yang berlaku", () => {
+  const berlaku = (idAdmin: string) => ({ status: "berlaku" as const, diputuskanOleh: idAdmin, diputuskanPada: new Date() });
+
+  it("berlaku → Dibatalkan dengan alasan, pembatal, dan waktunya; alasan wajib", async () => {
+    const pemutus = await buatPenggunaUji("admin");
+    const { usulan } = await usulanBotani(berlaku(pemutus.id));
     const admin = await masukAdmin();
 
-    await expect(tolakUsulan({ idUsulan: usulan.id, alasan: "  Kamis gudang tutup  " })).resolves.toEqual({ keadaan: "berhasil" });
-    expect(kepala.dimuatUlang).toEqual(["/admin/jadwal", `/pengiriman-gudang/${cibubur}`]);
-    const sesudah = await bacaUsulan(usulan.id);
-    expect(sesudah).toMatchObject({ status: "ditolak", alasanPenolakan: "Kamis gudang tutup", diputuskanOleh: admin.id });
-    expect(sesudah.diputuskanPada).toBeInstanceOf(Date);
-    expect(await riwayatJadwal(t.id)).toEqual([awal]);
+    await expect(batalkanPengiriman({ id: usulan.id, alasan: "" })).resolves.toEqual({ keadaan: "gagal", pesan: "Isi alasan pembatalan." });
+    await expect(batalkanPengiriman({ id: usulan.id, alasan: "toko renovasi" })).resolves.toEqual({ keadaan: "berhasil" });
+    const p = await baca(usulan.id);
+    expect(p).toMatchObject({ status: "dibatalkan", alasanPembatalan: "toko renovasi", dibatalkanOleh: admin.id, diputuskanOleh: pemutus.id });
+    expect(p.dibatalkanPada).toBeInstanceOf(Date);
   });
 
-  it("alasan wajib diisi", async () => {
-    const t = await tokoCibubur();
-    const usulan = await usulkanSeninKamis(t.id);
-    await masukAdmin();
+  it("ditolak jika tanggal sudah lewat atau sudah ada rencana final; usulan menunggu tidak bisa dibatalkan", async () => {
+    const pemutus = await buatPenggunaUji("admin");
+    const lewat = await usulanBotani({ ...berlaku(pemutus.id), tanggalKirim: "2026-10-13" });
+    const final = await usulanBotani(berlaku(pemutus.id));
+    const menunggu = await usulanBotani();
+    const admin = await masukAdmin();
+    await rencanaFinalUji({ idGudang: cibubur, idToko: final.toko.id, tanggalKirim: "2026-10-20", idPengguna: admin.id });
 
-    for (const alasan of ["", "   ", undefined]) {
-      await expect(tolakUsulan({ idUsulan: usulan.id, alasan })).resolves.toEqual({
-        keadaan: "gagal",
-        pesan: "Isi alasan penolakan.",
-      });
-    }
-    expect((await bacaUsulan(usulan.id)).status).toBe("menunggu");
-  });
-
-  it("setelah ditolak, operator bisa mengusulkan lagi untuk toko itu", async () => {
-    const t = await tokoCibubur();
-    const usulan = await usulkanSeninKamis(t.id);
-    await masukAdmin();
-    await tolakUsulan({ idUsulan: usulan.id, alasan: "Belum sesuai" });
-
-    await usulkanSeninKamis(t.id);
-    expect(await db.select().from(usulanJadwal).where(eq(usulanJadwal.tokoId, t.id))).toHaveLength(2);
+    await expect(batalkanPengiriman({ id: lewat.usulan.id, alasan: "batal" })).resolves.toEqual({
+      keadaan: "gagal",
+      pesan: "Tidak bisa dibatalkan: tanggal kirim Selasa, 13-10-2026 sudah lewat.",
+    });
+    await expect(batalkanPengiriman({ id: final.usulan.id, alasan: "batal" })).resolves.toEqual({
+      keadaan: "gagal",
+      pesan: "Tidak bisa dibatalkan: toko ini sudah punya rencana final untuk Selasa, 20-10-2026.",
+    });
+    await expect(batalkanPengiriman({ id: menunggu.usulan.id, alasan: "batal" })).resolves.toEqual({
+      keadaan: "gagal",
+      pesan: "Hanya pengiriman yang berlaku yang bisa dibatalkan.",
+    });
+    expect((await baca(lewat.usulan.id)).status).toBe("berlaku");
+    expect((await baca(final.usulan.id)).status).toBe("berlaku");
   });
 });
