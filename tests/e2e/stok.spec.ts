@@ -336,12 +336,23 @@ test("Draft rencana: rincian baris di panel samping; isian stok dan posisi gulir
   await wadah.scrollIntoViewIfNeeded();
   const kodeDibuka = daftarKode[20];
   const tautan = page.locator(`a[data-tautan-rincian-baris="${toko.id}|${kodeDibuka}"]`);
-  await tautan.evaluate((el) => el.scrollIntoView({ block: "center" }));
-  await expect(tautan).toBeInViewport();
   const posisi = async () => ({
     wadah: await wadah.evaluate((el) => el.scrollTop),
     halaman: await page.evaluate(() => window.scrollY),
   });
+  // Gulir diulang sampai wadah benar-benar tergulir dan posisinya tidak berubah lagi di antara dua pembacaan, agar
+  // pengukuran tidak mendahului gulir (di CI sempat terbaca 0).
+  let terakhir = { wadah: -1, halaman: -1 };
+  await expect
+    .poll(async () => {
+      await tautan.evaluate((el) => el.scrollIntoView({ block: "center" }));
+      const sekarang = await posisi();
+      const stabil = sekarang.wadah > 0 && sekarang.wadah === terakhir.wadah && sekarang.halaman === terakhir.halaman;
+      terakhir = sekarang;
+      return stabil;
+    })
+    .toBe(true);
+  await expect(tautan).toBeInViewport();
   const sebelum = await posisi();
   expect(sebelum.wadah).toBeGreaterThan(0);
   const urlAwal = page.url();
