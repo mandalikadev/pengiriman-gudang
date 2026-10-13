@@ -274,11 +274,6 @@ describe("tanggalKirimMenurutJadwal — mingguan dan 2× seminggu", () => {
 });
 
 describe("periksaJadwal — validasi", () => {
-  it("menolak hari Minggu", () => {
-    const hasil = periksaJadwal({ pola: "mingguan", hariKirim: [{ hari: "Minggu", persiapan: "H" }], tanggalJangkar: null });
-    expect(hasil).toEqual({ keadaan: "tidakValid", pesan: ["Hari Minggu tidak bisa dipilih sebagai hari kirim. Pilih Senin–Sabtu."] });
-  });
-
   it("menolak dua mingguan tanpa tanggal jangkar", () => {
     const hasil = periksaJadwal({ pola: "dua-mingguan", hariKirim: [{ hari: "Senin", persiapan: "H" }], tanggalJangkar: null });
     expect(hasil).toEqual({ keadaan: "tidakValid", pesan: ["Pola dua mingguan wajib memiliki tanggal jangkar."] });
@@ -330,10 +325,17 @@ describe("periksaJadwal — validasi", () => {
   });
 
   it("mengumpulkan semua pesan sekaligus", () => {
-    const hasil = periksaJadwal({ pola: "dua-mingguan", hariKirim: [{ hari: "Minggu", persiapan: "H" }], tanggalJangkar: null });
+    const hasil = periksaJadwal({
+      pola: "dua-mingguan",
+      hariKirim: [
+        { hari: "Senin", persiapan: "H" },
+        { hari: "Senin", persiapan: "H-1" },
+      ],
+      tanggalJangkar: null,
+    });
     expect(hasil).toEqual({
       keadaan: "tidakValid",
-      pesan: ["Hari Minggu tidak bisa dipilih sebagai hari kirim. Pilih Senin–Sabtu.", "Pola dua mingguan wajib memiliki tanggal jangkar."],
+      pesan: ["Hari Senin dipilih lebih dari sekali.", "Pola dua mingguan wajib memiliki tanggal jangkar."],
     });
   });
 });
@@ -395,7 +397,7 @@ describe("pola 1× sebulan (PRD A5 ▶ Keputusan 2026-10-12, A6 ▶ Revisi: L = 
     ]);
   });
 
-  it("periksaJadwal: dua hari ditolak; Minggu ditolak; tanggal jangkar diabaikan", () => {
+  it("periksaJadwal: dua hari ditolak; tanggal jangkar diabaikan", () => {
     expect(
       periksaJadwal({
         pola: "1x-sebulan",
@@ -406,10 +408,6 @@ describe("pola 1× sebulan (PRD A5 ▶ Keputusan 2026-10-12, A6 ▶ Revisi: L = 
         tanggalJangkar: null,
       }),
     ).toEqual({ keadaan: "tidakValid", pesan: ["Pola 1× sebulan membutuhkan tepat 1 hari kirim, dipilih 2."] });
-    expect(periksaJadwal({ pola: "1x-sebulan", hariKirim: [{ hari: "Minggu", persiapan: "H" }], tanggalJangkar: null })).toEqual({
-      keadaan: "tidakValid",
-      pesan: ["Hari Minggu tidak bisa dipilih sebagai hari kirim. Pilih Senin–Sabtu."],
-    });
     expect(periksaJadwal({ pola: "1x-sebulan", hariKirim: [{ hari: "Senin", persiapan: "H-2" }], tanggalJangkar: "2026-10-14" })).toEqual({
       keadaan: "valid",
       jadwal: { pola: "1x-sebulan", hariKirim: [{ hari: "Senin", persiapanHari: 2 }], tanggalJangkar: null },
@@ -491,5 +489,78 @@ describe('kirimanSebelumnyaBelumSampai — peringatan "kiriman sebelumnya belum 
     expect(belumSampai(mingguan, "2026-10-19")).toBeNull();
     const duaMingguan = jadwalValid({ pola: "dua-mingguan", hariKirim: [{ hari: "Rabu", persiapan: "H-2" }], tanggalJangkar: "2026-10-14" });
     expect(belumSampai(duaMingguan, "2026-10-28")).toBeNull();
+  });
+});
+
+describe("hari Minggu sebagai hari kirim (PRD A5 ▶ Revisi 2026-10-13, pemilik)", () => {
+  it("periksaJadwal menerima Minggu untuk semua pola", () => {
+    expect(periksaJadwal({ pola: "mingguan", hariKirim: [{ hari: "Minggu", persiapan: "H-1" }], tanggalJangkar: null })).toEqual({
+      keadaan: "valid",
+      jadwal: { pola: "mingguan", hariKirim: [{ hari: "Minggu", persiapanHari: 1 }], tanggalJangkar: null },
+    });
+    expect(
+      periksaJadwal({
+        pola: "3x-seminggu",
+        hariKirim: [
+          { hari: "Senin", persiapan: "H" },
+          { hari: "Rabu", persiapan: "H" },
+          { hari: "Minggu", persiapan: "H-2" },
+        ],
+        tanggalJangkar: null,
+      }).keadaan,
+    ).toBe("valid");
+  });
+
+  it("mingguan Minggu (H−1) → setiap Minggu tanggal kirim, persiapan Sabtu, L = 7", () => {
+    const jadwal = jadwalValid({ pola: "mingguan", hariKirim: [{ hari: "Minggu", persiapan: "H-1" }], tanggalJangkar: null });
+    expect(cek(jadwal, "2026-10-18")).toEqual({ kirim: true, persiapanHari: 1, panjangCakupan: 7 });
+    expect(cek(jadwal, "2026-10-25")).toEqual({ kirim: true, persiapanHari: 1, panjangCakupan: 7 });
+    expect(cek(jadwal, "2026-11-01")).toEqual({ kirim: true, persiapanHari: 1, panjangCakupan: 7 });
+    expect(cek(jadwal, "2026-10-17")).toEqual({ kirim: false });
+    expect(cek(jadwal, "2026-10-19")).toEqual({ kirim: false });
+    const { cakupan } = cakupanMenurutJadwal(jadwal, "2026-10-18", { "Senin–Kamis": 1, Jumat: 1, Sabtu: 1, Minggu: 1 });
+    // Cakupan dimulai dari hari persiapan Sabtu 2026-10-17 sampai Sabtu 2026-10-24.
+    expect([cakupan[0], cakupan.at(-1)]).toEqual(["2026-10-17", "2026-10-24"]);
+  });
+
+  it("2× seminggu Kamis (H) dan Minggu (H) → L Kamis = 3, L Minggu = 4", () => {
+    const jadwal = jadwalValid({
+      pola: "2x-seminggu",
+      hariKirim: [
+        { hari: "Kamis", persiapan: "H" },
+        { hari: "Minggu", persiapan: "H" },
+      ],
+      tanggalJangkar: null,
+    });
+    expect(cek(jadwal, "2026-10-15")).toEqual({ kirim: true, persiapanHari: 0, panjangCakupan: 3 });
+    expect(cek(jadwal, "2026-10-18")).toEqual({ kirim: true, persiapanHari: 0, panjangCakupan: 4 });
+  });
+
+  it("dua mingguan Minggu, jangkar 2026-10-14 → 2026-10-18 dan 2026-11-01 tanggal kirim; 2026-10-25 bukan", () => {
+    const jadwal = jadwalValid({ pola: "dua-mingguan", hariKirim: [{ hari: "Minggu", persiapan: "H" }], tanggalJangkar: "2026-10-14" });
+    expect(cek(jadwal, "2026-10-18")).toEqual({ kirim: true, persiapanHari: 0, panjangCakupan: 14 });
+    expect(cek(jadwal, "2026-11-01")).toEqual({ kirim: true, persiapanHari: 0, panjangCakupan: 14 });
+    expect(cek(jadwal, "2026-10-25")).toEqual({ kirim: false });
+    expect(cek(jadwal, "2026-10-11")).toEqual({ kirim: false });
+  });
+
+  it("1× sebulan Minggu → 2026-11-01 dan 2026-12-06 tanggal kirim, L = 30", () => {
+    const jadwal = jadwalValid({ pola: "1x-sebulan", hariKirim: [{ hari: "Minggu", persiapan: "H" }], tanggalJangkar: null });
+    expect(cek(jadwal, "2026-11-01")).toEqual({ kirim: true, persiapanHari: 0, panjangCakupan: 30 });
+    expect(cek(jadwal, "2026-12-06")).toEqual({ kirim: true, persiapanHari: 0, panjangCakupan: 30 });
+    expect(cek(jadwal, "2026-11-08")).toEqual({ kirim: false });
+    expect(tanggalKirimBerikutnya(jadwal, parseTanggalBisnis("2026-11-01"))).toBe("2026-12-06");
+  });
+
+  it("peringatan kiriman sebelumnya belum sampai berlaku untuk Minggu: Sabtu (H) lalu Minggu (H−1)", () => {
+    const jadwal = jadwalValid({
+      pola: "2x-seminggu",
+      hariKirim: [
+        { hari: "Sabtu", persiapan: "H" },
+        { hari: "Minggu", persiapan: "H-1" },
+      ],
+      tanggalJangkar: null,
+    });
+    expect(kirimanSebelumnyaBelumSampai(jadwal, parseTanggalBisnis("2026-10-18"))).toBe("2026-10-17");
   });
 });

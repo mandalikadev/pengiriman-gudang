@@ -10,8 +10,8 @@ export const daftarPolaJadwal = ["mingguan", "2x-seminggu", "3x-seminggu", "dua-
 
 export const daftarPersiapan = ["H", "H-1", "H-2"] as const satisfies readonly Persiapan[];
 
-/** Hari kirim Senin–Sabtu (PRD A5), urutan tampil dan urutan simpan. */
-export const daftarHariKirim = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"] as const satisfies readonly HariKirim[];
+/** Hari kirim Senin–Minggu (PRD A5 ▶ Revisi 2026-10-13), urutan tampil dan urutan simpan. */
+export const daftarHariKirim = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"] as const satisfies readonly HariKirim[];
 
 export const labelPola: Record<PolaJadwal, string> = {
   mingguan: "Mingguan",

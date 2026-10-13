@@ -290,6 +290,24 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
     expect(baris).toMatch(/1× sebulan<\/td><td[^>]*>Selasa \(H−1\)<\/td><td[^>]*>—<\/td>/);
   });
 
+  it("jadwal dengan hari Minggu tampil dengan urutan hari Senin–Minggu (T106)", async () => {
+    const pembuat = await buatPenggunaUji("viewer");
+    const t = await buatTokoUji();
+    await db.insert(hubunganTokoGudang).values({ tokoId: t.id, gudangId: pusat });
+    await db.insert(jadwalToko).values({
+      tokoId: t.id,
+      pola: "2x-seminggu",
+      hariKirim: [
+        { hari: "Kamis", persiapanHari: 0 },
+        { hari: "Minggu", persiapanHari: 1 },
+      ],
+      dibuatOleh: pembuat.id,
+    });
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+
+    expect(barisJadwal(await buka(pusat), t.id)).toMatch(/2× seminggu<\/td><td[^>]*>Kamis \(H\), Minggu \(H−1\)<\/td>/);
+  });
+
   it("operator Pusat tanpa kelola-usulan-jadwal melihat jadwal hanya-baca", async () => {
     const { berjadwal } = await siapkanTokoPusat();
     const operator = await kepalaPenggunaUji("viewer");

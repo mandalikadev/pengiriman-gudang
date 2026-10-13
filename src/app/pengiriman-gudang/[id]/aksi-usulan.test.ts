@@ -106,7 +106,7 @@ describe("operator gudang selain Pusat mengusulkan jadwal", () => {
     expect(usulan).toMatchObject({
       jenis: "ubah",
       pola: "2x-seminggu",
-      // Urut Senin–Sabtu; persiapan H−2 = 2 hari, H = 0 hari.
+      // Urut Senin–Minggu; persiapan H−2 = 2 hari, H = 0 hari.
       hariKirim: [
         { hari: "Senin", persiapanHari: 2 },
         { hari: "Kamis", persiapanHari: 0 },

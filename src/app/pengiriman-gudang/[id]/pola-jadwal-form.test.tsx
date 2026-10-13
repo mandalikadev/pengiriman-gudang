@@ -11,6 +11,7 @@ vi.mock("./aksi", () => ({
   salinJadwal: vi.fn(),
 }));
 
+import { isianTerkirim } from "./bidang-jadwal";
 import { FormJadwal } from "./form-jadwal";
 import { FormSalinJadwal } from "./form-salin-jadwal";
 
@@ -69,5 +70,49 @@ describe("pilihan pola 1× sebulan di form jadwal", () => {
 
   it("salin jadwal ke beberapa toko", () => {
     expect(pilihanPola(tampilkan(<FormSalinJadwal idGudang={2} jalur="usulan" daftarToko={[{ id: 1, nama: "TOKO UJI" }]} idJudul="judul" />))).toEqual(SEMUA_POLA);
+  });
+});
+
+// T106: hari Minggu bisa dipilih sebagai hari kirim (PRD A5 ▶ Revisi 2026-10-13, pemilik).
+const TUJUH_HARI = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+
+/** Nilai checkbox hari kirim, dalam urutan tampil. */
+function pilihanHari(wadah: HTMLElement) {
+  return [...wadah.querySelectorAll<HTMLInputElement>('input[type="checkbox"][name="hariKirim"]')].map((c) => c.value);
+}
+
+describe("hari kirim Senin–Minggu di form jadwal", () => {
+  it("atur jadwal Pusat menampilkan tujuh hari berurutan Senin–Minggu", () => {
+    expect(pilihanHari(tampilkan(<FormJadwal idGudang={1} jalur="langsung" daftarToko={daftarToko} idJudul="judul" />))).toEqual(TUJUH_HARI);
+  });
+
+  it("usulkan jadwal menampilkan tujuh hari berurutan Senin–Minggu", () => {
+    expect(pilihanHari(tampilkan(<FormJadwal idGudang={2} jalur="usulan" daftarToko={daftarToko} idJudul="judul" />))).toEqual(TUJUH_HARI);
+  });
+
+  it("salin jadwal menampilkan tujuh hari berurutan Senin–Minggu", () => {
+    expect(
+      pilihanHari(tampilkan(<FormSalinJadwal idGudang={2} jalur="usulan" daftarToko={[{ id: 1, nama: "TOKO UJI" }]} idJudul="judul" />)),
+    ).toEqual(TUJUH_HARI);
+  });
+
+  it("isianTerkirim mempertahankan Minggu dan mengurutkan hari Senin–Minggu", () => {
+    expect(
+      isianTerkirim({
+        pola: "2x-seminggu",
+        hariKirim: [
+          { hari: "Minggu", persiapan: "H-1" },
+          { hari: "Kamis", persiapan: "H" },
+        ],
+        tanggalJangkar: null,
+      }),
+    ).toEqual({
+      pola: "2x-seminggu",
+      hariKirim: [
+        { hari: "Kamis", persiapan: "H" },
+        { hari: "Minggu", persiapan: "H-1" },
+      ],
+      tanggalJangkar: null,
+    });
   });
 });

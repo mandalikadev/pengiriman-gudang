@@ -76,7 +76,7 @@ describe("kewenangan menyimpan jadwal Pusat (diperiksa di server)", () => {
     const [baris] = await riwayat(t.id);
     expect(baris).toMatchObject({
       pola: "2x-seminggu",
-      // Urut Senin–Sabtu; persiapan H−2 = 2 hari, H = 0 hari.
+      // Urut Senin–Minggu; persiapan H−2 = 2 hari, H = 0 hari.
       hariKirim: [
         { hari: "Senin", persiapanHari: 2 },
         { hari: "Kamis", persiapanHari: 0 },
@@ -222,6 +222,33 @@ describe("operator Pusat yang berhak mengatur jadwal", () => {
     expect(await riwayat(t.id)).toEqual(sebelum);
   });
 
+  it("jadwal dengan hari Minggu tersimpan, hari kirim urut Senin–Minggu (PRD A5 ▶ Revisi 2026-10-13)", async () => {
+    const t = await tokoDiGudang(pusat);
+
+    await expect(
+      simpanJadwal({
+        idGudang: pusat,
+        idToko: t.id,
+        pola: "2x-seminggu",
+        hariKirim: [
+          { hari: "Minggu", persiapan: "H-1" },
+          { hari: "Kamis", persiapan: "H" },
+        ],
+        tanggalJangkar: null,
+      }),
+    ).resolves.toEqual({ keadaan: "berhasil" });
+
+    const [baris] = await riwayat(t.id);
+    expect(baris).toMatchObject({
+      pola: "2x-seminggu",
+      hariKirim: [
+        { hari: "Kamis", persiapanHari: 0 },
+        { hari: "Minggu", persiapanHari: 1 },
+      ],
+      status: "aktif",
+    });
+  });
+
   it("isian ditolak dengan pesan dari domain (T54), tanpa menulis data", async () => {
     const t = await tokoDiGudang(pusat);
     const kasus: [Record<string, unknown>, string][] = [
@@ -233,10 +260,7 @@ describe("operator Pusat yang berhak mengatur jadwal", () => {
         { pola: "dua-mingguan", hariKirim: [{ hari: "Senin", persiapan: "H" }], tanggalJangkar: null },
         "Pola dua mingguan wajib memiliki tanggal jangkar.",
       ],
-      [
-        { pola: "mingguan", hariKirim: [{ hari: "Minggu", persiapan: "H" }] },
-        "Hari Minggu tidak bisa dipilih sebagai hari kirim. Pilih Senin–Sabtu.",
-      ],
+      [{ pola: "mingguan", hariKirim: [{ hari: "Ahad", persiapan: "H" }] }, "Hari kirim tidak dikenal."],
       [{ pola: "harian" }, "Pilih pola jadwal."],
       [{ idToko: "x" }, "Pilih toko."],
     ];

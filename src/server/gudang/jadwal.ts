@@ -100,7 +100,7 @@ export async function periksaTujuan(
   return terhubung ? null : PESAN_TOKO_TIDAK_TERHUBUNG;
 }
 
-/** Hari kirim dalam urutan Senin–Sabtu, supaya jadwal yang sama selalu tersimpan dengan bentuk yang sama. */
+/** Hari kirim dalam urutan Senin–Minggu, supaya jadwal yang sama selalu tersimpan dengan bentuk yang sama. */
 function urutkanHari(hariKirim: Jadwal["hariKirim"]): Jadwal["hariKirim"] {
   return [...hariKirim].sort((a, b) => daftarHariKirim.indexOf(a.hari) - daftarHariKirim.indexOf(b.hari));
 }

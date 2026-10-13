@@ -10,11 +10,9 @@ type PolaJadwal = "mingguan" | "2x-seminggu" | "3x-seminggu" | "dua-mingguan" | 
 /** Persiapan per hari kirim: H, H−1, atau H−2. */
 type Persiapan = "H" | "H-1" | "H-2";
 
-type HariKirim = Exclude<NamaHari, "Minggu">;
-
 export type MasukanJadwal = {
   pola: PolaJadwal;
-  /** Hari kirim yang dipilih; `Minggu` diterima di sini supaya bisa ditolak dengan pesan. */
+  /** Hari kirim yang dipilih, Senin–Minggu (PRD A5 ▶ Revisi 2026-10-13). */
   hariKirim: readonly { hari: NamaHari; persiapan: Persiapan }[];
   /** `YYYY-MM-DD`; wajib untuk dua mingguan, diabaikan untuk pola lain. */
   tanggalJangkar: string | null;
@@ -23,7 +21,7 @@ export type MasukanJadwal = {
 /** Jadwal yang sudah lolos periksaJadwal. */
 export type Jadwal = {
   pola: PolaJadwal;
-  hariKirim: readonly { hari: HariKirim; persiapanHari: 0 | 1 | 2 }[];
+  hariKirim: readonly { hari: NamaHari; persiapanHari: 0 | 1 | 2 }[];
   /** Hanya untuk dua mingguan. */
   tanggalJangkar: TanggalBisnis | null;
 };
@@ -76,14 +74,10 @@ function bacaJangkar(teks: string): TanggalBisnis | null {
 /** Memvalidasi jadwal satu toko (PRD A5) dan mengembalikan semua pesan kesalahan sekaligus. */
 export function periksaJadwal(masukan: MasukanJadwal): HasilPeriksaJadwal {
   const pesan: string[] = [];
-  const hariKirim: { hari: HariKirim; persiapanHari: 0 | 1 | 2 }[] = [];
+  const hariKirim: { hari: NamaHari; persiapanHari: 0 | 1 | 2 }[] = [];
   const sudahDipilih = new Set<NamaHari>();
 
   for (const { hari, persiapan } of masukan.hariKirim) {
-    if (hari === "Minggu") {
-      pesan.push("Hari Minggu tidak bisa dipilih sebagai hari kirim. Pilih Senin–Sabtu.");
-      continue;
-    }
     if (sudahDipilih.has(hari)) {
       pesan.push(`Hari ${hari} dipilih lebih dari sekali.`);
       continue;

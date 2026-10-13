@@ -2,7 +2,7 @@ import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { tanggalWib } from "@/app/admin/impor/format";
-import { geserHari, namaHari, parseTanggalBisnis, type NamaHari, type TanggalBisnis } from "@/domain/kalender";
+import { namaHari, parseTanggalBisnis, type TanggalBisnis } from "@/domain/kalender";
 import { buatPenggunaUji } from "@/server/auth/uji-bantu";
 import type { PenggunaMasuk } from "@/server/auth/kewenangan";
 import { db } from "@/server/db";
@@ -34,10 +34,9 @@ import { muatIsiBeranda, type IsiBeranda } from "./isi-beranda";
 // menyelesaikannya. Gudang uji dibersihkan di awal dan akhir.
 
 const hariIni = tanggalWib(new Date());
-/** Hari kirim terdekat yang mungkin: hari ini, atau Senin bila hari ini Minggu (Minggu bukan hari kirim, PRD A5). */
-const tanggalKirimTerdekat = namaHari(hariIni) === "Minggu" ? geserHari(hariIni, 1) : hariIni;
-type HariKirimUji = Exclude<NamaHari, "Minggu">;
-const hariKirim = namaHari(tanggalKirimTerdekat) as HariKirimUji;
+/** Hari kirim terdekat yang mungkin: hari ini (Minggu juga bisa menjadi hari kirim, PRD A5 ▶ Revisi 2026-10-13). */
+const tanggalKirimTerdekat = hariIni;
+const hariKirim = namaHari(tanggalKirimTerdekat);
 
 let admin: PenggunaMasuk;
 let cibubur: number;

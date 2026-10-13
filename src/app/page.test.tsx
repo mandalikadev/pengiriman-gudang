@@ -81,11 +81,10 @@ function hariSebelumnya(hari: NamaHari): TanggalBisnis {
   return t;
 }
 
-/** Hari kirim terdekat yang mungkin: hari ini, atau Senin bila hari ini Minggu (Minggu bukan hari kirim, PRD A5). */
-const tanggalKirimTerdekat = namaHari(hariIni) === "Minggu" ? geserHari(hariIni, 1) : hariIni;
+/** Hari kirim terdekat yang mungkin: hari ini (Minggu juga bisa menjadi hari kirim, PRD A5 ▶ Revisi 2026-10-13). */
+const tanggalKirimTerdekat = hariIni;
 
-type HariKirimUji = Exclude<NamaHari, "Minggu">;
-const hariKirim = (t: TanggalBisnis) => namaHari(t) as HariKirimUji;
+const hariKirim = (t: TanggalBisnis) => namaHari(t);
 
 let idAdmin: string;
 /** Gudang penugasan operator uji. */
@@ -152,7 +151,7 @@ async function buatProdukUji(statusKeluargaAroma: "belum-dipetakan" | "tanpa-aro
  */
 async function tokoBerjadwal(
   idGudang: number,
-  hari: HariKirimUji,
+  hari: NamaHari,
   { aktif = true, tanggalJangkar = null }: { aktif?: boolean; tanggalJangkar?: TanggalBisnis | null } = {},
 ) {
   const t = await buatTokoUji({ aktif });
@@ -221,7 +220,7 @@ async function buatDraftUji({
 }: {
   idGudang: number;
   tanggalKirim: TanggalBisnis;
-  hari: HariKirimUji;
+  hari: NamaHari;
   versiRankingId: number;
   mutakhir: boolean;
   toko: { jumlahTertahan: 0 | 1 | 2 }[];
@@ -589,7 +588,7 @@ describe("/ (beranda)", () => {
     const versiRankingId = await publikasikanRankingUji({ keluarga: [], idPengguna: idAdmin, bulanRanking: bulanBerjalan });
     const t = tanggalKirimTerdekat;
     const hari = hariKirim(t);
-    const besok = namaHari(geserHari(t, 1)) === "Minggu" ? geserHari(t, 2) : geserHari(t, 1);
+    const besok = geserHari(t, 1);
 
     // Mengirim pada tanggal kirim terdekat: A (sudah final), B (final hanya untuk tanggal lain), C (belum final).
     const tokoA = await tokoBerjadwal(cibubur, hari);

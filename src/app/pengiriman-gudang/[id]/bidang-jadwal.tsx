@@ -31,7 +31,7 @@ export const ISIAN_KOSONG: IsianJadwal = {
 
 export const kelasLabel = "flex flex-col gap-2 font-semibold";
 
-/** Isian siap kirim: hari kirim urut Senin–Sabtu, tanggal jangkar hanya untuk pola dua mingguan. */
+/** Isian siap kirim: hari kirim urut Senin–Minggu, tanggal jangkar hanya untuk pola dua mingguan. */
 export function isianTerkirim(isian: IsianJadwal): IsianJadwal {
   const persiapanHari = new Map(isian.hariKirim.map((h) => [h.hari, h.persiapan]));
   const hariKirim = daftarHariKirim.flatMap((hari) => {

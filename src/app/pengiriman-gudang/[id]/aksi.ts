@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { HasilSimpan } from "@/components/keadaan-simpan";
 import { wajibHakTindakan } from "@/server/auth/kewenangan";
 import { nonaktifkanJadwalToko, simpanJadwalToko, type HasilJadwal } from "@/server/gudang/jadwal";
-import { daftarPersiapan, daftarPolaJadwal } from "@/server/gudang/pilihan-jadwal";
+import { daftarHariKirim, daftarPersiapan, daftarPolaJadwal } from "@/server/gudang/pilihan-jadwal";
 import { salinJadwalKeToko, type HasilSalinToko } from "@/server/gudang/salin-jadwal";
 import { usulkanJadwalToko, usulkanNonaktifJadwalToko } from "@/server/gudang/usulan-jadwal";
 
@@ -25,8 +25,7 @@ const isianJadwal = {
   pola: z.enum(daftarPolaJadwal, { error: "Pilih pola jadwal." }),
   hariKirim: z.array(
     z.object({
-      // Minggu diterima di sini supaya ditolak domain dengan pesannya sendiri.
-      hari: z.enum(["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"], { error: "Hari kirim tidak dikenal." }),
+      hari: z.enum(daftarHariKirim, { error: "Hari kirim tidak dikenal." }),
       persiapan: z.enum(daftarPersiapan, { error: "Pilih persiapan H, H−1, atau H−2." }),
     }),
     { error: "Pilih hari kirim." },
