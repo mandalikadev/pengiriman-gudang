@@ -5,7 +5,7 @@ Mengubah data penjualan harian toko menjadi laporan rata-rata bertahap, lalu mem
 ## Organisasi dan pengguna
 
 **Gudang**:
-Tempat asal pengiriman barang ke toko. MANDALIKA punya lima: Pusat dan empat lainnya.
+Tempat asal pengiriman barang ke toko. Daftarnya dikelola admin (data awal: Pusat dan empat lainnya). Tidak dihapus, hanya dinonaktifkan.
 _Avoid_: depo, warehouse
 
 **Pusat**:
@@ -13,14 +13,14 @@ Nama salah satu gudang. Bukan peran.
 _Avoid_: memakai "pusat" untuk admin
 
 **Toko**:
-Gerai penjualan yang muncul sebagai blok kolom di sheet penjualan (misalnya PMS, PMJ) dan dapat dihubungkan ke gudang.
+Gerai penjualan yang muncul sebagai blok kolom di sheet penjualan (misalnya PMS, PMJ) dan dapat dihubungkan ke gudang. Dikelola admin; namanya harus sama persis dengan nama blok di sheet. Tidak dihapus, hanya dinonaktifkan.
 _Avoid_: outlet, store
 
 **Admin**:
-Peran yang mengelola konfigurasi gudang, hubungan toko, penugasan operator, hak tindakan, ranking pusat, periode sumber, dan persetujuan. Admin tidak otomatis menjadi operator.
+Peran yang mengelola gudang, toko, hubungan toko, jadwal tetap, penugasan operator, hak tindakan, ranking pusat, periode sumber, dan persetujuan. Admin tidak otomatis menjadi operator.
 
 **Operator**:
-Pengguna yang ditugaskan ke gudang tertentu untuk menyiapkan jadwal, stok, perhitungan, finalisasi, dan ekspor sesuai hak tindakannya.
+Pengguna yang ditugaskan ke gudang tertentu untuk mengusulkan pengiriman di luar jadwal, mengisi stok, menghitung, memfinalisasi, dan mengekspor sesuai hak tindakannya.
 
 **Viewer**:
 Pengguna yang hanya melihat laporan sesuai haknya.
@@ -108,14 +108,22 @@ Tanda bahwa suatu nilai dihitung dari pengamatan parsial.
 Bulan laporan yang dipakai gudang sebagai dasar rata-rata. Ditetapkan admin per gudang.
 _Avoid_: bulan ranking, filter Ringkasan
 
-**Jadwal**:
-Pengaturan hari pengiriman satu toko. Hanya satu yang aktif per toko.
+**Jadwal tetap**:
+Pengaturan hari pengiriman rutin satu toko (pola, hari kirim, persiapan, tanggal jangkar). Hanya satu yang aktif per toko. Diatur admin. Disebut "jadwal aktif" di teks lama.
+_Avoid_: template (kecuali menjelaskan ke pemilik), jadwal usulan
+
+**Pengiriman di luar jadwal**:
+Satu pengiriman untuk satu toko pada satu tanggal yang tidak mengubah jadwal tetap. Jenisnya **tambahan** (pengiriman rutin tetap berjalan) atau **pindah** (satu tanggal rutin dipindah ke tanggal lain). Diusulkan operator; di gudang selain Pusat berlaku setelah disetujui admin. Status: menunggu, berlaku, ditolak, ditarik, dibatalkan.
+_Avoid_: usulan jadwal, pengiriman khusus, pengecualian
 
 **Usulan jadwal**:
-Perubahan jadwal yang menunggu persetujuan admin. Tidak menggantikan jadwal aktif sebelum disetujui.
+Alur lama (sebelum 2026-10-13): perubahan jadwal tetap yang diusulkan operator dan disetujui admin. Sudah dihapus; datanya tetap ada sebagai riwayat.
 
 **Tanggal kirim (H)**:
 Tanggal barang dikirim dari gudang.
+
+**Tanggal kirim toko**:
+Daftar tanggal kirim satu toko: tanggal menurut jadwal tetap, dikurangi tanggal rutin yang dipindah, ditambah tanggal pengiriman di luar jadwal yang berlaku.
 
 **Persiapan (p)**:
 0, 1, atau 2 hari sebelum H.
@@ -124,7 +132,7 @@ Tanggal barang dikirim dari gudang.
 Rentang tanggal H−p sampai H+L−1, inklusif.
 
 **Panjang cakupan (L)**:
-Jumlah hari dari tanggal kirim sampai sehari sebelum tanggal kirim berikutnya menurut jadwal aktif (1× seminggu 7, dua mingguan 14, 2×/3× seminggu selisih ke hari kirim berikutnya); khusus 1× sebulan 30.
+Jumlah hari dari tanggal kirim sampai sehari sebelum tanggal kirim berikutnya menurut tanggal kirim toko (1× seminggu 7, dua mingguan 14, 2×/3× seminggu selisih ke hari kirim berikutnya); khusus 1× sebulan 30, tetapi berakhir lebih awal jika ada pengiriman di luar jadwal sebelum hari ke-30.
 _Avoid_: menganggap L selalu 7 untuk pola mingguan
 
 **Tanggal jangkar**:

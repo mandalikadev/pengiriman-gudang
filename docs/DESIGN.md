@@ -115,6 +115,27 @@ Hanya mode terang (ADR-0010).
 > - Form "Usulkan jadwal toko" (di gudang Pusat: "Atur jadwal toko") dan "Salin jadwal ke beberapa toko" pindah dari halaman Pengiriman Gudang ke halaman masing-masing. Pengguna yang berhak di lebih dari satu gudang memilih gudang dulu; yang berhak di satu gudang langsung masuk ke form gudang itu. Halaman Pengiriman Gudang tetap menampilkan tabel jadwal aktif per toko, ditambah tautan ke kedua halaman itu untuk pengguna yang berhak.
 > - Urutan item di dalam kelompok sesuai urutan di atas. Kelompok tanpa item yang boleh dibuka tidak ditampilkan. Viewer melihat Beranda dan Laporan saja.
 
+> ▶ Keputusan (2026-10-13 sore, pemilik): susunan sidebar baru yang menggantikan keputusan 2026-10-13 di atas. Kelompok **Pengiriman Gudang** dihapus. Perilaku buka-tutup tetap. Susunan ini mengikuti PRD A3 dan A5 ▶ Revisi 2026-10-13: jadwal tetap diatur admin, operator mengusulkan pengiriman di luar jadwal, dan admin mengelola gudang serta toko.
+> - **Beranda** (item tunggal).
+> - **Pekerjaan rutin**, berurutan:
+>   - Impor penjualan (admin)
+>   - Ranking pusat (admin)
+>   - Persetujuan jadwal (admin)
+>   - Pengiriman Gudang (admin dan operator)
+>   - Kirim di luar jadwal (pengguna dengan hak `kelola-usulan-jadwal` di sedikitnya satu gudang)
+>   - Untuk operator, kelompok ini berisi Pengiriman Gudang dan Kirim di luar jadwal.
+> - **Laporan**: Ringkasan, Kalender.
+> - **Data Master** (hanya admin): Jadwal toko, Keluarga aroma, Pemetaan produk, Alias nama stok, Libur.
+> - **Pengaturan** (hanya admin): Gudang, Toko, Pengguna, Penugasan.
+> - Perubahan halaman:
+>   - Halaman "Usulkan jadwal toko" (`/usulan-jadwal`) menjadi **"Usulkan pengiriman di luar jadwal"**. Di gudang Pusat judulnya **"Atur pengiriman di luar jadwal"**, karena berlaku langsung.
+>   - Halaman operator "Salin jadwal ke beberapa toko" (`/salin-jadwal`) dihapus. Salin jadwal pindah ke halaman admin **Jadwal toko**.
+>   - Halaman Pengiriman Gudang menautkan ke halaman pengiriman di luar jadwal untuk pengguna berhak, menggantikan dua tautan lama.
+> - Teks beranda (§9) mengikuti istilah baru:
+>   - Kartu admin "usulan jadwal menunggu persetujuan" menjadi "usulan pengiriman di luar jadwal menunggu persetujuan".
+>   - Langkah admin (4) "Mulai di sini" menjadi "Setujui pengiriman di luar jadwal".
+> - Urutan item di dalam kelompok sesuai urutan di atas. Kelompok tanpa item yang boleh dibuka tidak ditampilkan. Viewer melihat Beranda dan Laporan saja.
+
 Ikon: lucide-react, stroke 2. Ukuran 20 px di zona kerja dan 28 px di zona suasana. Ikon fitur diletakkan dalam wadah `rounded-2xl bg-primary/10`.
 
 ## 7. Bahasa visual status

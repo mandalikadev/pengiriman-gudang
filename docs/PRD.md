@@ -107,6 +107,22 @@ Saya ingin menambahkan beberapa toko sekaligus dengan memilih toko lalu menekan 
 > - **Seed UAT** (hanya `pnpm uat`, bukan instalasi produksi) menambahkan: periode sumber Juni, Juli, Agustus 2026 untuk Gudang Cibubur, Gudang Bali, dan Gudang Bandung; akun Operator Cibubur, Operator Bali, Operator Bandung (peran viewer) yang ditugaskan ke gudangnya dengan kelima hak tindakan. Kata sandi ketiga akun dari variabel lingkungan `UAT_SANDI_OPERATOR`. Pusat dan Gudang Jabodetabek dibiarkan kosong untuk skenario A3–A5.
 > - Impor penjualan dan ranking pusat **tidak** di-seed: keduanya pekerjaan rutin admin setiap bulan.
 
+> ▶ Revisi (2026-10-13, pemilik): **admin mengelola daftar gudang dan toko dari aplikasi.** Kalimat "MANDALIKA memiliki lima gudang operasional" di atas dan daftar nama gudang pada ▶ OD-02 menjadi **data awal**, bukan batas. Tidak ada hapus permanen: gudang dan toko yang tidak dipakai lagi **dinonaktifkan**, karena data penjualan, jadwal, dan rencana final lama masih merujuk kepadanya.
+> - **Gudang:** tambah (nama wajib dan unik), ubah nama, nonaktifkan, dan aktifkan kembali.
+>   - Gudang **Pusat** tidak bisa diganti nama atau dinonaktifkan, karena aturan khusus Pusat bergantung padanya.
+>   - Gudang hanya bisa dinonaktifkan jika tidak ada lagi toko yang terhubung. Jika masih ada, tampilkan pesan yang menyebut jumlah tokonya.
+>   - Gudang nonaktif tidak muncul di pilihan kerja (daftar Pengiriman Gudang operator, usulan pengiriman di luar jadwal, penugasan baru, periode sumber). Penugasan operator ke gudang nonaktif tidak memberi akses. Admin tetap bisa membuka halaman Pengiriman Gudang dan riwayat rencana final gudang nonaktif (hanya-baca).
+>   - Rencana final yang sudah ada tetap memakai nama gudang saat finalisasi (snapshot).
+> - **Toko:** halaman sendiri untuk tambah (nama wajib dan unik), ubah nama, nonaktifkan, dan aktifkan kembali.
+>   - Nama toko harus **sama persis** dengan nama blok toko di sheet penjualan. Impor mengenali toko dari nama ini, jadi setelah nama diubah, sheet berikutnya harus memakai nama baru. Form menampilkan keterangan ini.
+>   - Mengubah nama tidak memindahkan data: penjualan, jadwal, dan rencana final lama tetap melekat ke toko yang sama. Rencana final tetap menampilkan nama saat finalisasi.
+>   - Aturan toko nonaktif yang sudah ada tetap berlaku (tidak ikut draft, peringatan "Toko <nama> nonaktif tetapi masih punya jadwal aktif").
+> - **Hubungan toko–gudang:** selain menambahkan beberapa toko sekaligus (sudah ada), admin bisa **melepas** toko dari gudangnya.
+>   - Melepas toko menonaktifkan jadwal tetapnya dan membatalkan pengiriman di luar jadwal toko itu yang belum lewat (menunggu atau berlaku), dengan alasan "Toko dilepas dari gudang". Rencana final lama tidak berubah.
+>   - Konfirmasi sebelum melepas menyebut akibat ini.
+>   - Memindah toko = lepas, lalu tambahkan ke gudang lain. Aturan satu toko satu gudang tetap (ADR-0009).
+> - **Jadwal tetap** setiap toko diatur admin; lihat A5 ▶ Revisi 2026-10-13.
+
 ### A4. Ketika saya menentukan sumber perhitungan gudang
 
 Halaman Pengiriman Gudang harus memiliki kartu Periode sumber penjualan yang jelas dan mudah ditemukan. Pilihan bulan di sini harus mandiri dari filter Ringkasan. Mengubah bulan pada Ringkasan tidak boleh mengubah dasar perhitungan gudang secara diam-diam.
@@ -126,6 +142,11 @@ Setiap toko mempunyai satu jadwal aktif yang dapat berisi beberapa hari pengirim
 > - Satu hari kirim per toko (Senin–Sabtu, dipilih per toko; tidak selalu Senin) dengan persiapan H, H−1, atau H−2.
 > - Tanggal kirim = kemunculan **pertama** hari itu di setiap bulan kalender (misalnya Selasa pertama setiap bulan). Tidak memakai tanggal jangkar.
 > - Pembuatan dan perubahan jadwal 1× sebulan mengikuti aturan jadwal yang sama (usulan operator + persetujuan admin untuk gudang non-Pusat).
+
+> ▶ Revisi (2026-10-13, pemilik): **hari Minggu boleh menjadi hari kirim** untuk semua pola: mingguan, 2× dan 3× seminggu, dua mingguan, dan 1× sebulan. Kalimat "Pengiriman menggunakan Senin–Sabtu" di atas dan "(Senin–Sabtu, dipilih per toko …)" pada keputusan pola 1× sebulan tidak berlaku lagi. Pilihan hari menjadi **Senin–Minggu**, tampil dengan urutan itu.
+> - Persiapan H, H−1, H−2 dan aturan cakupan (A6) berlaku sama. Contoh: kirim Minggu dengan persiapan H−1 → persiapan Sabtu.
+> - Pekan dua mingguan tetap Senin–Minggu yang memuat tanggal jangkar. Minggu adalah hari terakhir pekan itu.
+> - 1× sebulan dengan hari Minggu = Minggu pertama setiap bulan.
 
 Setiap hari pengiriman dapat memiliki persiapan H, H−1, atau H−2. Operator dapat menyalin template jadwal ke beberapa toko, tetapi masing-masing toko tetap memiliki pengaturan dan status persetujuan sendiri.
 
@@ -164,6 +185,71 @@ Pembuatan, perubahan, dan penonaktifan jadwal empat gudang selain Pusat memerluk
 > - Bacaan lampiran yang dipakai: SMS tercantum di Selasa ("1× seminggu") dan Jumat ("2× seminggu") → dibaca 2× seminggu. BXC dan CCM "2 minggu 1× bergantian" → BXC pekan 12-10-2026, CCM pekan berikutnya. Persiapan Bali dan Bandung tidak tertulis → H−1 (PDF Bandung: permintaan masuk paling lambat satu hari sebelum kirim).
 > ▶ Keputusan (2026-10-12, UAT kedua): pemilik **mengonfirmasi** ketiga bacaan di atas: SMS 2× seminggu (Selasa dan Jumat), BXC dan CCM bergantian dua mingguan (jangkar BXC 2026-10-14, CCM 2026-10-21), dan persiapan Bali serta Bandung H−1.
 
+> ▶ Revisi (2026-10-13, pemilik): **jadwal tetap diatur admin; operator mengusulkan pengiriman di luar jadwal.** Revisi ini menggantikan aturan usulan jadwal di atas: paragraf "Pembuatan, perubahan, dan penonaktifan jadwal …", ▶ OD-06, ▶ Keputusan 2026-10-09 tentang usulan jadwal dan salin template, dan kalimat "usulan operator + persetujuan admin" pada pola 1× sebulan. "Jadwal aktif" di teks lama berarti **jadwal tetap**.
+>
+> **Jadwal tetap**
+> - Jadwal tetap (template) setiap toko dibuat, diubah, dan dinonaktifkan **hanya oleh admin**, langsung berlaku tanpa persetujuan, untuk semua gudang termasuk Pusat. Tetap satu jadwal tetap aktif per toko. Aturan pola, hari kirim, persiapan, dan tanggal jangkar tidak berubah.
+> - Admin mengaturnya di halaman **Jadwal toko**: pilih gudang, lalu tabel toko gudang itu beserta jadwal tetapnya; dari sana admin mengatur, mengubah, atau menonaktifkan jadwal satu toko.
+> - Riwayat jadwal tetap setiap toko tetap disimpan dan ditampilkan: pola dan hari, siapa mengatur, kapan berlaku, dan kapan diganti atau dinonaktifkan.
+> - **Salin jadwal ke beberapa toko** menjadi alat admin di halaman yang sama: satu pengaturan diterapkan langsung ke beberapa toko dalam satu gudang, dengan hasil per toko.
+> - Perubahan jadwal tetap menandai draft terdampak sebagai perlu dihitung ulang, seperti sebelumnya (A7).
+> - Operator, termasuk operator Pusat, **tidak lagi** membuat, mengubah, atau menonaktifkan jadwal tetap, dan tidak lagi mengusulkannya. Usulan jadwal lama yang masih menunggu ditutup otomatis sebagai ditolak dengan alasan "Alur usulan jadwal tetap dihapus (keputusan pemilik 2026-10-13)". Usulan lama tetap tersimpan sebagai riwayat.
+>
+> **Pengiriman di luar jadwal**
+> - Operator dengan hak `kelola-usulan-jadwal` di gudang itu bisa mengusulkan **satu pengiriman untuk satu toko pada satu tanggal**, tanpa mengubah jadwal tetap. Ada dua jenis:
+>   - **Tambahan:** tanggal kirim tambahan, sementara pengiriman rutin tetap berjalan. Contoh: BOTANI rutin Senin dan Kamis, ada kebutuhan mendesak hari Selasa → Selasa menjadi pengiriman tambahan.
+>   - **Pindah:** satu tanggal kirim rutin dipindah ke tanggal lain. Tanggal rutin itu tidak lagi menjadi tanggal kirim. Contoh: Senin 19-10-2026 dipindah ke Selasa 20-10-2026.
+> - **Isian:**
+>   - Toko, jenis, dan tanggal kirim.
+>   - Persiapan (H, H−1, H−2). Untuk jenis pindah, nilai awalnya mengikuti persiapan tanggal rutin yang dipindah.
+>   - Untuk jenis pindah: tanggal rutin yang dipindah, dipilih dari tanggal kirim rutin toko itu.
+>   - **Alasan** (wajib).
+> - **Syarat**, diperiksa saat diusulkan dan diperiksa ulang saat disetujui. Jika sudah tidak terpenuhi, tindakan ditolak dengan pesan yang menyebut syarat mana yang gagal.
+>   - Toko punya jadwal tetap aktif dan terhubung ke gudang itu.
+>   - Tanggal kirim jatuh hari ini atau sesudahnya, dan belum menjadi tanggal kirim toko itu (rutin, atau di luar jadwal yang berlaku).
+>   - Untuk jenis pindah: tanggal rutin yang dipindah adalah tanggal kirim menurut jadwal tetap, jatuh hari ini atau sesudahnya, belum dipindah oleh pengiriman lain, dan belum punya rencana final untuk toko itu.
+>   - Satu toko boleh punya beberapa usulan sekaligus, asalkan tanggalnya berbeda.
+> - **Persetujuan:**
+>   - Gudang selain Pusat: usulan menunggu persetujuan admin di halaman Persetujuan jadwal. Admin bisa **setujui**, atau **tolak** dengan alasan wajib.
+>   - Gudang Pusat: langsung berlaku tanpa persetujuan (mengikuti semangat OD-06).
+>   - Pengusul boleh **menarik** usulannya selama masih menunggu.
+> - **Pembatalan:** pengiriman di luar jadwal yang sudah berlaku boleh dibatalkan, dengan alasan wajib.
+>   - Yang boleh membatalkan: admin, dan untuk gudang Pusat juga operator berhak.
+>   - Syaratnya: tanggal kirimnya belum lewat, dan belum ada rencana final toko itu untuk tanggal tersebut.
+>   - Membatalkan jenis pindah mengembalikan tanggal rutinnya.
+> - **Status:** Menunggu, Berlaku, Ditolak, Ditarik, Dibatalkan. Berlaku = disetujui admin, atau langsung berlaku di Pusat.
+>
+> **Ikut perhitungan seperti pengiriman biasa**
+> - **Tanggal kirim toko** = tanggal menurut jadwal tetap, dikurangi tanggal rutin yang dipindah, ditambah tanggal pengiriman di luar jadwal yang berlaku.
+> - Draft per gudang per tanggal kirim, input stok, finalisasi, ekspor, dan riwayat berjalan sama seperti pengiriman rutin. Beranda ("tanggal kirim terdekat", "Mulai di sini") juga memakai tanggal kirim toko ini.
+> - **Cakupan (A6):** pengiriman di luar jadwal dihitung sebagai pengiriman.
+>   - L setiap pengiriman = jarak ke tanggal kirim **berikutnya** toko itu menurut daftar tanggal kirim di atas. Akibatnya, pengiriman tambahan memendekkan cakupan pengiriman sebelumnya, sehingga stok tidak dihitung dua kali.
+>   - Khusus 1× sebulan: L tetap 30, tetapi berakhir sehari sebelum pengiriman di luar jadwal berikutnya jika pengiriman itu jatuh sebelum hari ke-30.
+>   - Peringatan "kiriman sebelumnya belum sampai" memakai daftar yang sama.
+> - **Contoh BOTANI** (jadwal tetap 2× seminggu: Senin H, Kamis H−1). Usulan tambahan Selasa 20-10-2026 dengan persiapan H−1 disetujui:
+>   - Senin 19-10: cakupan menjadi Senin saja (L = 1; sebelumnya Senin–Rabu, L = 3).
+>   - Selasa 20-10: persiapan Senin, cakupan Senin–Rabu (L = 2, p = 1). Tampil peringatan "Kiriman Senin, 19-10-2026 belum sampai saat persiapan".
+>   - Kamis 22-10: tidak berubah.
+> - **Draft terdampak:** pengiriman di luar jadwal yang mulai berlaku atau dibatalkan menandai draft berikut sebagai perlu dihitung ulang (A7). Isian stok tetap dipertahankan.
+>   - Draft tanggal kirimnya.
+>   - Draft tanggal rutin yang dipindah.
+>   - Draft pengiriman sebelumnya toko itu, yang cakupannya berubah.
+> - Rencana final yang sudah ada tidak berubah (snapshot).
+>
+> **Catatan aktivitas**
+> - Setiap pengiriman di luar jadwal tercatat dengan isian berikut:
+>   - Jenis, toko, tanggal kirim, persiapan, dan tanggal rutin yang dipindah.
+>   - Alasan.
+>   - Pengusul dan waktunya.
+>   - Penyetuju atau penolak, waktunya, dan alasan penolakan.
+>   - Penarikan dan pembatalan: siapa, kapan, dan alasannya.
+> - Catatan ini ditampilkan di tempat berikut:
+>   - **Halaman usulan operator** (per gudang): daftar "Riwayat pengiriman di luar jadwal" beserta statusnya, terbaru di atas.
+>   - **Halaman Persetujuan jadwal** (admin): usulan menunggu beserta jadwal tetap toko sebagai pembanding, ditambah riwayat keputusan.
+>   - **Tabel jadwal di halaman Pengiriman Gudang**: jadwal tetap setiap toko ditambah pengiriman di luar jadwal yang akan datang.
+>   - **Draft, rencana final, riwayat rencana final, dan ekspor**: toko yang dikirim di luar jadwal diberi penanda "Di luar jadwal · Tambahan" atau "Di luar jadwal · Pindahan dari <hari, tanggal>", beserta alasan dan penyetujunya. Rencana final menyimpan keterangan ini di snapshot. Ekspor menambah baris keterangan "Jenis pengiriman".
+> - Label hak `kelola-usulan-jadwal` di halaman Penugasan menjadi "Usulkan pengiriman di luar jadwal". Kode hak tidak berubah.
+
 
 Jika jadwal atau dasar perhitungan berubah, draft terkait harus dihitung ulang. Input stok tetap dipertahankan. Rencana yang sudah final tidak berubah mengikuti aturan baru.
 
@@ -191,6 +277,8 @@ Kebutuhan barang adalah penjumlahan rata-rata penjualan sesuai kategori efektif 
 > ▶ Keputusan (2026-10-12, UAT ketiga): peringatan **"kiriman sebelumnya belum sampai"**.
 > - Jika hari persiapan (H−p) jatuh pada atau sebelum tanggal kirim sebelumnya menurut jadwal aktif toko itu (p ≥ jarak dari pengiriman sebelumnya), draft toko itu menampilkan peringatan: "Kiriman <hari, tanggal> belum sampai saat persiapan. Pastikan jumlahnya ikut dihitung di stok akhir."
 > - Peringatan tampil dengan ikon + teks dan **tidak** menahan finalisasi.
+
+> ▶ Revisi (2026-10-13, pemilik): "tanggal kirim berikutnya" (L) dan "tanggal kirim sebelumnya" (peringatan) di dua blok di atas dibaca dari **tanggal kirim toko**, yaitu jadwal tetap ditambah pengiriman di luar jadwal yang berlaku, bukan dari jadwal tetap saja. Rinciannya dan contoh BOTANI ada di A5 ▶ Revisi 2026-10-13.
 
 Jumlah kirim = nilai terbesar antara 0 dan pembulatan ke atas dari:
 (Kebutuhan barang − Stok akhir) × (1 + Buffer).
@@ -279,6 +367,18 @@ Saya ingin alur akhirnya terasa sederhana: data penjualan yang valid menghasilka
 > - **Finalisasi ulang boleh.** Finalisasi ulang toko yang sudah final untuk tanggal kirim yang sama menghasilkan versi baru; versi lama tetap utuh di riwayat. Alasan finalisasi ulang wajib diisi. Versi baru ditandai jelas, misalnya "Versi 2 menggantikan versi 1".
 > - **Toko yang hanya berisi produk manual boleh difinalisasi.** Toko tanpa varian sama sekali **tidak boleh** difinalisasi dan tampil sebagai masalah "Tidak ada varian dari periode sumber untuk toko ini".
 > - **Jika draft perlu dihitung ulang, hanya toko yang terdampak yang tertahan finalisasinya.** Toko lain di draft yang sama tetap bisa difinalisasi.
+
+> ▶ Keputusan (2026-10-13, pemilik): **ekspor rencana final ke Google Sheets**, sebagai tambahan ekspor `.xlsx` (bukan pengganti).
+> - Tombol "Ekspor ke Google Sheets" ada di samping "Ekspor .xlsx", di setiap tempat ekspor rencana final tersedia. Hak yang dipakai sama: hak tindakan `ekspor` di gudang itu.
+> - Isinya sama dengan file `.xlsx`: baris keterangan, lalu tabel produk. Nama spreadsheet = nama file `.xlsx` tanpa ekstensi.
+> - Spreadsheet dibuat di **satu folder di Shared Drive Google milik MANDALIKA**, satu spreadsheet per versi rencana final.
+>   - Tautannya disimpan. Klik berikutnya untuk versi yang sama membuka spreadsheet itu dan tidak membuat salinan baru.
+>   - Rencana final adalah snapshot, jadi isinya tidak perlu diperbarui. Siapa yang bisa membuka spreadsheet diatur lewat keanggotaan folder di Google, bukan di aplikasi.
+>   - Perubahan yang dibuat orang di Google Sheets tidak mengubah rencana final di aplikasi. Sumber kebenaran tetap rencana final di aplikasi.
+> - Setelah berhasil, tampil tautan "Buka di Google Sheets" yang membuka tab baru.
+>   - Jika gagal, tampil pesan yang jelas dan tindakan tidak diulang otomatis.
+>   - Jika hasilnya belum pasti (misalnya koneksi terputus), pesan menyarankan memeriksa folder sebelum mencoba lagi.
+> - Tombol hanya tampil jika koneksi Google sudah diatur di server (akun layanan dan folder tujuan).
 
 ---
 
