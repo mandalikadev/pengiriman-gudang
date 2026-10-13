@@ -2,14 +2,18 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseTanggalBisnis, type KategoriDasar } from "./kalender";
-import { hitungKebutuhanKirim } from "./pengiriman";
+import { cakupanPengiriman, hitungKebutuhanKirim } from "./pengiriman";
 import {
   kirimanSebelumnyaBelumSampai,
+  kirimanSebelumnyaBelumSampaiToko,
   periksaJadwal,
   tanggalKirimBerikutnya,
   tanggalKirimMenurutJadwal,
+  tanggalKirimMenurutToko,
   tanggalKirimSebelumnya,
   tanggalKirimToko,
+  tanggalKirimTokoBerikutnya,
+  tanggalKirimTokoSebelumnya,
   type Jadwal,
   type MasukanJadwal,
 } from "./jadwal";
@@ -585,21 +589,115 @@ describe("tanggalKirimToko", () => {
   });
 
   it("tambahan Selasa 20-10-2026 berlaku: Senin, Selasa, Kamis", () => {
-    const tambahan = [{ tanggalKirim: t("2026-10-20"), tanggalRutinDipindah: null }];
+    const tambahan = [{ tanggalKirim: t("2026-10-20"), persiapanHari: 1 as const, tanggalRutinDipindah: null }];
     expect(tanggalKirimToko(botani, tambahan, ...pekan)).toEqual(["2026-10-19", "2026-10-20", "2026-10-22"]);
   });
 
   it("pindah Senin 19-10-2026 ke Selasa 20-10-2026: Senin tidak lagi tanggal kirim", () => {
-    const pindah = [{ tanggalKirim: t("2026-10-20"), tanggalRutinDipindah: t("2026-10-19") }];
+    const pindah = [{ tanggalKirim: t("2026-10-20"), persiapanHari: 0 as const, tanggalRutinDipindah: t("2026-10-19") }];
     expect(tanggalKirimToko(botani, pindah, ...pekan)).toEqual(["2026-10-20", "2026-10-22"]);
   });
 
   it("pengiriman di luar rentang tidak ikut; toko tanpa jadwal tetap hanya punya tanggal di luar jadwal", () => {
     const tambahan = [
-      { tanggalKirim: t("2026-10-20"), tanggalRutinDipindah: null },
-      { tanggalKirim: t("2026-10-27"), tanggalRutinDipindah: null },
+      { tanggalKirim: t("2026-10-20"), persiapanHari: 1 as const, tanggalRutinDipindah: null },
+      { tanggalKirim: t("2026-10-27"), persiapanHari: 1 as const, tanggalRutinDipindah: null },
     ];
     expect(tanggalKirimToko(null, tambahan, ...pekan)).toEqual(["2026-10-20"]);
     expect(tanggalKirimToko(botani, [], t("2026-10-20"), t("2026-10-20"))).toEqual([]);
+  });
+});
+
+// T114 — PRD A5 ▶ Revisi 2026-10-13 (Ikut perhitungan seperti pengiriman biasa), A6 ▶ Revisi 2026-10-13: tanggal kirim
+// berikutnya (L), tanggal kirim sebelumnya (peringatan), dan persiapan per tanggal dibaca dari tanggal kirim toko.
+describe("tanggal kirim toko: L dan peringatan memakai jadwal tetap + pengiriman di luar jadwal yang berlaku", () => {
+  const t = parseTanggalBisnis;
+  const botani = jadwalValid({
+    pola: "2x-seminggu",
+    hariKirim: [
+      { hari: "Senin", persiapan: "H" },
+      { hari: "Kamis", persiapan: "H-1" },
+    ],
+    tanggalJangkar: null,
+  });
+  const cekToko = (toko: Parameters<typeof tanggalKirimMenurutToko>[0], tanggal: string) =>
+    tanggalKirimMenurutToko(toko, t(tanggal));
+
+  describe("contoh BOTANI PRD A5: tambahan Selasa 2026-10-20 (H−1)", () => {
+    const tambahan = { tanggalKirim: t("2026-10-20"), persiapanHari: 1 as const, tanggalRutinDipindah: null };
+    const toko = { jadwal: botani, diLuarJadwal: [tambahan] };
+
+    it("Senin 2026-10-19: L = 1 (sebelumnya 3)", () => {
+      expect(cekToko({ jadwal: botani, diLuarJadwal: [] }, "2026-10-19")).toMatchObject({ kirim: true, panjangCakupan: 3 });
+      expect(cekToko(toko, "2026-10-19")).toEqual({ kirim: true, persiapanHari: 0, panjangCakupan: 1, diLuarJadwal: null });
+    });
+
+    it("Selasa 2026-10-20: tanggal kirim di luar jadwal, persiapan dari pengiriman itu, L = 2, p = 1 (cakupan 19–21 Oktober)", () => {
+      const hasil = cekToko(toko, "2026-10-20");
+      expect(hasil).toEqual({ kirim: true, persiapanHari: 1, panjangCakupan: 2, diLuarJadwal: tambahan });
+      if (!hasil.kirim) throw new Error("harus tanggal kirim");
+      const cakupan = cakupanPengiriman({
+        tanggalKirim: t("2026-10-20"),
+        persiapanHari: hasil.persiapanHari,
+        panjangCakupan: hasil.panjangCakupan,
+        toko: "BOTANI",
+        daftarPerubahan: [],
+      }).map((c) => c.tanggal);
+      expect(cakupan).toEqual(["2026-10-19", "2026-10-20", "2026-10-21"]);
+    });
+
+    it('Selasa 2026-10-20: peringatan "Kiriman Senin, 19-10-2026 belum sampai saat persiapan"', () => {
+      expect(kirimanSebelumnyaBelumSampaiToko(toko, t("2026-10-20"))).toBe("2026-10-19");
+    });
+
+    it("Kamis 2026-10-22: tidak berubah (Rabu–Minggu, L = 4, tanpa peringatan)", () => {
+      expect(cekToko(toko, "2026-10-22")).toEqual({ kirim: true, persiapanHari: 1, panjangCakupan: 4, diLuarJadwal: null });
+      expect(kirimanSebelumnyaBelumSampaiToko(toko, t("2026-10-22"))).toBeNull();
+    });
+
+    it("tanggal kirim berikutnya dan sebelumnya melewati tanggal tambahan", () => {
+      expect(tanggalKirimTokoBerikutnya(toko, t("2026-10-19"))).toBe("2026-10-20");
+      expect(tanggalKirimTokoSebelumnya(toko, t("2026-10-22"))).toBe("2026-10-20");
+      expect(tanggalKirimTokoSebelumnya(toko, t("2026-10-20"))).toBe("2026-10-19");
+    });
+  });
+
+  describe("pindah Senin 2026-10-19 → Selasa 2026-10-20 (H)", () => {
+    const pindah = { tanggalKirim: t("2026-10-20"), persiapanHari: 0 as const, tanggalRutinDipindah: t("2026-10-19") };
+    const toko = { jadwal: botani, diLuarJadwal: [pindah] };
+
+    it("2026-10-19 bukan tanggal kirim", () => {
+      expect(cekToko(toko, "2026-10-19")).toEqual({ kirim: false });
+    });
+
+    it("Kamis 2026-10-15: L = 5", () => {
+      expect(cekToko(toko, "2026-10-15")).toMatchObject({ kirim: true, panjangCakupan: 5, diLuarJadwal: null });
+      expect(tanggalKirimTokoBerikutnya(toko, t("2026-10-15"))).toBe("2026-10-20");
+    });
+
+    it("Selasa 2026-10-20: L = 2", () => {
+      expect(cekToko(toko, "2026-10-20")).toEqual({ kirim: true, persiapanHari: 0, panjangCakupan: 2, diLuarJadwal: pindah });
+      expect(tanggalKirimTokoSebelumnya(toko, t("2026-10-20"))).toBe("2026-10-15");
+      expect(kirimanSebelumnyaBelumSampaiToko(toko, t("2026-10-20"))).toBeNull();
+    });
+  });
+
+  describe("1× sebulan Selasa (H) dengan tambahan Selasa 2026-11-17 (H)", () => {
+    const sebulan = jadwalValid({ pola: "1x-sebulan", hariKirim: [{ hari: "Selasa", persiapan: "H" }], tanggalJangkar: null });
+    const tambahan = { tanggalKirim: t("2026-11-17"), persiapanHari: 0 as const, tanggalRutinDipindah: null };
+    const toko = { jadwal: sebulan, diLuarJadwal: [tambahan] };
+
+    it("kirim 2026-11-03: L = 14 (berakhir sehari sebelum pengiriman di luar jadwal berikutnya)", () => {
+      expect(cekToko(toko, "2026-11-03")).toEqual({ kirim: true, persiapanHari: 0, panjangCakupan: 14, diLuarJadwal: null });
+    });
+
+    it("kirim 2026-11-17: L = 14 (berikutnya 2026-12-01)", () => {
+      expect(cekToko(toko, "2026-11-17")).toEqual({ kirim: true, persiapanHari: 0, panjangCakupan: 14, diLuarJadwal: tambahan });
+      expect(tanggalKirimTokoBerikutnya(toko, t("2026-11-17"))).toBe("2026-12-01");
+    });
+
+    it("tanpa tambahan, 2026-11-03 tetap L = 30", () => {
+      expect(cekToko({ jadwal: sebulan, diLuarJadwal: [] }, "2026-11-03")).toMatchObject({ kirim: true, panjangCakupan: 30 });
+    });
   });
 });

@@ -1,7 +1,7 @@
 import { and, asc, count, countDistinct, desc, eq, gte, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 
-import { tanggalKirimBerikutnya, tanggalKirimMenurutJadwal } from "@/domain/jadwal";
+import { tanggalKirimMenurutToko, tanggalKirimTokoBerikutnya } from "@/domain/jadwal";
 import { geserHari, parseTanggalBisnis, type TanggalBisnis } from "@/domain/kalender";
 import type { PenggunaMasuk } from "@/server/auth/kewenangan";
 import { db } from "@/server/db";
@@ -19,7 +19,7 @@ import {
   versiRanking,
 } from "@/server/db/schema";
 import { periksaHitungUlang } from "@/server/gudang/dasar-draft";
-import { jadwalTokoGudang } from "@/server/gudang/jadwal";
+import { jadwalKirimTokoGudang } from "@/server/gudang/pengiriman-di-luar-jadwal";
 import { muatStatusCacheLaporan, type StatusCacheLaporan } from "@/server/laporan/cache";
 
 // Isi beranda (T79; DESIGN §9 ▶ Keputusan 2026-10-11): sapaan sesuai peran, kartu "Perlu tindakan", dan status data.
@@ -37,7 +37,7 @@ import { muatStatusCacheLaporan, type StatusCacheLaporan } from "@/server/lapora
 // - toko dengan baris tertahan = toko di draft tersimpan gudang itu dengan tanggal kirim hari ini atau sesudahnya yang
 //   punya baris bermasalah (jumlah baris tertahan di ringkasan per toko, T73), dihitung per toko per draft;
 // - toko belum difinalisasi untuk tanggal kirim terdekat = tanggal kirim terdekat gudang (tanggal paling dekat, hari ini
-//   atau sesudahnya, saat ada toko aktif gudang itu yang mengirim menurut jadwal aktifnya), lalu toko aktif yang mengirim
+//   atau sesudahnya, saat ada toko aktif gudang itu yang mengirim menurut tanggal kirim tokonya, T114), lalu toko aktif yang mengirim
 //   pada tanggal itu dan belum punya rencana final untuk tanggal itu, walaupun draft tanggal itu belum dihitung.
 // Definisi kartu operator: DESIGN §9 ▶ Keputusan (2026-10-11, T79).
 // Kewenangan: pemanggil sudah memeriksa sesi (`wajibMasuk`); kartu operator hanya untuk gudang penugasan pengguna.
@@ -195,16 +195,17 @@ async function tokoBelumFinalTerdekat(
   idGudang: number,
   hariIni: TanggalBisnis,
 ): Promise<{ tanggalKirim: TanggalBisnis; jumlah: number } | null> {
-  const berjadwal = (await jadwalTokoGudang(idGudang)).flatMap(({ id, aktif, jadwal }) =>
-    aktif && jadwal !== null ? [{ id, jadwal }] : [],
+  const berjadwal = (await jadwalKirimTokoGudang(idGudang)).flatMap(({ id, aktif, jadwal, diLuarJadwal }) =>
+    aktif && jadwal !== null ? [{ id, sumber: { jadwal, diLuarJadwal } }] : [],
   );
-  // Tanggal kirim pertama tiap toko mulai hari ini (= sesudah kemarin) menurut domain, untuk semua pola termasuk 1× sebulan.
+  // Tanggal kirim toko pertama tiap toko mulai hari ini (= sesudah kemarin) menurut domain, untuk semua pola termasuk
+  // 1× sebulan, termasuk pengiriman di luar jadwal yang berlaku (PRD A5 ▶ Revisi 2026-10-13, T114).
   const kemarin = geserHari(hariIni, -1);
   const tanggalKirim = berjadwal
-    .map((t) => tanggalKirimBerikutnya(t.jadwal, kemarin))
+    .map((t) => tanggalKirimTokoBerikutnya(t.sumber, kemarin))
     .reduce<TanggalBisnis | null>((terdekat, calon) => (terdekat === null || calon < terdekat ? calon : terdekat), null);
   if (tanggalKirim === null) return null;
-  const mengirim = berjadwal.filter((t) => tanggalKirimMenurutJadwal(t.jadwal, tanggalKirim).kirim).map((t) => t.id);
+  const mengirim = berjadwal.filter((t) => tanggalKirimMenurutToko(t.sumber, tanggalKirim).kirim).map((t) => t.id);
   const sudahFinal = await db
     .selectDistinct({ tokoId: rencanaFinal.tokoId })
     .from(rencanaFinal)

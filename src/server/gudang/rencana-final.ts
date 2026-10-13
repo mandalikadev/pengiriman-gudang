@@ -15,6 +15,7 @@ import {
   tokoDraftRencana,
   user,
   versiRanking,
+  type DiLuarJadwalRencanaFinal,
   type ImporRencanaFinal,
   type JadwalRencanaFinal,
   type StatusBarisRencanaFinal,
@@ -23,6 +24,7 @@ import {
 import { periksaHitungUlang } from "./dasar-draft";
 import { asalBufferDari, asalJumlahKirim, versiTokoDraft } from "./draft-rencana";
 import { MASALAH_TANPA_VARIAN } from "./masalah-draft";
+import { bacaKeteranganDiLuarJadwal, type KeteranganDiLuarJadwal } from "./pengiriman-di-luar-jadwal";
 import type { RincianBarisDraft, TanggalCakupanDraft } from "./rincian-draft";
 
 // Finalisasi rencana per toko per tanggal kirim (T62; PRD A7 ▶ Keputusan perencanaan M2–M3; CONTEXT "Finalisasi").
@@ -191,6 +193,17 @@ export async function finalisasiRencanaToko({
     if (!jadwal || !ranking) return gagal(PESAN_PERLU_DIHITUNG_ULANG);
     // Nama gudang (dari baris yang dikunci di atas), nama toko, dan nama pemfinalisasi disalin agar tampilan dan ekspor
     // rencana final tidak ikut berubah bila master diubah.
+    // Pengiriman di luar jadwal acuan toko ini di draft (T114): keterangannya disalin sebagai snapshot.
+    let diLuarJadwal: DiLuarJadwalRencanaFinal | null = null;
+    if (tokoDraft.pengirimanDiLuarJadwalId !== null) {
+      const k = (await bacaKeteranganDiLuarJadwal([tokoDraft.pengirimanDiLuarJadwalId], tx)).get(tokoDraft.pengirimanDiLuarJadwalId);
+      if (k === undefined) return gagal(PESAN_PERLU_DIHITUNG_ULANG);
+      diLuarJadwal = {
+        ...k,
+        diusulkanPada: k.diusulkanPada.toISOString(),
+        disetujuiPada: k.disetujuiPada?.toISOString() ?? null,
+      };
+    }
     const [namaToko] = await tx.select({ nama: toko.nama }).from(toko).where(eq(toko.id, tokoId));
     const [pemfinalisasi] = await tx.select({ nama: user.name }).from(user).where(eq(user.id, idPengguna));
     if (!namaToko || !pemfinalisasi) return gagal(PESAN_DRAFT_BERUBAH_FINALISASI);
@@ -237,6 +250,8 @@ export async function finalisasiRencanaToko({
         jadwal: { pola: jadwal.pola, hariKirim: jadwal.hariKirim, tanggalJangkar: jadwal.tanggalJangkar },
         persiapanHari: tokoDraft.persiapanHari,
         panjangCakupan: tokoDraft.panjangCakupan,
+        jenisPengiriman: diLuarJadwal?.jenis ?? "rutin",
+        diLuarJadwal,
         revisiKalender: draft.revisiKalender,
         perubahanKategori,
         cakupan,
@@ -281,12 +296,25 @@ export type RencanaFinal = {
   sumber: { bulanSumber: string[]; versiPeriodeSumber: number; impor: ImporRencanaFinal[] };
   ranking: { id: number; bulanRanking: string; versi: number };
   jadwal: JadwalRencanaFinal & { versi: number; persiapanHari: 0 | 1 | 2; panjangCakupan: number };
+  /** Pengiriman di luar jadwal yang menjadi dasar rencana ini (snapshot, T114); `null` = pengiriman rutin. */
+  diLuarJadwal: KeteranganDiLuarJadwal | null;
   kalender: { revisi: number; perubahanKategori: number[]; cakupan: (Omit<TanggalCakupanDraft, "tanggal"> & { tanggal: TanggalBisnis })[] };
   /** Urut kode produk. */
   baris: BarisRencanaFinal[];
 };
 
 /** Rencana final `idRencana` milik gudang `idGudang`, dibaca dari snapshot; `null` bila tidak ada di gudang itu. */
+/** Keterangan pengiriman di luar jadwal dari snapshot rencana final. */
+function keteranganDariSnapshot(k: DiLuarJadwalRencanaFinal | null): KeteranganDiLuarJadwal | null {
+  if (k === null) return null;
+  return {
+    ...k,
+    tanggalRutinDipindah: k.tanggalRutinDipindah === null ? null : parseTanggalBisnis(k.tanggalRutinDipindah),
+    diusulkanPada: new Date(k.diusulkanPada),
+    disetujuiPada: k.disetujuiPada === null ? null : new Date(k.disetujuiPada),
+  };
+}
+
 export async function bacaRencanaFinal(idGudang: number, idRencana: number): Promise<RencanaFinal | null> {
   const [r] = await db
     .select()
@@ -310,6 +338,7 @@ export async function bacaRencanaFinal(idGudang: number, idRencana: number): Pro
     sumber: { bulanSumber: r.bulanSumber, versiPeriodeSumber: r.versiPeriodeSumber, impor: r.impor },
     ranking: { id: r.versiRankingId, bulanRanking: r.bulanRanking, versi: r.versiRanking },
     jadwal: { ...r.jadwal, versi: r.versiJadwal, persiapanHari: r.persiapanHari, panjangCakupan: r.panjangCakupan },
+    diLuarJadwal: keteranganDariSnapshot(r.diLuarJadwal),
     kalender: {
       revisi: r.revisiKalender,
       perubahanKategori: r.perubahanKategori,
@@ -355,7 +384,7 @@ export async function bacaRincianRencanaFinal(idGudang: number, idRencana: numbe
 /** Satu rencana final di riwayat (T63), dibaca dari snapshot. */
 export type RingkasanRencanaFinal = Pick<
   RincianRencanaFinal,
-  "id" | "versi" | "alasanFinalisasiUlang" | "toko" | "tanggalKirim" | "difinalisasiOleh" | "difinalisasiPada"
+  "id" | "versi" | "alasanFinalisasiUlang" | "toko" | "tanggalKirim" | "difinalisasiOleh" | "difinalisasiPada" | "diLuarJadwal"
 >;
 
 /**
@@ -376,6 +405,7 @@ export async function daftarRencanaFinal(
       tanggalKirim: rencanaFinal.tanggalKirim,
       difinalisasiOleh: rencanaFinal.namaPemfinalisasi,
       difinalisasiPada: rencanaFinal.difinalisasiPada,
+      diLuarJadwal: rencanaFinal.diLuarJadwal,
     })
     .from(rencanaFinal)
     .where(
@@ -394,6 +424,7 @@ export async function daftarRencanaFinal(
     tanggalKirim: parseTanggalBisnis(r.tanggalKirim),
     difinalisasiOleh: r.difinalisasiOleh,
     difinalisasiPada: r.difinalisasiPada,
+    diLuarJadwal: keteranganDariSnapshot(r.diLuarJadwal),
   }));
 }
 

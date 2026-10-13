@@ -10,6 +10,7 @@ import { formatTanggal, parseTanggalBisnis } from "@/domain/kalender";
 import { daftarRencanaFinal, pilihanFilterRencanaFinal, type RingkasanRencanaFinal } from "@/server/gudang/rencana-final";
 
 import { BadgeGudangNonaktif } from "../../hanya-baca";
+import { PenandaDiLuarJadwal } from "../penanda-di-luar-jadwal";
 import { FilterRencanaFinal } from "./filter-rencana-final";
 import { nilaiFilter, SEMUA } from "./filter";
 import { muatGudangLihat } from "./muat";
@@ -33,7 +34,12 @@ function BarisRencana({ idGudang, rencana, bolehEkspor }: { idGudang: number; re
       data-versi={rencana.versi}
     >
       <TableCell className="align-top">{formatTanggal(rencana.tanggalKirim)}</TableCell>
-      <TableCell className="align-top font-semibold">{rencana.toko.nama}</TableCell>
+      <TableCell className="align-top">
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold">{rencana.toko.nama}</span>
+          <PenandaDiLuarJadwal keterangan={rencana.diLuarJadwal} />
+        </div>
+      </TableCell>
       <TableCell className="align-top">
         <div className="flex flex-col gap-1">
           <span className="font-semibold">{`Versi ${rencana.versi}`}</span>

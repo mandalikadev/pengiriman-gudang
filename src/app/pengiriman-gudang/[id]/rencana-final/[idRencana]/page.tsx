@@ -7,6 +7,7 @@ import { BadgeStatus } from "@/components/badge-status";
 import { formatTanggal } from "@/domain/kalender";
 import { bacaRencanaFinal } from "@/server/gudang/rencana-final";
 
+import { PenandaDiLuarJadwal } from "../../penanda-di-luar-jadwal";
 import { muatRencanaFinal } from "../muat";
 
 export const metadata: Metadata = {
@@ -62,6 +63,10 @@ export default async function HalamanRencanaFinal({ params }: { params: Promise<
               <dd className="font-semibold">{rencana.alasanFinalisasiUlang}</dd>
             </>
           )}
+          <dt className="text-muted-foreground">Jenis pengiriman</dt>
+          <dd className="font-semibold">
+            {rencana.diLuarJadwal === null ? "Rutin" : <PenandaDiLuarJadwal keterangan={rencana.diLuarJadwal} />}
+          </dd>
           <dt className="text-muted-foreground">Difinalisasi oleh</dt>
           <dd className="font-semibold">{rencana.difinalisasiOleh}</dd>
           <dt className="text-muted-foreground">Waktu finalisasi</dt>

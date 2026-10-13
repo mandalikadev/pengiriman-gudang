@@ -864,6 +864,10 @@ export type JenisPengirimanDiLuarJadwal = (typeof daftarJenisPengirimanDiLuarJad
 export const daftarStatusPengirimanDiLuarJadwal = ["menunggu", "berlaku", "ditolak", "ditarik", "dibatalkan"] as const;
 export type StatusPengirimanDiLuarJadwal = (typeof daftarStatusPengirimanDiLuarJadwal)[number];
 
+/** Jenis pengiriman satu toko pada satu tanggal kirim (T114): rutin menurut jadwal tetap, atau di luar jadwal. */
+export const daftarJenisPengiriman = ["rutin", ...daftarJenisPengirimanDiLuarJadwal] as const;
+export type JenisPengiriman = (typeof daftarJenisPengiriman)[number];
+
 /**
  * Satu pengiriman untuk satu toko pada satu tanggal yang tidak mengubah jadwal tetap (CONTEXT "Pengiriman di luar
  * jadwal"): `tambahan`, atau `pindah` dari satu tanggal rutin. Diusulkan operator dengan hak `kelola-usulan-jadwal` di
@@ -984,7 +988,8 @@ export const draftRencana = pgTable(
 );
 
 /**
- * Toko di draft: setiap toko gudang yang menurut jadwal aktifnya mengirim pada tanggal draft (T54), beserta p, L, dan versi
+ * Toko di draft: setiap toko gudang yang menurut tanggal kirim tokonya (jadwal aktif dan pengiriman di luar jadwal yang
+ * berlaku, T114) mengirim pada tanggal draft (T54), beserta p, L, dan versi
  * jadwal (id jadwal aktif, T55). Toko tetap tercatat walau tidak punya varian di periode sumber.
  */
 export const tokoDraftRencana = pgTable(
@@ -1001,8 +1006,23 @@ export const tokoDraftRencana = pgTable(
       .notNull()
       .references(() => jadwalToko.id),
     persiapanHari: integer("persiapan_hari").$type<0 | 1 | 2>().notNull(),
-    /** L: 1–30 hari, jarak ke tanggal kirim berikutnya menurut jadwal (PRD A6 ▶ Revisi 2026-10-12, T91). */
+    /**
+     * L: jarak ke tanggal kirim toko berikutnya (PRD A6 ▶ Revisi 2026-10-12, T91; ▶ Revisi 2026-10-13, T114); 1× sebulan
+     * paling lama 30 hari.
+     */
     panjangCakupan: integer("panjang_cakupan").notNull(),
+    /**
+     * Jenis pengiriman toko ini pada tanggal draft (T114): rutin, atau di luar jadwal (`pengirimanDiLuarJadwalId` = acuannya;
+     * tambahan, atau pindahan dari tanggal rutin). Kosong = draft dihitung sebelum T114 (selalu rutin).
+     */
+    jenisPengiriman: text("jenis_pengiriman").$type<JenisPengiriman>(),
+    pengirimanDiLuarJadwalId: integer("pengiriman_di_luar_jadwal_id").references(() => pengirimanDiLuarJadwal.id),
+    /**
+     * Tanggal kirim toko sebelumnya yang belum sampai saat persiapan, saat dihitung (PRD A6 ▶ Keputusan 2026-10-12, T93;
+     * ▶ Revisi 2026-10-13, T114); kosong = tanpa peringatan. Draft sebelum T114 (`jenisPengiriman` kosong) tidak
+     * menyimpannya; peringatannya dibaca dari jadwal versi draft.
+     */
+    kirimanSebelumnyaBelumSampai: date("kiriman_sebelumnya_belum_sampai", { mode: "string" }),
     /** Tanggal cakupan beserta kategori efektif dan sumbernya (T60). Kosong = draft dihitung sebelum T60. */
     cakupan: jsonb("cakupan").$type<TanggalCakupanDraft[]>(),
     /**
@@ -1015,7 +1035,11 @@ export const tokoDraftRencana = pgTable(
   (tabel) => [
     uniqueIndex("toko_draft_rencana_unik").on(tabel.draftId, tabel.tokoId),
     check("toko_draft_rencana_persiapan", sql`${tabel.persiapanHari} in (0, 1, 2)`),
-    check("toko_draft_rencana_panjang_cakupan", sql`${tabel.panjangCakupan} between 1 and 30`),
+    check("toko_draft_rencana_panjang_cakupan", sql`${tabel.panjangCakupan} >= 1`),
+    check(
+      "toko_draft_rencana_jenis_pengiriman",
+      sql`(${tabel.jenisPengiriman} is null or ${tabel.jenisPengiriman} in (${daftarSql(daftarJenisPengiriman)})) and (coalesce(${tabel.jenisPengiriman}, 'rutin') = 'rutin') = (${tabel.pengirimanDiLuarJadwalId} is null)`,
+    ),
   ],
 );
 
@@ -1072,6 +1096,22 @@ export type ImporRencanaFinal = {
   namaSheet: string;
   tahunImpor: number;
   bulanImpor: number;
+};
+
+/**
+ * Pengiriman di luar jadwal yang menjadi dasar rencana final, saat difinalisasi (T114, PRD A5 ▶ Revisi 2026-10-13, Catatan
+ * aktivitas): jenis, tanggal rutin yang dipindah (pindah), alasan, pengusul, dan penyetuju beserta waktunya. Penyetuju
+ * kosong = langsung berlaku di gudang Pusat. Waktu = ISO 8601.
+ */
+export type DiLuarJadwalRencanaFinal = {
+  id: number;
+  jenis: JenisPengirimanDiLuarJadwal;
+  tanggalRutinDipindah: string | null;
+  alasan: string;
+  pengusul: string;
+  diusulkanPada: string;
+  penyetuju: string | null;
+  disetujuiPada: string | null;
 };
 
 /** Isi jadwal aktif toko saat difinalisasi (PRD A7). */
@@ -1131,8 +1171,12 @@ export const rencanaFinal = pgTable(
     versiJadwal: integer("versi_jadwal").notNull(),
     jadwal: jsonb("jadwal").$type<JadwalRencanaFinal>().notNull(),
     persiapanHari: integer("persiapan_hari").$type<0 | 1 | 2>().notNull(),
-    /** L: 1–30 hari, jarak ke tanggal kirim berikutnya menurut jadwal (PRD A6 ▶ Revisi 2026-10-12, T91). */
+    /** L: jarak ke tanggal kirim toko berikutnya (PRD A6 ▶ Revisi 2026-10-12, T91; ▶ Revisi 2026-10-13, T114). */
     panjangCakupan: integer("panjang_cakupan").notNull(),
+    /** Jenis pengiriman (T114); rencana final sebelum T114 selalu rutin. */
+    jenisPengiriman: text("jenis_pengiriman").$type<JenisPengiriman>().notNull().default("rutin"),
+    /** Keterangan pengiriman di luar jadwal (snapshot); kosong untuk pengiriman rutin. */
+    diLuarJadwal: jsonb("di_luar_jadwal").$type<DiLuarJadwalRencanaFinal>(),
     revisiKalender: integer("revisi_kalender").notNull(),
     perubahanKategori: integer("perubahan_kategori").array().notNull(),
     cakupan: jsonb("cakupan").$type<TanggalCakupanDraft[]>().notNull(),
@@ -1145,7 +1189,11 @@ export const rencanaFinal = pgTable(
       sql`(${tabel.versi} = 1) = (${tabel.alasanFinalisasiUlang} is null) and coalesce(btrim(${tabel.alasanFinalisasiUlang}), 'x') <> ''`,
     ),
     check("rencana_final_persiapan", sql`${tabel.persiapanHari} in (0, 1, 2)`),
-    check("rencana_final_panjang_cakupan", sql`${tabel.panjangCakupan} between 1 and 30`),
+    check("rencana_final_panjang_cakupan", sql`${tabel.panjangCakupan} >= 1`),
+    check(
+      "rencana_final_jenis_pengiriman",
+      sql`${tabel.jenisPengiriman} in (${daftarSql(daftarJenisPengiriman)}) and (${tabel.jenisPengiriman} = 'rutin') = (${tabel.diLuarJadwal} is null)`,
+    ),
   ],
 );
 

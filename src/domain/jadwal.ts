@@ -33,7 +33,7 @@ type HasilTanggalKirim =
   | {
       kirim: true;
       persiapanHari: 0 | 1 | 2;
-      /** L: jumlah hari dari H sampai sehari sebelum tanggal kirim berikutnya (1–14); 1× sebulan selalu 30. */
+      /** L: jumlah hari dari H sampai sehari sebelum tanggal kirim berikutnya; 1× sebulan selalu 30. */
       panjangCakupan: number;
     };
 
@@ -190,44 +190,153 @@ export function tanggalKirimSebelumnya(jadwal: Jadwal, tanggal: TanggalBisnis): 
   throw new RangeError(`Jadwal tanpa tanggal kirim dalam ${JARAK_KIRIM_TERJAUH} hari; periksa dengan periksaJadwal.`);
 }
 
-/**
- * Peringatan "kiriman sebelumnya belum sampai" (PRD A6 ▶ Keputusan 2026-10-12, UAT ketiga): tanggal kirim sebelumnya
- * menurut jadwal bila hari persiapan pengiriman `tanggalKirim` (H−p) jatuh pada atau sebelum tanggal itu, yaitu
- * p ≥ jarak dari pengiriman sebelumnya; `null` bila tidak ada peringatan atau `tanggalKirim` bukan tanggal kirim.
- */
-export function kirimanSebelumnyaBelumSampai(jadwal: Jadwal, tanggalKirim: TanggalBisnis): TanggalBisnis | null {
-  const hariKirim = hariKirimPada(jadwal, tanggalKirim);
-  if (hariKirim === null) {
-    return null;
-  }
-  const sebelumnya = tanggalKirimSebelumnya(jadwal, tanggalKirim);
-  return hariKirim.persiapanHari >= selisihHari(sebelumnya, tanggalKirim) ? sebelumnya : null;
-}
-
-/**
- * Apakah `tanggal` adalah tanggal kirim menurut jadwal, beserta p dan L-nya (PRD A5, A6). L = jumlah hari dari H sampai
- * sehari sebelum tanggal kirim berikutnya (PRD A6 ▶ Revisi 2026-10-12, UAT ketiga); khusus 1× sebulan L = 30 walaupun
- * pengiriman bulan berikutnya bisa 28 atau 35 hari kemudian.
- */
-export function tanggalKirimMenurutJadwal(jadwal: Jadwal, tanggal: TanggalBisnis): HasilTanggalKirim {
-  const hariKirim = hariKirimPada(jadwal, tanggal);
-  if (hariKirim === null) {
-    return { kirim: false };
-  }
-  return {
-    kirim: true,
-    persiapanHari: hariKirim.persiapanHari,
-    panjangCakupan:
-      jadwal.pola === "1x-sebulan" ? PANJANG_CAKUPAN_SEBULAN : selisihHari(tanggal, tanggalKirimBerikutnya(jadwal, tanggal)),
-  };
-}
-
-/** Pengiriman di luar jadwal yang berlaku: tanggal kirimnya, dan tanggal rutin yang dipindah (jenis pindah). */
+/** Pengiriman di luar jadwal yang berlaku: tanggal kirim, persiapannya, dan tanggal rutin yang dipindah (jenis pindah). */
 export type PengirimanDiLuarJadwalBerlaku = {
   tanggalKirim: TanggalBisnis;
+  persiapanHari: 0 | 1 | 2;
   /** `null` = jenis tambahan. */
   tanggalRutinDipindah: TanggalBisnis | null;
 };
+
+/**
+ * Sumber tanggal kirim satu toko (PRD A5 ▶ Revisi 2026-10-13; CONTEXT "Tanggal kirim toko"): jadwal tetap (`null` = tanpa
+ * jadwal tetap aktif) beserta pengiriman di luar jadwal yang berlaku. `P` membawa data tambahan pemanggil (mis. id) yang
+ * dikembalikan apa adanya oleh `tanggalKirimMenurutToko`.
+ */
+type JadwalKirimToko<P extends PengirimanDiLuarJadwalBerlaku = PengirimanDiLuarJadwalBerlaku> = {
+  jadwal: Jadwal | null;
+  diLuarJadwal: readonly P[];
+};
+
+type HasilTanggalKirimToko<P> =
+  | { kirim: false }
+  | {
+      kirim: true;
+      /** Persiapan menurut jadwal tetap, atau persiapan pengiriman di luar jadwal itu. */
+      persiapanHari: 0 | 1 | 2;
+      /** L (PRD A6 ▶ Revisi 2026-10-12 dan 2026-10-13). */
+      panjangCakupan: number;
+      /** Pengiriman di luar jadwal pada tanggal itu; `null` = pengiriman rutin. */
+      diLuarJadwal: P | null;
+    };
+
+const dipindah = (toko: JadwalKirimToko, tanggal: TanggalBisnis) => toko.diLuarJadwal.some((p) => p.tanggalRutinDipindah === tanggal);
+
+/** Pengiriman toko pada `tanggal`: di luar jadwal yang berlaku, atau rutin yang tidak dipindah; `null` = bukan tanggal kirim. */
+function pengirimanTokoPada<P extends PengirimanDiLuarJadwalBerlaku>(toko: JadwalKirimToko<P>, tanggal: TanggalBisnis) {
+  const luar = toko.diLuarJadwal.find((p) => p.tanggalKirim === tanggal);
+  if (luar !== undefined) return { persiapanHari: luar.persiapanHari, diLuarJadwal: luar };
+  if (toko.jadwal === null || dipindah(toko, tanggal)) return null;
+  const hariKirim = hariKirimPada(toko.jadwal, tanggal);
+  return hariKirim === null ? null : { persiapanHari: hariKirim.persiapanHari, diLuarJadwal: null };
+}
+
+const terdekat = (a: TanggalBisnis | null, b: TanggalBisnis | null, lebihDekat: (x: TanggalBisnis, y: TanggalBisnis) => boolean) =>
+  a === null ? b : b === null || lebihDekat(a, b) ? a : b;
+
+/** Pengiriman di luar jadwal pertama sesudah `tanggal`, atau `null`. */
+function diLuarJadwalBerikutnya(toko: JadwalKirimToko, tanggal: TanggalBisnis): TanggalBisnis | null {
+  return toko.diLuarJadwal.reduce<TanggalBisnis | null>(
+    (hasil, p) => (p.tanggalKirim > tanggal ? terdekat(hasil, p.tanggalKirim, (x, y) => x < y) : hasil),
+    null,
+  );
+}
+
+/** Tanggal kirim toko pertama sesudah `tanggal`, atau `null` bila tidak ada (toko tanpa jadwal tetap). */
+function berikutnyaAtauNull(toko: JadwalKirimToko, tanggal: TanggalBisnis): TanggalBisnis | null {
+  let rutin: TanggalBisnis | null = null;
+  if (toko.jadwal !== null) {
+    rutin = tanggal;
+    do rutin = tanggalKirimBerikutnya(toko.jadwal, rutin);
+    while (dipindah(toko, rutin));
+  }
+  return terdekat(rutin, diLuarJadwalBerikutnya(toko, tanggal), (x, y) => x < y);
+}
+
+/** Tanggal kirim toko terakhir sebelum `tanggal`, atau `null` bila tidak ada (toko tanpa jadwal tetap). */
+function sebelumnyaAtauNull(toko: JadwalKirimToko, tanggal: TanggalBisnis): TanggalBisnis | null {
+  let rutin: TanggalBisnis | null = null;
+  if (toko.jadwal !== null) {
+    rutin = tanggal;
+    do rutin = tanggalKirimSebelumnya(toko.jadwal, rutin);
+    while (dipindah(toko, rutin));
+  }
+  const luar = toko.diLuarJadwal.reduce<TanggalBisnis | null>(
+    (hasil, p) => (p.tanggalKirim < tanggal ? terdekat(hasil, p.tanggalKirim, (x, y) => x > y) : hasil),
+    null,
+  );
+  return terdekat(rutin, luar, (x, y) => x > y);
+}
+
+/**
+ * Tanggal kirim toko pertama sesudah `tanggal` (tidak termasuk `tanggal` itu): jadwal tetap dikurangi tanggal rutin yang
+ * dipindah, ditambah pengiriman di luar jadwal yang berlaku (PRD A5 ▶ Revisi 2026-10-13, A6 ▶ Revisi 2026-10-13).
+ */
+export function tanggalKirimTokoBerikutnya(toko: JadwalKirimToko, tanggal: TanggalBisnis): TanggalBisnis {
+  const hasil = berikutnyaAtauNull(toko, tanggal);
+  if (hasil === null) throw new RangeError(`Toko tanpa tanggal kirim sesudah ${tanggal}.`);
+  return hasil;
+}
+
+/** Tanggal kirim toko terakhir sebelum `tanggal` (tidak termasuk `tanggal` itu); pasangan `tanggalKirimTokoBerikutnya`. */
+export function tanggalKirimTokoSebelumnya(toko: JadwalKirimToko, tanggal: TanggalBisnis): TanggalBisnis {
+  const hasil = sebelumnyaAtauNull(toko, tanggal);
+  if (hasil === null) throw new RangeError(`Toko tanpa tanggal kirim sebelum ${tanggal}.`);
+  return hasil;
+}
+
+/**
+ * Apakah `tanggal` adalah tanggal kirim toko, beserta p, L, dan pengiriman di luar jadwalnya (PRD A5, A6 dengan ▶ Revisi
+ * 2026-10-12 dan 2026-10-13). p = persiapan jadwal tetap, atau persiapan pengiriman di luar jadwal itu. L = jumlah hari
+ * dari H sampai sehari sebelum tanggal kirim toko berikutnya. Khusus pengiriman rutin pola 1× sebulan: L = 30, tetapi
+ * berakhir sehari sebelum pengiriman di luar jadwal berikutnya bila pengiriman itu jatuh sebelum hari ke-30. Pengiriman di
+ * luar jadwal toko 1× sebulan memakai jarak ke tanggal kirim berikutnya (issue T114: tambahan 2026-11-17 → L = 14),
+ * paling lama 30 hari.
+ */
+export function tanggalKirimMenurutToko<P extends PengirimanDiLuarJadwalBerlaku>(
+  toko: JadwalKirimToko<P>,
+  tanggal: TanggalBisnis,
+): HasilTanggalKirimToko<P> {
+  const pengiriman = pengirimanTokoPada(toko, tanggal);
+  if (pengiriman === null) return { kirim: false };
+  const sebulan = toko.jadwal?.pola === "1x-sebulan";
+  let panjangCakupan: number;
+  if (sebulan && pengiriman.diLuarJadwal === null) {
+    const luar = diLuarJadwalBerikutnya(toko, tanggal);
+    panjangCakupan = luar === null ? PANJANG_CAKUPAN_SEBULAN : Math.min(PANJANG_CAKUPAN_SEBULAN, selisihHari(tanggal, luar));
+  } else {
+    const jarak = selisihHari(tanggal, tanggalKirimTokoBerikutnya(toko, tanggal));
+    panjangCakupan = sebulan ? Math.min(PANJANG_CAKUPAN_SEBULAN, jarak) : jarak;
+  }
+  return { kirim: true, persiapanHari: pengiriman.persiapanHari, panjangCakupan, diLuarJadwal: pengiriman.diLuarJadwal };
+}
+
+/**
+ * Peringatan "kiriman sebelumnya belum sampai" (PRD A6 ▶ Keputusan 2026-10-12 dan ▶ Revisi 2026-10-13): tanggal kirim
+ * toko sebelumnya bila hari persiapan pengiriman `tanggalKirim` (H−p) jatuh pada atau sebelum tanggal itu, yaitu p ≥ jarak
+ * dari pengiriman sebelumnya; `null` bila tidak ada peringatan atau `tanggalKirim` bukan tanggal kirim toko.
+ */
+export function kirimanSebelumnyaBelumSampaiToko(toko: JadwalKirimToko, tanggalKirim: TanggalBisnis): TanggalBisnis | null {
+  const pengiriman = pengirimanTokoPada(toko, tanggalKirim);
+  if (pengiriman === null) return null;
+  const sebelumnya = sebelumnyaAtauNull(toko, tanggalKirim);
+  return sebelumnya !== null && pengiriman.persiapanHari >= selisihHari(sebelumnya, tanggalKirim) ? sebelumnya : null;
+}
+
+/** Peringatan "kiriman sebelumnya belum sampai" menurut jadwal tetap saja (`kirimanSebelumnyaBelumSampaiToko`). */
+export function kirimanSebelumnyaBelumSampai(jadwal: Jadwal, tanggalKirim: TanggalBisnis): TanggalBisnis | null {
+  return kirimanSebelumnyaBelumSampaiToko({ jadwal, diLuarJadwal: [] }, tanggalKirim);
+}
+
+/**
+ * Apakah `tanggal` adalah tanggal kirim menurut jadwal tetap saja, beserta p dan L-nya (PRD A5, A6). L = jumlah hari dari H
+ * sampai sehari sebelum tanggal kirim berikutnya (PRD A6 ▶ Revisi 2026-10-12, UAT ketiga); khusus 1× sebulan L = 30
+ * walaupun pengiriman bulan berikutnya bisa 28 atau 35 hari kemudian.
+ */
+export function tanggalKirimMenurutJadwal(jadwal: Jadwal, tanggal: TanggalBisnis): HasilTanggalKirim {
+  const hasil = tanggalKirimMenurutToko({ jadwal, diLuarJadwal: [] }, tanggal);
+  return hasil.kirim ? { kirim: true, persiapanHari: hasil.persiapanHari, panjangCakupan: hasil.panjangCakupan } : hasil;
+}
 
 /**
  * Tanggal kirim toko dalam rentang `dari`–`sampai` (inklusif), urut naik (PRD A5 ▶ Revisi 2026-10-13; CONTEXT "Tanggal
@@ -240,12 +349,9 @@ export function tanggalKirimToko(
   dari: TanggalBisnis,
   sampai: TanggalBisnis,
 ): TanggalBisnis[] {
-  const dipindah = new Set<string>(diLuarJadwal.flatMap((p) => (p.tanggalRutinDipindah === null ? [] : [p.tanggalRutinDipindah])));
-  const tambahan = new Set<string>(diLuarJadwal.map((p) => p.tanggalKirim));
   const hasil: TanggalBisnis[] = [];
   for (let tanggal = dari; tanggal <= sampai; tanggal = geserHari(tanggal, 1)) {
-    const rutin = jadwal !== null && hariKirimPada(jadwal, tanggal) !== null && !dipindah.has(tanggal);
-    if (rutin || tambahan.has(tanggal)) hasil.push(tanggal);
+    if (pengirimanTokoPada({ jadwal, diLuarJadwal }, tanggal) !== null) hasil.push(tanggal);
   }
   return hasil;
 }

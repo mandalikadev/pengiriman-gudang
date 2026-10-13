@@ -4,11 +4,13 @@ import { formatAngka, formatBulanImpor, formatBulanLaporan, formatWaktu } from "
 import { formatTanggal } from "@/domain/kalender";
 import type { RencanaFinal } from "@/server/gudang/rencana-final";
 
+import { teksJenisPengiriman } from "../../../teks-di-luar-jadwal";
 import { labelStatusBarisRencanaFinal } from "../../label-status-baris";
 
 // Berkas ekspor rencana final (T64; PRD A7 ▶ Keputusan 2026-10-09: .xlsx). Semua isinya dari snapshot finalisasi:
-// gudang, tanggal kirim, toko, waktu finalisasi, identitas sumber penjualan, ranking, lalu baris rencana (varian,
-// kebutuhan, stok, buffer, jumlah kirim, status dengan label yang sama seperti layar rincian, T77). Nilai
+// gudang, tanggal kirim, toko, jenis pengiriman (rutin atau di luar jadwal, T114), waktu finalisasi, identitas sumber
+// penjualan, ranking, lalu baris rencana (varian, kebutuhan, stok, buffer, jumlah kirim, status dengan label yang sama
+// seperti layar rincian, T77). Nilai
 // kosong/tidak tersedia ditulis "—", bukan 0 (DESIGN §7, §8).
 
 const TIDAK_TERSEDIA = "—";
@@ -34,6 +36,7 @@ export function buatBerkasEkspor(rencana: RencanaFinal): Buffer {
     ["Gudang", rencana.gudang.nama],
     ["Tanggal kirim", formatTanggal(rencana.tanggalKirim)],
     ["Toko", rencana.toko.nama],
+    ["Jenis pengiriman", teksJenisPengiriman(rencana.diLuarJadwal)],
     ["Waktu finalisasi", formatWaktu(rencana.difinalisasiPada)],
     ["Periode sumber", `${sumber.bulanSumber.map(formatBulanLaporan).join(", ")} (penetapan #${sumber.versiPeriodeSumber})`],
     ...(sumber.impor.length === 0

@@ -14,6 +14,7 @@ import { labelHariKirim, labelPersiapan, labelPola, persiapanDariHari } from "@/
 import { bacaRincianRencanaFinal, type RincianRencanaFinal } from "@/server/gudang/rencana-final";
 
 import { SelKebutuhan, SelStok } from "../../../bagian-draft";
+import { PenandaDiLuarJadwal } from "../../../penanda-di-luar-jadwal";
 import { labelSumberKategori, RincianBaris } from "../../../rincian-baris";
 import { labelStatusBarisRencanaFinal } from "../../label-status-baris";
 import { muatRencanaFinal } from "../../muat";
@@ -261,6 +262,10 @@ export default async function HalamanRincianRencanaFinal({
             <dd className="font-semibold">{rencana.alasanFinalisasiUlang}</dd>
           </>
         )}
+        <dt className="text-muted-foreground">Jenis pengiriman</dt>
+        <dd className="font-semibold">
+          {rencana.diLuarJadwal === null ? "Rutin" : <PenandaDiLuarJadwal keterangan={rencana.diLuarJadwal} />}
+        </dd>
         <dt className="text-muted-foreground">Difinalisasi oleh</dt>
         <dd className="font-semibold">{rencana.difinalisasiOleh}</dd>
         <dt className="text-muted-foreground">Waktu finalisasi</dt>

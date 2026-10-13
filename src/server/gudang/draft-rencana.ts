@@ -29,11 +29,13 @@ import { rankingBerlaku } from "@/server/ranking/ranking";
 import { bacaJangkar } from "./jadwal";
 import { periksaHitungUlang, perubahanKategoriMengenai, tokoYangMengirim, type AlasanHitungUlang, type TokoKirim } from "./dasar-draft";
 import { URUTAN_MASALAH, type MasalahBarisDraft } from "./masalah-draft";
+import { bacaKeteranganDiLuarJadwal, type KeteranganDiLuarJadwal } from "./pengiriman-di-luar-jadwal";
 import { bacaPeriodeSumberPerhitungan } from "./periode-sumber";
 import type { RincianBarisDraft, SumberKategoriDraft, TanggalCakupanDraft } from "./rincian-draft";
 
 // Draft rencana (T58, PRD A6 ▶ Keputusan perencanaan M2–M3): per gudang dan tanggal kirim. Toko = toko gudang yang
-// menurut jadwal aktifnya mengirim pada tanggal itu (T54), beserta p dan L. Varian = produk yang punya hasil di cache
+// menurut tanggal kirim tokonya (jadwal aktif dan pengiriman di luar jadwal yang berlaku, T114) mengirim pada tanggal itu
+// (T54), beserta p dan L. Varian = produk yang punya hasil di cache
 // laporan aktif (T33) untuk toko itu pada bulan periode sumber yang dipakai (T51/T69), termasuk penjualan nol.
 // Kebutuhan lewat `hitungKebutuhanKirim` (T05) dengan Rata-rata Ringkasan per kategori hari (`hitungRingkasan`, T32)
 // atas bulan periode sumber dan kategori efektif per tanggal (T42). Buffer dari ranking pusat berlaku, jumlah kirim, dan
@@ -412,10 +414,13 @@ export type TokoDraft = {
   /** Tanggal cakupan beserta kategori efektif dan sumbernya; `null` = draft dihitung sebelum T60. */
   cakupan: (Omit<TanggalCakupanDraft, "tanggal"> & { tanggal: TanggalBisnis })[] | null;
   /**
-   * Tanggal kirim sebelumnya yang belum sampai saat persiapan menurut jadwal versi draft (PRD A6 ▶ Keputusan 2026-10-12,
-   * T93); `null` = tidak ada peringatan. Hanya keterangan: tidak menahan finalisasi dan tidak mengubah angka.
+   * Tanggal kirim toko sebelumnya yang belum sampai saat persiapan, saat draft dihitung (PRD A6 ▶ Keputusan 2026-10-12,
+   * T93; ▶ Revisi 2026-10-13, T114); `null` = tidak ada peringatan. Hanya keterangan: tidak menahan finalisasi dan tidak
+   * mengubah angka.
    */
   kirimanSebelumnyaBelumSampai: TanggalBisnis | null;
+  /** Pengiriman di luar jadwal yang menjadi dasar toko ini di draft (T114); `null` = pengiriman rutin. */
+  diLuarJadwal: KeteranganDiLuarJadwal | null;
   /** Ringkasan masalah: jumlah baris yang tertahan (punya masalah). */
   jumlahTertahan: number;
   baris: BarisDraft[];
@@ -482,7 +487,7 @@ export type DraftRencana = {
 /** Ringkasan satu toko di draft (T73): tanpa baris; baris dibaca hanya untuk toko yang dibuka. */
 export type RingkasanTokoDraft = Pick<
   TokoDraft,
-  "id" | "nama" | "persiapanHari" | "panjangCakupan" | "jumlahTertahan" | "perluDihitungUlang" | "versiFinal"
+  "id" | "nama" | "persiapanHari" | "panjangCakupan" | "jumlahTertahan" | "perluDihitungUlang" | "versiFinal" | "diLuarJadwal"
 > & {
   /** Jumlah baris (varian) toko ini di draft; 0 = toko tanpa varian di periode sumber. */
   jumlahBaris: number;
@@ -506,6 +511,10 @@ type TokoTersimpan = {
   persiapanHari: 0 | 1 | 2;
   panjangCakupan: number;
   cakupan: TanggalCakupanDraft[] | null;
+  /** Kosong = draft dihitung sebelum T114 (rutin, peringatan dari jadwal versi draft). */
+  jenisPengiriman: typeof tokoDraftRencana.$inferSelect.jenisPengiriman;
+  pengirimanDiLuarJadwalId: number | null;
+  kirimanSebelumnyaBelumSampai: string | null;
   /** Isi jadwal versi draft (`versiJadwal`); baris jadwal tidak pernah diubah, perubahan jadwal = baris baru. */
   jadwal: Pick<typeof jadwalToko.$inferSelect, "pola" | "hariKirim" | "tanggalJangkar">;
 };
@@ -558,6 +567,9 @@ async function bacaKepalaDraft(idGudang: number, tanggalKirim: TanggalBisnis | u
       persiapanHari: tokoDraftRencana.persiapanHari,
       panjangCakupan: tokoDraftRencana.panjangCakupan,
       cakupan: tokoDraftRencana.cakupan,
+      jenisPengiriman: tokoDraftRencana.jenisPengiriman,
+      pengirimanDiLuarJadwalId: tokoDraftRencana.pengirimanDiLuarJadwalId,
+      kirimanSebelumnyaBelumSampai: tokoDraftRencana.kirimanSebelumnyaBelumSampai,
       jadwal: { pola: jadwalToko.pola, hariKirim: jadwalToko.hariKirim, tanggalJangkar: jadwalToko.tanggalJangkar },
     })
     .from(tokoDraftRencana)
@@ -576,6 +588,7 @@ async function bacaKepalaDraft(idGudang: number, tanggalKirim: TanggalBisnis | u
     .where(and(eq(rencanaFinal.gudangId, idGudang), eq(rencanaFinal.tanggalKirim, tanggalDraft)))
     .groupBy(rencanaFinal.tokoId);
   const versiFinal = new Map(daftarFinal.map((f) => [f.tokoId, f.versi]));
+  const diLuarJadwal = await bacaKeteranganDiLuarJadwal(daftarToko.flatMap((t) => t.pengirimanDiLuarJadwalId ?? []));
 
   const keterangan: Omit<DraftRencana, "toko"> = {
     tanggalKirim: tanggalDraft,
@@ -592,6 +605,7 @@ async function bacaKepalaDraft(idGudang: number, tanggalKirim: TanggalBisnis | u
     daftarToko,
     perluDihitungUlangToko: (tokoId: number) => hitungUlang.perToko.get(tokoId) ?? [],
     versiFinalToko: (tokoId: number) => versiFinal.get(tokoId) ?? null,
+    diLuarJadwalToko: (t: TokoTersimpan) => (t.pengirimanDiLuarJadwalId === null ? null : (diLuarJadwal.get(t.pengirimanDiLuarJadwalId) ?? null)),
   };
 }
 
@@ -643,10 +657,13 @@ function susunTokoDraft(kepala: KepalaDraft, t: TokoTersimpan, barisToko: BarisD
     persiapanHari: t.persiapanHari,
     panjangCakupan: t.panjangCakupan,
     cakupan: cakupan?.map((c) => ({ ...c, tanggal: parseTanggalBisnis(c.tanggal) })) ?? null,
-    kirimanSebelumnyaBelumSampai: kirimanSebelumnyaBelumSampai(
-      { ...t.jadwal, tanggalJangkar: bacaJangkar(t.jadwal.tanggalJangkar) },
-      kepala.keterangan.tanggalKirim,
-    ),
+    kirimanSebelumnyaBelumSampai:
+      t.jenisPengiriman === null
+        ? kirimanSebelumnyaBelumSampai({ ...t.jadwal, tanggalJangkar: bacaJangkar(t.jadwal.tanggalJangkar) }, kepala.keterangan.tanggalKirim)
+        : t.kirimanSebelumnyaBelumSampai === null
+          ? null
+          : parseTanggalBisnis(t.kirimanSebelumnyaBelumSampai),
+    diLuarJadwal: kepala.diLuarJadwalToko(t),
     jumlahTertahan: barisToko.filter((b) => b.masalah.length > 0).length,
     baris: barisToko,
     perluDihitungUlang: kepala.perluDihitungUlangToko(t.id),
@@ -713,6 +730,7 @@ export async function bacaRingkasanDraft(
       jumlahTertahan: jumlah.get(t.idTokoDraft)?.jumlahTertahan ?? 0,
       perluDihitungUlang: kepala.perluDihitungUlangToko(t.id),
       versiFinal: kepala.versiFinalToko(t.id),
+      diLuarJadwal: kepala.diLuarJadwalToko(t),
     })),
     tokoDibuka: dibuka === null ? null : susunTokoDraft(kepala, dibuka, barisDibuka),
   };

@@ -25,6 +25,7 @@ import { FormFinalisasi } from "./form-finalisasi";
 import { FormHitungDraft } from "./form-hitung-draft";
 import { FormHitungUlang } from "./form-hitung-ulang";
 import { FormStokToko, InputStok } from "./form-stok-toko";
+import { PenandaDiLuarJadwal } from "./penanda-di-luar-jadwal";
 import { RincianBaris } from "./rincian-baris";
 
 /** Kebutuhan barang di tabel varian; juga dipakai rincian rencana final (T63). */
@@ -69,7 +70,8 @@ function MasalahTanpaVarian() {
 
 /**
  * Peringatan "kiriman sebelumnya belum sampai" (PRD A6 ▶ Keputusan 2026-10-12, T93): hari persiapan jatuh pada atau
- * sebelum tanggal kirim sebelumnya menurut jadwal versi draft. Ikon + teks `warning` (DESIGN §7); tidak menahan finalisasi.
+ * sebelum tanggal kirim toko sebelumnya saat draft dihitung (T114). Ikon + teks `warning` (DESIGN §7); tidak menahan
+ * finalisasi.
  */
 const teksKirimanSebelumnya = (tanggal: TanggalBisnis) =>
   `Kiriman ${formatTanggal(tanggal)} belum sampai saat persiapan. Pastikan jumlahnya ikut dihitung di stok akhir.`;
@@ -300,6 +302,7 @@ function TabelToko({
         </p>
         {toko.baris.length === 0 ? null : <RingkasanTertahan jumlah={toko.jumlahTertahan} />}
       </div>
+      <PenandaDiLuarJadwal keterangan={toko.diLuarJadwal} />
       <PeringatanKirimanSebelumnya tanggal={toko.kirimanSebelumnyaBelumSampai} />
       {toko.baris.length === 0 ? (
         <MasalahTanpaVarian />
@@ -458,7 +461,12 @@ function TabelRingkasanToko({
               aria-current={dibuka ? "true" : undefined}
               className={cn(dibuka && "bg-accent text-accent-foreground hover:bg-accent")}
             >
-              <TableCell className="font-semibold">{t.nama}</TableCell>
+              <TableCell>
+                <div className="flex flex-col gap-1">
+                  <span className="font-semibold">{t.nama}</span>
+                  <PenandaDiLuarJadwal keterangan={t.diLuarJadwal} terpilih={dibuka} />
+                </div>
+              </TableCell>
               <TableCell angka data-jumlah-baris={t.jumlahBaris}>
                 {formatAngka(t.jumlahBaris)}
               </TableCell>

@@ -415,6 +415,7 @@ describe("hitungDraftRencana", () => {
         jumlahTertahan: t.jumlahTertahan,
         perluDihitungUlang: t.perluDihitungUlang,
         versiFinal: t.versiFinal,
+        diLuarJadwal: t.diLuarJadwal,
       })),
     );
     // Enam produk otomatis tertahan; toko tanpa varian punya nol baris.
@@ -546,6 +547,8 @@ describe("hitungDraftRencana", () => {
       cakupan: golden.kasusCakupan.tanggalCakupan.slice(1).map(({ tanggal, kategoriEfektif }) => ({ tanggal, kategoriEfektif, sumberKategori: "dasar" })),
       // Mingguan, p = 1: tidak pernah ada peringatan kiriman sebelumnya (T93).
       kirimanSebelumnyaBelumSampai: null,
+      // Pengiriman rutin (T114).
+      diLuarJadwal: null,
       jumlahTertahan: 0,
       baris: [],
       perluDihitungUlang: [],

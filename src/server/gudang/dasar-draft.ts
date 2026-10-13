@@ -1,14 +1,14 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 
-import { tanggalKirimMenurutJadwal } from "@/domain/jadwal";
+import { kirimanSebelumnyaBelumSampai, kirimanSebelumnyaBelumSampaiToko, tanggalKirimMenurutToko } from "@/domain/jadwal";
 import type { TanggalBisnis } from "@/domain/kalender";
 import { db } from "@/server/db";
-import { barisDraftRencana, perubahanKategori, produk, tokoDraftRencana } from "@/server/db/schema";
+import { barisDraftRencana, perubahanKategori, produk, tokoDraftRencana, type JenisPengiriman } from "@/server/db/schema";
 import type { Tx } from "@/server/impor/antrean";
 import { bacaKunciVersi } from "@/server/laporan/cache";
 import { rankingBerlaku } from "@/server/ranking/ranking";
 
-import { jadwalTokoGudang } from "./jadwal";
+import { jadwalKirimTokoGudang } from "./pengiriman-di-luar-jadwal";
 import { bacaPeriodeSumber } from "./periode-sumber";
 
 type Klien = typeof db | Tx;
@@ -20,30 +20,60 @@ type Klien = typeof db | Tx;
 
 /**
  * Dasar yang berubah sejak draft dihitung, dalam urutan tampilan (urutan issue T61): periode sumber gudang, impor aktif,
- * kategori efektif (perubahan kalender yang mengenai cakupan draft), jadwal toko yang mengirim, ranking pusat berlaku,
+ * kategori efektif (perubahan kalender yang mengenai cakupan draft), jadwal toko yang mengirim (termasuk pengiriman di
+ * luar jadwal, T114), ranking pusat berlaku,
  * pemetaan keluarga aroma.
  */
 const URUTAN_ALASAN_HITUNG_ULANG = ["periode-sumber", "impor-aktif", "kategori-efektif", "jadwal", "ranking", "pemetaan"] as const;
 export type AlasanHitungUlang = (typeof URUTAN_ALASAN_HITUNG_ULANG)[number];
 
-export type TokoKirim = { tokoId: number; versiJadwal: number; persiapanHari: 0 | 1 | 2; panjangCakupan: number };
+export type TokoKirim = {
+  tokoId: number;
+  versiJadwal: number;
+  persiapanHari: 0 | 1 | 2;
+  panjangCakupan: number;
+  /** Rutin, atau di luar jadwal dengan acuannya `pengirimanDiLuarJadwalId` (T114). */
+  jenisPengiriman: JenisPengiriman;
+  pengirimanDiLuarJadwalId: number | null;
+  /** Peringatan "kiriman sebelumnya belum sampai" menurut tanggal kirim toko (T93, T114); `null` = tanpa peringatan. */
+  kirimanSebelumnyaBelumSampai: TanggalBisnis | null;
+};
 
 /**
- * Toko aktif gudang yang menurut jadwal aktifnya mengirim pada `tanggalKirim`, beserta p, L, dan versi jadwal. Toko
- * nonaktif tidak ikut walaupun masih punya jadwal aktif (PRD A6 ▶ Keputusan 2026-10-10, T58).
+ * Toko yang mengirim pada `tanggalKirim` beserta peringatan menurut jadwal tetap saja: pembanding draft sebelum T114 yang
+ * tidak menyimpan peringatannya (`jadwalBerubah`).
+ */
+async function pengirimanGudangPada(idGudang: number, tanggalKirim: TanggalBisnis, klien: Klien) {
+  return (await jadwalKirimTokoGudang(idGudang, klien)).flatMap(({ id, aktif, jadwal, diLuarJadwal }) => {
+    if (!aktif || jadwal === null) return [];
+    const sumber = { jadwal, diLuarJadwal };
+    const hasil = tanggalKirimMenurutToko(sumber, tanggalKirim);
+    if (!hasil.kirim) return [];
+    const toko: TokoKirim = {
+      tokoId: id,
+      versiJadwal: jadwal.versi,
+      persiapanHari: hasil.persiapanHari,
+      panjangCakupan: hasil.panjangCakupan,
+      jenisPengiriman: hasil.diLuarJadwal?.jenis ?? "rutin",
+      pengirimanDiLuarJadwalId: hasil.diLuarJadwal?.id ?? null,
+      kirimanSebelumnyaBelumSampai: kirimanSebelumnyaBelumSampaiToko(sumber, tanggalKirim),
+    };
+    return [{ toko, peringatanJadwalTetap: kirimanSebelumnyaBelumSampai(jadwal, tanggalKirim) }];
+  });
+}
+
+/**
+ * Toko aktif gudang yang mengirim pada `tanggalKirim` menurut tanggal kirim toko (jadwal tetap aktif, dikurangi tanggal
+ * rutin yang dipindah, ditambah pengiriman di luar jadwal yang berlaku; PRD A5 ▶ Revisi 2026-10-13, T114), beserta p, L,
+ * versi jadwal, jenis pengiriman, dan peringatan "kiriman sebelumnya belum sampai". Toko nonaktif tidak ikut walaupun
+ * masih punya jadwal aktif (PRD A6 ▶ Keputusan 2026-10-10, T58).
  */
 export async function tokoYangMengirim(
   idGudang: number,
   tanggalKirim: TanggalBisnis,
   klien: Klien = db,
 ): Promise<TokoKirim[]> {
-  return (await jadwalTokoGudang(idGudang, klien)).flatMap(({ id, aktif, jadwal }) => {
-    if (!aktif || jadwal === null) return [];
-    const hasil = tanggalKirimMenurutJadwal(jadwal, tanggalKirim);
-    return hasil.kirim
-      ? [{ tokoId: id, versiJadwal: jadwal.versi, persiapanHari: hasil.persiapanHari, panjangCakupan: hasil.panjangCakupan }]
-      : [];
-  });
+  return (await pengirimanGudangPada(idGudang, tanggalKirim, klien)).map((p) => p.toko);
 }
 
 /** Dasar yang tersimpan di satu draft. `imporAktif` kosong = draft dihitung sebelum T61. */
@@ -58,21 +88,44 @@ export type DasarTersimpan = {
 
 const urutanSama = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 
-type TokoTersimpan = {
-  tokoId: number;
-  versiJadwal: number;
-  cakupan: { tanggal: string }[] | null;
-  perubahanKategori: number[] | null;
-};
+type TokoTersimpan = Pick<
+  typeof tokoDraftRencana.$inferSelect,
+  | "tokoId"
+  | "versiJadwal"
+  | "persiapanHari"
+  | "panjangCakupan"
+  | "jenisPengiriman"
+  | "pengirimanDiLuarJadwalId"
+  | "kirimanSebelumnyaBelumSampai"
+  | "cakupan"
+  | "perubahanKategori"
+>;
 
 /**
- * Toko di draft yang jadwalnya berubah: versi jadwal aktifnya berbeda, atau tidak lagi mengirim pada tanggal itu.
- * `adaTokoBaru` = ada toko yang kini mengirim tetapi belum ada di draft (draft perlu dihitung ulang, tanpa menahan toko
- * yang sudah ada di draft).
+ * Toko di draft yang tanggal kirim tokonya berubah (T61, T114): versi jadwal aktifnya berbeda, tidak lagi mengirim pada
+ * tanggal itu, atau p, L, pengiriman di luar jadwal acuannya, maupun peringatan "kiriman sebelumnya belum sampai"-nya
+ * berbeda dari saat dihitung. Versi jadwal tetap saja tidak cukup: pengiriman di luar jadwal yang mulai berlaku atau
+ * dibatalkan mengubah draft tanggal kirimnya, draft tanggal rutin yang dipindah, draft pengiriman sebelumnya (L), dan
+ * draft pengiriman berikutnya (peringatan). `adaTokoBaru` = ada toko yang kini mengirim tetapi belum ada di draft (draft
+ * perlu dihitung ulang, tanpa menahan toko yang sudah ada di draft).
  */
 async function jadwalBerubah({ idGudang, tanggalKirim }: DasarTersimpan, tersimpan: readonly TokoTersimpan[], klien: Klien) {
-  const berlaku = new Map((await tokoYangMengirim(idGudang, tanggalKirim, klien)).map((t) => [t.tokoId, t.versiJadwal]));
-  const toko = new Set(tersimpan.filter((t) => berlaku.get(t.tokoId) !== t.versiJadwal).map((t) => t.tokoId));
+  const berlaku = new Map((await pengirimanGudangPada(idGudang, tanggalKirim, klien)).map((p) => [p.toko.tokoId, p]));
+  const berubah = (t: TokoTersimpan) => {
+    const sekarang = berlaku.get(t.tokoId);
+    if (sekarang === undefined) return true;
+    const { toko } = sekarang;
+    // Draft sebelum T114 tidak menyimpan peringatan: peringatannya dari jadwal versi draft (= jadwal tetap bila versinya sama).
+    const peringatanTersimpan = t.jenisPengiriman === null ? sekarang.peringatanJadwalTetap : t.kirimanSebelumnyaBelumSampai;
+    return (
+      toko.versiJadwal !== t.versiJadwal ||
+      toko.pengirimanDiLuarJadwalId !== t.pengirimanDiLuarJadwalId ||
+      toko.persiapanHari !== t.persiapanHari ||
+      toko.panjangCakupan !== t.panjangCakupan ||
+      toko.kirimanSebelumnyaBelumSampai !== peringatanTersimpan
+    );
+  };
+  const toko = new Set(tersimpan.filter(berubah).map((t) => t.tokoId));
   const adaTokoBaru = [...berlaku.keys()].some((id) => !tersimpan.some((t) => t.tokoId === id));
   return { toko, adaTokoBaru };
 }
@@ -170,6 +223,11 @@ export async function periksaHitungUlang(dasar: DasarTersimpan, klien: Klien = d
     .select({
       tokoId: tokoDraftRencana.tokoId,
       versiJadwal: tokoDraftRencana.versiJadwal,
+      persiapanHari: tokoDraftRencana.persiapanHari,
+      panjangCakupan: tokoDraftRencana.panjangCakupan,
+      jenisPengiriman: tokoDraftRencana.jenisPengiriman,
+      pengirimanDiLuarJadwalId: tokoDraftRencana.pengirimanDiLuarJadwalId,
+      kirimanSebelumnyaBelumSampai: tokoDraftRencana.kirimanSebelumnyaBelumSampai,
       cakupan: tokoDraftRencana.cakupan,
       perubahanKategori: tokoDraftRencana.perubahanKategori,
     })

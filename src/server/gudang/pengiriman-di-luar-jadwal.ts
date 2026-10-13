@@ -22,7 +22,7 @@ import {
   type StatusPengirimanDiLuarJadwal,
 } from "@/server/db/schema";
 
-import { bacaJadwalAktif, bacaJangkar, jadwalTokoGudang, type Tx } from "./jadwal";
+import { bacaJadwalAktif, bacaJangkar, jadwalTokoGudang, type TokoDenganJadwal, type Tx } from "./jadwal";
 import { NAMA_GUDANG_PUSAT } from "./seed-master";
 
 // Pengiriman di luar jadwal (T113, PRD A5 ▶ Revisi 2026-10-13): operator dengan hak `kelola-usulan-jadwal` mengusulkan
@@ -72,6 +72,7 @@ async function pengirimanAktifToko(tx: Tx, idToko: number, kecualiId: number | n
     .select({
       status: pengirimanDiLuarJadwal.status,
       tanggalKirim: pengirimanDiLuarJadwal.tanggalKirim,
+      persiapanHari: pengirimanDiLuarJadwal.persiapanHari,
       tanggalRutinDipindah: pengirimanDiLuarJadwal.tanggalRutinDipindah,
     })
     .from(pengirimanDiLuarJadwal)
@@ -85,6 +86,7 @@ async function pengirimanAktifToko(tx: Tx, idToko: number, kecualiId: number | n
   return baris.map((b) => ({
     status: b.status,
     tanggalKirim: parseTanggalBisnis(b.tanggalKirim),
+    persiapanHari: b.persiapanHari,
     tanggalRutinDipindah: b.tanggalRutinDipindah === null ? null : parseTanggalBisnis(b.tanggalRutinDipindah),
   }));
 }
@@ -465,4 +467,98 @@ export async function pilihanTokoPengiriman(idGudang: number, hariIni: TanggalBi
     }
     return [{ id, nama, tanggalRutin }];
   });
+}
+
+// --- Ikut perhitungan (T114, PRD A5 ▶ Revisi 2026-10-13: Ikut perhitungan seperti pengiriman biasa) ---
+
+/** Pengiriman di luar jadwal yang berlaku beserta id dan jenisnya, untuk domain `tanggalKirimMenurutToko`. */
+export type PengirimanBerlaku = PengirimanDiLuarJadwalBerlaku & { id: number; jenis: JenisPengirimanDiLuarJadwal };
+
+/**
+ * Toko gudang `idGudang` (urut nama) beserta jadwal tetap aktif dan pengiriman di luar jadwal gudang itu yang berlaku:
+ * sumber tanggal kirim toko (CONTEXT "Tanggal kirim toko"). Pemeriksaan akses oleh pemanggil.
+ */
+export async function jadwalKirimTokoGudang(
+  idGudang: number,
+  klien: typeof db | Tx = db,
+): Promise<(TokoDenganJadwal & { diLuarJadwal: PengirimanBerlaku[] })[]> {
+  const daftarToko = await jadwalTokoGudang(idGudang, klien);
+  const berlaku =
+    daftarToko.length === 0
+      ? []
+      : await klien
+          .select({
+            id: pengirimanDiLuarJadwal.id,
+            idToko: pengirimanDiLuarJadwal.tokoId,
+            jenis: pengirimanDiLuarJadwal.jenis,
+            tanggalKirim: pengirimanDiLuarJadwal.tanggalKirim,
+            persiapanHari: pengirimanDiLuarJadwal.persiapanHari,
+            tanggalRutinDipindah: pengirimanDiLuarJadwal.tanggalRutinDipindah,
+          })
+          .from(pengirimanDiLuarJadwal)
+          .where(
+            and(
+              eq(pengirimanDiLuarJadwal.gudangId, idGudang),
+              eq(pengirimanDiLuarJadwal.status, "berlaku"),
+              inArray(
+                pengirimanDiLuarJadwal.tokoId,
+                daftarToko.map((t) => t.id),
+              ),
+            ),
+          );
+  const perToko = new Map<number, PengirimanBerlaku[]>();
+  for (const { idToko, ...p } of berlaku) {
+    const pengiriman: PengirimanBerlaku = {
+      ...p,
+      tanggalKirim: parseTanggalBisnis(p.tanggalKirim),
+      tanggalRutinDipindah: p.tanggalRutinDipindah === null ? null : parseTanggalBisnis(p.tanggalRutinDipindah),
+    };
+    perToko.set(idToko, [...(perToko.get(idToko) ?? []), pengiriman]);
+  }
+  return daftarToko.map((t) => ({ ...t, diLuarJadwal: perToko.get(t.id) ?? [] }));
+}
+
+/**
+ * Keterangan pengiriman di luar jadwal untuk penanda di draft, rencana final, riwayat, dan ekspor (PRD A5 ▶ Revisi
+ * 2026-10-13, Catatan aktivitas): jenis, tanggal rutin yang dipindah, alasan, pengusul, dan penyetuju beserta waktunya.
+ * Penyetuju kosong = langsung berlaku di gudang Pusat.
+ */
+export type KeteranganDiLuarJadwal = {
+  id: number;
+  jenis: JenisPengirimanDiLuarJadwal;
+  tanggalRutinDipindah: TanggalBisnis | null;
+  alasan: string;
+  pengusul: string;
+  diusulkanPada: Date;
+  penyetuju: string | null;
+  disetujuiPada: Date | null;
+};
+
+/** Keterangan pengiriman di luar jadwal `id` per id (yang tidak ada dilewati). */
+export async function bacaKeteranganDiLuarJadwal(
+  id: readonly number[],
+  klien: typeof db | Tx = db,
+): Promise<Map<number, KeteranganDiLuarJadwal>> {
+  if (id.length === 0) return new Map();
+  const baris = await klien
+    .select({
+      id: pengirimanDiLuarJadwal.id,
+      jenis: pengirimanDiLuarJadwal.jenis,
+      tanggalRutinDipindah: pengirimanDiLuarJadwal.tanggalRutinDipindah,
+      alasan: pengirimanDiLuarJadwal.alasan,
+      pengusul: pengusul.name,
+      diusulkanPada: pengirimanDiLuarJadwal.diusulkanPada,
+      penyetuju: pemutus.name,
+      disetujuiPada: pengirimanDiLuarJadwal.diputuskanPada,
+    })
+    .from(pengirimanDiLuarJadwal)
+    .innerJoin(pengusul, eq(pengusul.id, pengirimanDiLuarJadwal.diusulkanOleh))
+    .leftJoin(pemutus, eq(pemutus.id, pengirimanDiLuarJadwal.diputuskanOleh))
+    .where(inArray(pengirimanDiLuarJadwal.id, [...id]));
+  return new Map(
+    baris.map((b) => [
+      b.id,
+      { ...b, tanggalRutinDipindah: b.tanggalRutinDipindah === null ? null : parseTanggalBisnis(b.tanggalRutinDipindah) },
+    ]),
+  );
 }
