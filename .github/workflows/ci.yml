@@ -11,16 +11,10 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Self-hosted runner di laptop pemilik (T100): mesin tidak baru setiap run dan dipakai layanan lain,
-# jadi port CI dipisah dan container dibersihkan.
-env:
-  PORT_PG_CI: 55433
-  PORT_MINIO_CI: 59100
-
 jobs:
   kebersihan-pr:
     if: github.event_name == 'pull_request'
-    runs-on: [self-hosted, linux]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -71,7 +65,7 @@ jobs:
           exit $FAIL
 
   verify:
-    runs-on: [self-hosted, linux]
+    runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:16
@@ -79,8 +73,7 @@ jobs:
           POSTGRES_USER: mandalika
           POSTGRES_PASSWORD: mandalika
           POSTGRES_DB: mandalika_test
-        # Port host = PORT_PG_CI (konteks env tidak tersedia di services).
-        ports: ["55433:5432"]
+        ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U mandalika"
           --health-interval 5s --health-timeout 5s --health-retries 10
@@ -93,18 +86,14 @@ jobs:
       - name: MinIO (storage S3 untuk test)
         if: steps.cek.outputs.ada == '1'
         run: |
-          docker rm -f minio-ci > /dev/null 2>&1 || true
-          docker run -d --name minio-ci -p "$PORT_MINIO_CI:9000" \
+          docker run -d --name minio -p 9000:9000 \
             -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
             pgsty/minio:RELEASE.2026-08-04T00-00-00Z server /data
-          for i in $(seq 1 30); do curl -sf "http://localhost:$PORT_MINIO_CI/minio/health/live" && break; sleep 1; done
+          for i in $(seq 1 30); do curl -sf http://localhost:9000/minio/health/live && break; sleep 1; done
       - name: Muat variabel lingkungan test dari .env.ci
         if: steps.cek.outputs.ada == '1'
         run: |
           if [ -f .env.ci ]; then grep -Ev '^\s*(#|$)' .env.ci >> "$GITHUB_ENV"; fi
-          # Port CI di runner laptop menimpa port bawaan .env.ci (baris terakhir menang).
-          echo "DATABASE_URL=postgres://mandalika:mandalika@localhost:$PORT_PG_CI/mandalika_test" >> "$GITHUB_ENV"
-          echo "S3_ENDPOINT=http://localhost:$PORT_MINIO_CI" >> "$GITHUB_ENV"
       - if: steps.cek.outputs.ada == '1'
         uses: pnpm/action-setup@v4
       - if: steps.cek.outputs.ada == '1'
@@ -120,12 +109,8 @@ jobs:
         if: steps.cek.outputs.ada == '1'
         run: |
           if jq -e '.scripts["test:e2e"]' package.json > /dev/null; then
-            # Dependency sistem browser sudah terpasang di runner laptop (tanpa sudo).
-            pnpm exec playwright install chromium
+            pnpm exec playwright install --with-deps chromium
             pnpm test:e2e
           else
             echo "::notice::Belum ada skrip test:e2e."
           fi
-      - name: Bersihkan MinIO
-        if: always()
-        run: docker rm -f minio-ci > /dev/null 2>&1 || true
