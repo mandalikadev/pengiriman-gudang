@@ -14,12 +14,14 @@ export default defineConfig({
   timeout: 120_000,
   forbidOnly: !!process.env.CI,
   reporter: process.env.CI ? "list" : "line",
-  globalSetup: "./tests/e2e/siapkan.ts",
   use: { baseURL: URL_DASAR, trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // Playwright menyalakan webServer berurutan dan baru menjalankan globalSetup setelah semuanya siap. Database test
+  // dibuat ulang di awal webServer pertama agar Next dan worker (webServer kedua) tersambung ke database yang sudah
+  // final; membuat ulang setelahnya memutus koneksi worker dan menghapus skema pg-boss.
   webServer: [
     {
-      command: `pnpm build && pnpm start --port ${PORT}`,
+      command: `tsx tests/e2e/siapkan.ts && pnpm build && pnpm start --port ${PORT}`,
       url: `${URL_DASAR}/masuk`,
       timeout: 300_000,
       reuseExistingServer: false,

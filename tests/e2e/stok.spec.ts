@@ -8,14 +8,15 @@ import type { KategoriDasar, NamaHari } from "../../src/domain/kalender";
 import { parseTanggalBisnis } from "../../src/domain/kalender";
 import { buatPenggunaUji, sandiUji } from "../../src/server/auth/uji-bantu";
 import { db } from "../../src/server/db";
-import { aliasNamaStok, draftRencana, hubunganTokoGudang, jadwalToko, produk, user } from "../../src/server/db/schema";
+import { aliasNamaStok, draftRencana, hubunganTokoGudang, impor, jadwalToko, produk, user } from "../../src/server/db/schema";
 import { hitungDraftRencana } from "../../src/server/gudang/draft-rencana";
 import { tugaskanOperator } from "../../src/server/gudang/penugasan";
 import { tetapkanPeriodeSumber } from "../../src/server/gudang/periode-sumber";
 import { buatTokoUji, idGudangUji } from "../../src/server/gudang/uji-bantu";
-import { kodeProdukUji, tahunUjiBebas, type ProdukUji } from "../../src/server/impor/uji-bantu";
+import { aktifkanImpor } from "../../src/server/impor/impor";
+import { buatWorkbookUji, imporUji, kodeProdukUji, sheetPenjualanUji, tahunUjiBebas, type ProdukUji } from "../../src/server/impor/uji-bantu";
 import { hitungUlangCacheLaporan } from "../../src/server/laporan/cache";
-import { aktifkanImporJuniUji, kuantitasJuniMenurutHari } from "../../src/server/laporan/uji-bantu";
+import { kuantitasJuniMenurutHari } from "../../src/server/laporan/uji-bantu";
 import { buatKeluargaUji, publikasikanRankingUji } from "../../src/server/ranking/uji-bantu";
 import { EMAIL_ADMIN_E2E } from "./siapkan";
 
@@ -66,7 +67,15 @@ async function siapkanDraft(daftarProduk: (tahun: number) => ProdukUji[]) {
 
   const tahun = await tahunUjiBebas();
   const daftar = daftarProduk(tahun);
-  await aktifkanImporJuniUji({ idAdmin: admin.id, tahun, namaToko: toko.nama, hari: SEMUA_HARI_JUNI, produk: daftar });
+  // Impor diproses oleh worker yang sedang berjalan, bukan langsung di test: memproses impor yang sama berbarengan
+  // dengan worker menggandakan cakupan tanggalnya ("Pengamatan ganda" saat cache dihitung).
+  const namaSheet = "JUNI (S)";
+  const isi = buatWorkbookUji({ [namaSheet]: sheetPenjualanUji({ toko: toko.nama, bulan: 6, hari: SEMUA_HARI_JUNI, produk: daftar }) });
+  const idImpor = await imporUji({ isi, namaSheet, tahunImpor: tahun, bulanImpor: 6, idPengguna: admin.id, proses: false });
+  await expect
+    .poll(async () => (await db.select({ status: impor.status }).from(impor).where(eq(impor.id, idImpor)))[0]?.status, { timeout: 60_000 })
+    .toBe("siap-ditinjau");
+  expect(await aktifkanImpor(idImpor, admin.id)).toEqual({ keadaan: "berhasil" });
   await hitungUlangCacheLaporan();
   const periode = await tetapkanPeriodeSumber({ idGudang: jabodetabek, bulan: [`${tahun}-06`], idPengguna: admin.id });
   expect(periode.keadaan).toBe("berhasil");

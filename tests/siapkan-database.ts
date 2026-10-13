@@ -3,7 +3,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 
 /**
- * globalSetup vitest (dan Playwright): membuat ulang database test dari kosong, lalu menjalankan semua migrasi Drizzle.
+ * globalSetup vitest (dan skrip persiapan e2e `tests/e2e/siapkan.ts`): membuat ulang database test dari kosong, lalu menjalankan semua migrasi Drizzle.
  * Setiap putaran mulai dari keadaan yang sama dengan CI, jadi data putaran lokal sebelumnya (mis. impor aktif yang
  * menumpuk) tidak memperlambat test. Test membuat datanya sendiri, termasuk master gudang/toko.
  * Hanya database yang namanya berakhiran `_test` yang boleh dihapus.
