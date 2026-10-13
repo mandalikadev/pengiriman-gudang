@@ -15,7 +15,8 @@ import {
   uraiPilihanKelompok,
 } from "./pilihan-kelompok-sidebar";
 
-// T78 — DESIGN §6 ▶ Keputusan (2026-10-11): navigasi berupa sidebar berkelompok; susunan kelompok T97 dan T98 (2026-10-13).
+// T78 — DESIGN §6 ▶ Keputusan (2026-10-11): navigasi berupa sidebar berkelompok; susunan kelompok T97, T98 (2026-10-13)
+// dan T105 (2026-10-13 sore).
 // Desktop (≥ lg): sidebar tetap di kiri, lebar 240 px. Layar kecil: bar atas tipis + menu tarik rounded-3xl.
 // Item hanya untuk halaman yang sudah ada dan boleh dibuka peran itu; penyembunyian ini tambahan,
 // halaman tetap memeriksa sesi dan peran di server (wajibMasuk / wajibAdmin / wajibAksesPengirimanGudang /
@@ -31,8 +32,9 @@ type Akses = "masuk" | "pengiriman-gudang" | "jadwal-toko" | "admin";
 type Item = { href: string; label: string; akses: Akses };
 type Kelompok = { judul: string | null; item: Item[] };
 
-// Urutan dan pengelompokan persis DESIGN §6 ▶ Keputusan (2026-10-13, pemilik): Data Master kelompok sendiri (T97),
-// kelompok Pengiriman Gudang dan halaman jadwal toko sendiri (T98).
+// Urutan dan pengelompokan persis DESIGN §6 ▶ Keputusan (2026-10-13 sore, pemilik, T105): kelompok Pengiriman Gudang
+// dihapus, Pengiriman Gudang masuk Pekerjaan rutin. Masa peralihan: Usulkan jadwal toko lalu Salin jadwal tepat setelah
+// Pengiriman Gudang, selama halaman lama masih ada. Pilihan buka/tutup tersimpan untuk kelompok lama tidak dibaca lagi.
 const kelompokMenu: Kelompok[] = [
   { judul: null, item: [{ href: "/", label: "Beranda", akses: "masuk" }] },
   {
@@ -41,13 +43,8 @@ const kelompokMenu: Kelompok[] = [
       { href: "/admin/impor", label: "Impor penjualan", akses: "admin" },
       { href: "/admin/ranking", label: "Ranking pusat", akses: "admin" },
       { href: "/admin/jadwal", label: "Persetujuan jadwal", akses: "admin" },
-      { href: "/usulan-jadwal", label: "Usulkan jadwal toko", akses: "jadwal-toko" },
-    ],
-  },
-  {
-    judul: "Pengiriman Gudang",
-    item: [
       { href: "/pengiriman-gudang", label: "Pengiriman Gudang", akses: "pengiriman-gudang" },
+      { href: "/usulan-jadwal", label: "Usulkan jadwal toko", akses: "jadwal-toko" },
       { href: "/salin-jadwal", label: "Salin jadwal ke beberapa toko", akses: "jadwal-toko" },
     ],
   },

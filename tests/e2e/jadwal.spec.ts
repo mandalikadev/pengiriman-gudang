@@ -49,7 +49,7 @@ test("Salin jadwal (gudang selain Pusat) dari sidebar: kirim usulan → hasil pe
   await masuk(page, operator.email);
 
   const navigasi = page.getByRole("navigation", { name: "Navigasi utama" });
-  await navigasi.getByRole("button", { name: "Pengiriman Gudang" }).click();
+  await navigasi.getByRole("button", { name: "Pekerjaan rutin" }).click();
   await navigasi.getByRole("link", { name: "Salin jadwal ke beberapa toko" }).click();
   await expect(page).toHaveURL(new RegExp(`/salin-jadwal/${idGudang}$`));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Salin jadwal ke beberapa toko — Gudang Cibubur");

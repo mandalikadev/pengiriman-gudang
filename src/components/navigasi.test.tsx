@@ -33,18 +33,18 @@ function judulKelompok(html: string) {
 }
 
 describe("Navigasi: kelompok menu per peran", () => {
-  // T98 — DESIGN §6 ▶ Keputusan (2026-10-13, pemilik): Data Master kelompok sendiri, Pengaturan tanpa subjudul, kelompok
-  // Pengiriman Gudang, dan halaman jadwal toko untuk pengguna dengan hak kelola-usulan-jadwal di sedikitnya satu gudang.
-  it("admin dengan hak jadwal melihat Beranda, Pekerjaan rutin, Pengiriman Gudang, Laporan, Data Master, dan Pengaturan persis DESIGN §6", () => {
+  // T105 — DESIGN §6 ▶ Keputusan (2026-10-13 sore, pemilik): kelompok Pengiriman Gudang dihapus; Pengiriman Gudang
+  // masuk Pekerjaan rutin. Masa peralihan: Usulkan jadwal toko lalu Salin jadwal tepat setelah Pengiriman Gudang.
+  it("admin dengan hak jadwal melihat Beranda, Pekerjaan rutin, Laporan, Data Master, dan Pengaturan persis DESIGN §6", () => {
     const html = render({ pengguna: ADMIN, tampilkanPengirimanGudang: true, tampilkanJadwalToko: true, children: null });
-    expect(judulKelompok(html)).toEqual(["Pekerjaan rutin", "Pengiriman Gudang", "Laporan", "Data Master", "Pengaturan"]);
+    expect(judulKelompok(html)).toEqual(["Pekerjaan rutin", "Laporan", "Data Master", "Pengaturan"]);
     expect(tautan(html)).toEqual([
       ["/", "Beranda"],
       ["/admin/impor", "Impor penjualan"],
       ["/admin/ranking", "Ranking pusat"],
       ["/admin/jadwal", "Persetujuan jadwal"],
-      ["/usulan-jadwal", "Usulkan jadwal toko"],
       ["/pengiriman-gudang", "Pengiriman Gudang"],
+      ["/usulan-jadwal", "Usulkan jadwal toko"],
       ["/salin-jadwal", "Salin jadwal ke beberapa toko"],
       ["/ringkasan", "Ringkasan"],
       ["/kalender", "Kalender"],
@@ -59,9 +59,9 @@ describe("Navigasi: kelompok menu per peran", () => {
     expect(html).not.toContain("Organisasi");
   });
 
-  it("admin tanpa hak jadwal: tanpa Usulkan jadwal toko dan Salin jadwal", () => {
+  it("admin tanpa hak jadwal: Pekerjaan rutin = Impor penjualan, Ranking pusat, Persetujuan jadwal, Pengiriman Gudang; tanpa kelompok Pengiriman Gudang", () => {
     const html = render({ pengguna: ADMIN, tampilkanPengirimanGudang: true, tampilkanJadwalToko: false, children: null });
-    expect(judulKelompok(html)).toEqual(["Pekerjaan rutin", "Pengiriman Gudang", "Laporan", "Data Master", "Pengaturan"]);
+    expect(judulKelompok(html)).toEqual(["Pekerjaan rutin", "Laporan", "Data Master", "Pengaturan"]);
     expect(tautan(html).slice(0, 6)).toEqual([
       ["/", "Beranda"],
       ["/admin/impor", "Impor penjualan"],
@@ -74,13 +74,13 @@ describe("Navigasi: kelompok menu per peran", () => {
     expect(html).not.toContain("/salin-jadwal");
   });
 
-  it("operator berhak jadwal: Pekerjaan rutin berisi Usulkan jadwal toko; Pengiriman Gudang berisi Pengiriman Gudang dan Salin jadwal", () => {
+  it("operator berhak jadwal: Pekerjaan rutin = Pengiriman Gudang, Usulkan jadwal toko, Salin jadwal ke beberapa toko", () => {
     const html = render({ pengguna: OPERATOR, tampilkanPengirimanGudang: true, tampilkanJadwalToko: true, children: null });
-    expect(judulKelompok(html)).toEqual(["Pekerjaan rutin", "Pengiriman Gudang", "Laporan"]);
+    expect(judulKelompok(html)).toEqual(["Pekerjaan rutin", "Laporan"]);
     expect(tautan(html)).toEqual([
       ["/", "Beranda"],
-      ["/usulan-jadwal", "Usulkan jadwal toko"],
       ["/pengiriman-gudang", "Pengiriman Gudang"],
+      ["/usulan-jadwal", "Usulkan jadwal toko"],
       ["/salin-jadwal", "Salin jadwal ke beberapa toko"],
       ["/ringkasan", "Ringkasan"],
       ["/kalender", "Kalender"],
@@ -90,20 +90,19 @@ describe("Navigasi: kelompok menu per peran", () => {
     expect(html).not.toContain("Pengaturan");
   });
 
-  it("operator tanpa hak jadwal: Pekerjaan rutin kosong sehingga disembunyikan; Pengiriman Gudang hanya berisi Pengiriman Gudang", () => {
+  it("operator tanpa hak jadwal: Pekerjaan rutin hanya berisi Pengiriman Gudang", () => {
     const html = render({ pengguna: OPERATOR, tampilkanPengirimanGudang: true, tampilkanJadwalToko: false, children: null });
-    expect(judulKelompok(html)).toEqual(["Pengiriman Gudang", "Laporan"]);
+    expect(judulKelompok(html)).toEqual(["Pekerjaan rutin", "Laporan"]);
     expect(tautan(html)).toEqual([
       ["/", "Beranda"],
       ["/pengiriman-gudang", "Pengiriman Gudang"],
       ["/ringkasan", "Ringkasan"],
       ["/kalender", "Kalender"],
     ]);
-    expect(html).not.toContain("Pekerjaan rutin");
     expect(html).not.toContain("jadwal");
   });
 
-  it("viewer melihat Beranda dan Laporan saja (kelompok kosong disembunyikan)", () => {
+  it("viewer tanpa penugasan melihat Beranda dan Laporan saja (tanpa Pekerjaan rutin)", () => {
     const html = render({ pengguna: VIEWER, tampilkanPengirimanGudang: false, tampilkanJadwalToko: false, children: null });
     expect(judulKelompok(html)).toEqual(["Laporan"]);
     expect(tautan(html)).toEqual([
@@ -154,10 +153,16 @@ describe("Navigasi: penanda halaman aktif", () => {
     ).toEqual(["/pengiriman-gudang"]);
   });
 
-  it("/salin-jadwal/3 → Salin jadwal aktif dan kelompok Pengiriman Gudang terbuka", () => {
+  it("/pengiriman-gudang/3 → Pengiriman Gudang aktif dan kelompok Pekerjaan rutin terbuka", () => {
+    const html = render({ pengguna: OPERATOR, tampilkanPengirimanGudang: true, tampilkanJadwalToko: true, children: null }, "/pengiriman-gudang/3");
+    expect(tautanAktif(html)).toEqual(["/pengiriman-gudang"]);
+    expect(kelompokTerbuka(html)).toEqual(["Pekerjaan rutin"]);
+  });
+
+  it("/salin-jadwal/3 → Salin jadwal aktif dan kelompok Pekerjaan rutin terbuka", () => {
     const html = render({ pengguna: OPERATOR, tampilkanPengirimanGudang: true, tampilkanJadwalToko: true, children: null }, "/salin-jadwal/3");
     expect(tautanAktif(html)).toEqual(["/salin-jadwal"]);
-    expect(kelompokTerbuka(html)).toEqual(["Pengiriman Gudang"]);
+    expect(kelompokTerbuka(html)).toEqual(["Pekerjaan rutin"]);
   });
 
   it("/usulan-jadwal/3 → Usulkan jadwal toko aktif dan kelompok Pekerjaan rutin terbuka", () => {
