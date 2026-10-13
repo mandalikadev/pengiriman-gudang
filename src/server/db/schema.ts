@@ -100,11 +100,21 @@ export const verification = pgTable(
 
 // --- Gudang dan toko (T21) ---
 
-/** Lima gudang (PRD A3, OD-02). Diisi oleh seed master; tidak ada UI untuk menambah atau mengubahnya. */
-export const gudang = pgTable("gudang", {
-  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  nama: text("nama").notNull().unique(),
-});
+/**
+ * Gudang. Lima gudang awal diisi seed master (PRD A3, OD-02); admin menambah, mengganti nama, menonaktifkan, dan
+ * mengaktifkan kembali dari Pengaturan › Gudang (PRD A3 ▶ Revisi 2026-10-13, T110). Tidak ada hapus permanen.
+ * Nama disimpan tanpa spasi di awal/akhir dan unik tanpa membedakan huruf besar/kecil.
+ */
+export const gudang = pgTable(
+  "gudang",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    nama: text("nama").notNull().unique(),
+    /** Gudang nonaktif tidak muncul di pilihan kerja dan penugasannya tidak memberi akses (T110). */
+    aktif: boolean("aktif").notNull().default(true),
+  },
+  (tabel) => [uniqueIndex("gudang_nama_tanpa_huruf_besar_unik").on(sql`lower(${tabel.nama})`)],
+);
 
 /** Master toko: nama sesuai blok toko di sheet penjualan. */
 export const toko = pgTable("toko", {

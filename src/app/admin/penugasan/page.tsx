@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
 import { db } from "@/server/db";
 import { gudang, penugasanOperator, user } from "@/server/db/schema";
+import { daftarGudangAktif } from "@/server/gudang/kelola-gudang";
 
 import { BarisPenugasan, type DataPenugasan } from "./baris-penugasan";
 import { FormTugaskanOperator, type PilihanGudang, type PilihanPengguna } from "./form-tugaskan-operator";
@@ -23,7 +24,8 @@ async function muatData(): Promise<{
     .select({ id: user.id, nama: user.name, email: user.email, banned: user.banned })
     .from(user)
     .orderBy(asc(user.name), asc(user.email));
-  const daftarGudang = await db.select({ id: gudang.id, nama: gudang.nama }).from(gudang).orderBy(asc(gudang.id));
+  // Gudang nonaktif tidak bisa dipilih untuk penugasan baru (T110).
+  const daftarGudang = await daftarGudangAktif();
   const penugasan = await db
     .select({
       idPengguna: user.id,

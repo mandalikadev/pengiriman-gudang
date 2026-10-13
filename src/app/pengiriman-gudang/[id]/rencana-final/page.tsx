@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatTanggal, parseTanggalBisnis } from "@/domain/kalender";
 import { daftarRencanaFinal, pilihanFilterRencanaFinal, type RingkasanRencanaFinal } from "@/server/gudang/rencana-final";
 
+import { BadgeGudangNonaktif } from "../../hanya-baca";
 import { FilterRencanaFinal } from "./filter-rencana-final";
 import { nilaiFilter, SEMUA } from "./filter";
 import { muatGudangLihat } from "./muat";
@@ -106,6 +107,7 @@ export default async function HalamanRiwayatRencanaFinal({
       </Link>
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold md:text-3xl">Riwayat rencana final — {gudang.nama}</h1>
+        {gudang.aktif ? null : <BadgeGudangNonaktif />}
         <p className="text-muted-foreground">
           Rencana final dibaca dari snapshot saat finalisasi dan tidak berubah oleh pembaruan data berikutnya. Finalisasi
           hanya menyatakan rencana kebutuhan barang telah disimpan, bukan konfirmasi pengiriman fisik atau penerimaan barang.

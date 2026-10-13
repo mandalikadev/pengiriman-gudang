@@ -5,13 +5,16 @@ import { notFound } from "next/navigation";
 
 import { AksesDitolakError, wajibAksesPengirimanGudang } from "@/server/auth/kewenangan";
 
-import { KeteranganHanyaBaca } from "./hanya-baca";
+import { BadgeGudangNonaktif, KeteranganHanyaBaca } from "./hanya-baca";
 
 export const metadata: Metadata = {
   title: "Pengiriman Gudang — Dashboard Penjualan MANDALIKA",
 };
 
-/** Zona kerja (DESIGN §1). Daftar gudang yang bisa diakses pengguna; tanpa akses mendapat 404. */
+/**
+ * Zona kerja (DESIGN §1). Daftar gudang yang bisa diakses pengguna; tanpa akses mendapat 404. Gudang nonaktif hanya
+ * tampil untuk admin, dengan badge Nonaktif (T110).
+ */
 export default async function HalamanDaftarPengirimanGudang() {
   let daftarGudang;
   try {
@@ -36,6 +39,7 @@ export default async function HalamanDaftarPengirimanGudang() {
                 {g.nama}
                 <ChevronRight aria-hidden strokeWidth={2} className="size-5 shrink-0" />
               </span>
+              {g.aktif ? null : <BadgeGudangNonaktif />}
               {g.hakTindakan.length === 0 ? <KeteranganHanyaBaca>Hanya-baca</KeteranganHanyaBaca> : null}
             </Link>
           </li>

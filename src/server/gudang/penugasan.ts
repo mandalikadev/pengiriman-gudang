@@ -19,8 +19,9 @@ function rapikan(hakTindakan: readonly HakTindakan[]): HakTindakan[] {
 export async function tugaskanOperator({ idPengguna, idGudang, hakTindakan }: Penugasan): Promise<HasilPenugasan> {
   const [pengguna] = await db.select({ id: user.id }).from(user).where(eq(user.id, idPengguna));
   if (!pengguna) return { keadaan: "gagal", pesan: "Pengguna tidak ditemukan." };
-  const [tujuan] = await db.select({ id: gudang.id }).from(gudang).where(eq(gudang.id, idGudang));
+  const [tujuan] = await db.select({ id: gudang.id, aktif: gudang.aktif }).from(gudang).where(eq(gudang.id, idGudang));
   if (!tujuan) return { keadaan: "gagal", pesan: "Gudang tidak ditemukan." };
+  if (!tujuan.aktif) return { keadaan: "gagal", pesan: "Gudang ini nonaktif dan tidak bisa dipilih untuk penugasan baru." };
 
   const baris = await db
     .insert(penugasanOperator)
@@ -55,15 +56,20 @@ export async function cabutPenugasan({ idPengguna, idGudang }: Omit<Penugasan, "
   return baris.length === 0 ? { keadaan: "gagal", pesan: pesanTidakDitemukan } : { keadaan: "berhasil" };
 }
 
-/** Apakah pengguna ditugaskan di gudang ini dengan hak `tindakan`. Peran global tidak dipertimbangkan. */
+/**
+ * Apakah pengguna ditugaskan di gudang ini dengan hak `tindakan`. Peran global tidak dipertimbangkan. Penugasan ke
+ * gudang nonaktif tidak memberi hak (T110).
+ */
 export async function punyaHakTindakan(idPengguna: string, idGudang: number, tindakan: HakTindakan) {
   const baris = await db
     .select({ userId: penugasanOperator.userId })
     .from(penugasanOperator)
+    .innerJoin(gudang, eq(gudang.id, penugasanOperator.gudangId))
     .where(
       and(
         eq(penugasanOperator.userId, idPengguna),
         eq(penugasanOperator.gudangId, idGudang),
+        eq(gudang.aktif, true),
         arrayContains(penugasanOperator.hakTindakan, [tindakan]),
       ),
     );

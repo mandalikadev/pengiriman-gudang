@@ -132,8 +132,10 @@ export async function tetapkanPeriodeSumber({
 
   return db.transaction(async (tx) => {
     // Mengunci baris gudang agar penetapan bersamaan untuk gudang yang sama berjalan bergantian.
-    const [tujuan] = await tx.select({ id: gudang.id }).from(gudang).where(eq(gudang.id, idGudang)).for("update");
+    const [tujuan] = await tx.select({ aktif: gudang.aktif }).from(gudang).where(eq(gudang.id, idGudang)).for("update");
     if (!tujuan) return { keadaan: "gagal", pesan: "Gudang tidak ditemukan." };
+    // Gudang nonaktif tidak muncul di pilihan periode sumber (T110); server juga menolaknya.
+    if (!tujuan.aktif) return { keadaan: "gagal", pesan: "Gudang ini nonaktif. Aktifkan kembali gudangnya sebelum menetapkan periode sumber." };
 
     const [berlaku] = await tx
       .select({ versi: periodeSumberGudang.id, bulan: periodeSumberGudang.bulan })

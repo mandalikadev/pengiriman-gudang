@@ -118,7 +118,7 @@ async function gudangDitugaskan(idPengguna: string): Promise<GudangRingkas[]> {
     .select({ id: gudang.id, nama: gudang.nama })
     .from(penugasanOperator)
     .innerJoin(gudang, eq(gudang.id, penugasanOperator.gudangId))
-    .where(eq(penugasanOperator.userId, idPengguna))
+    .where(and(eq(penugasanOperator.userId, idPengguna), eq(gudang.aktif, true)))
     .orderBy(asc(gudang.id));
 }
 

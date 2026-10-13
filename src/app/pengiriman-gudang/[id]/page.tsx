@@ -15,7 +15,7 @@ import { bacaPeriodeSumberPerhitungan } from "@/server/gudang/periode-sumber";
 import { NAMA_GUDANG_PUSAT } from "@/server/gudang/seed-master";
 import { usulanTerakhirPerToko } from "@/server/gudang/usulan-jadwal";
 
-import { KeteranganHanyaBaca } from "../hanya-baca";
+import { BadgeGudangNonaktif, KeteranganHanyaBaca } from "../hanya-baca";
 import { BagianDraft } from "./bagian-draft";
 import { BagianJadwal } from "./bagian-jadwal";
 import { KartuPeriodeSumber } from "./kartu-periode-sumber";
@@ -98,6 +98,7 @@ export default async function HalamanPengirimanGudang({
         Daftar gudang
       </Link>
       <h1 className="text-2xl font-bold md:text-3xl">Pengiriman Gudang — {gudang.nama}</h1>
+      {gudang.aktif ? null : <BadgeGudangNonaktif />}
       <Link
         href={`/pengiriman-gudang/${gudang.id}/rencana-final`}
         data-tautan-riwayat-final

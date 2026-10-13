@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { HasilSimpan } from "@/components/keadaan-simpan";
 import { wajibAdmin } from "@/server/auth/kewenangan";
 import { hubungkanTokoKeGudang, type HasilTambahToko } from "@/server/gudang/hubungan";
+import { tambahGudang, tetapkanAktifGudang, ubahNamaGudang, type HasilKelolaGudang } from "@/server/gudang/kelola-gudang";
 import { tetapkanPeriodeSumber } from "@/server/gudang/periode-sumber";
 import { tetapkanAktifToko } from "@/server/gudang/status-toko";
 
@@ -89,4 +90,52 @@ export async function ubahStatusToko(input: unknown): Promise<HasilSimpan> {
     return { keadaan: "tersimpanGagalMuatUlang" };
   }
   return { keadaan: "berhasil" };
+}
+
+// --- Kelola gudang (T110, PRD A3 ▶ Revisi 2026-10-13) ---
+
+const pesanGudangTidakDitemukan = "Gudang tidak ditemukan. Muat ulang halaman.";
+const skemaIdGudang = z.number({ error: pesanGudangTidakDitemukan }).int({ error: pesanGudangTidakDitemukan });
+const skemaNamaGudang = z.string({ error: "Nama gudang wajib diisi." });
+
+/** Memuat ulang halaman yang menampilkan daftar atau pilihan gudang setelah gudang berubah. */
+function muatUlangSetelahGudangBerubah(hasil: HasilKelolaGudang): HasilSimpan {
+  if (hasil.keadaan === "gagal") return hasil;
+  try {
+    revalidatePath(PATH_HALAMAN);
+    revalidatePath("/admin/penugasan");
+    revalidatePath("/pengiriman-gudang", "layout");
+  } catch {
+    return { keadaan: "tersimpanGagalMuatUlang" };
+  }
+  return { keadaan: "berhasil" };
+}
+
+/** Menambah gudang. Nama wajib dan unik (trim, tanpa membedakan huruf besar/kecil). Hanya admin (diperiksa di server). */
+export async function tambahGudangBaru(input: unknown): Promise<HasilSimpan> {
+  await wajibAdmin();
+  const isian = z.object({ nama: skemaNamaGudang }).safeParse(input);
+  if (!isian.success) return { keadaan: "gagal", pesan: isian.error.issues[0].message };
+  return muatUlangSetelahGudangBerubah(await tambahGudang(isian.data.nama));
+}
+
+/** Mengganti nama gudang (Pusat ditolak). Hanya admin (diperiksa di server). */
+export async function gantiNamaGudang(input: unknown): Promise<HasilSimpan> {
+  await wajibAdmin();
+  const isian = z.object({ idGudang: skemaIdGudang, nama: skemaNamaGudang }).safeParse(input);
+  if (!isian.success) return { keadaan: "gagal", pesan: isian.error.issues[0].message };
+  return muatUlangSetelahGudangBerubah(await ubahNamaGudang(isian.data.idGudang, isian.data.nama));
+}
+
+/**
+ * Menonaktifkan atau mengaktifkan kembali gudang (Pusat tidak bisa dinonaktifkan; gudang yang masih punya toko ditolak).
+ * Hanya admin (diperiksa di server).
+ */
+export async function ubahStatusGudang(input: unknown): Promise<HasilSimpan> {
+  await wajibAdmin();
+  const isian = z
+    .object({ idGudang: skemaIdGudang, aktif: z.boolean({ error: "Status gudang tidak dikenal." }) })
+    .safeParse(input);
+  if (!isian.success) return { keadaan: "gagal", pesan: isian.error.issues[0].message };
+  return muatUlangSetelahGudangBerubah(await tetapkanAktifGudang(isian.data.idGudang, isian.data.aktif));
 }
