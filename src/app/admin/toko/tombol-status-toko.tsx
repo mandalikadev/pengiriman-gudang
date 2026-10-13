@@ -12,8 +12,8 @@ const AKIBAT_NONAKTIF =
   "Toko nonaktif tidak bisa ditambahkan ke gudang dan tidak ikut masuk draft, walaupun masih punya jadwal aktif.";
 
 /**
- * Tombol aktifkan/nonaktifkan satu toko (T76) dengan dialog konfirmasi (DESIGN §11.3, T109) dan keadaan simpan di
- * dekatnya. Tombol bertipe "button" karena berada di dalam form tambah toko. Kewenangan admin diperiksa di server action.
+ * Tombol aktifkan/nonaktifkan satu toko (T76; di halaman Toko sejak T111) dengan dialog konfirmasi (DESIGN §11.3,
+ * T109) dan keadaan simpan di dekatnya. Kewenangan admin diperiksa di server action.
  */
 export function TombolStatusToko({ idToko, namaToko, aktif }: { idToko: number; namaToko: string; aktif: boolean }) {
   const { tampilan, menunggu, simpan } = usePenyimpanan("status toko di daftar toko");

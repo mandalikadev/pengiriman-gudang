@@ -1,12 +1,9 @@
-import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AksesDitolakError } from "@/server/auth/kewenangan";
 import { kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
-import { hubunganTokoGudang, toko } from "@/server/db/schema";
-import { daftarHakTindakan } from "@/server/gudang/hak-tindakan";
-import { tugaskanOperator } from "@/server/gudang/penugasan";
+import { hubunganTokoGudang } from "@/server/db/schema";
 import { buatTokoUji, gudangTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
 
 const kepala = vi.hoisted(() => ({ cookie: "", muatUlangGagal: false }));
@@ -19,7 +16,7 @@ vi.mock("next/cache", () => ({
   },
 }));
 
-import { tambahTokoKeGudang, ubahStatusToko } from "./aksi";
+import { tambahTokoKeGudang } from "./aksi";
 
 let bali: number;
 let bandung: number;
@@ -173,79 +170,5 @@ describe("database menegakkan satu toko satu gudang (ADR-0009)", () => {
     await db.insert(hubunganTokoGudang).values({ tokoId: t.id, gudangId: bandung });
     await expect(db.insert(hubunganTokoGudang).values({ tokoId: t.id, gudangId: bali })).rejects.toThrow();
     expect(await gudangTokoUji(t.id)).toEqual([bandung]);
-  });
-});
-
-async function aktifUji(idToko: number) {
-  const [baris] = await db.select({ aktif: toko.aktif }).from(toko).where(eq(toko.id, idToko));
-  return baris.aktif;
-}
-
-describe("ubah status toko (T76): non-admin ditolak di server", () => {
-  it("viewer ditolak dan status toko tidak berubah", async () => {
-    kepala.cookie = (await kepalaPenggunaUji("viewer")).cookie;
-    const t = await buatTokoUji();
-    await expect(ubahStatusToko({ idToko: t.id, aktif: false })).rejects.toBeInstanceOf(AksesDitolakError);
-    expect(await aktifUji(t.id)).toBe(true);
-  });
-
-  it("operator (viewer dengan penugasan dan semua hak tindakan) ditolak dan status toko tidak berubah", async () => {
-    const operator = await kepalaPenggunaUji("viewer");
-    await tugaskanOperator({
-      idPengguna: operator.id,
-      idGudang: bali,
-      hakTindakan: [...daftarHakTindakan],
-    });
-    kepala.cookie = operator.cookie;
-    const t = await buatTokoUji({ aktif: false });
-    await expect(ubahStatusToko({ idToko: t.id, aktif: true })).rejects.toBeInstanceOf(AksesDitolakError);
-    expect(await aktifUji(t.id)).toBe(false);
-  });
-
-  it("pengguna yang belum masuk diarahkan ke halaman masuk", async () => {
-    const t = await buatTokoUji();
-    await expect(ubahStatusToko({ idToko: t.id, aktif: false })).rejects.toMatchObject({
-      digest: expect.stringContaining("/masuk"),
-    });
-    expect(await aktifUji(t.id)).toBe(true);
-  });
-});
-
-describe("ubah status toko (T76): admin", () => {
-  beforeEach(async () => {
-    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
-  });
-
-  it("menonaktifkan lalu mengaktifkan kembali toko; statusnya tersimpan", async () => {
-    const t = await buatTokoUji();
-    await expect(ubahStatusToko({ idToko: t.id, aktif: false })).resolves.toEqual({ keadaan: "berhasil" });
-    expect(await aktifUji(t.id)).toBe(false);
-    await expect(ubahStatusToko({ idToko: t.id, aktif: true })).resolves.toEqual({ keadaan: "berhasil" });
-    expect(await aktifUji(t.id)).toBe(true);
-  });
-
-  it("hubungan toko–gudang tidak berubah saat toko dinonaktifkan", async () => {
-    const t = await buatTokoUji();
-    await tambahTokoKeGudang({ idGudang: bali, idToko: [t.id] });
-    await ubahStatusToko({ idToko: t.id, aktif: false });
-    expect(await gudangTokoUji(t.id)).toEqual([bali]);
-  });
-
-  it("tersimpan tetapi gagal memuat ulang tampilan", async () => {
-    kepala.muatUlangGagal = true;
-    const t = await buatTokoUji();
-    await expect(ubahStatusToko({ idToko: t.id, aktif: false })).resolves.toEqual({ keadaan: "tersimpanGagalMuatUlang" });
-    expect(await aktifUji(t.id)).toBe(false);
-  });
-
-  it("toko tidak ditemukan atau isian tidak valid → gagal dengan pesan, tanpa menulis data", async () => {
-    await expect(ubahStatusToko({ idToko: -1, aktif: false })).resolves.toEqual({
-      keadaan: "gagal",
-      pesan: "Toko tidak ditemukan. Muat ulang halaman.",
-    });
-    const t = await buatTokoUji();
-    await expect(ubahStatusToko({ idToko: t.id, aktif: "tidak" })).resolves.toMatchObject({ keadaan: "gagal" });
-    await expect(ubahStatusToko({ idToko: "x", aktif: false })).resolves.toMatchObject({ keadaan: "gagal" });
-    expect(await aktifUji(t.id)).toBe(true);
   });
 });

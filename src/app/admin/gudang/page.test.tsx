@@ -55,11 +55,12 @@ describe("/admin/gudang", () => {
     expect(html).toContain("Nonaktif");
     expect(html).toContain("Belum terhubung");
     expect(html).toContain("Tambahkan toko terpilih");
-    // T76: setiap toko punya tombol sesuai statusnya sekarang.
-    expect(html).toContain(`aria-label="Nonaktifkan ${terhubung.nama}"`);
-    expect(html).toContain(`aria-label="Aktifkan ${nonaktif.nama}"`);
-    expect(html).not.toContain(`aria-label="Aktifkan ${terhubung.nama}"`);
-    expect(html).not.toContain(`aria-label="Nonaktifkan ${nonaktif.nama}"`);
+    // T111: tombol status toko pindah ke halaman Toko; halaman Gudang tetap menampilkan status toko.
+    expect(html).not.toContain(`aria-label="Nonaktifkan ${terhubung.nama}"`);
+    expect(html).not.toContain(`aria-label="Aktifkan ${nonaktif.nama}"`);
+    const barisNonaktif = new RegExp(`<tr[^>]*>(?:(?!</tr>).)*${nonaktif.nama}(?:(?!</tr>).)*</tr>`).exec(html)?.[0] ?? "";
+    expect(barisNonaktif).toContain("Nonaktif");
+    expect(barisNonaktif).not.toContain("<button");
     // Zona kerja: judul halaman text-2xl md:text-3xl, tanpa blob.
     expect(html).toContain("text-2xl font-bold md:text-3xl");
     expect(html).not.toContain("blur-3xl");

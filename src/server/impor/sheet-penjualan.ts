@@ -161,7 +161,7 @@ function teksSel(sel: XLSX.CellObject | undefined): string {
 }
 
 /** Kunci pencocokan nama toko (keputusan T10): trim, spasi beruntun jadi satu, huruf besar. Tanpa fuzzy. */
-function kunciNamaToko(nama: string): string {
+export function kunciNamaToko(nama: string): string {
   return nama.trim().replace(/\s+/g, " ").toUpperCase();
 }
 

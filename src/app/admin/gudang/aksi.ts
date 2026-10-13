@@ -8,7 +8,6 @@ import { wajibAdmin } from "@/server/auth/kewenangan";
 import { hubungkanTokoKeGudang, type HasilTambahToko } from "@/server/gudang/hubungan";
 import { tambahGudang, tetapkanAktifGudang, ubahNamaGudang, type HasilKelolaGudang } from "@/server/gudang/kelola-gudang";
 import { tetapkanPeriodeSumber } from "@/server/gudang/periode-sumber";
-import { tetapkanAktifToko } from "@/server/gudang/status-toko";
 
 /** Hasil tambah toko massal: hasil per toko (CODING_STANDARDS "Operasi massal mengembalikan hasil per item"). */
 export type HasilTambahTokoMassal =
@@ -16,6 +15,8 @@ export type HasilTambahTokoMassal =
   | { keadaan: "gagal"; pesan: string };
 
 const PATH_HALAMAN = "/admin/gudang";
+/** Halaman Toko menampilkan gudang terhubung setiap toko (T111). */
+const PATH_HALAMAN_TOKO = "/admin/toko";
 
 const skemaTambah = z.object({
   idGudang: z.number({ error: "Pilih gudang." }).int({ error: "Pilih gudang." }),
@@ -34,6 +35,7 @@ export async function tambahTokoKeGudang(input: unknown): Promise<HasilTambahTok
   if (hasil.keadaan === "gagal") return hasil;
   try {
     revalidatePath(PATH_HALAMAN);
+    revalidatePath(PATH_HALAMAN_TOKO);
   } catch {
     return { keadaan: "tersimpanGagalMuatUlang", hasil: hasil.hasil };
   }
@@ -65,33 +67,6 @@ export async function tetapkanPeriodeSumberGudang(input: unknown): Promise<Hasil
   return { keadaan: "berhasil" };
 }
 
-const skemaStatusToko = z.object({
-  idToko: z.number({ error: "Toko tidak ditemukan. Muat ulang halaman." }).int({
-    error: "Toko tidak ditemukan. Muat ulang halaman.",
-  }),
-  aktif: z.boolean({ error: "Status toko tidak dikenal." }),
-});
-
-/**
- * Mengaktifkan atau menonaktifkan satu toko (T76). Hanya admin (diperiksa di server sebelum membaca atau menulis data).
- * Hasil yang belum pasti tidak diulang di sini; klien menampilkannya lewat `usePenyimpanan`.
- */
-export async function ubahStatusToko(input: unknown): Promise<HasilSimpan> {
-  await wajibAdmin();
-  const isian = skemaStatusToko.safeParse(input);
-  if (!isian.success) return { keadaan: "gagal", pesan: isian.error.issues[0].message };
-
-  if (!(await tetapkanAktifToko(isian.data.idToko, isian.data.aktif))) {
-    return { keadaan: "gagal", pesan: "Toko tidak ditemukan. Muat ulang halaman." };
-  }
-  try {
-    revalidatePath(PATH_HALAMAN);
-  } catch {
-    return { keadaan: "tersimpanGagalMuatUlang" };
-  }
-  return { keadaan: "berhasil" };
-}
-
 // --- Kelola gudang (T110, PRD A3 ▶ Revisi 2026-10-13) ---
 
 const pesanGudangTidakDitemukan = "Gudang tidak ditemukan. Muat ulang halaman.";
@@ -103,6 +78,7 @@ function muatUlangSetelahGudangBerubah(hasil: HasilKelolaGudang): HasilSimpan {
   if (hasil.keadaan === "gagal") return hasil;
   try {
     revalidatePath(PATH_HALAMAN);
+    revalidatePath(PATH_HALAMAN_TOKO);
     revalidatePath("/admin/penugasan");
     revalidatePath("/pengiriman-gudang", "layout");
   } catch {

@@ -15,7 +15,6 @@ import { cn } from "@/lib/utils";
 import type { StatusTambahToko } from "@/server/gudang/hubungan";
 
 import { tambahTokoKeGudang, type HasilTambahTokoMassal } from "./aksi";
-import { TombolStatusToko } from "./tombol-status-toko";
 
 export type DataGudang = { id: number; nama: string };
 export type DataToko = { id: number; nama: string; aktif: boolean; namaGudang: string | null };
@@ -157,7 +156,6 @@ export function FormTambahToko({ daftarGudang, daftarToko }: { daftarGudang: Dat
                 <TableHead>Toko</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Gudang</TableHead>
-                <TableHead>Tindakan</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -192,9 +190,6 @@ export function FormTambahToko({ daftarGudang, daftarToko }: { daftarGudang: Dat
                       )}
                     >
                       {t.namaGudang ?? "Belum terhubung"}
-                    </TableCell>
-                    <TableCell className="whitespace-normal">
-                      <TombolStatusToko idToko={t.id} namaToko={t.nama} aktif={t.aktif} />
                     </TableCell>
                   </TableRow>
                 );

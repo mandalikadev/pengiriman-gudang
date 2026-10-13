@@ -67,7 +67,7 @@ afterEach(() => {
 });
 
 describe("tombol aktif/nonaktif toko", () => {
-  it("toko aktif: tombol Nonaktifkan; tidak mengirim form tambah toko", () => {
+  it("toko aktif: tombol Nonaktifkan bertipe button", () => {
     const wadah = buka(true);
     expect(tombol(wadah).textContent).toBe("Nonaktifkan");
     expect(tombol(wadah).getAttribute("aria-label")).toBe("Nonaktifkan LMK");

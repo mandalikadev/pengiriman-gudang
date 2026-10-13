@@ -70,6 +70,7 @@ const kelompokMenu: Kelompok[] = [
     judul: "Pengaturan",
     item: [
       { href: "/admin/gudang", label: "Gudang", akses: "admin" },
+      { href: "/admin/toko", label: "Toko", akses: "admin" },
       { href: "/admin/pengguna", label: "Pengguna", akses: "admin" },
       { href: "/admin/penugasan", label: "Penugasan", akses: "admin" },
     ],

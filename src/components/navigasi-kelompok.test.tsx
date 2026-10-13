@@ -144,6 +144,7 @@ describe("judul kelompok sebagai tombol buka-tutup", () => {
     const pengaturan = daftar("Pengaturan");
     expect([...pengaturan.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual([
       "/admin/gudang",
+      "/admin/toko",
       "/admin/pengguna",
       "/admin/penugasan",
     ]);
@@ -207,6 +208,11 @@ describe("keadaan awal", () => {
 
   it("halaman /admin/gudang: Pengaturan terbuka, lainnya tertutup", () => {
     pasang("/admin/gudang");
+    expect(keadaan()).toEqual({ "Pekerjaan rutin": false, Laporan: false, "Data Master": false, Pengaturan: true });
+  });
+
+  it("halaman /admin/toko: Pengaturan terbuka, lainnya tertutup", () => {
+    pasang("/admin/toko");
     expect(keadaan()).toEqual({ "Pekerjaan rutin": false, Laporan: false, "Data Master": false, Pengaturan: true });
   });
 

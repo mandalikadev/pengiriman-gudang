@@ -1,13 +1,11 @@
-import { asc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { formatBulanLaporan, formatWaktu } from "@/app/admin/impor/format";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
-import { db } from "@/server/db";
-import { gudang, hubunganTokoGudang, toko } from "@/server/db/schema";
 import { daftarGudangKelola, type GudangKelola } from "@/server/gudang/kelola-gudang";
+import { daftarTokoKelola } from "@/server/gudang/kelola-toko";
 import { bulanTersediaUntukPeriode, daftarPeriodeSumber } from "@/server/gudang/periode-sumber";
 
 import { BarisGudang } from "./baris-gudang";
@@ -20,14 +18,7 @@ export const metadata: Metadata = {
 };
 
 async function muatData(): Promise<{ daftarGudang: GudangKelola[]; daftarToko: DataToko[] }> {
-  const daftarGudang = await daftarGudangKelola();
-  const daftarToko = await db
-    .select({ id: toko.id, nama: toko.nama, aktif: toko.aktif, namaGudang: gudang.nama })
-    .from(toko)
-    .leftJoin(hubunganTokoGudang, eq(hubunganTokoGudang.tokoId, toko.id))
-    .leftJoin(gudang, eq(gudang.id, hubunganTokoGudang.gudangId))
-    .orderBy(asc(toko.nama));
-  return { daftarGudang, daftarToko };
+  return { daftarGudang: await daftarGudangKelola(), daftarToko: await daftarTokoKelola() };
 }
 
 const keBulan = (kode: string) => ({ kode, label: formatBulanLaporan(kode) });

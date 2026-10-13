@@ -53,6 +53,7 @@ describe("Navigasi: kelompok menu per peran", () => {
       ["/admin/alias-stok", "Alias nama stok"],
       ["/admin/libur", "Libur"],
       ["/admin/gudang", "Gudang"],
+      ["/admin/toko", "Toko"],
       ["/admin/pengguna", "Pengguna"],
       ["/admin/penugasan", "Penugasan"],
     ]);
