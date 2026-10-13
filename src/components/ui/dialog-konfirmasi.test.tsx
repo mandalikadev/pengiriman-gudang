@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "./button";
@@ -8,6 +7,8 @@ import { DialogKonfirmasi } from "./dialog-konfirmasi";
 import {
   dialogKonfirmasi,
   judulDialogKonfirmasi,
+  lepasTerpasang,
+  pasangUntukUji,
   pilihDiDialogKonfirmasi,
   tombolDialogKonfirmasi,
 } from "./uji-bantu-dialog-konfirmasi";
@@ -20,35 +21,19 @@ declare global {
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-let terpasang: { wadah: HTMLElement; akar: Root } | null = null;
-
-afterEach(() => {
-  if (terpasang !== null) {
-    const { wadah, akar } = terpasang;
-    act(() => akar.unmount());
-    wadah.remove();
-    terpasang = null;
-  }
-});
+afterEach(lepasTerpasang);
 
 function pasang(destruktif: boolean, konfirmasi: () => void) {
-  const wadah = document.createElement("div");
-  document.body.append(wadah);
-  const akar = createRoot(wadah);
-  act(() =>
-    akar.render(
-      <DialogKonfirmasi
-        judul="Hapus alias LAVENDER?"
-        akibat="Nama ini tidak lagi dicocokkan."
-        labelTindakan="Hapus"
-        destruktif={destruktif}
-        konfirmasi={konfirmasi}
-        pemicu={<Button type="button">Buka</Button>}
-      />,
-    ),
+  return pasangUntukUji(
+    <DialogKonfirmasi
+      judul="Hapus alias LAVENDER?"
+      akibat="Nama ini tidak lagi dicocokkan."
+      labelTindakan="Hapus"
+      destruktif={destruktif}
+      konfirmasi={konfirmasi}
+      pemicu={<Button type="button">Buka</Button>}
+    />,
   );
-  terpasang = { wadah, akar };
-  return wadah;
 }
 
 function buka(wadah: HTMLElement) {
@@ -77,9 +62,7 @@ describe("DialogKonfirmasi", () => {
   it("tindakan merusak memakai varian destructive; tindakan lain varian default", () => {
     buka(pasang(true, vi.fn()));
     expect(tombolDialogKonfirmasi("Hapus").className).toContain("bg-destructive");
-    act(() => terpasang!.akar.unmount());
-    terpasang!.wadah.remove();
-    terpasang = null;
+    lepasTerpasang();
 
     buka(pasang(false, vi.fn()));
     expect(tombolDialogKonfirmasi("Hapus").className).toContain("bg-primary");

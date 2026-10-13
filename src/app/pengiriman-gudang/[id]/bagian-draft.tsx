@@ -223,7 +223,16 @@ type FinalisasiDraft = { idGudang: number; tanggalKirim: TanggalBisnis } | null;
  * final mendapat form finalisasi ulang dengan alasan wajib (PRD A7 ▶ Keputusan 2026-10-11, T62); daftar versi dan
  * rincian rencana final adalah bagian riwayat (T63).
  */
-function FinalisasiToko({ toko, finalisasi }: { toko: TokoDraft; finalisasi: FinalisasiDraft }) {
+export function FinalisasiToko({
+  toko,
+  finalisasi,
+}: {
+  toko: Pick<
+    TokoDraft,
+    "id" | "nama" | "versi" | "versiFinal" | "perluDihitungUlang" | "jumlahTertahan" | "kirimanSebelumnyaBelumSampai"
+  > & { baris: Pick<BarisDraft, "kodeProduk" | "stokAkhir" | "jumlahKirim">[] };
+  finalisasi: FinalisasiDraft;
+}) {
   if (finalisasi === null) return null;
   const alasan =
     toko.perluDihitungUlang.length > 0
