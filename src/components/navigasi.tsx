@@ -15,7 +15,7 @@ import {
   uraiPilihanKelompok,
 } from "./pilihan-kelompok-sidebar";
 
-// T78 — DESIGN §6 ▶ Keputusan (2026-10-11): navigasi berupa sidebar berkelompok; susunan kelompok T95 (2026-10-12).
+// T78 — DESIGN §6 ▶ Keputusan (2026-10-11): navigasi berupa sidebar berkelompok; susunan kelompok T97 (2026-10-13).
 // Desktop (≥ lg): sidebar tetap di kiri, lebar 240 px. Layar kecil: bar atas tipis + menu tarik rounded-3xl.
 // Item hanya untuk halaman yang sudah ada dan boleh dibuka peran itu; penyembunyian ini tambahan,
 // halaman tetap memeriksa sesi dan peran di server (wajibMasuk / wajibAdmin / wajibAksesPengirimanGudang).
@@ -27,10 +27,9 @@ const labelPeran: Record<PeranTampil, string> = { admin: "Admin", operator: "Ope
 
 type Akses = "masuk" | "pengiriman-gudang" | "admin";
 type Item = { href: string; label: string; akses: Akses };
-type KelompokItem = { judul: string | null; item: Item[] };
-type Kelompok = KelompokItem | { judul: string; subkelompok: KelompokItem[] };
+type Kelompok = { judul: string | null; item: Item[] };
 
-// Urutan dan pengelompokan persis DESIGN §6 ▶ Keputusan (2026-10-12, UAT ketiga): mengikuti urutan kerja (T95).
+// Urutan dan pengelompokan persis DESIGN §6 ▶ Keputusan (2026-10-13, pemilik): Data Master kelompok sendiri (T97).
 const kelompokMenu: Kelompok[] = [
   { judul: null, item: [{ href: "/", label: "Beranda", akses: "masuk" }] },
   {
@@ -50,39 +49,29 @@ const kelompokMenu: Kelompok[] = [
     ],
   },
   {
+    judul: "Data Master",
+    item: [
+      { href: "/admin/keluarga-aroma", label: "Keluarga aroma", akses: "admin" },
+      { href: "/admin/pemetaan-produk", label: "Pemetaan produk", akses: "admin" },
+      { href: "/admin/alias-stok", label: "Alias nama stok", akses: "admin" },
+      { href: "/admin/libur", label: "Libur", akses: "admin" },
+    ],
+  },
+  {
     judul: "Pengaturan",
-    subkelompok: [
-      {
-        judul: "Data master",
-        item: [
-          { href: "/admin/keluarga-aroma", label: "Keluarga aroma", akses: "admin" },
-          { href: "/admin/pemetaan-produk", label: "Pemetaan produk", akses: "admin" },
-          { href: "/admin/alias-stok", label: "Alias nama stok", akses: "admin" },
-          { href: "/admin/libur", label: "Libur", akses: "admin" },
-        ],
-      },
-      {
-        judul: "Organisasi",
-        item: [
-          { href: "/admin/gudang", label: "Gudang", akses: "admin" },
-          { href: "/admin/pengguna", label: "Pengguna", akses: "admin" },
-          { href: "/admin/penugasan", label: "Penugasan", akses: "admin" },
-        ],
-      },
+    item: [
+      { href: "/admin/gudang", label: "Gudang", akses: "admin" },
+      { href: "/admin/pengguna", label: "Pengguna", akses: "admin" },
+      { href: "/admin/penugasan", label: "Penugasan", akses: "admin" },
     ],
   },
 ];
 
-/** Menyaring item yang boleh dibuka; kelompok dan subkelompok tanpa item tidak ditampilkan. */
+/** Menyaring item yang boleh dibuka; kelompok tanpa item tidak ditampilkan. */
 function kelompokUntuk(bolehDibuka: (akses: Akses) => boolean): Kelompok[] {
-  const saring = (kelompok: KelompokItem): KelompokItem[] => {
+  return kelompokMenu.flatMap((kelompok): Kelompok[] => {
     const item = kelompok.item.filter((i) => bolehDibuka(i.akses));
     return item.length > 0 ? [{ judul: kelompok.judul, item }] : [];
-  };
-  return kelompokMenu.flatMap((kelompok): Kelompok[] => {
-    if (!("subkelompok" in kelompok)) return saring(kelompok);
-    const subkelompok = kelompok.subkelompok.flatMap(saring);
-    return subkelompok.length > 0 ? [{ judul: kelompok.judul, subkelompok }] : [];
   });
 }
 
@@ -131,14 +120,6 @@ function TautanNavigasi({ item, aktif, onClick }: { item: Item; aktif: boolean; 
   );
 }
 
-function JudulSubkelompok({ judul, id }: { judul: string; id: string }) {
-  return (
-    <p id={id} data-kelompok={judul} className="px-4 pt-3 pb-1 text-xs font-bold tracking-wide text-muted-foreground uppercase">
-      {judul}
-    </p>
-  );
-}
-
 function DaftarItem({ item, pathname, onPilih }: { item: Item[]; pathname: string; onPilih: () => void }) {
   return (
     <ul className="flex flex-col gap-0.5">
@@ -149,11 +130,6 @@ function DaftarItem({ item, pathname, onPilih }: { item: Item[]; pathname: strin
       ))}
     </ul>
   );
-}
-
-/** Semua item dalam kelompok, termasuk item di subkelompoknya. */
-function itemKelompok(kelompok: Kelompok): Item[] {
-  return "subkelompok" in kelompok ? kelompok.subkelompok.flatMap((sub) => sub.item) : kelompok.item;
 }
 
 /** T81: judul kelompok berupa tombol buka-tutup (DESIGN §6 ▶ Keputusan 2026-10-11, UAT). */
@@ -172,7 +148,7 @@ function KelompokNavigasi({
   onAlih: () => void;
   onPilih: () => void;
 }) {
-  if (kelompok.judul === null) return <DaftarItem item={itemKelompok(kelompok)} pathname={pathname} onPilih={onPilih} />;
+  if (kelompok.judul === null) return <DaftarItem item={kelompok.item} pathname={pathname} onPilih={onPilih} />;
   const idDaftar = `${idDasar}-daftar`;
   return (
     <section aria-labelledby={idDasar}>
@@ -186,8 +162,7 @@ function KelompokNavigasi({
         className={cn(
           bentukItem,
           // `group`: ikon ChevronDown berputar mengikuti aria-expanded tombol ini.
-          "group justify-between text-xs font-bold tracking-wide uppercase hover:bg-primary/10 hover:text-primary",
-          "subkelompok" in kelompok ? "text-foreground" : "text-muted-foreground",
+          "group justify-between text-xs font-bold tracking-wide text-muted-foreground uppercase hover:bg-primary/10 hover:text-primary",
           fokusTerlihat,
         )}
       >
@@ -199,16 +174,7 @@ function KelompokNavigasi({
         />
       </button>
       <div id={idDaftar} hidden={!terbuka}>
-        {"subkelompok" in kelompok ? (
-          kelompok.subkelompok.map((sub, i) => (
-            <section key={sub.judul} aria-labelledby={`${idDasar}-${i}`}>
-              <JudulSubkelompok judul={sub.judul ?? ""} id={`${idDasar}-${i}`} />
-              <DaftarItem item={sub.item} pathname={pathname} onPilih={onPilih} />
-            </section>
-          ))
-        ) : (
-          <DaftarItem item={kelompok.item} pathname={pathname} onPilih={onPilih} />
-        )}
+        <DaftarItem item={kelompok.item} pathname={pathname} onPilih={onPilih} />
       </div>
     </section>
   );
@@ -288,7 +254,7 @@ export function Navigasi({
   // Kelompok halaman aktif selalu terbuka saat halaman dibuka, walaupun sebelumnya ditutup.
   const pilihan = uraiPilihanKelompok(teksPilihan);
   const ditutup = pathname === pathnameTerakhir ? ditutupDiHalaman : [];
-  const berisiHalamanAktif = (k: Kelompok) => itemKelompok(k).some((i) => halamanAktif(pathname, i.href));
+  const berisiHalamanAktif = (k: Kelompok) => k.item.some((i) => halamanAktif(pathname, i.href));
   const terbuka = (k: Kelompok) => {
     if (k.judul === null) return true;
     return berisiHalamanAktif(k) ? !ditutup.includes(k.judul) : pilihan[k.judul] === true;

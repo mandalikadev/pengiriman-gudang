@@ -22,16 +22,16 @@ function tautan(html: string) {
   return [...html.matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[2]]);
 }
 
-/** Judul kelompok dan subkelompok, sesuai urutan tampil. */
+/** Judul kelompok, sesuai urutan tampil. */
 function judulKelompok(html: string) {
   return [...html.matchAll(/data-kelompok="([^"]*)"/g)].map((m) => m[1]);
 }
 
 describe("Navigasi: kelompok menu per peran", () => {
-  // T95 — DESIGN §6 ▶ Keputusan (2026-10-12, UAT ketiga): susunan mengikuti urutan kerja.
-  it("admin melihat Beranda, Pekerjaan rutin, Laporan, dan Pengaturan (Data master, Organisasi) dengan item persis DESIGN §6", () => {
+  // T97 — DESIGN §6 ▶ Keputusan (2026-10-13, pemilik): Data Master kelompok sendiri, Pengaturan tanpa subjudul.
+  it("admin melihat Beranda, Pekerjaan rutin, Laporan, Data Master, dan Pengaturan dengan item persis DESIGN §6", () => {
     const html = render({ pengguna: ADMIN, tampilkanPengirimanGudang: true, children: null });
-    expect(judulKelompok(html)).toEqual(["Pekerjaan rutin", "Laporan", "Pengaturan", "Data master", "Organisasi"]);
+    expect(judulKelompok(html)).toEqual(["Pekerjaan rutin", "Laporan", "Data Master", "Pengaturan"]);
     expect(tautan(html)).toEqual([
       ["/", "Beranda"],
       ["/admin/impor", "Impor penjualan"],
@@ -48,9 +48,10 @@ describe("Navigasi: kelompok menu per peran", () => {
       ["/admin/pengguna", "Pengguna"],
       ["/admin/penugasan", "Penugasan"],
     ]);
+    expect(html).not.toContain("Organisasi");
   });
 
-  it("operator: Pekerjaan rutin hanya berisi Pengiriman Gudang, tanpa Pengaturan", () => {
+  it("operator: Pekerjaan rutin hanya berisi Pengiriman Gudang, tanpa Data Master dan Pengaturan", () => {
     const html = render({ pengguna: OPERATOR, tampilkanPengirimanGudang: true, children: null });
     expect(judulKelompok(html)).toEqual(["Pekerjaan rutin", "Laporan"]);
     expect(tautan(html)).toEqual([
@@ -60,6 +61,7 @@ describe("Navigasi: kelompok menu per peran", () => {
       ["/kalender", "Kalender"],
     ]);
     expect(html).not.toContain("/admin/");
+    expect(html).not.toContain("Data Master");
     expect(html).not.toContain("Pengaturan");
   });
 
@@ -72,6 +74,7 @@ describe("Navigasi: kelompok menu per peran", () => {
       ["/kalender", "Kalender"],
     ]);
     expect(html).not.toContain("Pekerjaan rutin");
+    expect(html).not.toContain("Data Master");
     expect(html).not.toContain("Pengaturan");
     expect(html).not.toContain("/admin/");
   });
