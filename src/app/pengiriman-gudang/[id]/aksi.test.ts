@@ -70,7 +70,8 @@ describe("kewenangan menyimpan jadwal Pusat (diperiksa di server)", () => {
     const operator = await masukOperator(pusat, ["kelola-usulan-jadwal"]);
 
     await expect(simpanJadwal(seninKamis(t.id))).resolves.toEqual({ keadaan: "berhasil" });
-    expect(kepala.dimuatUlang).toEqual([`/pengiriman-gudang/${pusat}`]);
+    // T98: halaman Pengiriman Gudang dan kedua halaman jadwal sama-sama segar setelah simpan.
+    expect(kepala.dimuatUlang).toEqual([`/pengiriman-gudang/${pusat}`, `/usulan-jadwal/${pusat}`, `/salin-jadwal/${pusat}`]);
 
     const [baris] = await riwayat(t.id);
     expect(baris).toMatchObject({

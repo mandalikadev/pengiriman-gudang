@@ -80,3 +80,15 @@ export async function wajibAksesLihatGudang(
   if (!gudang) throw new AksesDitolakError("Anda tidak punya akses ke gudang tersebut.");
   return { pengguna, gudang };
 }
+
+/**
+ * Seperti `wajibMasuk`, lalu mengembalikan gudang tempat pengguna ditugaskan dengan hak `tindakan` (T98: halaman
+ * Usulkan jadwal toko dan Salin jadwal). Menolak dengan `AksesDitolakError` jika tidak ada. Peran admin tidak
+ * dipertimbangkan: admin tanpa penugasan ditolak (PRD A3).
+ */
+export async function wajibGudangDenganHak(tindakan: HakTindakan): Promise<GudangDapatDilihat[]> {
+  const pengguna = await wajibMasuk();
+  const daftarGudang = (await daftarGudangDapatDilihat(pengguna)).filter((g) => g.hakTindakan.includes(tindakan));
+  if (daftarGudang.length === 0) throw new AksesDitolakError("Anda tidak punya hak tindakan ini di gudang mana pun.");
+  return daftarGudang;
+}

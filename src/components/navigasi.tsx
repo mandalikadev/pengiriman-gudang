@@ -15,21 +15,24 @@ import {
   uraiPilihanKelompok,
 } from "./pilihan-kelompok-sidebar";
 
-// T78 — DESIGN §6 ▶ Keputusan (2026-10-11): navigasi berupa sidebar berkelompok; susunan kelompok T97 (2026-10-13).
+// T78 — DESIGN §6 ▶ Keputusan (2026-10-11): navigasi berupa sidebar berkelompok; susunan kelompok T97 dan T98 (2026-10-13).
 // Desktop (≥ lg): sidebar tetap di kiri, lebar 240 px. Layar kecil: bar atas tipis + menu tarik rounded-3xl.
 // Item hanya untuk halaman yang sudah ada dan boleh dibuka peran itu; penyembunyian ini tambahan,
-// halaman tetap memeriksa sesi dan peran di server (wajibMasuk / wajibAdmin / wajibAksesPengirimanGudang).
+// halaman tetap memeriksa sesi dan peran di server (wajibMasuk / wajibAdmin / wajibAksesPengirimanGudang /
+// wajibGudangDenganHak).
 
 /** Peran yang ditampilkan di sidebar (istilah CONTEXT.md). Operator = bukan admin, tetapi punya penugasan gudang. */
 type PeranTampil = "admin" | "operator" | "viewer";
 
 const labelPeran: Record<PeranTampil, string> = { admin: "Admin", operator: "Operator", viewer: "Viewer" };
 
-type Akses = "masuk" | "pengiriman-gudang" | "admin";
+/** `jadwal-toko` = hak `kelola-usulan-jadwal` di sedikitnya satu gudang (T98). */
+type Akses = "masuk" | "pengiriman-gudang" | "jadwal-toko" | "admin";
 type Item = { href: string; label: string; akses: Akses };
 type Kelompok = { judul: string | null; item: Item[] };
 
-// Urutan dan pengelompokan persis DESIGN §6 ▶ Keputusan (2026-10-13, pemilik): Data Master kelompok sendiri (T97).
+// Urutan dan pengelompokan persis DESIGN §6 ▶ Keputusan (2026-10-13, pemilik): Data Master kelompok sendiri (T97),
+// kelompok Pengiriman Gudang dan halaman jadwal toko sendiri (T98).
 const kelompokMenu: Kelompok[] = [
   { judul: null, item: [{ href: "/", label: "Beranda", akses: "masuk" }] },
   {
@@ -38,7 +41,14 @@ const kelompokMenu: Kelompok[] = [
       { href: "/admin/impor", label: "Impor penjualan", akses: "admin" },
       { href: "/admin/ranking", label: "Ranking pusat", akses: "admin" },
       { href: "/admin/jadwal", label: "Persetujuan jadwal", akses: "admin" },
+      { href: "/usulan-jadwal", label: "Usulkan jadwal toko", akses: "jadwal-toko" },
+    ],
+  },
+  {
+    judul: "Pengiriman Gudang",
+    item: [
       { href: "/pengiriman-gudang", label: "Pengiriman Gudang", akses: "pengiriman-gudang" },
+      { href: "/salin-jadwal", label: "Salin jadwal ke beberapa toko", akses: "jadwal-toko" },
     ],
   },
   {
@@ -202,10 +212,13 @@ function TombolKeluar() {
 export function Navigasi({
   pengguna,
   tampilkanPengirimanGudang,
+  tampilkanJadwalToko,
   children,
 }: {
   pengguna: { nama: string; peran: PeranTampil } | null;
   tampilkanPengirimanGudang: boolean;
+  /** Punya hak `kelola-usulan-jadwal` di sedikitnya satu gudang (T98). */
+  tampilkanJadwalToko: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -245,8 +258,11 @@ export function Navigasi({
 
   if (pengguna === null || pathname === "/masuk") return <>{children}</>;
 
-  const bolehDibuka = (akses: Akses) =>
-    akses === "masuk" || (akses === "admin" ? pengguna.peran === "admin" : tampilkanPengirimanGudang);
+  const bolehDibuka = (akses: Akses) => {
+    if (akses === "masuk") return true;
+    if (akses === "admin") return pengguna.peran === "admin";
+    return akses === "jadwal-toko" ? tampilkanJadwalToko : tampilkanPengirimanGudang;
+  };
   const kelompok = kelompokUntuk(bolehDibuka);
   const tutup = () => setMenuTerbuka(false);
 

@@ -66,7 +66,7 @@ export function FormSalinJadwal({
   return (
     <form
       aria-labelledby={`${id}-judul`}
-      className="flex flex-col gap-4 border-t border-border/60 pt-6"
+      className="flex flex-col gap-4"
       data-salin-jadwal
       onSubmit={(event) => {
         event.preventDefault();

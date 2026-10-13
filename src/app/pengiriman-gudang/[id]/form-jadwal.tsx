@@ -64,7 +64,7 @@ export function FormJadwal({ idGudang, jalur, daftarToko }: { idGudang: number; 
   return (
     <form
       aria-labelledby={`${id}-judul`}
-      className="flex flex-col gap-4 border-t border-border/60 pt-6"
+      className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
         simpan(() => teks.aksiSimpan({ idGudang, idToko: Number(idToko), ...isianTerkirim(isian) }));

@@ -29,7 +29,7 @@ beforeEach(() => {
   akar = createRoot(wadah);
   act(() =>
     akar.render(
-      <Navigasi pengguna={{ nama: "Operator Uji", peran: "operator" }} tampilkanPengirimanGudang>
+      <Navigasi pengguna={{ nama: "Operator Uji", peran: "operator" }} tampilkanPengirimanGudang tampilkanJadwalToko>
         <p>isi</p>
       </Navigasi>,
     ),

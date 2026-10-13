@@ -101,7 +101,8 @@ describe("salin jadwal ke beberapa toko — gudang selain Pusat", () => {
         { idToko: c.id, status: "berhasil" },
       ],
     });
-    expect(kepala.dimuatUlang).toEqual([`/pengiriman-gudang/${bali}`]);
+    // T98: halaman Pengiriman Gudang dan kedua halaman jadwal sama-sama segar setelah simpan.
+    expect(kepala.dimuatUlang).toEqual([`/pengiriman-gudang/${bali}`, `/usulan-jadwal/${bali}`, `/salin-jadwal/${bali}`]);
 
     // Setiap toko mendapat usulannya sendiri; jadwal aktif belum berubah.
     const usulan = [];

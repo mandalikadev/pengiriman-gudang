@@ -1,4 +1,5 @@
 import { CalendarClock, CircleDashed } from "lucide-react";
+import Link from "next/link";
 
 import { formatWaktu } from "@/app/admin/impor/format";
 import { BadgeStatus } from "@/components/badge-status";
@@ -7,12 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal } from "@/domain/kalender";
 import type { TokoDenganJadwal } from "@/server/gudang/jadwal";
-import { labelHariKirim, labelPola, persiapanDariHari } from "@/server/gudang/pilihan-jadwal";
+import { labelHariKirim, labelPola } from "@/server/gudang/pilihan-jadwal";
 import type { UsulanTerakhir } from "@/server/gudang/usulan-jadwal";
 
-import type { IsianJadwal } from "./bidang-jadwal";
-import { FormJadwal, type JalurJadwal } from "./form-jadwal";
-import { FormSalinJadwal } from "./form-salin-jadwal";
+import type { JalurJadwal } from "./form-jadwal";
+import { hrefHalamanJadwal, JUDUL_SALIN_JADWAL, judulJadwalToko } from "./halaman-jadwal";
 import { BadgeStatusUsulan, labelJenisUsulan } from "./status-usulan";
 
 function BadgeTanpaJadwal() {
@@ -24,14 +24,8 @@ function BadgeTanpaJadwal() {
   );
 }
 
-/** Jadwal aktif → isian form (persiapan dalam hari → `H` / `H-1` / `H-2`). */
-function keIsian(jadwal: NonNullable<TokoDenganJadwal["jadwal"]>): IsianJadwal {
-  return {
-    pola: jadwal.pola,
-    hariKirim: jadwal.hariKirim.map((h) => ({ hari: h.hari, persiapan: persiapanDariHari[h.persiapanHari] })),
-    tanggalJangkar: jadwal.tanggalJangkar,
-  };
-}
+const kelasTautan =
+  "inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary underline underline-offset-4 transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
 
 function SelUsulan({ usulan }: { usulan: UsulanTerakhir | undefined }) {
   if (!usulan) return <span className="text-muted-foreground">—</span>;
@@ -48,21 +42,22 @@ function SelUsulan({ usulan }: { usulan: UsulanTerakhir | undefined }) {
 }
 
 /**
- * Bagian Jadwal halaman Pengiriman Gudang (T55, T56, T57; PRD A5 ▶ OD-06): setiap toko terhubung beserta jadwal
- * aktifnya. `usulanPerToko` (gudang selain Pusat) menambah kolom status usulan terakhir setiap toko. Form satu toko dan
- * form salin jadwal ke beberapa toko tampil hanya untuk operator dengan hak `kelola-usulan-jadwal` (`jalur`: Pusat
- * mengatur langsung, gudang lain mengusulkan; diperiksa lagi di server); pengguna lain melihatnya hanya-baca.
+ * Bagian Jadwal (T55, T56, T57; PRD A5 ▶ OD-06): setiap toko terhubung beserta jadwal aktifnya. `usulanPerToko`
+ * (gudang selain Pusat) menambah kolom status usulan terakhir setiap toko. Dipakai di halaman Pengiriman Gudang dan di
+ * kedua halaman jadwal toko (T98). Form satu toko dan form salin jadwal berada di halaman sendiri; `tautan` (jalur
+ * pengguna dengan hak `kelola-usulan-jadwal`: Pusat mengatur langsung, gudang lain mengusulkan) menampilkan tautan ke
+ * kedua halaman itu. Hak diperiksa lagi di halaman dan server action.
  */
 export function BagianJadwal({
   idGudang,
   daftarToko,
   usulanPerToko,
-  jalur,
+  tautan,
 }: {
   idGudang: number;
   daftarToko: TokoDenganJadwal[];
   usulanPerToko: Map<number, UsulanTerakhir> | null;
-  jalur: JalurJadwal | null;
+  tautan: JalurJadwal | null;
 }) {
   const jumlahKolom = usulanPerToko ? 7 : 6;
   return (
@@ -123,20 +118,15 @@ export function BagianJadwal({
           </TableBody>
         </Table>
 
-        {jalur !== null && daftarToko.length > 0 ? (
-          <>
-            <FormJadwal
-              idGudang={idGudang}
-              jalur={jalur}
-              daftarToko={daftarToko.map((t) => ({
-                id: t.id,
-                nama: t.nama,
-                jadwal: t.jadwal ? keIsian(t.jadwal) : null,
-                adaUsulanMenunggu: usulanPerToko?.get(t.id)?.status === "menunggu",
-              }))}
-            />
-            <FormSalinJadwal idGudang={idGudang} jalur={jalur} daftarToko={daftarToko.map((t) => ({ id: t.id, nama: t.nama }))} />
-          </>
+        {tautan !== null ? (
+          <div className="flex flex-wrap gap-2">
+            <Link href={`${hrefHalamanJadwal.usulan}/${idGudang}`} data-tautan-jadwal className={kelasTautan}>
+              {judulJadwalToko[tautan]}
+            </Link>
+            <Link href={`${hrefHalamanJadwal.salin}/${idGudang}`} data-tautan-jadwal className={kelasTautan}>
+              {JUDUL_SALIN_JADWAL}
+            </Link>
+          </div>
         ) : null}
       </CardContent>
     </Card>

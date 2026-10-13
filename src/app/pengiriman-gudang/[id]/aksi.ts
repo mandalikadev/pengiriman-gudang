@@ -50,10 +50,17 @@ async function wajibKelolaJadwal(input: unknown) {
   return wajibHakTindakan(gudang.success ? gudang.data.idGudang : 0, "kelola-usulan-jadwal");
 }
 
+/** Halaman yang menampilkan jadwal gudang ini: Pengiriman Gudang dan kedua halaman jadwal toko (T98). */
+function muatUlangHalamanJadwal(idGudang: number) {
+  revalidatePath(`/pengiriman-gudang/${idGudang}`);
+  revalidatePath(`/usulan-jadwal/${idGudang}`);
+  revalidatePath(`/salin-jadwal/${idGudang}`);
+}
+
 function selesai(idGudang: number, hasil: HasilJadwal): HasilSimpan {
   if (hasil.keadaan === "gagal") return { keadaan: "gagal", pesan: hasil.pesan };
   try {
-    revalidatePath(`/pengiriman-gudang/${idGudang}`);
+    muatUlangHalamanJadwal(idGudang);
   } catch {
     return { keadaan: "tersimpanGagalMuatUlang" };
   }
@@ -119,7 +126,7 @@ export async function salinJadwal(input: unknown): Promise<HasilSalinJadwal> {
   const hasil = await salinJadwalKeToko({ idGudang, daftarIdToko, masukan, idPengguna: operator.id });
   if (hasil.some((h) => h.status === "berhasil" || h.status === "belumPasti")) {
     try {
-      revalidatePath(`/pengiriman-gudang/${idGudang}`);
+      muatUlangHalamanJadwal(idGudang);
     } catch {
       return { keadaan: "tersimpanGagalMuatUlang", hasil };
     }

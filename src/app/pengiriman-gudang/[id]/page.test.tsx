@@ -234,10 +234,17 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
     return { berjadwal, tanpaJadwal };
   }
 
+  /** Tautan ke halaman Usulkan/Atur jadwal toko dan Salin jadwal (T98): [href, teks]. */
+  const tautanJadwal = (html: string) =>
+    [...html.matchAll(/<a [^>]*href="(\/(?:usulan|salin)-jadwal\/\d+)"[^>]*>(.*?)<\/a>/g)].map((m) => [
+      m[1],
+      m[2]!.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+    ]);
+
   const barisJadwal = (html: string, idToko: number) =>
     new RegExp(`<tr[^>]*data-jadwal-toko="${idToko}".*?</tr>`).exec(html)?.[0] ?? "";
 
-  it("operator Pusat dengan kelola-usulan-jadwal melihat jadwal aktif setiap toko dan form ubah", async () => {
+  it("operator Pusat dengan kelola-usulan-jadwal melihat jadwal aktif setiap toko dan tautan ke halaman jadwal, tanpa form", async () => {
     const { berjadwal, tanpaJadwal } = await siapkanTokoPusat();
     const operator = await kepalaPenggunaUji("viewer");
     await tugaskanOperator({ idPengguna: operator.id, idGudang: pusat, hakTindakan: ["kelola-usulan-jadwal"] });
@@ -262,19 +269,14 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
     expect(kosong).toContain("Belum ada jadwal");
     expect(kosong).toContain("lucide-circle-dashed");
 
-    expect(html).toContain("Atur jadwal toko");
-    expect(html).toMatch(/<form\b/);
-    expect(html).toContain("Simpan jadwal");
-
-    // Salin jadwal (T57): pilih beberapa toko, satu pengaturan, satu tombol; di Pusat langsung berlaku.
-    const salin = /<form[^>]*data-salin-jadwal.*?<\/form>/.exec(html)?.[0] ?? "";
-    expect(salin).toContain("Salin jadwal ke beberapa toko");
-    expect(salin).toContain("Pengaturan yang sama langsung menjadi jadwal aktif setiap toko terpilih.");
-    expect(salin).toContain("Pilih semua toko");
-    expect(salin).toMatch(new RegExp(`type="checkbox"[^>]*value="${berjadwal.id}"`));
-    expect(salin).toMatch(new RegExp(`type="checkbox"[^>]*value="${tanpaJadwal.id}"`));
-    expect(salin).toContain("Hari kirim dan persiapan");
-    expect(salin).toContain("Terapkan ke toko terpilih");
+    // T98: kedua form pindah ke halaman sendiri; halaman ini menautkannya untuk pengguna berhak.
+    expect(sebelumBagianDraft(html)).not.toMatch(/<form\b/);
+    expect(html).not.toContain("data-salin-jadwal");
+    expect(html).not.toContain("Simpan jadwal");
+    expect(tautanJadwal(html)).toEqual([
+      [`/usulan-jadwal/${pusat}`, "Atur jadwal toko"],
+      [`/salin-jadwal/${pusat}`, "Salin jadwal ke beberapa toko"],
+    ]);
   });
 
   it("jadwal 1× sebulan tampil dengan label pola \"1× sebulan\" tanpa tanggal jangkar (T92)", async () => {
@@ -297,6 +299,7 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
     const html = await buka(pusat);
     expect(barisJadwal(html, berjadwal.id)).toContain("Senin (H−2), Kamis (H)");
     expect(html).not.toContain("Atur jadwal toko");
+    expect(tautanJadwal(html)).toEqual([]);
     // Form hitung draft untuk hak hitung-kebutuhan (T58) diuji di draft.test.tsx.
     expect(sebelumBagianDraft(html)).not.toMatch(/<(button|input|select|form)\b/);
   });
@@ -308,9 +311,10 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
     const html = await buka(pusat);
     expect(barisJadwal(html, berjadwal.id)).toContain("Dua mingguan");
     expect(html).not.toMatch(/<(button|input|select|form)\b/);
+    expect(tautanJadwal(html)).toEqual([]);
   });
 
-  it("gudang selain Pusat: operator dengan kelola-usulan-jadwal mendapat form usulan dan melihat status usulan per toko", async () => {
+  it("gudang selain Pusat: operator dengan kelola-usulan-jadwal mendapat tautan usulan dan melihat status usulan per toko", async () => {
     const [menunggu, ditolak, tanpaUsulan] = [await buatTokoUji(), await buatTokoUji(), await buatTokoUji()];
     await db.insert(hubunganTokoGudang).values([
       { tokoId: menunggu.id, gudangId: cibubur },
@@ -344,17 +348,13 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
 
     expect(barisJadwal(html, tanpaUsulan.id)).not.toContain("data-status-usulan");
 
-    expect(html).toContain("Usulkan jadwal toko");
-    expect(html).toContain("Usulan berlaku setelah disetujui admin.");
-    expect(html).toContain("Kirim usulan");
-    expect(html).not.toContain("Atur jadwal toko");
-
-    // Salin jadwal (T57): di gudang selain Pusat setiap toko terpilih menjadi usulan tersendiri.
-    const salin = /<form[^>]*data-salin-jadwal.*?<\/form>/.exec(html)?.[0] ?? "";
-    expect(salin).toContain("Salin jadwal ke beberapa toko");
-    expect(salin).toContain("Setiap toko terpilih mendapat usulan tersendiri yang disetujui atau ditolak admin.");
-    for (const t of [menunggu, ditolak, tanpaUsulan]) expect(salin).toContain(t.nama);
-    expect(salin).toContain("Kirim usulan ke toko terpilih");
+    // T98: form usulan dan salin jadwal pindah ke halaman sendiri; halaman ini menautkannya.
+    expect(sebelumBagianDraft(html)).not.toMatch(/<form\b/);
+    expect(html).not.toContain("Kirim usulan");
+    expect(tautanJadwal(html)).toEqual([
+      [`/usulan-jadwal/${cibubur}`, "Usulkan jadwal toko"],
+      [`/salin-jadwal/${cibubur}`, "Salin jadwal ke beberapa toko"],
+    ]);
   });
 
   it("gudang selain Pusat: operator tanpa kelola-usulan-jadwal dan admin melihat status usulan hanya-baca", async () => {
@@ -371,6 +371,7 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
       expect(html).toContain("Usulan terakhir");
       expect(html).not.toContain("Usulkan jadwal toko");
       expect(html).not.toMatch(/<(button|input|select|form)\b/);
+      expect(tautanJadwal(html)).toEqual([]);
     }
   });
 
