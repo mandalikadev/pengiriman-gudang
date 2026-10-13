@@ -217,6 +217,11 @@ Pembuatan, perubahan, dan penonaktifan jadwal empat gudang selain Pusat memerluk
 >   - Yang boleh membatalkan: admin, dan untuk gudang Pusat juga operator berhak.
 >   - Syaratnya: tanggal kirimnya belum lewat, dan belum ada rencana final toko itu untuk tanggal tersebut.
 >   - Membatalkan jenis pindah mengembalikan tanggal rutinnya.
+> - **Pembatalan otomatis oleh sistem.** Berlaku untuk pengiriman di luar jadwal yang tanggal kirimnya belum lewat dan belum punya rencana final, baik yang masih menunggu maupun yang sudah berlaku. Statusnya menjadi Dibatalkan, dengan alasan berikut:
+>   - Admin menonaktifkan jadwal tetap toko: semua pengiriman di luar jadwal toko itu dibatalkan, alasan "Jadwal tetap dinonaktifkan".
+>   - Admin mengubah jadwal tetap, lalu tanggal rutin yang dipindah tidak lagi menjadi tanggal kirim rutin: dibatalkan, alasan "Jadwal tetap berubah".
+>   - Admin mengubah jadwal tetap, lalu tanggal kirim pengiriman di luar jadwal kini sudah menjadi tanggal kirim rutin: dibatalkan, alasan "Tanggal itu sudah menjadi tanggal kirim rutin".
+>   - Toko dilepas dari gudang (A3).
 > - **Status:** Menunggu, Berlaku, Ditolak, Ditarik, Dibatalkan. Berlaku = disetujui admin, atau langsung berlaku di Pusat.
 >
 > **Ikut perhitungan seperti pengiriman biasa**

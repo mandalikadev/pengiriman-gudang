@@ -99,3 +99,10 @@ Daftar hal yang **belum diputuskan pemilik**. Agen tidak mengimplementasikan per
 | Pola 1× sebulan: hari kirim per toko, kemunculan pertama hari itu setiap bulan (2026-10-12) | PRD A5; T92 |
 | Peringatan "kiriman sebelumnya belum sampai" bila p ≥ jarak dari pengiriman sebelumnya, tidak menahan finalisasi (2026-10-12) | PRD A6; T93 |
 | Kartu "Mulai di sini" di beranda dan sidebar menurut urutan kerja (2026-10-12) | DESIGN §6; T94, T95 |
+| Hari Minggu boleh menjadi hari kirim untuk semua pola (2026-10-13) | PRD A5; T106 |
+| Jadwal tetap diatur admin langsung (semua gudang, termasuk Pusat); salin jadwal jadi alat admin; usulan jadwal tetap operator dihapus (2026-10-13) | PRD A5; T112 |
+| Pengiriman di luar jadwal (tambahan/pindah) diusulkan operator, disetujui admin (Pusat langsung berlaku), ikut perhitungan dan memendekkan cakupan pengiriman sebelumnya, tercatat sebagai riwayat (2026-10-13) | PRD A5, A6; T113, T114 |
+| Admin mengelola gudang dan toko (tambah, ubah nama, nonaktifkan; tanpa hapus permanen) dan bisa melepas toko dari gudang (2026-10-13) | PRD A3; T110, T111, T115 |
+| Ekspor rencana final ke Google Sheets (Shared Drive, satu spreadsheet per versi) sebagai tambahan `.xlsx` (2026-10-13) | PRD A7; T116 |
+| Sidebar tanpa kelompok Pengiriman Gudang; Pengiriman Gudang di Pekerjaan rutin (2026-10-13) | DESIGN §6; T105 |
+| Pola zona kerja hasil audit UI/UX: tabel panjang, panel samping, konfirmasi, aksi menempel, urutan halaman Pengiriman Gudang, bahasa awam, halaman error (2026-10-13) | DESIGN §11; T107–T109, T117–T123 |
