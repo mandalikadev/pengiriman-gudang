@@ -27,6 +27,11 @@ vi.mock("@/domain/laporan", async (asli) => {
 vi.mock("next/headers", () => ({
   headers: async () => new Headers(kepala.cookie ? { cookie: kepala.cookie } : {}),
 }));
+// Panel dan dialog rincian (T108) memakai router untuk menutup; dirender di luar app router Next di test ini.
+vi.mock("next/navigation", async (asli) => ({
+  ...(await asli<typeof import("next/navigation")>()),
+  useRouter: () => ({ refresh: () => {}, push: () => {} }),
+}));
 
 import HalamanRingkasan from "./page";
 
@@ -78,6 +83,14 @@ async function buka(peran: "admin" | "viewer", parameter: Record<string, string 
 }
 
 /** Sel-sel satu baris tabel (toko|kode produk). */
+/**
+ * Isi dialog (T108, DESIGN §11.2) berbentuk `bentuk` sampai akhir markup: dialog dirender setelah tabel Ringkasan,
+ * jadi isinya tidak memuat baris tabel. `undefined` = tidak ada dialog berbentuk itu.
+ */
+function isiDialog(html: string, bentuk: "samping" | "tengah") {
+  return new RegExp(`<div(?=[^>]*role="dialog")(?=[^>]*data-bentuk="${bentuk}")[^>]*>(.*)$`, "s").exec(html)?.[1];
+}
+
 function baris(html: string, namaToko: string, kode: string) {
   const tr = new RegExp(`<tr[^>]*data-baris="${namaToko}\\|${kode}"[^>]*>(.*?)</tr>`).exec(html)?.[1];
   if (tr === undefined) throw new Error(`Baris ${namaToko}|${kode} tidak ada.`);
@@ -380,8 +393,8 @@ describe("/ringkasan: perbandingan minggu yang sama antarbulan (T36, PRD A2)", (
 
   /** Bagian perbandingan minggu sama: sel per minggu laporan dan kategori. */
   function mingguSama(html: string) {
-    const bagian = /<section[^>]*id="minggu-sama"[^>]*>(.*?)<\/section>/.exec(html)?.[1];
-    if (bagian === undefined) throw new Error("Bagian perbandingan minggu sama tidak ada.");
+    const bagian = isiDialog(html, "tengah");
+    if (bagian === undefined) throw new Error("Dialog perbandingan minggu sama tidak ada.");
     const sel = Object.fromEntries(
       [...bagian.matchAll(/<tr[^>]*data-minggu-laporan="(\d+)"[^>]*>(.*?)<\/tr>/g)].flatMap(([, minggu, tr]) =>
         [...tr.matchAll(/<td[^>]*data-kategori="([^"]+)"([^>]*)>(.*?)<\/td>/g)].map(([, kategori, atribut, isi]) => [
@@ -466,9 +479,9 @@ describe("/ringkasan: perbandingan minggu yang sama antarbulan (T36, PRD A2)", (
 
     // Tautan dari baris tabel membawa bulan dan filter yang diterapkan.
     const tanpaPilihan = await buka("viewer", { bulan: "2029-03", toko: String(d.toko.id) });
-    expect(tanpaPilihan).not.toContain('id="minggu-sama"');
+    expect(tanpaPilihan).not.toContain('role="dialog"');
     const harapanUrl = new URLSearchParams({ bulan: "2029-03", toko: String(d.toko.id), mingguSama: d.pasangan }).toString();
-    expect(tanpaPilihan).toContain(`href="/ringkasan?${harapanUrl.replaceAll("&", "&amp;")}#minggu-sama"`);
+    expect(tanpaPilihan).toContain(`href="/ringkasan?${harapanUrl.replaceAll("&", "&amp;")}"`);
   });
 
   it("pasangan di luar periode atau filter yang diterapkan, atau tidak dikenal: pesan, tanpa angka", async () => {
@@ -517,8 +530,8 @@ describe("/ringkasan: penelusuran angka sampai sel sumber (T37, PRD A1, A2)", ()
 
   /** Bagian rincian: tahap Ringkasan, rata-rata bulanan, nilai mingguan, dan daftar sumber per tanggal. */
   function rincian(html: string) {
-    const bagian = /<section[^>]*id="rincian"[^>]*>(.*?)<\/section>/.exec(html)?.[1];
-    if (bagian === undefined) throw new Error("Bagian rincian tidak ada.");
+    const bagian = isiDialog(html, "samping");
+    if (bagian === undefined) throw new Error("Panel rincian tidak ada.");
     const tahap = (nama: string) =>
       [...bagian.matchAll(new RegExp(`<[a-z]+[^>]*data-tahap="${nama}"[^>]*>`, "g"))].map(([tag]) => ({
         bulan: atribut(tag, "data-bulan"),
@@ -667,10 +680,10 @@ describe("/ringkasan: penelusuran angka sampai sel sumber (T37, PRD A1, A2)", ()
 
   it("tautan dari angka di Ringkasan membuka rincian; baris terpilih memakai accent-foreground (DESIGN §2)", async () => {
     const html = await buka("viewer", { bulan: "2026-06", toko: String(siap.toko.id) });
-    expect(html).not.toContain('id="rincian"');
+    expect(html).not.toContain('role="dialog"');
     const { kategori } = baris(html, siap.toko.nama, siap.kode);
     const harapanUrl = new URLSearchParams({ bulan: "2026-06", toko: String(siap.toko.id), rincian: nilaiRincian("Sabtu") }).toString();
-    expect(kategori.Sabtu.isi).toContain(`href="/ringkasan?${harapanUrl.replaceAll("&", "&amp;")}#rincian"`);
+    expect(kategori.Sabtu.isi).toContain(`href="/ringkasan?${harapanUrl.replaceAll("&", "&amp;")}"`);
     expect(/<a[^>]*data-tautan-rincian[^>]*>/.exec(kategori.Sabtu.isi)?.[0]).toContain("text-primary");
 
     const terbuka = await buka("viewer", { bulan: "2026-06", rincian: nilaiRincian("Sabtu") });
@@ -680,6 +693,50 @@ describe("/ringkasan: penelusuran angka sampai sel sumber (T37, PRD A1, A2)", ()
     expect(tautan).toContain('aria-current="true"');
     expect(tautan).toContain("text-accent-foreground");
     expect(tr.replace(/<svg[^>]*>.*?<\/svg>/g, "")).not.toMatch(/text-primary|text-muted-foreground/);
+  });
+
+  it("T108: rincian angka di panel samping, Minggu sama di dialog; keduanya setelah tabel dan hanya satu yang terbuka", async () => {
+    const pasangan = `${siap.toko.id}|${siap.kode}`;
+    const judulRincian = `Rincian Rata-rata Sabtu: ${siap.kode} · ${siap.toko.nama}`;
+    const judulMingguSama = `Perbandingan minggu yang sama: ${siap.kode} · ${siap.toko.nama}`;
+    const tutup = /<button[^>]*>.*?Tutup<\/button>/;
+    /** Posisi akhir tabel Ringkasan (dialog Minggu sama punya tabelnya sendiri). */
+    const akhirTabel = (html: string) => html.indexOf("</table>", html.indexOf('aria-label="Ringkasan per produk dan toko"'));
+
+    // Rincian angka: panel samping berjudul angka itu, dengan tombol Tutup, dirender setelah tabel (tidak menggeser tabel).
+    const denganRincian = await buka("viewer", { bulan: "2026-06", rincian: nilaiRincian("Sabtu") });
+    const panel = isiDialog(denganRincian, "samping") ?? "";
+    expect(panel).toContain(`>${judulRincian}</h2>`);
+    expect(panel).toMatch(tutup);
+    expect(panel).toContain(`data-rincian="${nilaiRincian("Sabtu")}"`);
+    expect(denganRincian.indexOf('role="dialog"')).toBeGreaterThan(akhirTabel(denganRincian));
+    expect(isiDialog(denganRincian, "tengah")).toBeUndefined();
+
+    // Minggu sama: dialog di tengah, juga setelah tabel.
+    const denganMingguSama = await buka("viewer", { bulan: "2026-06", mingguSama: pasangan });
+    const dialog = isiDialog(denganMingguSama, "tengah") ?? "";
+    expect(dialog).toContain(`>${judulMingguSama}</h2>`);
+    expect(dialog).toMatch(tutup);
+    expect(dialog).toContain(`data-minggu-sama="${pasangan}"`);
+    expect(denganMingguSama.indexOf('role="dialog"')).toBeGreaterThan(akhirTabel(denganMingguSama));
+    expect(isiDialog(denganMingguSama, "samping")).toBeUndefined();
+
+    // Tautan pembuka membuka satu bagian saja: rincian tanpa mingguSama, dan sebaliknya.
+    const parameterTautan = (tr: string, penanda: string) => {
+      const tag = new RegExp(`<a[^>]*${penanda}[^>]*>`).exec(tr)?.[0] ?? "";
+      return new URL((/href="([^"]*)"/.exec(tag)?.[1] ?? "").replaceAll("&amp;", "&"), "http://lokal").searchParams;
+    };
+    const tautanRincian = parameterTautan(baris(denganMingguSama, siap.toko.nama, siap.kode).tr, 'data-tautan-rincian="[^"]*Sabtu"');
+    expect(tautanRincian.get("rincian")).toBe(nilaiRincian("Sabtu"));
+    expect(tautanRincian.has("mingguSama")).toBe(false);
+    const tautanMingguSama = parameterTautan(baris(denganRincian, siap.toko.nama, siap.kode).tr, "data-tautan-minggu-sama");
+    expect(tautanMingguSama.get("mingguSama")).toBe(pasangan);
+    expect(tautanMingguSama.has("rincian")).toBe(false);
+
+    // URL yang meminta keduanya: hanya rincian angka yang terbuka.
+    const keduanya = await buka("viewer", { bulan: "2026-06", rincian: nilaiRincian("Sabtu"), mingguSama: pasangan });
+    expect(keduanya.match(/role="dialog"/g)).toHaveLength(1);
+    expect(isiDialog(keduanya, "samping")).toContain(`>${judulRincian}</h2>`);
   });
 
   it("rincian di luar periode atau filter yang diterapkan, atau tidak dikenal: pesan, tanpa angka", async () => {

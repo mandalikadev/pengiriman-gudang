@@ -1,9 +1,9 @@
 import { CircleCheck, ClipboardList, TriangleAlert } from "lucide-react";
 import Link from "next/link";
-import { Fragment } from "react";
 
 import { formatAngka, formatWaktu } from "@/app/admin/impor/format";
 import { BadgeStatus } from "@/components/badge-status";
+import { DialogUrl } from "@/components/dialog-url";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, type TanggalBisnis } from "@/domain/kalender";
@@ -25,7 +25,7 @@ import { FormFinalisasi } from "./form-finalisasi";
 import { FormHitungDraft } from "./form-hitung-draft";
 import { FormHitungUlang } from "./form-hitung-ulang";
 import { FormStokToko, InputStok } from "./form-stok-toko";
-import { ID_RINCIAN_BARIS, RincianBaris } from "./rincian-baris";
+import { RincianBaris } from "./rincian-baris";
 
 /** Kebutuhan barang di tabel varian; juga dipakai rincian rencana final (T63). */
 export function SelKebutuhan({ baris }: { baris: Pick<BarisDraft, "kebutuhan" | "tanpaRataRata"> }) {
@@ -106,15 +106,22 @@ const idBagianToko = (tokoId: number) => `draft-toko-${tokoId}`;
 
 /**
  * Halaman draft ini: tanpa `toko` = ringkasan per toko saja; dengan `toko` = toko itu dibuka (T73), dan dengan
- * `rincian` = rincian satu baris toko itu terbuka (T60).
+ * `rincian` = rincian satu baris toko itu terbuka di panel samping (T60, T108).
  */
-function urlDraft(idGudang: number, tanggalKirim: TanggalBisnis, buka: { toko?: number; rincian?: string } = {}) {
+function urlDraft(
+  idGudang: number,
+  tanggalKirim: TanggalBisnis,
+  buka: { toko?: number; rincian?: string; tanpaJangkar?: boolean } = {},
+) {
   const parameter = new URLSearchParams({ tanggal: tanggalKirim });
   if (buka.toko === undefined) return `/pengiriman-gudang/${idGudang}?${parameter.toString()}`;
   parameter.set("toko", String(buka.toko));
-  if (buka.rincian === undefined) return `/pengiriman-gudang/${idGudang}?${parameter.toString()}#${idBagianToko(buka.toko)}`;
+  if (buka.rincian === undefined) {
+    const url = `/pengiriman-gudang/${idGudang}?${parameter.toString()}`;
+    return buka.tanpaJangkar ? url : `${url}#${idBagianToko(buka.toko)}`;
+  }
   parameter.set("rincian", buka.rincian);
-  return `/pengiriman-gudang/${idGudang}?${parameter.toString()}#${ID_RINCIAN_BARIS}`;
+  return `/pengiriman-gudang/${idGudang}?${parameter.toString()}`;
 }
 
 const kelasDasarTautan =
@@ -122,8 +129,6 @@ const kelasDasarTautan =
 const kelasTautan = `${kelasDasarTautan} text-primary hover:bg-primary/10`;
 /** Tautan di baris terpilih (latar accent): primary di atas accent di bawah 4,5 : 1, jadi accent-foreground (DESIGN §2). */
 const kelasTautanBarisTerpilih = `${kelasDasarTautan} text-accent-foreground hover:bg-accent-foreground/10`;
-
-const JUMLAH_KOLOM_VARIAN = 8;
 
 function TabelVarian({ toko, inputStok, rincian }: { toko: TokoDraft; inputStok: InputStokDraft; rincian: RincianDraft }) {
   const { idGudang, draft } = rincian;
@@ -146,49 +151,63 @@ function TabelVarian({ toko, inputStok, rincian }: { toko: TokoDraft; inputStok:
       <TableBody>
         {toko.baris.map((b) => {
           const nilaiRincian = `${toko.id}|${b.kodeProduk}`;
-          const terbuka = rincian.terbuka === nilaiRincian;
           return (
-            <Fragment key={b.kodeProduk}>
-              <TableRow data-kode-produk={b.kodeProduk}>
-                <TableCell className="font-semibold">{b.kodeProduk}</TableCell>
-                <TableCell>{b.namaProduk ?? "—"}</TableCell>
-                <TableCell>{b.klasifikasi === "manual" ? <BadgeStatus status="manual" /> : "Otomatis"}</TableCell>
-                <TableCell angka className="align-top" data-kebutuhan={b.kebutuhan ?? "tidak-tersedia"}>
-                  <SelKebutuhan baris={b} />
-                </TableCell>
-                <TableCell angka className="align-top" data-stok-akhir={b.stokAkhir ?? "kosong"}>
-                  {inputStok === null ? <SelStok stokAkhir={b.stokAkhir} /> : <InputStok kodeProduk={b.kodeProduk} />}
-                </TableCell>
-                <TableCell angka className="align-top" data-jumlah-kirim={b.jumlahKirim ?? "kosong"}>
-                  {b.jumlahKirim === null ? "—" : formatAngka(b.jumlahKirim)}
-                </TableCell>
-                <TableCell className="align-top">
-                  <DaftarMasalah masalah={b.masalah} />
-                </TableCell>
-                <TableCell className="align-top">
-                  <Link
-                    href={urlDraft(idGudang, draft.tanggalKirim, { toko: toko.id, rincian: nilaiRincian })}
-                    aria-current={terbuka ? "true" : undefined}
-                    data-tautan-rincian-baris={nilaiRincian}
-                    className={kelasTautan}
-                  >
-                    Rincian
-                    <span className="sr-only"> perhitungan {b.kodeProduk}</span>
-                  </Link>
-                </TableCell>
-              </TableRow>
-              {terbuka ? (
-                <TableRow>
-                  <TableCell colSpan={JUMLAH_KOLOM_VARIAN}>
-                    <RincianBaris baris={b} toko={toko} draft={draft} urlTutup={urlDraft(idGudang, draft.tanggalKirim, { toko: toko.id })} />
-                  </TableCell>
-                </TableRow>
-              ) : null}
-            </Fragment>
+            <TableRow key={b.kodeProduk} data-kode-produk={b.kodeProduk}>
+              <TableCell className="font-semibold">{b.kodeProduk}</TableCell>
+              <TableCell>{b.namaProduk ?? "—"}</TableCell>
+              <TableCell>{b.klasifikasi === "manual" ? <BadgeStatus status="manual" /> : "Otomatis"}</TableCell>
+              <TableCell angka className="align-top" data-kebutuhan={b.kebutuhan ?? "tidak-tersedia"}>
+                <SelKebutuhan baris={b} />
+              </TableCell>
+              <TableCell angka className="align-top" data-stok-akhir={b.stokAkhir ?? "kosong"}>
+                {inputStok === null ? <SelStok stokAkhir={b.stokAkhir} /> : <InputStok kodeProduk={b.kodeProduk} />}
+              </TableCell>
+              <TableCell angka className="align-top" data-jumlah-kirim={b.jumlahKirim ?? "kosong"}>
+                {b.jumlahKirim === null ? "—" : formatAngka(b.jumlahKirim)}
+              </TableCell>
+              <TableCell className="align-top">
+                <DaftarMasalah masalah={b.masalah} />
+              </TableCell>
+              <TableCell className="align-top">
+                {/* Navigasi klien tanpa menggulir: panel terbuka di atas halaman, isian stok tetap (DESIGN §11.2). */}
+                <Link
+                  href={urlDraft(idGudang, draft.tanggalKirim, { toko: toko.id, rincian: nilaiRincian })}
+                  scroll={false}
+                  aria-current={rincian.terbuka === nilaiRincian ? "true" : undefined}
+                  data-tautan-rincian-baris={nilaiRincian}
+                  data-buka-panel
+                  className={kelasTautan}
+                >
+                  Lihat rincian
+                  <span className="sr-only"> perhitungan {b.kodeProduk}</span>
+                </Link>
+              </TableCell>
+            </TableRow>
           );
         })}
       </TableBody>
     </Table>
+  );
+}
+
+/**
+ * Rincian perhitungan baris yang diminta URL, di panel samping (T60; DESIGN §11.2, T108). Diletakkan di luar tabel agar
+ * panel tidak terkurung stacking context sel yang menempel.
+ */
+function PanelRincianBaris({ toko, rincian }: { toko: TokoDraft; rincian: RincianDraft }) {
+  const { idGudang, draft, terbuka } = rincian;
+  const baris = toko.baris.find((b) => `${toko.id}|${b.kodeProduk}` === terbuka);
+  if (baris === undefined || terbuka === null) return null;
+  return (
+    <DialogUrl
+      key={terbuka}
+      bentuk="samping"
+      judul={`Rincian perhitungan ${baris.kodeProduk} · ${toko.nama}`}
+      urlTutup={urlDraft(idGudang, draft.tanggalKirim, { toko: toko.id, tanpaJangkar: true })}
+      pembukaCadangan={`[data-tautan-rincian-baris="${terbuka}"]`}
+    >
+      <RincianBaris baris={baris} toko={toko} draft={draft} />
+    </DialogUrl>
   );
 }
 
@@ -279,6 +298,7 @@ function TabelToko({
         </FormStokToko>
       )}
       <FinalisasiToko toko={toko} finalisasi={finalisasi} />
+      <PanelRincianBaris toko={toko} rincian={rincian} />
     </section>
   );
 }

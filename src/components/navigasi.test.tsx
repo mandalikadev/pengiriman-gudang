@@ -189,13 +189,14 @@ describe("Navigasi: tampilan sidebar", () => {
     expect(html).not.toContain("font-heading");
   });
 
-  it("sidebar berlatar card, lebar 240 px di desktop, dan tersembunyi di layar kecil sebelum menu dibuka", () => {
+  it("sidebar berlatar card, lebar 240 px di desktop, dan tersembunyi di layar kecil; menu tarik tertutup saat dimuat", () => {
     const aside = html.match(/<aside [^>]*class="([^"]*)"/)?.[1] ?? "";
     expect(aside).toContain("bg-card");
-    expect(aside).toContain("lg:w-60");
-    expect(aside).toContain("hidden");
+    expect(aside).toContain("w-60");
+    expect(aside.split(" ")).toContain("hidden");
     expect(aside).toContain("lg:flex");
-    expect(aside).toContain("rounded-3xl");
+    // T108: menu tarik layar kecil adalah dialog yang baru dirender saat dibuka.
+    expect(html).not.toContain('role="dialog"');
   });
 
   it("isi halaman berada di sebelah kanan sidebar", () => {

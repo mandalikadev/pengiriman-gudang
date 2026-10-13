@@ -302,3 +302,95 @@ test("Draft rencana: tabel varian panjang menggulir di wadahnya; header dan kolo
 
   await db.delete(draftRencana).where(eq(draftRencana.gudangId, jabodetabek));
 });
+
+// T108 (DESIGN §11.2): "Lihat rincian" membuka panel samping di atas halaman tanpa memuat ulang. Isian stok yang belum
+// disimpan tetap ada, tidak ada peringatan tinggalkan halaman, dan posisi gulir tabel sama setelah panel ditutup.
+// Tautan langsung `?rincian=` langsung membuka panel baris itu.
+test("Draft rencana: rincian baris di panel samping; isian stok dan posisi gulir tetap", async ({ page }) => {
+  const JUMLAH_VARIAN = 30;
+  const daftarKode = Array.from({ length: JUMLAH_VARIAN }, () => kodeProdukUji("GOR"));
+  const { operator, jabodetabek, toko } = await siapkanDraft((tahun) =>
+    daftarKode.map((k, i) => produkContoh(tahun, k, `15ML GLITTER - VARIAN UJI ${i + 1}`, "15ML", "15ML GLITTER/LEATHER")),
+  );
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await masuk(page, operator.email);
+  await page.goto(`/pengiriman-gudang/${jabodetabek}?tanggal=${TANGGAL_KIRIM}&toko=${toko.id}`);
+
+  // Peringatan tinggalkan halaman (confirm) maupun beforeunload tidak boleh muncul.
+  const dialogPeramban: string[] = [];
+  page.on("dialog", async (dialog) => {
+    dialogPeramban.push(dialog.message());
+    await dialog.dismiss();
+  });
+
+  const form = page.getByRole("form", { name: `Stok akhir ${toko.nama}` });
+  const [pertama] = daftarKode;
+  // Locator CSS: selama panel terbuka, isi halaman disembunyikan dari pohon aksesibilitas (aria-hidden).
+  const isianPertama = page.locator(`input[aria-label="Stok akhir ${pertama}"]`);
+  await isianPertama.fill("7");
+  await expect(form.getByText("Ada perubahan yang belum disimpan")).toBeVisible();
+
+  // Gulir halaman dan wadah tabel sampai baris di tengah tabel terlihat, lalu buka rinciannya.
+  const tabel = page.locator(`table[aria-label="Varian ${toko.nama}"]`);
+  const wadah = tabel.locator("xpath=..");
+  await wadah.scrollIntoViewIfNeeded();
+  const kodeDibuka = daftarKode[20];
+  const tautan = page.locator(`a[data-tautan-rincian-baris="${toko.id}|${kodeDibuka}"]`);
+  await tautan.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  await expect(tautan).toBeInViewport();
+  const posisi = async () => ({
+    wadah: await wadah.evaluate((el) => el.scrollTop),
+    halaman: await page.evaluate(() => window.scrollY),
+  });
+  const sebelum = await posisi();
+  expect(sebelum.wadah).toBeGreaterThan(0);
+  const urlAwal = page.url();
+  await tautan.click();
+
+  const panel = page.getByRole("dialog", { name: `Rincian perhitungan ${kodeDibuka} · ${toko.nama}` });
+  await expect(panel).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`[?&]rincian=${toko.id}%7C${kodeDibuka}`));
+  await expect(panel.locator(`[data-rincian-baris="${toko.id}|${kodeDibuka}"] [data-kebutuhan-rincian]`)).toHaveAttribute(
+    "data-kebutuhan-rincian",
+    String(golden.kasusCakupan.kebutuhan),
+  );
+  // Panel di kanan, di atas halaman, dengan tombol Tutup yang terlihat (±560 px di desktop).
+  const kotakPanel = (await panel.boundingBox())!;
+  expect(kotakPanel.x + kotakPanel.width).toBeGreaterThanOrEqual(1440 - 20);
+  expect(Math.abs(kotakPanel.width - 560)).toBeLessThanOrEqual(1);
+  await expect(panel.getByRole("button", { name: "Tutup" })).toBeInViewport();
+  // Halaman tidak dimuat ulang: isian yang belum disimpan tetap ada.
+  await expect(isianPertama).toHaveValue("7");
+  expect(await posisi()).toEqual(sebelum);
+
+  await panel.getByRole("button", { name: "Tutup" }).click();
+  await expect(panel).toHaveCount(0);
+  await expect(page).not.toHaveURL(/rincian=/);
+  await expect(tautan).toBeFocused();
+  await expect(isianPertama).toHaveValue("7");
+  await expect(form.getByText("Ada perubahan yang belum disimpan")).toBeVisible();
+  expect(await posisi()).toEqual(sebelum);
+  expect(new URL(page.url()).searchParams.get("toko")).toBe(new URL(urlAwal).searchParams.get("toko"));
+
+  // Esc juga menutup panel.
+  await tautan.click();
+  await expect(panel).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+  expect(dialogPeramban).toEqual([]);
+
+  // Kosongkan lagi isian agar membuka alamat baru tidak memicu peringatan meninggalkan halaman.
+  await isianPertama.fill("");
+  await expect(form.getByText("Ada perubahan yang belum disimpan")).toHaveCount(0);
+
+  // Tautan langsung: panel baris itu langsung terbuka.
+  const kodeLangsung = daftarKode[3];
+  await page.goto(
+    `/pengiriman-gudang/${jabodetabek}?tanggal=${TANGGAL_KIRIM}&toko=${toko.id}&rincian=${encodeURIComponent(`${toko.id}|${kodeLangsung}`)}`,
+  );
+  const panelLangsung = page.getByRole("dialog", { name: `Rincian perhitungan ${kodeLangsung} · ${toko.nama}` });
+  await expect(panelLangsung).toBeVisible();
+  await expect(panelLangsung.locator(`[data-rincian-baris="${toko.id}|${kodeLangsung}"]`)).toBeVisible();
+
+  await db.delete(draftRencana).where(eq(draftRencana.gudangId, jabodetabek));
+});

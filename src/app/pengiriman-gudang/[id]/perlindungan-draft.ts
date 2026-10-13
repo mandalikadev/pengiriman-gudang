@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 // Perlindungan draft (PRD A7; T59): selama ada isian yang belum disimpan, meninggalkan halaman memunculkan peringatan.
 // Menutup tab, memuat ulang, atau membuka alamat lain memakai peringatan bawaan peramban (`beforeunload`); tautan di dalam
-// aplikasi (navigasi klien Next.js) memakai konfirmasi. Satu pasang listener untuk semua form yang belum disimpan.
+// aplikasi (navigasi klien Next.js) memakai konfirmasi, kecuali tautan yang membuka panel rincian di halaman yang sama. Satu pasang listener untuk semua form yang belum disimpan.
 
 const PESAN_TINGGALKAN = "Ada perubahan stok yang belum disimpan. Tinggalkan halaman ini?";
 
@@ -23,8 +23,9 @@ function padaKlik(event: MouseEvent) {
     return;
   }
   const tujuan = new URL(tautan.href, window.location.href);
-  // Alamat lain ditangani beforeunload; pindah ke jangkar di halaman yang sama tidak meninggalkan halaman.
-  if (tujuan.origin !== window.location.origin) return;
+  // Alamat lain ditangani beforeunload; pindah ke jangkar di halaman yang sama tidak meninggalkan halaman. Tautan pembuka
+  // panel rincian (`data-buka-panel`, DESIGN §11.2) tetap di halaman ini: isian yang belum disimpan tidak hilang.
+  if (tujuan.origin !== window.location.origin || tautan.hasAttribute("data-buka-panel")) return;
   if (tujuan.pathname === window.location.pathname && tujuan.search === window.location.search) return;
   if (!window.confirm(PESAN_TINGGALKAN)) {
     event.preventDefault();

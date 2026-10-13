@@ -489,7 +489,7 @@ describe("input stok di draft rencana (T59)", () => {
 describe("rincian perhitungan per baris draft (T60)", () => {
   const nilaiRincian = (tokoId: number, kodeProduk: string) => `${tokoId}|${kodeProduk}`;
   const bagianRincian = (html: string, tokoId: number, kodeProduk: string) =>
-    new RegExp(`<section[^>]*data-rincian-baris="${nilaiRincian(tokoId, kodeProduk)}".*?</section>`).exec(html)?.[0] ?? "";
+    new RegExp(`<section[^>]*data-rincian-baris="${nilaiRincian(tokoId, kodeProduk).replace("|", "\\|")}".*?</section>`).exec(html)?.[0] ?? "";
   const hrefDari = (teks: string) => (/href="([^"]*)"/.exec(teks)?.[1] ?? "").replaceAll("&amp;", "&");
 
   it("contoh PRD A6: rincian menampilkan cakupan, kategori efektif, rata-rata, 4×4, 1×4, 2×10, 2×8 = 56, buffer, dan jumlah kirim 44", async () => {
@@ -504,7 +504,10 @@ describe("rincian perhitungan per baris draft (T60)", () => {
     const tertutup = await bukaToko(tokoContoh.id);
     const barisContoh = new RegExp(`<tr[^>]*data-kode-produk="${kode.contoh}".*?</tr>`).exec(tertutup)?.[0] ?? "";
     const tautan = /<a[^>]*data-tautan-rincian-baris[^>]*>.*?<\/a>/.exec(barisContoh)?.[0] ?? "";
-    expect(tautan).toContain("Rincian");
+    expect(tautan).toContain(`Lihat rincian<span class="sr-only"> perhitungan ${kode.contoh}</span>`);
+    // T108: tautan membuka panel tanpa meninggalkan halaman (tanpa jangkar, tanpa peringatan isian belum disimpan).
+    expect(tautan).toContain("data-buka-panel");
+    expect(hrefDari(tautan)).not.toContain("#");
     const urlTautan = new URL(hrefDari(tautan), "http://lokal");
     expect(urlTautan.pathname).toBe(`/pengiriman-gudang/${cibubur}`);
     expect(urlTautan.searchParams.get("tanggal")).toBe(TANGGAL_KIRIM);
@@ -516,6 +519,13 @@ describe("rincian perhitungan per baris draft (T60)", () => {
     const html = await bukaToko(tokoContoh.id, { rincian: nilaiRincian(tokoContoh.id, kode.contoh) });
     const rincian = bagianRincian(html, tokoContoh.id, kode.contoh);
     expect(rincian).not.toBe("");
+    // T108 (DESIGN §11.2): URL `?rincian=` langsung membuka panel samping berjudul baris itu, di luar tabel varian.
+    const panel = /<div[^>]*role="dialog"[^>]*>.*$/s.exec(html)?.[0] ?? "";
+    expect(panel).toMatch(/data-bentuk="samping"/);
+    expect(panel).toContain(`>Rincian perhitungan ${kode.contoh} · ${tokoContoh.nama}</h2>`);
+    expect(panel).toMatch(/<button[^>]*>.*?Tutup<\/button>/);
+    expect(panel).toContain(rincian);
+    expect(html.indexOf('role="dialog"')).toBeGreaterThan(html.lastIndexOf("</table>"));
 
     // Tanggal cakupan Sabtu 06-06 sampai Minggu 14-06-2026 (sembilan hari) dengan kategori efektif dan sumbernya.
     const tanggalCakupan = [...rincian.matchAll(/<li[^>]*data-tanggal-cakupan="([^"]+)"[^>]*>(.*?)<\/li>/g)];

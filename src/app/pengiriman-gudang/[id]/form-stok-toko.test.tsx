@@ -258,6 +258,35 @@ describe("perlindungan draft input stok", () => {
     expect(status(wadah)).toBeNull();
   });
 
+  it("membuka rincian di panel samping (T108): tautan pembuka panel tidak memunculkan peringatan", () => {
+    const alamatAwal = window.location.href;
+    window.history.replaceState(null, "", "/pengiriman-gudang/3?tanggal=2026-06-08&toko=7");
+    const tautan = document.createElement("a");
+    tautan.href = "/pengiriman-gudang/3?tanggal=2026-06-08&toko=7&rincian=7%7CUJI-A";
+    tautan.setAttribute("data-buka-panel", "");
+    document.body.append(tautan);
+    const konfirmasi = vi.spyOn(window, "confirm").mockReturnValue(false);
+    try {
+      const wadah = buka();
+      ketik(isian(wadah, "UJI-A"), "3");
+      let dicegahPerlindungan: boolean | null = null;
+      const catat = (event: Event) => {
+        dicegahPerlindungan = event.defaultPrevented;
+        event.preventDefault();
+      };
+      document.addEventListener("click", catat, true);
+      tautan.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+      document.removeEventListener("click", catat, true);
+      expect(konfirmasi).not.toHaveBeenCalled();
+      expect(dicegahPerlindungan).toBe(false);
+      expect(isian(wadah, "UJI-A").value).toBe("3");
+    } finally {
+      konfirmasi.mockRestore();
+      tautan.remove();
+      window.history.replaceState(null, "", alamatAwal);
+    }
+  });
+
   it("berpindah toko (T73): tautan ke toko lain di halaman yang sama meminta konfirmasi; isian toko ini dipulihkan saat dibuka lagi", () => {
     const alamatAwal = window.location.href;
     window.history.replaceState(null, "", "/pengiriman-gudang/3?tanggal=2026-06-08&toko=7");

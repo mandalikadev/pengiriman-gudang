@@ -34,9 +34,6 @@ type BarisRincian = Pick<
 type TokoRincian = Pick<TokoDraft, "id" | "nama" | "persiapanHari" | "panjangCakupan" | "cakupan">;
 type DasarRincian = Pick<DraftRencana, "bulanSumber" | "ranking">;
 
-/** Id bagian rincian yang sedang dibuka (hanya satu per halaman); tujuan tautan `#…`. */
-export const ID_RINCIAN_BARIS = "rincian-baris";
-
 const KATEGORI: readonly KategoriDasar[] = ["Senin–Kamis", "Jumat", "Sabtu", "Minggu"];
 
 export const labelSumberKategori = {
@@ -50,7 +47,7 @@ const kelasTautan =
 
 /**
  * Penelusuran Ringkasan (T37) untuk satu Rata-rata Ringkasan toko–varian pada bulan periode sumber draft. Ringkasan
- * disaring ke toko dan produk ini sehingga barisnya selalu tampil; `#rincian` = bagian penelusuran di halaman Ringkasan.
+ * disaring ke toko dan produk ini sehingga barisnya selalu tampil; penelusurannya terbuka di panel samping (T108).
  */
 function urlPenelusuranRingkasan(bulanSumber: readonly string[], tokoId: number, kodeProduk: string, kategori: KategoriDasar) {
   const parameter = new URLSearchParams([
@@ -59,7 +56,7 @@ function urlPenelusuranRingkasan(bulanSumber: readonly string[], tokoId: number,
     ["produk", kodeProduk],
     ["rincian", nilaiRincian(tokoId, kodeProduk, kategori)],
   ]);
-  return `/ringkasan?${parameter.toString()}#rincian`;
+  return `/ringkasan?${parameter.toString()}`;
 }
 
 function TidakTersedia() {
@@ -74,7 +71,7 @@ function TidakTersedia() {
 function Bagian({ judul, children, ...props }: { judul: string; children: ReactNode } & Record<`data-${string}`, string | number>) {
   return (
     <div className="flex flex-col gap-2 rounded-2xl bg-muted px-4 py-3" {...props}>
-      <h6 className="font-semibold">{judul}</h6>
+      <h3 className="font-sans text-sm font-semibold">{judul}</h3>
       {children}
     </div>
   );
@@ -257,37 +254,22 @@ function JumlahKirim({ baris }: { baris: BarisRincian }) {
  * Rincian perhitungan satu baris draft: tanggal cakupan, kategori efektif dan sumbernya, rata-rata per kategori (tautan
  * ke penelusuran Ringkasan, T37), kebutuhan (jumlah hari × rata-rata), stok, buffer dan asalnya, serta jumlah kirim.
  * Untuk rencana final (T63) `tautanRingkasan` = false: Ringkasan membaca data terkini, sedangkan rincian final memakai
- * rata-rata snapshot.
+ * rata-rata snapshot. Ditampilkan di panel samping (T108), yang memberi judul dan tombol Tutup.
  */
 export function RincianBaris({
   baris,
   toko,
   draft,
-  urlTutup,
   tautanRingkasan = true,
 }: {
   baris: BarisRincian;
   toko: TokoRincian;
   draft: DasarRincian;
-  urlTutup: string;
   tautanRingkasan?: boolean;
 }) {
   const { cakupan } = toko;
   return (
-    <section
-      id={ID_RINCIAN_BARIS}
-      aria-labelledby={`${ID_RINCIAN_BARIS}-judul`}
-      data-rincian-baris={`${toko.id}|${baris.kodeProduk}`}
-      className="flex flex-col gap-3 py-2 whitespace-normal"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h5 id={`${ID_RINCIAN_BARIS}-judul`} className="text-base font-semibold">
-          {`Rincian perhitungan ${baris.kodeProduk} · ${toko.nama}`}
-        </h5>
-        <Link href={urlTutup} className={kelasTautan}>
-          Tutup rincian
-        </Link>
-      </div>
+    <section data-rincian-baris={`${toko.id}|${baris.kodeProduk}`} className="flex flex-col gap-3 whitespace-normal">
       {cakupan === null || baris.rincian === null || draft.bulanSumber === null ? (
         <p data-rincian-belum-tersimpan className="flex items-start gap-2">
           <CircleDashed aria-hidden strokeWidth={2} className="size-5 shrink-0 text-muted-foreground" />

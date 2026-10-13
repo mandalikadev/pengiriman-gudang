@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { formatAngka, formatBulanImpor } from "@/app/admin/impor/format";
 import { BadgeStatus } from "@/components/badge-status";
+import { DialogUrl } from "@/components/dialog-url";
 import { StatusCacheLaporan } from "@/components/status-cache-laporan";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -59,10 +60,10 @@ function nilaiFilter(filter: FilterAktif): FilterRingkasan {
   };
 }
 
-const ID_MINGGU_SAMA = "minggu-sama";
-const ID_RINCIAN = "rincian";
-
-/** Bagian yang sedang dibuka; ikut berpindah halaman tabel. */
+/**
+ * Bagian yang sedang dibuka; ikut berpindah halaman tabel. Hanya satu yang terbuka pada satu waktu (DESIGN §11.2):
+ * rincian angka di panel samping, perbandingan minggu sama di dialog.
+ */
 type Terbuka = {
   /** Pasangan produk–toko yang perbandingan minggu samanya dibuka (T36). */
   mingguSama?: string;
@@ -176,6 +177,7 @@ function SelRataRata({
       <div className="flex flex-col items-end gap-1">
         <Link
           href={tautanRincian.href}
+          scroll={false}
           aria-current={tautanRincian.dibuka ? "true" : undefined}
           className={`${terpilih ? kelasTautanBarisTerpilih : kelasTautan} underline underline-offset-4`}
           data-tautan-rincian={tautanRincian.nilai}
@@ -203,7 +205,11 @@ function TabelRingkasan({ hasil }: { hasil: Extract<HasilRingkasan, { keadaan: "
     );
   }
   const filter = nilaiFilter(hasil.filterAktif);
-  const mingguSama = hasil.mingguSama?.keadaan === "siap" ? nilaiPasanganMingguSama(hasil.mingguSama.tokoId, hasil.mingguSama.kodeProduk) : undefined;
+  // Hanya satu yang terbuka: rincian angka didahulukan bila URL meminta keduanya (sama dengan yang ditampilkan halaman).
+  const mingguSama =
+    hasil.rincian === null && hasil.mingguSama?.keadaan === "siap"
+      ? nilaiPasanganMingguSama(hasil.mingguSama.tokoId, hasil.mingguSama.kodeProduk)
+      : undefined;
   const rincian = hasil.rincian?.keadaan === "siap" ? hasil.rincian : undefined;
   const rincianTerbuka = rincian ? nilaiRincian(rincian.tokoId, rincian.kodeProduk, rincian.kategori) : undefined;
   const terbuka: Terbuka = { mingguSama, rincian: rincianTerbuka };
@@ -250,7 +256,7 @@ function TabelRingkasan({ hasil }: { hasil: Extract<HasilRingkasan, { keadaan: "
                     nilai={b.rataRata[kategori]}
                     terpilih={terpilih}
                     tautanRincian={{
-                      href: `${urlHalaman(hasil.bulanPilihan, filter, hasil.halaman, { ...terbuka, rincian: nilaiRincian(b.tokoId, b.kodeProduk, kategori) })}#${ID_RINCIAN}`,
+                      href: urlHalaman(hasil.bulanPilihan, filter, hasil.halaman, { rincian: nilaiRincian(b.tokoId, b.kodeProduk, kategori) }),
                       nilai: nilaiRincian(b.tokoId, b.kodeProduk, kategori),
                       dibuka: rincianTerbuka === nilaiRincian(b.tokoId, b.kodeProduk, kategori),
                       label: `rata-rata ${kategori} ${b.kodeProduk} di ${b.namaToko}`,
@@ -267,7 +273,8 @@ function TabelRingkasan({ hasil }: { hasil: Extract<HasilRingkasan, { keadaan: "
                 </TableCell>
                 <TableCell>
                   <Link
-                    href={`${urlHalaman(hasil.bulanPilihan, filter, hasil.halaman, { ...terbuka, mingguSama: pasangan })}#${ID_MINGGU_SAMA}`}
+                    href={urlHalaman(hasil.bulanPilihan, filter, hasil.halaman, { mingguSama: pasangan })}
+                    scroll={false}
                     aria-current={terpilih ? "true" : undefined}
                     className={terpilih ? kelasTautanBarisTerpilih : kelasTautan}
                     data-tautan-minggu-sama={pasangan}
@@ -339,76 +346,69 @@ function SelMingguSama({ kategori, nilai }: { kategori: KategoriDasar; nilai: Pe
   );
 }
 
-/** Perbandingan minggu yang sama antarbulan untuk satu produk–toko (T36, PRD A2). Zona kerja. */
+/**
+ * Perbandingan minggu yang sama antarbulan untuk satu produk–toko (T36, PRD A2), di dialog tengah layar (DESIGN §11.2,
+ * T108). Zona kerja.
+ */
 function PerbandinganMingguSama({ mingguSama, urlTutup }: { mingguSama: MingguSamaTerpilih; urlTutup: string }) {
-  const tutup = (
-    <Link href={urlTutup} className={kelasTautan}>
-      Tutup perbandingan
-    </Link>
-  );
   if (mingguSama.keadaan === "tidak-ada") {
     return (
-      <section id={ID_MINGGU_SAMA} className="flex flex-wrap items-center gap-2">
+      <DialogUrl bentuk="tengah" judul="Perbandingan minggu yang sama" urlTutup={urlTutup}>
         <p role="alert" className="flex items-center gap-2">
           <CircleX aria-hidden strokeWidth={2} className="size-5 text-destructive" />
           Produk–toko untuk perbandingan minggu sama tidak ada pada periode dan filter yang diterapkan.
         </p>
-        {tutup}
-      </section>
+      </DialogUrl>
     );
   }
+  const pasangan = nilaiPasanganMingguSama(mingguSama.tokoId, mingguSama.kodeProduk);
   const daftarMinggu = [...new Set(mingguSama.perbandingan.map((p) => p.mingguLaporan))].sort((a, b) => a - b);
   return (
-    <section
-      id={ID_MINGGU_SAMA}
-      aria-labelledby={`${ID_MINGGU_SAMA}-judul`}
-      className="flex flex-col gap-4"
-      data-minggu-sama={nilaiPasanganMingguSama(mingguSama.tokoId, mingguSama.kodeProduk)}
+    <DialogUrl
+      key={pasangan}
+      bentuk="tengah"
+      judul={`Perbandingan minggu yang sama: ${mingguSama.kodeProduk} · ${mingguSama.namaToko}`}
+      urlTutup={urlTutup}
+      pembukaCadangan={`[data-tautan-minggu-sama="${pasangan}"]`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-col gap-1">
-          <h2 id={`${ID_MINGGU_SAMA}-judul`} className="text-xl font-bold">
-            Perbandingan minggu yang sama: {mingguSama.kodeProduk} · {mingguSama.namaToko}
-          </h2>
-          <p className="text-muted-foreground">
-            {mingguSama.namaProduk ? `${mingguSama.namaProduk}. ` : null}
-            Jumlah nilai mingguan pada minggu laporan yang sama dibagi jumlah bulan pilihan yang punya nilai, lalu dibulatkan ke
-            atas.
-          </p>
-        </div>
-        {tutup}
-      </div>
-      {daftarMinggu.length === 0 ? (
-        <p className="text-muted-foreground">Tidak ada nilai mingguan pada bulan pilihan.</p>
-      ) : (
-        <Table aria-label="Perbandingan minggu yang sama antarbulan">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Minggu laporan</TableHead>
-              {KATEGORI.map((kategori) => (
-                <TableHead key={kategori} angka>
-                  Rata-rata {kategori}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {daftarMinggu.map((minggu) => (
-              <TableRow key={minggu} data-minggu-laporan={minggu}>
-                <TableCell className="font-semibold">M{minggu}</TableCell>
+      <section className="flex flex-col gap-4" data-minggu-sama={pasangan}>
+        <p className="text-muted-foreground">
+          {mingguSama.namaProduk ? `${mingguSama.namaProduk}. ` : null}
+          Jumlah nilai mingguan pada minggu laporan yang sama dibagi jumlah bulan pilihan yang punya nilai, lalu dibulatkan ke
+          atas.
+        </p>
+        {daftarMinggu.length === 0 ? (
+          <p className="text-muted-foreground">Tidak ada nilai mingguan pada bulan pilihan.</p>
+        ) : (
+          <Table aria-label="Perbandingan minggu yang sama antarbulan">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Minggu laporan</TableHead>
                 {KATEGORI.map((kategori) => (
-                  <SelMingguSama
-                    key={kategori}
-                    kategori={kategori}
-                    nilai={mingguSama.perbandingan.find((p) => p.kategori === kategori && p.mingguLaporan === minggu)}
-                  />
+                  <TableHead key={kategori} angka>
+                    Rata-rata {kategori}
+                  </TableHead>
                 ))}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </section>
+            </TableHeader>
+            <TableBody>
+              {daftarMinggu.map((minggu) => (
+                <TableRow key={minggu} data-minggu-laporan={minggu}>
+                  <TableCell className="font-semibold">M{minggu}</TableCell>
+                  {KATEGORI.map((kategori) => (
+                    <SelMingguSama
+                      key={kategori}
+                      kategori={kategori}
+                      nilai={mingguSama.perbandingan.find((p) => p.kategori === kategori && p.mingguLaporan === minggu)}
+                    />
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </section>
+    </DialogUrl>
   );
 }
 
@@ -499,94 +499,87 @@ function NilaiMingguanRinci({ bulanLaporan, nilai }: { bulanLaporan: string; nil
   );
 }
 
-/** Penelusuran satu angka Ringkasan sampai sel sumber (T37, PRD A1, A2; DESIGN §8). Zona kerja. */
+/**
+ * Penelusuran satu angka Ringkasan sampai sel sumber (T37, PRD A1, A2; DESIGN §8), di panel samping (DESIGN §11.2,
+ * T108). Zona kerja.
+ */
 function RincianAngkaRingkasan({ rincian, urlTutup }: { rincian: RincianAngka; urlTutup: string }) {
-  const tutup = (
-    <Link href={urlTutup} className={kelasTautan}>
-      Tutup rincian
-    </Link>
-  );
   if (rincian.keadaan === "tidak-ada") {
     return (
-      <section id={ID_RINCIAN} className="flex flex-wrap items-center gap-2">
+      <DialogUrl bentuk="samping" judul="Rincian angka" urlTutup={urlTutup}>
         <p role="alert" className="flex items-center gap-2">
           <CircleX aria-hidden strokeWidth={2} className="size-5 text-destructive" />
           Angka untuk rincian tidak ada pada periode dan filter yang diterapkan.
         </p>
-        {tutup}
-      </section>
+      </DialogUrl>
     );
   }
   const { ringkasan } = rincian;
+  const nilai = nilaiRincian(rincian.tokoId, rincian.kodeProduk, rincian.kategori);
   return (
-    <section
-      id={ID_RINCIAN}
-      aria-labelledby={`${ID_RINCIAN}-judul`}
-      className="flex flex-col gap-4"
-      data-rincian={nilaiRincian(rincian.tokoId, rincian.kodeProduk, rincian.kategori)}
+    <DialogUrl
+      key={nilai}
+      bentuk="samping"
+      judul={`Rincian Rata-rata ${rincian.kategori}: ${rincian.kodeProduk} · ${rincian.namaToko}`}
+      urlTutup={urlTutup}
+      pembukaCadangan={`[data-tautan-rincian="${nilai}"]`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-col gap-1">
-          <h2 id={`${ID_RINCIAN}-judul`} className="text-xl font-bold">
-            {`Rincian Rata-rata ${rincian.kategori}: ${rincian.kodeProduk} · ${rincian.namaToko}`}
-          </h2>
-          <p className="text-muted-foreground">
-            {rincian.namaProduk ? `${rincian.namaProduk}. ` : null}
-            Angka Ringkasan dihitung bertahap dari rata-rata bulanan, nilai mingguan, lalu kuantitas per tanggal.
-          </p>
-        </div>
-        {tutup}
-      </div>
-      <div
-        className="flex flex-col gap-1 rounded-2xl bg-muted px-4 py-3"
-        data-tahap="ringkasan"
-        data-jumlah={ringkasan.jumlahRataRataBulanan}
-        data-pembagi={ringkasan.pembagiBulan}
-        data-nilai={ringkasan.rataRataRingkasan}
-        data-kelengkapan={ringkasan.kelengkapan}
-      >
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-semibold">{`Rata-rata ${rincian.kategori} (Ringkasan): ${formatAngka(ringkasan.rataRataRingkasan)}`}</h3>
-          {ringkasan.kelengkapan === "parsial" ? <BadgeStatus status="parsial" /> : null}
-        </div>
-        <p className="tabular-nums">
-          {formatPembagian({
-            jumlah: ringkasan.jumlahRataRataBulanan,
-            pembagi: ringkasan.pembagiBulan,
-            satuan: "bulan",
-            hasil: ringkasan.rataRataRingkasan,
-          })}
+      <section className="flex flex-col gap-4" data-rincian={nilai}>
+        <p className="text-muted-foreground">
+          {rincian.namaProduk ? `${rincian.namaProduk}. ` : null}
+          Angka Ringkasan dihitung bertahap dari rata-rata bulanan, nilai mingguan, lalu kuantitas per tanggal.
         </p>
-        <p className="text-muted-foreground">{`Bulan yang punya hasil: ${ringkasan.bulanLaporan.map(labelBulan).join(", ")}`}</p>
-      </div>
-      {rincian.bulanan.map((b) => (
-        <Card
-          key={b.bulanLaporan}
-          className="gap-3 p-4"
-          data-tahap="bulanan"
-          data-bulan={b.bulanLaporan}
-          data-jumlah={b.jumlahNilaiMingguan}
-          data-pembagi={b.pembagiMinggu}
-          data-nilai={b.rataRataBulanan}
-          data-kelengkapan={b.kelengkapan}
+        <div
+          className="flex flex-col gap-1 rounded-2xl bg-muted px-4 py-3"
+          data-tahap="ringkasan"
+          data-jumlah={ringkasan.jumlahRataRataBulanan}
+          data-pembagi={ringkasan.pembagiBulan}
+          data-nilai={ringkasan.rataRataRingkasan}
+          data-kelengkapan={ringkasan.kelengkapan}
         >
-          <CardHeader>
-            <div className="flex flex-wrap items-center gap-2">
-              <CardTitle className="text-base">
-                {`Rata-rata bulanan ${labelBulan(b.bulanLaporan)}: ${formatAngka(b.rataRataBulanan)}`}
-              </CardTitle>
-              {b.kelengkapan === "parsial" ? <BadgeStatus status="parsial" /> : null}
-            </div>
-            <CardDescription className="text-foreground tabular-nums">
-              {formatPembagian({ jumlah: b.jumlahNilaiMingguan, pembagi: b.pembagiMinggu, satuan: "minggu", hasil: b.rataRataBulanan })}
-            </CardDescription>
-          </CardHeader>
-          {b.mingguan.map((m) => (
-            <NilaiMingguanRinci key={m.mingguLaporan} bulanLaporan={b.bulanLaporan} nilai={m} />
-          ))}
-        </Card>
-      ))}
-    </section>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-semibold">{`Rata-rata ${rincian.kategori} (Ringkasan): ${formatAngka(ringkasan.rataRataRingkasan)}`}</h3>
+            {ringkasan.kelengkapan === "parsial" ? <BadgeStatus status="parsial" /> : null}
+          </div>
+          <p className="tabular-nums">
+            {formatPembagian({
+              jumlah: ringkasan.jumlahRataRataBulanan,
+              pembagi: ringkasan.pembagiBulan,
+              satuan: "bulan",
+              hasil: ringkasan.rataRataRingkasan,
+            })}
+          </p>
+          <p className="text-muted-foreground">{`Bulan yang punya hasil: ${ringkasan.bulanLaporan.map(labelBulan).join(", ")}`}</p>
+        </div>
+        {rincian.bulanan.map((b) => (
+          <Card
+            key={b.bulanLaporan}
+            className="gap-3 p-4"
+            data-tahap="bulanan"
+            data-bulan={b.bulanLaporan}
+            data-jumlah={b.jumlahNilaiMingguan}
+            data-pembagi={b.pembagiMinggu}
+            data-nilai={b.rataRataBulanan}
+            data-kelengkapan={b.kelengkapan}
+          >
+            <CardHeader>
+              <div className="flex flex-wrap items-center gap-2">
+                <CardTitle className="text-base">
+                  {`Rata-rata bulanan ${labelBulan(b.bulanLaporan)}: ${formatAngka(b.rataRataBulanan)}`}
+                </CardTitle>
+                {b.kelengkapan === "parsial" ? <BadgeStatus status="parsial" /> : null}
+              </div>
+              <CardDescription className="text-foreground tabular-nums">
+                {formatPembagian({ jumlah: b.jumlahNilaiMingguan, pembagi: b.pembagiMinggu, satuan: "minggu", hasil: b.rataRataBulanan })}
+              </CardDescription>
+            </CardHeader>
+            {b.mingguan.map((m) => (
+              <NilaiMingguanRinci key={m.mingguLaporan} bulanLaporan={b.bulanLaporan} nilai={m} />
+            ))}
+          </Card>
+        ))}
+      </section>
+    </DialogUrl>
   );
 }
 
@@ -728,23 +721,19 @@ export default async function HalamanRingkasan({ searchParams }: { searchParams:
             </div>
           )}
           {hasil.keadaan === "siap" ? <KartuJumlahRingkasan jumlah={hasil.jumlahRataRataRingkasan} /> : null}
-          {hasil.keadaan === "siap" && hasil.mingguSama !== null ? (
-            <PerbandinganMingguSama
-              mingguSama={hasil.mingguSama}
-              urlTutup={urlHalaman(hasil.bulanPilihan, nilaiFilter(hasil.filterAktif), hasil.halaman, {
-                rincian: daftar(parameter.rincian)[0],
-              })}
-            />
-          ) : null}
+          {hasil.keadaan === "siap" ? <TabelRingkasan hasil={hasil} /> : null}
+          {/* Hanya satu terbuka (DESIGN §11.2); URL lama yang meminta keduanya membuka rincian angka. */}
           {hasil.keadaan === "siap" && hasil.rincian !== null ? (
             <RincianAngkaRingkasan
               rincian={hasil.rincian}
-              urlTutup={urlHalaman(hasil.bulanPilihan, nilaiFilter(hasil.filterAktif), hasil.halaman, {
-                mingguSama: daftar(parameter.mingguSama)[0],
-              })}
+              urlTutup={urlHalaman(hasil.bulanPilihan, nilaiFilter(hasil.filterAktif), hasil.halaman)}
+            />
+          ) : hasil.keadaan === "siap" && hasil.mingguSama !== null ? (
+            <PerbandinganMingguSama
+              mingguSama={hasil.mingguSama}
+              urlTutup={urlHalaman(hasil.bulanPilihan, nilaiFilter(hasil.filterAktif), hasil.halaman)}
             />
           ) : null}
-          {hasil.keadaan === "siap" ? <TabelRingkasan hasil={hasil} /> : null}
         </>
       )}
     </main>

@@ -297,7 +297,16 @@ describe("rincian rencana final", () => {
     // Rata-rata dari snapshot, tanpa tautan ke Ringkasan yang membaca data terkini.
     expect(rincian).toMatch(/Rata-rata Sabtu:.*?10/);
     expect(rincian).not.toContain("/ringkasan?");
-    expect(rincian).toContain(`href="/pengiriman-gudang/${cibubur}/rencana-final/${rencana.a1v1}/rincian"`);
+    // T108 (DESIGN §11.2): `?rincian=` langsung membuka panel samping berjudul baris itu, dengan tombol Tutup, di luar tabel.
+    const panel = /<div[^>]*role="dialog"[^>]*>.*$/s.exec(html)?.[0] ?? "";
+    expect(panel).toMatch(/data-bentuk="samping"/);
+    expect(panel).toContain(`>Rincian perhitungan ${kode.contoh} · ${tokoA.nama}</h2>`);
+    expect(panel).toMatch(/<button[^>]*>.*?Tutup<\/button>/);
+    expect(panel).toContain(rincian);
+    expect(html.indexOf('role="dialog"')).toBeGreaterThan(html.lastIndexOf("</table>"));
+    // Tautan pembuka: navigasi tanpa jangkar ke halaman yang sama.
+    expect(baris).toContain(`href="/pengiriman-gudang/${cibubur}/rencana-final/${rencana.a1v1}/rincian?rincian=${encodeURIComponent(kode.contoh)}"`);
+    expect(baris).toContain(`Lihat rincian<span class="sr-only"> perhitungan ${kode.contoh}</span>`);
   });
 
   it("versi baru: ditandai menggantikan versi sebelumnya beserta alasannya, dengan stok versinya sendiri", async () => {
@@ -309,6 +318,7 @@ describe("rincian rencana final", () => {
     expect(html).toMatch(/<span[^>]*>Versi 2<\/span>/);
     expect(barisVarian(html, kode.contoh)).toMatch(/data-stok-akhir="30"/);
     expect(html).not.toContain("data-rincian-baris");
+    expect(html).not.toContain('role="dialog"');
   });
 
   it("rincian final tetap sama setelah data sumber berubah", async () => {

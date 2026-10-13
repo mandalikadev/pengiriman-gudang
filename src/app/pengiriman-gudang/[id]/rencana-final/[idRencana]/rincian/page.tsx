@@ -1,11 +1,12 @@
 import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Fragment, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { formatAngka, formatBulanImpor, formatBulanLaporan, formatWaktu } from "@/app/admin/impor/format";
 import { TombolEkspor } from "@/app/ringkasan/tombol-ekspor";
 import { BadgeStatus } from "@/components/badge-status";
+import { DialogUrl } from "@/components/dialog-url";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, parseTanggalBisnis } from "@/domain/kalender";
@@ -13,7 +14,7 @@ import { labelHariKirim, labelPersiapan, labelPola, persiapanDariHari } from "@/
 import { bacaRincianRencanaFinal, type RincianRencanaFinal } from "@/server/gudang/rencana-final";
 
 import { SelKebutuhan, SelStok } from "../../../bagian-draft";
-import { ID_RINCIAN_BARIS, labelSumberKategori, RincianBaris } from "../../../rincian-baris";
+import { labelSumberKategori, RincianBaris } from "../../../rincian-baris";
 import { labelStatusBarisRencanaFinal } from "../../label-status-baris";
 import { muatRencanaFinal } from "../../muat";
 
@@ -24,13 +25,11 @@ export const metadata: Metadata = {
 const kelasTautan =
   "inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
 
-const JUMLAH_KOLOM_VARIAN = 7;
-
-/** Halaman ini, dengan rincian satu baris terbuka bila `kodeProduk` diberikan. */
+/** Halaman ini, dengan rincian satu baris terbuka di panel samping bila `kodeProduk` diberikan (T108). */
 function urlRincian(idGudang: number, idRencana: number, kodeProduk?: string) {
   const dasar = `/pengiriman-gudang/${idGudang}/rencana-final/${idRencana}/rincian`;
   if (kodeProduk === undefined) return dasar;
-  return `${dasar}?${new URLSearchParams({ rincian: kodeProduk }).toString()}#${ID_RINCIAN_BARIS}`;
+  return `${dasar}?${new URLSearchParams({ rincian: kodeProduk }).toString()}`;
 }
 
 function BagianDasar({ nama, judul, children }: { nama: string; judul: string; children: ReactNode }) {
@@ -135,15 +134,12 @@ function DasarPerhitungan({ rencana }: { rencana: RincianRencanaFinal }) {
   );
 }
 
+/** Baris rencana final dalam bentuk yang ditampilkan rincian: `siap` = produk otomatis, `manual` = produk manual (T62). */
+function barisRincian(b: RincianRencanaFinal["baris"][number]) {
+  return { ...b, klasifikasi: b.status === "manual" ? ("manual" as const) : ("otomatis" as const), masalah: [] };
+}
+
 function TabelBaris({ idGudang, rencana, terbuka }: { idGudang: number; rencana: RincianRencanaFinal; terbuka: string | null }) {
-  const toko = {
-    id: rencana.toko.id,
-    nama: rencana.toko.nama,
-    persiapanHari: rencana.jadwal.persiapanHari,
-    panjangCakupan: rencana.jadwal.panjangCakupan,
-    cakupan: rencana.kalender.cakupan,
-  };
-  const dasar = { bulanSumber: rencana.sumber.bulanSumber, ranking: rencana.ranking };
   return (
     <Table aria-label="Rincian rencana final per produk" panjang>
       <TableHeader>
@@ -160,56 +156,69 @@ function TabelBaris({ idGudang, rencana, terbuka }: { idGudang: number; rencana:
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rencana.baris.map((b) => {
-          const dibuka = terbuka === b.kodeProduk;
-          // Baris rencana final: `siap` = produk otomatis tanpa masalah, `manual` = produk manual (T62).
-          const baris = { ...b, klasifikasi: b.status === "manual" ? ("manual" as const) : ("otomatis" as const), masalah: [] };
-          return (
-            <Fragment key={b.kodeProduk}>
-              <TableRow data-kode-produk={b.kodeProduk}>
-                <TableCell className="align-top font-semibold">{b.kodeProduk}</TableCell>
-                <TableCell className="align-top">{b.namaProduk ?? "—"}</TableCell>
-                <TableCell className="align-top">{b.status === "manual" ? <BadgeStatus status="manual" /> : labelStatusBarisRencanaFinal.siap}</TableCell>
-                <TableCell angka className="align-top" data-kebutuhan={b.kebutuhan ?? "tidak-tersedia"}>
-                  <SelKebutuhan baris={b} />
-                </TableCell>
-                <TableCell angka className="align-top" data-stok-akhir={b.stokAkhir ?? "kosong"}>
-                  <SelStok stokAkhir={b.stokAkhir} />
-                </TableCell>
-                <TableCell angka className="align-top" data-jumlah-kirim={b.jumlahKirim ?? "kosong"}>
-                  {b.jumlahKirim === null ? "—" : formatAngka(b.jumlahKirim)}
-                </TableCell>
-                <TableCell className="align-top">
-                  <Link
-                    href={urlRincian(idGudang, rencana.id, b.kodeProduk)}
-                    aria-current={dibuka ? "true" : undefined}
-                    data-tautan-rincian-baris={b.kodeProduk}
-                    className={`${kelasTautan} underline underline-offset-4`}
-                  >
-                    Rincian
-                    <span className="sr-only"> perhitungan {b.kodeProduk}</span>
-                  </Link>
-                </TableCell>
-              </TableRow>
-              {dibuka ? (
-                <TableRow>
-                  <TableCell colSpan={JUMLAH_KOLOM_VARIAN}>
-                    <RincianBaris baris={baris} toko={toko} draft={dasar} urlTutup={urlRincian(idGudang, rencana.id)} tautanRingkasan={false} />
-                  </TableCell>
-                </TableRow>
-              ) : null}
-            </Fragment>
-          );
-        })}
+        {rencana.baris.map((b) => (
+          <TableRow key={b.kodeProduk} data-kode-produk={b.kodeProduk}>
+            <TableCell className="align-top font-semibold">{b.kodeProduk}</TableCell>
+            <TableCell className="align-top">{b.namaProduk ?? "—"}</TableCell>
+            <TableCell className="align-top">{b.status === "manual" ? <BadgeStatus status="manual" /> : labelStatusBarisRencanaFinal.siap}</TableCell>
+            <TableCell angka className="align-top" data-kebutuhan={b.kebutuhan ?? "tidak-tersedia"}>
+              <SelKebutuhan baris={b} />
+            </TableCell>
+            <TableCell angka className="align-top" data-stok-akhir={b.stokAkhir ?? "kosong"}>
+              <SelStok stokAkhir={b.stokAkhir} />
+            </TableCell>
+            <TableCell angka className="align-top" data-jumlah-kirim={b.jumlahKirim ?? "kosong"}>
+              {b.jumlahKirim === null ? "—" : formatAngka(b.jumlahKirim)}
+            </TableCell>
+            <TableCell className="align-top">
+              {/* Navigasi klien tanpa menggulir: rincian terbuka di panel samping (DESIGN §11.2, T108). */}
+              <Link
+                href={urlRincian(idGudang, rencana.id, b.kodeProduk)}
+                scroll={false}
+                aria-current={terbuka === b.kodeProduk ? "true" : undefined}
+                data-tautan-rincian-baris={b.kodeProduk}
+                className={`${kelasTautan} underline underline-offset-4`}
+              >
+                Lihat rincian
+                <span className="sr-only"> perhitungan {b.kodeProduk}</span>
+              </Link>
+            </TableCell>
+          </TableRow>
+        ))}
       </TableBody>
     </Table>
+  );
+}
+
+/** Rincian perhitungan baris yang diminta URL, di panel samping (T63; DESIGN §11.2, T108). */
+function PanelRincianBaris({ idGudang, rencana, terbuka }: { idGudang: number; rencana: RincianRencanaFinal; terbuka: string | null }) {
+  const b = rencana.baris.find((baris) => baris.kodeProduk === terbuka);
+  if (b === undefined) return null;
+  const toko = {
+    id: rencana.toko.id,
+    nama: rencana.toko.nama,
+    persiapanHari: rencana.jadwal.persiapanHari,
+    panjangCakupan: rencana.jadwal.panjangCakupan,
+    cakupan: rencana.kalender.cakupan,
+  };
+  const dasar = { bulanSumber: rencana.sumber.bulanSumber, ranking: rencana.ranking };
+  return (
+    <DialogUrl
+      key={b.kodeProduk}
+      bentuk="samping"
+      judul={`Rincian perhitungan ${b.kodeProduk} · ${toko.nama}`}
+      urlTutup={urlRincian(idGudang, rencana.id)}
+      pembukaCadangan={`[data-tautan-rincian-baris="${b.kodeProduk}"]`}
+    >
+      <RincianBaris baris={barisRincian(b)} toko={toko} draft={dasar} tautanRingkasan={false} />
+    </DialogUrl>
   );
 }
 
 /**
  * Rincian rencana final (T63; PRD A7, B9): zona kerja (DESIGN §1). Baris dan rincian perhitungannya, sumber penjualan,
  * ranking, jadwal, dan kalender yang dipakai, semuanya dibaca dari snapshot saat finalisasi (bukan data terkini).
- * `?rincian=<kode produk>` membuka rincian perhitungan satu baris. Semua versi berstatus Final; versi baru ditandai
+ * `?rincian=<kode produk>` membuka rincian perhitungan satu baris di panel samping (T108). Semua versi berstatus Final; versi baru ditandai
  * "Versi N menggantikan versi N−1" beserta alasannya (PRD A7 ▶ Keputusan 2026-10-11, T62). Bisa dibuka semua pengguna
  * yang boleh melihat Pengiriman Gudang gudang itu (akses diperiksa di server). Tombol ekspor (.xlsx) hanya tampil bagi
  * pengguna dengan hak `ekspor` di gudang itu (T64); route ekspor memeriksa hak itu lagi di server.
@@ -224,6 +233,7 @@ export default async function HalamanRincianRencanaFinal({
   const { id, idRencana } = await params;
   const { idGudang, gudang, rencana } = await muatRencanaFinal(id, idRencana, bacaRincianRencanaFinal);
   const rincian = (await searchParams)?.rincian;
+  const terbuka = typeof rincian === "string" ? rincian : null;
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
@@ -272,9 +282,10 @@ export default async function HalamanRincianRencanaFinal({
         {rencana.baris.length === 0 ? (
           <p className="text-muted-foreground">Rencana ini tidak punya baris.</p>
         ) : (
-          <TabelBaris idGudang={idGudang} rencana={rencana} terbuka={typeof rincian === "string" ? rincian : null} />
+          <TabelBaris idGudang={idGudang} rencana={rencana} terbuka={terbuka} />
         )}
       </section>
+      <PanelRincianBaris idGudang={idGudang} rencana={rencana} terbuka={terbuka} />
     </main>
   );
 }

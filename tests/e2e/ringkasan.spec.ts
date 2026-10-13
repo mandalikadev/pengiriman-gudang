@@ -194,3 +194,60 @@ test("Ringkasan: filter kategori produk dan produk berlaku setelah Terapkan, ter
   await expect(baris1).toHaveCount(0);
   await expect(baris2).toBeVisible();
 });
+
+// T108 (DESIGN §11.2): rincian angka dibuka di panel samping dan "Minggu sama" di dialog, di atas halaman. Keduanya
+// tidak menyisip di atas tabel (tabel tidak bergeser) dan hanya satu yang terbuka pada satu waktu.
+test("Ringkasan: rincian angka di panel samping, Minggu sama di dialog; tabel tidak bergeser", async ({ page }) => {
+  const tahun = await tahunUjiBebas();
+  const kode = `E2E${randomUUID().slice(0, 8).toUpperCase()}-GOR`;
+  const [admin] = await db.select({ id: user.id }).from(user).where(eq(user.email, EMAIL_ADMIN_E2E));
+  await imporAktif(admin.id, "MARET (S)", tahun, 3, kode, [1, 2, 3, 4, 5, 6, 7]);
+
+  await masuk(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/ringkasan?bulan=${tahun}-03`);
+  const baris = page.locator(`tr[data-baris="PMS|${kode}"]`);
+  await expect(async () => {
+    await page.reload();
+    await expect(baris).toBeVisible({ timeout: 1_000 });
+    await expect(page.locator('[data-status-cache="terbaru"]')).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 90_000 });
+
+  // Locator CSS: selama dialog terbuka, isi halaman disembunyikan dari pohon aksesibilitas (aria-hidden).
+  const tabel = page.locator('table[aria-label="Ringkasan per produk dan toko"]');
+  const posisiTabel = async () => {
+    const kotak = (await tabel.boundingBox())!;
+    return { x: kotak.x, y: kotak.y + (await page.evaluate(() => window.scrollY)) };
+  };
+  await baris.scrollIntoViewIfNeeded();
+  const awal = await posisiTabel();
+
+  // Rincian angka: panel samping berjudul angka itu.
+  const tautanRincian = baris.locator('a[data-tautan-rincian$="|Sabtu"]');
+  await tautanRincian.click();
+  const panel = page.getByRole("dialog", { name: `Rincian Rata-rata Sabtu: ${kode} · PMS` });
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('[data-tahap="ringkasan"]')).toBeVisible();
+  expect(await posisiTabel()).toEqual(awal);
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await panel.getByRole("button", { name: "Tutup" }).click();
+  await expect(panel).toHaveCount(0);
+  await expect(page).not.toHaveURL(/rincian=/);
+  await expect(tautanRincian).toBeFocused();
+
+  // Minggu sama: dialog di tengah layar.
+  const tautanMingguSama = baris.locator("a[data-tautan-minggu-sama]");
+  await tautanMingguSama.click();
+  const dialog = page.getByRole("dialog", { name: `Perbandingan minggu yang sama: ${kode} · PMS` });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("table", { name: "Perbandingan minggu yang sama antarbulan" })).toBeVisible();
+  expect(await posisiTabel()).toEqual(awal);
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  const kotakDialog = (await dialog.boundingBox())!;
+  expect(Math.abs(kotakDialog.x + kotakDialog.width / 2 - 720)).toBeLessThanOrEqual(10);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(page).not.toHaveURL(/mingguSama=/);
+  await expect(tautanMingguSama).toBeFocused();
+  expect(await posisiTabel()).toEqual(awal);
+});

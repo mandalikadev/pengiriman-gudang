@@ -3,9 +3,10 @@
 import { ChevronDown, LogOut, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useId, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { keluar } from "@/app/keluar/aksi";
+import { Dialog, DialogIsi, DialogTutup } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 import {
@@ -17,7 +18,8 @@ import {
 
 // T78 — DESIGN §6 ▶ Keputusan (2026-10-11): navigasi berupa sidebar berkelompok; susunan kelompok T97, T98 (2026-10-13)
 // dan T105 (2026-10-13 sore).
-// Desktop (≥ lg): sidebar tetap di kiri, lebar 240 px. Layar kecil: bar atas tipis + menu tarik rounded-3xl.
+// Desktop (≥ lg): sidebar tetap di kiri, lebar 240 px. Layar kecil: bar atas tipis + menu tarik rounded-3xl, memakai
+// komponen dialog yang sama dengan panel rincian (DESIGN §11.2, T108): role="dialog" dan fokus terkunci di dalam menu.
 // Item hanya untuk halaman yang sudah ada dan boleh dibuka peran itu; penyembunyian ini tambahan,
 // halaman tetap memeriksa sesi dan peran di server (wajibMasuk / wajibAdmin / wajibAksesPengirimanGudang /
 // wajibGudangDenganHak).
@@ -221,9 +223,6 @@ export function Navigasi({
   const pathname = usePathname();
   const [menuTerbuka, setMenuTerbuka] = useState(false);
   const idSidebar = useId();
-  const tombolMenuRef = useRef<HTMLButtonElement>(null);
-  const tombolTutupRef = useRef<HTMLButtonElement>(null);
-  const pernahTerbuka = useRef(false);
   const teksPilihan = useSyncExternalStore(langgananPilihanKelompok, bacaPilihanKelompok, () => null);
   // Kelompok halaman aktif yang ditutup pengguna selama berada di halaman ini; direset setiap kali pathname berubah
   // (Navigasi hidup di root layout, jadi state-nya bertahan selama navigasi klien).
@@ -234,23 +233,16 @@ export function Navigasi({
     setDitutupDiHalaman([]);
   }
 
+  // Menu tarik hanya untuk layar < 1024 px: melebarkan layar saat menu terbuka menutupnya (kunci gulir ikut dilepas).
   useEffect(() => {
-    if (!menuTerbuka) return;
-    function tutupDenganEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuTerbuka(false);
-    }
-    document.addEventListener("keydown", tutupDenganEscape);
-    return () => document.removeEventListener("keydown", tutupDenganEscape);
-  }, [menuTerbuka]);
-
-  // Fokus mengikuti menu tarik: masuk ke tombol tutup saat dibuka, kembali ke tombol menu saat ditutup.
-  useEffect(() => {
-    if (menuTerbuka) {
-      pernahTerbuka.current = true;
-      tombolTutupRef.current?.focus();
-    } else if (pernahTerbuka.current) {
-      tombolMenuRef.current?.focus();
-    }
+    if (!menuTerbuka || typeof window.matchMedia !== "function") return;
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const tutupDiDesktop = () => {
+      if (desktop.matches) setMenuTerbuka(false);
+    };
+    tutupDiDesktop();
+    desktop.addEventListener("change", tutupDiDesktop);
+    return () => desktop.removeEventListener("change", tutupDiDesktop);
   }, [menuTerbuka]);
 
   if (pengguna === null || pathname === "/masuk") return <>{children}</>;
@@ -282,69 +274,71 @@ export function Navigasi({
     tulisPilihanKelompok(judul, buka);
   };
 
+  const idMenu = `${idSidebar}-menu`;
+  const isiNavigasi = (idDasar: string) => (
+    <>
+      <nav aria-label="Navigasi utama" className="flex flex-1 flex-col gap-2">
+        {kelompok.map((k, i) => (
+          <KelompokNavigasi
+            key={k.judul ?? "beranda"}
+            kelompok={k}
+            idDasar={`${idDasar}-${i}`}
+            pathname={pathname}
+            terbuka={terbuka(k)}
+            onAlih={() => alih(k)}
+            onPilih={tutup}
+          />
+        ))}
+      </nav>
+
+      <div className="flex flex-col gap-2 border-t border-border/60 pt-4">
+        <div className="px-4 text-sm">
+          <p className="truncate font-semibold text-foreground">{pengguna.nama}</p>
+          <p className="text-muted-foreground">{labelPeran[pengguna.peran]}</p>
+        </div>
+        <TombolKeluar />
+      </div>
+    </>
+  );
+
   return (
     <>
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border/60 bg-card/80 px-4 py-2 backdrop-blur-md lg:hidden">
         <Logo />
         <button
-          ref={tombolMenuRef}
           type="button"
+          data-tombol-menu
           className={cn(bentukTombolIkon, fokusTerlihat)}
           aria-expanded={menuTerbuka}
-          aria-controls={idSidebar}
+          aria-controls={idMenu}
           aria-label={menuTerbuka ? "Tutup menu" : "Buka menu"}
-          onClick={() => setMenuTerbuka((terbuka) => !terbuka)}
+          onClick={() => setMenuTerbuka((buka) => !buka)}
         >
           {menuTerbuka ? <X aria-hidden strokeWidth={2} className="size-5" /> : <Menu aria-hidden strokeWidth={2} className="size-5" />}
         </button>
       </header>
 
-      {menuTerbuka ? <div aria-hidden className="fixed inset-0 z-40 bg-foreground/20 lg:hidden" onClick={tutup} /> : null}
-
-      <aside
-        id={idSidebar}
-        className={cn(
-          // Layar kecil: menu tarik mengambang (rounded-3xl) di atas isi halaman.
-          "fixed inset-4 z-50 flex-col gap-4 overflow-y-auto rounded-3xl border border-border/60 bg-card p-4 shadow-float",
-          // Desktop: sidebar tetap di kiri, lebar 240 px, setinggi layar.
-          "lg:inset-auto lg:inset-y-0 lg:left-0 lg:z-30 lg:w-60 lg:rounded-none lg:border-y-0 lg:border-l-0 lg:border-r lg:shadow-none",
-          menuTerbuka ? "flex" : "hidden lg:flex",
-        )}
-      >
-        <div className="flex items-center justify-between gap-2 px-2">
-          <Logo />
-          <button
-            ref={tombolTutupRef}
-            type="button"
-            className={cn(bentukTombolIkon, "lg:hidden", fokusTerlihat)}
-            aria-label="Tutup menu"
-            onClick={tutup}
-          >
-            <X aria-hidden strokeWidth={2} className="size-5" />
-          </button>
-        </div>
-
-        <nav aria-label="Navigasi utama" className="flex flex-1 flex-col gap-2">
-          {kelompok.map((k, i) => (
-            <KelompokNavigasi
-              key={k.judul ?? "beranda"}
-              kelompok={k}
-              idDasar={`${idSidebar}-${i}`}
-              pathname={pathname}
-              terbuka={terbuka(k)}
-              onAlih={() => alih(k)}
-              onPilih={tutup}
-            />
-          ))}
-        </nav>
-
-        <div className="flex flex-col gap-2 border-t border-border/60 pt-4">
-          <div className="px-4 text-sm">
-            <p className="truncate font-semibold text-foreground">{pengguna.nama}</p>
-            <p className="text-muted-foreground">{labelPeran[pengguna.peran]}</p>
+      {/* Layar kecil: menu tarik mengambang (rounded-3xl) di atas isi halaman, sebagai dialog. */}
+      <Dialog open={menuTerbuka} onOpenChange={setMenuTerbuka}>
+        <DialogIsi id={idMenu} bentuk="menu" judul="Menu" pembukaCadangan="[data-tombol-menu]">
+          <div className="flex items-center justify-between gap-2 px-2">
+            <Logo />
+            <DialogTutup asChild>
+              <button type="button" className={cn(bentukTombolIkon, fokusTerlihat)} aria-label="Tutup menu">
+                <X aria-hidden strokeWidth={2} className="size-5" />
+              </button>
+            </DialogTutup>
           </div>
-          <TombolKeluar />
+          {isiNavigasi(idMenu)}
+        </DialogIsi>
+      </Dialog>
+
+      {/* Desktop: sidebar tetap di kiri, lebar 240 px, setinggi layar. */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col gap-4 overflow-y-auto border-r border-border/60 bg-card p-4 lg:flex">
+        <div className="flex items-center gap-2 px-2">
+          <Logo />
         </div>
+        {isiNavigasi(idSidebar)}
       </aside>
 
       <div className="lg:pl-60">{children}</div>

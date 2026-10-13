@@ -315,14 +315,15 @@ describe("menu tarik layar kecil", () => {
     pasang("/admin/impor/12");
     const tombolMenu = wadah.querySelector<HTMLButtonElement>('button[aria-label="Buka menu"]');
     klik(tombolMenu!);
-    const sidebar = wadah.querySelector("aside")!;
-    expect(sidebar.classList.contains("hidden")).toBe(false);
-    expect(sidebar.contains(judul("Laporan"))).toBe(true);
+    // T108: menu tarik berupa dialog; judul kelompok pertama di dokumen adalah milik menu itu.
+    const menu = wadah.querySelector('[role="dialog"]');
+    expect(menu).not.toBeNull();
+    expect(menu!.contains(judul("Laporan"))).toBe(true);
     expect(keadaan()).toEqual({ "Pekerjaan rutin": true, Laporan: false, "Data Master": false, Pengaturan: false });
 
     klik(judul("Laporan"));
     expect(terbuka("Laporan")).toBe(true);
     // Membuka-tutup kelompok tidak menutup menu tarik.
-    expect(sidebar.classList.contains("hidden")).toBe(false);
+    expect(wadah.querySelector('[role="dialog"]')).toBe(menu);
   });
 });
