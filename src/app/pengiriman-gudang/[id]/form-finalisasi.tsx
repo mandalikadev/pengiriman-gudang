@@ -1,12 +1,16 @@
 "use client";
 
+import { TriangleAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useId, useState, useSyncExternalStore } from "react";
 
+import { formatAngka } from "@/app/admin/impor/format";
 import { usePenyimpanan } from "@/components/keadaan-simpan";
 import { PesanStatusSimpan } from "@/components/pesan-status-simpan";
 import { Button } from "@/components/ui/button";
+import { DialogKonfirmasi } from "@/components/ui/dialog-konfirmasi";
 import { Input } from "@/components/ui/input";
+import { formatTanggal, type TanggalBisnis } from "@/domain/kalender";
 
 import { finalisasiRencana, type HasilAksiFinalisasi } from "./aksi-final";
 import { bacaIsianLokal, kunciIsianLokal, langgananIsianLokal, teksStok, uraiIsianLokal } from "./isian-lokal";
@@ -18,6 +22,9 @@ import { bacaIsianLokal, kunciIsianLokal, langgananIsianLokal, teksStok, uraiIsi
  * ditahan karena rencana final memakai stok yang tersimpan. Toko yang sudah final (`versiFinal`) difinalisasi ulang
  * dengan alasan wajib (diperiksa lagi di server); versi baru menggantikan versi sebelumnya dan versi lama tetap tersimpan
  * (PRD A7 ▶ Keputusan 2026-10-11, T62). Setelah berhasil, layar rencana final dibuka.
+ *
+ * Rencana final hanya dibuat setelah dikonfirmasi di dialog konfirmasi yang meringkas toko, tanggal kirim, jumlah varian,
+ * total jumlah kirim, dan peringatan yang masih tampil (DESIGN §11.3, T109).
  */
 export function FormFinalisasi({
   idGudang,
@@ -27,19 +34,23 @@ export function FormFinalisasi({
   versi,
   versiFinal,
   stokTersimpan,
+  ringkasan,
 }: {
   idGudang: number;
-  tanggalKirim: string;
+  tanggalKirim: TanggalBisnis;
   tokoId: number;
   namaToko: string;
   versi: string;
   /** Versi rencana final terakhir toko ini; `null` = belum pernah final. */
   versiFinal: number | null;
   stokTersimpan: readonly { kodeProduk: string; stokAkhir: number | null }[];
+  /** Isi ringkasan di dialog konfirmasi; `peringatan` = teks peringatan toko ini yang masih tampil di draft. */
+  ringkasan: { jumlahVarian: number; totalJumlahKirim: number; peringatan: readonly string[] };
 }) {
   const router = useRouter();
   const id = useId();
   const [alasan, setAlasan] = useState("");
+  const [konfirmasiTerbuka, setKonfirmasiTerbuka] = useState(false);
   const { tampilan, menunggu, tandaiBerubah, simpan } = usePenyimpanan<HasilAksiFinalisasi>("rencana final toko ini");
   const ulang = versiFinal !== null;
   const kunci = kunciIsianLokal(idGudang, tanggalKirim, tokoId);
@@ -51,6 +62,23 @@ export function FormFinalisasi({
   const lokal = uraiIsianLokal(teksLokal, new Set(stokTersimpan.map((s) => s.kodeProduk)));
   const stokBelumDisimpan = stokTersimpan.some((s) => s.kodeProduk in lokal && lokal[s.kodeProduk] !== teksStok(s.stokAkhir));
 
+  function finalisasi() {
+    // Hasil berhasil dan tersimpan-gagal-muat-ulang sama-sama membawa id rencana final untuk layar berhasil.
+    let idRencana: number | null = null;
+    simpan(
+      async () => {
+        const hasil = await finalisasiRencana(
+          ulang ? { idGudang, tanggalKirim, tokoId, versi, alasanFinalisasiUlang: alasan } : { idGudang, tanggalKirim, tokoId, versi },
+        );
+        if (hasil.keadaan !== "gagal") idRencana = hasil.idRencana;
+        return hasil;
+      },
+      () => {
+        if (idRencana !== null) router.push(`/pengiriman-gudang/${idGudang}/rencana-final/${idRencana}`);
+      },
+    );
+  }
+
   return (
     <form
       data-finalisasi-toko={tokoId}
@@ -59,20 +87,7 @@ export function FormFinalisasi({
       className="flex flex-col gap-3"
       onSubmit={(event) => {
         event.preventDefault();
-        // Hasil berhasil dan tersimpan-gagal-muat-ulang sama-sama membawa id rencana final untuk layar berhasil.
-        let idRencana: number | null = null;
-        simpan(
-          async () => {
-            const hasil = await finalisasiRencana(
-              ulang ? { idGudang, tanggalKirim, tokoId, versi, alasanFinalisasiUlang: alasan } : { idGudang, tanggalKirim, tokoId, versi },
-            );
-            if (hasil.keadaan !== "gagal") idRencana = hasil.idRencana;
-            return hasil;
-          },
-          () => {
-            if (idRencana !== null) router.push(`/pengiriman-gudang/${idGudang}/rencana-final/${idRencana}`);
-          },
-        );
+        setKonfirmasiTerbuka(true);
       }}
     >
       {versiFinal !== null ? (
@@ -122,6 +137,35 @@ export function FormFinalisasi({
           label={tampilan.keadaan === "menyimpan" ? "Sedang memfinalisasi" : undefined}
         />
       ) : null}
+      <DialogKonfirmasi
+        terbuka={konfirmasiTerbuka}
+        ubahTerbuka={setKonfirmasiTerbuka}
+        judul={ulang ? `Finalisasi ulang rencana ${namaToko}?` : `Finalisasi rencana ${namaToko}?`}
+        akibat={
+          ulang
+            ? `Versi ${versiFinal + 1} disimpan dan menggantikan versi ${versiFinal}; versi ${versiFinal} tetap tersimpan.`
+            : "Rencana kebutuhan barang toko ini disimpan sebagai rencana final dan tidak berubah oleh pembaruan data berikutnya."
+        }
+        labelTindakan={ulang ? "Finalisasi ulang" : "Finalisasi"}
+        konfirmasi={finalisasi}
+      >
+        <dl data-ringkasan-finalisasi className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+          <dt className="text-muted-foreground">Toko</dt>
+          <dd className="font-semibold">{namaToko}</dd>
+          <dt className="text-muted-foreground">Tanggal kirim</dt>
+          <dd className="font-semibold">{formatTanggal(tanggalKirim)}</dd>
+          <dt className="text-muted-foreground">Jumlah varian</dt>
+          <dd className="font-semibold tabular-nums">{formatAngka(ringkasan.jumlahVarian)}</dd>
+          <dt className="text-muted-foreground">Total jumlah kirim</dt>
+          <dd className="font-semibold tabular-nums">{formatAngka(ringkasan.totalJumlahKirim)}</dd>
+        </dl>
+        {ringkasan.peringatan.map((teks) => (
+          <p key={teks} data-peringatan-finalisasi className="flex items-start gap-2 font-semibold">
+            <TriangleAlert aria-hidden strokeWidth={2} className="size-5 shrink-0 text-warning" />
+            {teks}
+          </p>
+        ))}
+      </DialogKonfirmasi>
     </form>
   );
 }

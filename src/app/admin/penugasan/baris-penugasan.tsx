@@ -7,6 +7,7 @@ import { usePenyimpanan } from "@/components/keadaan-simpan";
 import { PesanStatusSimpan } from "@/components/pesan-status-simpan";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DialogKonfirmasi } from "@/components/ui/dialog-konfirmasi";
 import { TableCell, TableRow } from "@/components/ui/table";
 import type { HakTindakan } from "@/server/gudang/hak-tindakan";
 
@@ -64,22 +65,18 @@ export function BarisPenugasan({ penugasan }: { penugasan: DataPenugasan }) {
           >
             Simpan hak
           </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            disabled={menunggu}
-            onClick={() => {
-              if (
-                window.confirm(
-                  `Cabut penugasan ${penugasan.namaPengguna} di ${penugasan.namaGudang}? Semua hak tindakannya di gudang ini hilang.`,
-                )
-              ) {
-                simpan(() => cabutPenugasanOperator(kunci));
-              }
-            }}
-          >
-            Cabut penugasan
-          </Button>
+          <DialogKonfirmasi
+            judul={`Cabut penugasan ${penugasan.namaPengguna} di ${penugasan.namaGudang}?`}
+            akibat="Semua hak tindakannya di gudang ini hilang."
+            labelTindakan="Cabut penugasan"
+            destruktif
+            konfirmasi={() => simpan(() => cabutPenugasanOperator(kunci))}
+            pemicu={
+              <Button size="sm" variant="destructiveOutline" disabled={menunggu}>
+                Cabut penugasan
+              </Button>
+            }
+          />
         </div>
       </TableCell>
       <TableCell className="whitespace-normal">

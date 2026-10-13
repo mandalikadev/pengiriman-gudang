@@ -8,6 +8,13 @@ vi.mock("./aksi-final", () => ({ finalisasiRencana: tiruan.finalisasiRencana }))
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {}, push: tiruan.buka }) }));
 
 import { pesanBelumPasti } from "@/components/keadaan-simpan";
+import {
+  dialogKonfirmasi,
+  judulDialogKonfirmasi,
+  pilihDiDialogKonfirmasi,
+  tombolDialogKonfirmasi,
+} from "@/components/ui/uji-bantu-dialog-konfirmasi";
+import { parseTanggalBisnis } from "@/domain/kalender";
 
 import { FormFinalisasi } from "./form-finalisasi";
 import { kunciIsianLokal, tulisIsianLokal } from "./isian-lokal";
@@ -15,6 +22,8 @@ import { kunciIsianLokal, tulisIsianLokal } from "./isian-lokal";
 // T62: form finalisasi satu toko. Setelah berhasil, layar rencana final dibuka. Hasil yang belum pasti tidak diulang
 // otomatis. Isian stok toko ini yang belum disimpan (T59) menahan finalisasi, karena rencana final memakai stok tersimpan.
 // Toko yang sudah final difinalisasi ulang dengan alasan wajib (PRD A7 ▶ Keputusan 2026-10-11, T62).
+// T109 (DESIGN §11.3): tombol finalisasi membuka dialog konfirmasi berisi ringkasan; rencana final hanya dibuat setelah
+// dikonfirmasi.
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -26,7 +35,9 @@ const STOK_TERSIMPAN = [{ kodeProduk: "UJI-A", stokAkhir: 20 }];
 
 let terpasang: { wadah: HTMLElement; akar: Root } | null = null;
 
-function buka(versiFinal: number | null = null) {
+const RINGKASAN = { jumlahVarian: 12, totalJumlahKirim: 1250, peringatan: [] as string[] };
+
+function buka(versiFinal: number | null = null, ringkasan = RINGKASAN) {
   const wadah = document.createElement("div");
   document.body.append(wadah);
   const akar = createRoot(wadah);
@@ -34,12 +45,13 @@ function buka(versiFinal: number | null = null) {
     akar.render(
       <FormFinalisasi
         idGudang={3}
-        tanggalKirim="2026-06-08"
+        tanggalKirim={parseTanggalBisnis("2026-06-08")}
         tokoId={7}
         namaToko="TOKO UJI"
         versi="v1"
         versiFinal={versiFinal}
         stokTersimpan={STOK_TERSIMPAN}
+        ringkasan={ringkasan}
       />,
     ),
   );
@@ -59,10 +71,10 @@ function ubahNilai(input: HTMLInputElement, nilai: string) {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-async function kirim(wadah: HTMLElement) {
-  await act(async () => {
-    tombol(wadah).click();
-  });
+/** Menekan tombol finalisasi (membuka dialog konfirmasi), lalu memilih tombol tindakan di dialog. */
+async function kirim(wadah: HTMLElement, tindakan = "Finalisasi") {
+  act(() => tombol(wadah).click());
+  await pilihDiDialogKonfirmasi(tindakan);
 }
 
 beforeEach(() => {
@@ -81,6 +93,37 @@ afterEach(() => {
 });
 
 describe("FormFinalisasi", () => {
+  it("tombol finalisasi membuka dialog berisi toko, tanggal kirim, jumlah varian, dan total jumlah kirim; Batal tidak membuat rencana final", async () => {
+    const wadah = buka();
+    act(() => tombol(wadah).click());
+    expect(judulDialogKonfirmasi()).toBe("Finalisasi rencana TOKO UJI?");
+    const ringkasan = dialogKonfirmasi()!.querySelector("[data-ringkasan-finalisasi]");
+    const pasangan = [...ringkasan!.querySelectorAll("dt")].map((dt) => [dt.textContent, dt.nextElementSibling?.textContent]);
+    expect(pasangan).toEqual([
+      ["Toko", "TOKO UJI"],
+      ["Tanggal kirim", "Senin, 08-06-2026"],
+      ["Jumlah varian", "12"],
+      ["Total jumlah kirim", "1.250"],
+    ]);
+    expect(dialogKonfirmasi()!.querySelector("[data-peringatan-finalisasi]")).toBeNull();
+    expect(tombolDialogKonfirmasi("Finalisasi").className).toContain("bg-primary");
+    expect(document.activeElement).toBe(tombolDialogKonfirmasi("Batal"));
+    expect(tiruan.finalisasiRencana).not.toHaveBeenCalled();
+
+    await pilihDiDialogKonfirmasi("Batal");
+    expect(dialogKonfirmasi()).toBeNull();
+    expect(tiruan.finalisasiRencana).not.toHaveBeenCalled();
+    expect(wadah.querySelector("[data-keadaan]")).toBeNull();
+  });
+
+  it("peringatan yang masih tampil ikut di dialog", () => {
+    const peringatan = "Kiriman Senin, 01-06-2026 belum sampai saat persiapan. Pastikan jumlahnya ikut dihitung di stok akhir.";
+    const wadah = buka(null, { ...RINGKASAN, peringatan: [peringatan] });
+    act(() => tombol(wadah).click());
+    const isi = [...dialogKonfirmasi()!.querySelectorAll("[data-peringatan-finalisasi]")].map((p) => p.textContent);
+    expect(isi).toEqual([peringatan]);
+  });
+
   it("mengirim versi toko yang dilihat; setelah berhasil membuka layar rencana final", async () => {
     tiruan.finalisasiRencana.mockResolvedValue({ keadaan: "berhasil", idRencana: 42 });
     const wadah = buka();
@@ -137,7 +180,11 @@ describe("FormFinalisasi", () => {
     expect(wadah.querySelector('[data-keadaan="belumDisimpan"]')).not.toBeNull();
     expect(tombol(wadah).disabled).toBe(false);
 
-    await kirim(wadah);
+    act(() => tombol(wadah).click());
+    expect(judulDialogKonfirmasi()).toBe("Finalisasi ulang rencana TOKO UJI?");
+    expect(dialogKonfirmasi()?.textContent).toContain("Versi 3 disimpan dan menggantikan versi 2; versi 2 tetap tersimpan.");
+    expect(tiruan.finalisasiRencana).not.toHaveBeenCalled();
+    await pilihDiDialogKonfirmasi("Finalisasi ulang");
     expect(tiruan.finalisasiRencana).toHaveBeenCalledWith({
       idGudang: 3,
       tanggalKirim: "2026-06-08",

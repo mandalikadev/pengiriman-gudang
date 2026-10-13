@@ -15,6 +15,8 @@ export const buttonVariants = cva(
         outline: "border-2 border-primary bg-transparent text-primary hover:bg-primary/10",
         ghost: "text-primary hover:bg-primary/10",
         destructive: "bg-destructive text-secondary-foreground shadow-soft hover:bg-destructive/90",
+        // DESIGN §11.3: tindakan merusak di setiap baris tabel/daftar memakai garis bernada destructive, bukan merah penuh.
+        destructiveOutline: "border-2 border-destructive bg-transparent text-destructive hover:bg-destructive/10",
       },
       size: {
         sm: "h-9 px-4 text-sm",

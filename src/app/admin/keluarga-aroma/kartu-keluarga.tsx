@@ -9,6 +9,7 @@ import { PesanStatusSimpan } from "@/components/pesan-status-simpan";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DialogKonfirmasi } from "@/components/ui/dialog-konfirmasi";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -91,7 +92,10 @@ function FormUbahKeluarga({ keluarga }: { keluarga: DataKeluarga }) {
 
 type Entri = { id: number; teks: string };
 
-/** Daftar entri (alias atau segmen kode) dengan tambah/hapus; satu pesan status untuk bagian ini. */
+/**
+ * Daftar entri (alias atau segmen kode) dengan tambah/hapus; hapus meminta konfirmasi lebih dulu (DESIGN §11.3, T109).
+ * Satu pesan status untuk bagian ini.
+ */
 function BagianEntri({
   judul,
   jenis,
@@ -100,6 +104,7 @@ function BagianEntri({
   kosong,
   entri,
   yangDiperiksa,
+  akibatHapus,
   tambah,
   hapus,
 }: {
@@ -111,6 +116,8 @@ function BagianEntri({
   kosong: string;
   entri: Entri[];
   yangDiperiksa: string;
+  /** Akibat menghapus satu entri, untuk dialog konfirmasi. */
+  akibatHapus: string;
   tambah: (teks: string) => Promise<HasilSimpan>;
   hapus: (id: number) => Promise<HasilSimpan>;
 }) {
@@ -130,16 +137,24 @@ function BagianEntri({
           {entri.map((e) => (
             <li key={e.id} className="flex items-center justify-between gap-3 px-4 py-1">
               <span className="font-semibold">{e.teks}</span>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={menunggu}
-                aria-label={`Hapus ${jenis} ${e.teks}`}
-                onClick={() => simpan(() => hapus(e.id))}
-              >
-                Hapus
-              </Button>
+              <DialogKonfirmasi
+                judul={`Hapus ${jenis} ${e.teks}?`}
+                akibat={akibatHapus}
+                labelTindakan="Hapus"
+                destruktif
+                konfirmasi={() => simpan(() => hapus(e.id))}
+                pemicu={
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructiveOutline"
+                    disabled={menunggu}
+                    aria-label={`Hapus ${jenis} ${e.teks}`}
+                  >
+                    Hapus
+                  </Button>
+                }
+              />
             </li>
           ))}
         </ul>
@@ -195,6 +210,7 @@ export function KartuKeluarga({ keluarga }: { keluarga: DataKeluarga }) {
           kosong="Belum ada alias."
           entri={keluarga.alias.map((a) => ({ id: a.id, teks: a.alias }))}
           yangDiperiksa={`alias keluarga ${keluarga.nama}`}
+          akibatHapus={`Baris ranking dengan nama ini tidak lagi dicocokkan ke keluarga ${keluarga.nama}.`}
           tambah={(alias) => tambahAlias({ idKeluarga: keluarga.id, alias })}
           hapus={(idAlias) => hapusAlias({ idAlias })}
         />
@@ -206,6 +222,7 @@ export function KartuKeluarga({ keluarga }: { keluarga: DataKeluarga }) {
           kosong="Belum ada segmen kode."
           entri={keluarga.segmen.map((s) => ({ id: s.id, teks: s.segmen }))}
           yangDiperiksa={`segmen kode keluarga ${keluarga.nama}`}
+          akibatHapus={`Produk yang kodenya memuat segmen ini tidak lagi mendapat usulan keluarga ${keluarga.nama} di halaman Pemetaan produk.`}
           tambah={(segmen) => tambahSegmenKode({ idKeluarga: keluarga.id, segmen })}
           hapus={(idSegmen) => hapusSegmenKode({ idSegmen })}
         />

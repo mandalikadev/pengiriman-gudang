@@ -5,6 +5,7 @@ import { useId, useState } from "react";
 import { usePenyimpanan } from "@/components/keadaan-simpan";
 import { PesanStatusSimpan } from "@/components/pesan-status-simpan";
 import { Button } from "@/components/ui/button";
+import { DialogKonfirmasi } from "@/components/ui/dialog-konfirmasi";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { nonaktifkanJadwal, simpanJadwal, usulkanJadwal, usulkanNonaktifJadwal } from "./aksi";
@@ -64,6 +65,20 @@ export function FormJadwal({
     tandaiBerubah();
   }
 
+  /** Tombol nonaktifkan/usulkan penonaktifan; tanpa `onClick` bila dibuka sebagai pemicu dialog konfirmasi. */
+  const tombolNonaktifkan = (onClick?: () => void) => (
+    <Button
+      type="button"
+      variant="destructive"
+      disabled={menunggu || tertahan}
+      aria-describedby={tertahan ? `${id}-tertahan` : undefined}
+      className="active:scale-95"
+      onClick={onClick}
+    >
+      {teks.nonaktifkan}
+    </Button>
+  );
+
   function pilihToko(nilai: string) {
     setIdToko(nilai);
     setIsian(daftarToko.find((t) => String(t.id) === nilai)?.jadwal ?? ISIAN_KOSONG);
@@ -114,21 +129,20 @@ export function FormJadwal({
           {teks.simpan}
         </Button>
         {toko?.jadwal ? (
-          <Button
-            type="button"
-            variant="destructive"
-            disabled={menunggu || tertahan}
-            aria-describedby={tertahan ? `${id}-tertahan` : undefined}
-            className="active:scale-95"
-            onClick={() =>
-              simpan(
-                () => teks.aksiNonaktifkan({ idGudang, idToko: toko.id }),
-                jalur === "langsung" ? () => setIsian(ISIAN_KOSONG) : undefined,
-              )
-            }
-          >
-            {teks.nonaktifkan}
-          </Button>
+          jalur === "langsung" ? (
+            // Menonaktifkan jadwal langsung berlaku, jadi meminta konfirmasi (DESIGN §11.3, T109). Usulan penonaktifan
+            // baru berlaku setelah disetujui admin, jadi tetap sekali klik.
+            <DialogKonfirmasi
+              judul={`Nonaktifkan jadwal ${toko.nama}?`}
+              akibat="Toko ini tidak lagi punya jadwal aktif."
+              labelTindakan="Nonaktifkan"
+              destruktif
+              konfirmasi={() => simpan(() => teks.aksiNonaktifkan({ idGudang, idToko: toko.id }), () => setIsian(ISIAN_KOSONG))}
+              pemicu={tombolNonaktifkan()}
+            />
+          ) : (
+            tombolNonaktifkan(() => simpan(() => teks.aksiNonaktifkan({ idGudang, idToko: toko.id })))
+          )
         ) : null}
         {tertahan ? (
           <p id={`${id}-tertahan`} className="text-muted-foreground">

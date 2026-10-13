@@ -71,12 +71,15 @@ function MasalahTanpaVarian() {
  * Peringatan "kiriman sebelumnya belum sampai" (PRD A6 ▶ Keputusan 2026-10-12, T93): hari persiapan jatuh pada atau
  * sebelum tanggal kirim sebelumnya menurut jadwal versi draft. Ikon + teks `warning` (DESIGN §7); tidak menahan finalisasi.
  */
+const teksKirimanSebelumnya = (tanggal: TanggalBisnis) =>
+  `Kiriman ${formatTanggal(tanggal)} belum sampai saat persiapan. Pastikan jumlahnya ikut dihitung di stok akhir.`;
+
 function PeringatanKirimanSebelumnya({ tanggal }: { tanggal: TanggalBisnis | null }) {
   if (tanggal === null) return null;
   return (
     <p data-kiriman-sebelumnya-belum-sampai={tanggal} className="flex items-start gap-2 font-semibold">
       <TriangleAlert aria-hidden strokeWidth={2} className="size-5 shrink-0 text-warning" />
-      Kiriman {formatTanggal(tanggal)} belum sampai saat persiapan. Pastikan jumlahnya ikut dihitung di stok akhir.
+      {teksKirimanSebelumnya(tanggal)}
     </p>
   );
 }
@@ -247,6 +250,13 @@ function FinalisasiToko({ toko, finalisasi }: { toko: TokoDraft; finalisasi: Fin
       versi={toko.versi}
       versiFinal={toko.versiFinal}
       stokTersimpan={toko.baris.map((b) => ({ kodeProduk: b.kodeProduk, stokAkhir: b.stokAkhir }))}
+      ringkasan={{
+        jumlahVarian: toko.baris.length,
+        // Produk manual tidak punya jumlah kirim (PRD A6), jadi tidak menambah total.
+        totalJumlahKirim: toko.baris.reduce((total, b) => total + (b.jumlahKirim ?? 0), 0),
+        peringatan:
+          toko.kirimanSebelumnyaBelumSampai === null ? [] : [teksKirimanSebelumnya(toko.kirimanSebelumnyaBelumSampai)],
+      }}
     />
   );
 }

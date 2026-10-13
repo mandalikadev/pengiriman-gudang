@@ -8,6 +8,7 @@ import { usePenyimpanan } from "@/components/keadaan-simpan";
 import { PesanStatusSimpan } from "@/components/pesan-status-simpan";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DialogKonfirmasi } from "@/components/ui/dialog-konfirmasi";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TableCell, TableRow } from "@/components/ui/table";
 import type { Peran } from "@/server/auth/auth";
@@ -63,31 +64,30 @@ export function BarisPengguna({ pengguna }: { pengguna: DataPengguna }) {
       </TableCell>
       <TableCell>
         {pengguna.nonaktif ? (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={menunggu}
-            onClick={() => {
-              if (window.confirm(`Aktifkan kembali ${pengguna.nama}? Pengguna ini bisa masuk lagi.`)) {
-                simpan(() => aktifkanKembaliPengguna({ idPengguna: pengguna.id }));
-              }
-            }}
-          >
-            Aktifkan kembali
-          </Button>
+          <DialogKonfirmasi
+            judul={`Aktifkan kembali ${pengguna.nama}?`}
+            akibat="Pengguna ini bisa masuk lagi."
+            labelTindakan="Aktifkan kembali"
+            konfirmasi={() => simpan(() => aktifkanKembaliPengguna({ idPengguna: pengguna.id }))}
+            pemicu={
+              <Button size="sm" variant="outline" disabled={menunggu}>
+                Aktifkan kembali
+              </Button>
+            }
+          />
         ) : (
-          <Button
-            size="sm"
-            variant="destructive"
-            disabled={menunggu}
-            onClick={() => {
-              if (window.confirm(`Nonaktifkan ${pengguna.nama}? Pengguna ini tidak bisa masuk lagi.`)) {
-                simpan(() => nonaktifkanPengguna({ idPengguna: pengguna.id }));
-              }
-            }}
-          >
-            Nonaktifkan
-          </Button>
+          <DialogKonfirmasi
+            judul={`Nonaktifkan ${pengguna.nama}?`}
+            akibat="Pengguna ini tidak bisa masuk lagi."
+            labelTindakan="Nonaktifkan"
+            destruktif
+            konfirmasi={() => simpan(() => nonaktifkanPengguna({ idPengguna: pengguna.id }))}
+            pemicu={
+              <Button size="sm" variant="destructiveOutline" disabled={menunggu}>
+                Nonaktifkan
+              </Button>
+            }
+          />
         )}
       </TableCell>
       <TableCell className="whitespace-normal">
