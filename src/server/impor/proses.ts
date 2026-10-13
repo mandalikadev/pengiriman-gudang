@@ -69,7 +69,15 @@ export async function prosesImpor(idImpor: number): Promise<void> {
       return [{ imporId: idImpor, tokoId: id, kodeProduk: s.kodeProduk, tanggal: s.tanggal, kuantitas: s.kuantitas, alamat: s.alamat }];
     });
 
+    // T102: job bisa diulang pg-boss selagi proses pertama masih berjalan. Baris impor dikunci dan statusnya
+    // diperiksa ulang, sehingga hanya satu proses yang menulis hasil; proses lain berhenti tanpa mengubah data.
     await db.transaction(async (tx) => {
+      const [terkunci] = await tx
+        .select({ status: impor.status })
+        .from(impor)
+        .where(eq(impor.id, idImpor))
+        .for("update");
+      if (terkunci?.status !== "diproses") return;
       await tx.delete(cakupanTanggalImpor).where(eq(cakupanTanggalImpor.imporId, idImpor));
       await tx.delete(selPenjualan).where(eq(selPenjualan.imporId, idImpor));
       for (const batch of potong(cakupan, UKURAN_BATCH)) await tx.insert(cakupanTanggalImpor).values(batch);
@@ -84,7 +92,7 @@ export async function prosesImpor(idImpor: number): Promise<void> {
           pesanGagal: null,
           selesaiDiprosesPada: new Date(),
         })
-        .where(and(eq(impor.id, idImpor), eq(impor.status, "diproses")));
+        .where(eq(impor.id, idImpor));
     });
   } catch (galat) {
     const pesan =
