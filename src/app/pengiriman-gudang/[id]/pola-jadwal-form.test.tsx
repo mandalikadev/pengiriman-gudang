@@ -60,14 +60,14 @@ const daftarToko = [{ id: 1, nama: "TOKO UJI", jadwal: null, adaUsulanMenunggu: 
 
 describe("pilihan pola 1× sebulan di form jadwal", () => {
   it("atur jadwal Pusat (langsung)", () => {
-    expect(pilihanPola(tampilkan(<FormJadwal idGudang={1} jalur="langsung" daftarToko={daftarToko} />))).toEqual(SEMUA_POLA);
+    expect(pilihanPola(tampilkan(<FormJadwal idGudang={1} jalur="langsung" daftarToko={daftarToko} idJudul="judul" />))).toEqual(SEMUA_POLA);
   });
 
   it("usulkan jadwal (gudang selain Pusat)", () => {
-    expect(pilihanPola(tampilkan(<FormJadwal idGudang={2} jalur="usulan" daftarToko={daftarToko} />))).toEqual(SEMUA_POLA);
+    expect(pilihanPola(tampilkan(<FormJadwal idGudang={2} jalur="usulan" daftarToko={daftarToko} idJudul="judul" />))).toEqual(SEMUA_POLA);
   });
 
   it("salin jadwal ke beberapa toko", () => {
-    expect(pilihanPola(tampilkan(<FormSalinJadwal idGudang={2} jalur="usulan" daftarToko={[{ id: 1, nama: "TOKO UJI" }]} />))).toEqual(SEMUA_POLA);
+    expect(pilihanPola(tampilkan(<FormSalinJadwal idGudang={2} jalur="usulan" daftarToko={[{ id: 1, nama: "TOKO UJI" }]} idJudul="judul" />))).toEqual(SEMUA_POLA);
   });
 });

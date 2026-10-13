@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useState } from "react";
 
 import { kelasChip } from "@/app/ringkasan/pilihan-ringkasan";
 import { usePenyimpanan } from "@/components/keadaan-simpan";
@@ -29,18 +29,20 @@ const teksJalur = {
 /**
  * Form salin jadwal (T57, PRD A5 ▶ Keputusan perencanaan M2–M3): pilih beberapa toko di gudang ini, isi satu
  * pengaturan jadwal, lalu terapkan dengan satu tombol. Tidak ada template yang disimpan. Hasil tampil per toko; hasil
- * yang belum pasti tidak diulang otomatis. Hak `kelola-usulan-jadwal` dan aturan jadwal diperiksa lagi di server.
+ * yang belum pasti tidak diulang otomatis. Hak `kelola-usulan-jadwal` dan aturan jadwal diperiksa lagi di server. Nama
+ * form adalah judul halaman (`idJudul`, T103): form tidak mengulang h1.
  */
 export function FormSalinJadwal({
   idGudang,
   jalur,
   daftarToko,
+  idJudul,
 }: {
   idGudang: number;
   jalur: JalurJadwal;
   daftarToko: { id: number; nama: string }[];
+  idJudul: string;
 }) {
-  const id = useId();
   const teks = teksJalur[jalur];
   const [terpilih, setTerpilih] = useState<ReadonlySet<number>>(new Set());
   const [isian, setIsian] = useState<IsianJadwal>(ISIAN_KOSONG);
@@ -65,7 +67,7 @@ export function FormSalinJadwal({
 
   return (
     <form
-      aria-labelledby={`${id}-judul`}
+      aria-labelledby={idJudul}
       className="flex flex-col gap-4"
       data-salin-jadwal
       onSubmit={(event) => {
@@ -74,9 +76,6 @@ export function FormSalinJadwal({
         simpan(() => salinJadwal({ idGudang, daftarIdToko, ...isianTerkirim(isian) }));
       }}
     >
-      <h3 id={`${id}-judul`} className="text-lg font-semibold">
-        Salin jadwal ke beberapa toko
-      </h3>
       <p className="text-muted-foreground">{teks.keterangan}</p>
 
       <fieldset className="flex flex-col gap-2">

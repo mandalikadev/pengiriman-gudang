@@ -18,9 +18,9 @@ vi.mock("next/navigation", async (asli) => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
 }));
 
-import HalamanSalinJadwal from "../salin-jadwal/[id]/page";
+import HalamanSalinJadwal, { generateMetadata as metadataSalinJadwal } from "../salin-jadwal/[id]/page";
 import HalamanDaftarSalinJadwal from "../salin-jadwal/page";
-import HalamanUsulanJadwal from "./[id]/page";
+import HalamanUsulanJadwal, { generateMetadata as metadataUsulanJadwal } from "./[id]/page";
 import HalamanDaftarUsulanJadwal from "./page";
 
 // T98 — DESIGN §6 ▶ Keputusan (2026-10-13, pemilik): Usulkan jadwal toko dan Salin jadwal punya halaman sendiri.
@@ -212,4 +212,61 @@ describe("/salin-jadwal/[id]: judul dan form mengikuti jalur", () => {
     expect(html).toContain("Usulan terakhir");
     expect(html.match(/<form\b/g)).toHaveLength(1);
   });
+});
+
+// T103 — catatan peninjau T98: judul tab mengikuti jalur, dan urutan heading tanpa lompatan.
+describe("T103: judul tab /usulan-jadwal/[id] dan /salin-jadwal/[id]", () => {
+  const judulTab = async (fungsi: typeof metadataUsulanJadwal, id: number) =>
+    (await fungsi({ params: Promise.resolve({ id: String(id) }) })).title;
+
+  it('Pusat: "Atur jadwal toko"; gudang lain: "Usulkan jadwal toko"; salin: "Salin jadwal ke beberapa toko"', async () => {
+    await masukOperator([pusat, ["kelola-usulan-jadwal"]], [cibubur, ["kelola-usulan-jadwal"]]);
+    expect(await judulTab(metadataUsulanJadwal, pusat)).toBe("Atur jadwal toko — Pusat — Dashboard Penjualan MANDALIKA");
+    expect(await judulTab(metadataUsulanJadwal, cibubur)).toBe("Usulkan jadwal toko — Gudang Cibubur — Dashboard Penjualan MANDALIKA");
+    expect(await judulTab(metadataSalinJadwal, pusat)).toBe("Salin jadwal ke beberapa toko — Pusat — Dashboard Penjualan MANDALIKA");
+    expect(await judulTab(metadataSalinJadwal, cibubur)).toBe(
+      "Salin jadwal ke beberapa toko — Gudang Cibubur — Dashboard Penjualan MANDALIKA",
+    );
+  });
+
+  it("tanpa hak di gudang itu → 404, judul tidak membocorkan nama gudang", async () => {
+    await masukOperator([bali, ["kelola-usulan-jadwal"]]);
+    await expect(judulTab(metadataUsulanJadwal, cibubur)).rejects.toMatchObject({ digest: expect.stringContaining("404") });
+    await expect(judulTab(metadataSalinJadwal, cibubur)).rejects.toMatchObject({ digest: expect.stringContaining("404") });
+  });
+});
+
+/** Heading berurutan di HTML: [level, teks]. */
+const daftarHeading = (html: string) =>
+  [...html.matchAll(/<h([1-6])\b[^>]*>(.*?)<\/h\1>/g)].map(
+    (m) => [Number(m[1]), m[2]!.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()] as const,
+  );
+
+describe("T103: urutan heading halaman jadwal", () => {
+  for (const jenis of ["usulan", "salin"] as const) {
+    for (const nama of ["Pusat", "Gudang Cibubur"] as const) {
+      it(`${rute[jenis].dasar}/<${nama}>: h1 lalu h2 tanpa lompatan, judul form tidak mengulang h1`, async () => {
+        const idGudang = nama === "Pusat" ? pusat : cibubur;
+        await tokoDi(idGudang);
+        await masukOperator([idGudang, ["kelola-usulan-jadwal"]]);
+
+        const html = await bukaGudang(jenis, idGudang);
+        const heading = daftarHeading(html);
+        expect(heading[0]?.[0]).toBe(1);
+        const indeksH2 = heading.findIndex(([level]) => level === 2);
+        expect(indeksH2).toBeGreaterThan(0);
+        expect(heading.slice(0, indeksH2).filter(([level]) => level >= 3)).toEqual([]);
+        // Tidak ada lompatan level di seluruh halaman.
+        heading.forEach(([level], i) => {
+          if (i > 0) expect(level - heading[i - 1]![0]).toBeLessThanOrEqual(1);
+        });
+        const h1 = heading[0]![1];
+        expect(heading.slice(1).some(([, teks]) => h1.startsWith(teks))).toBe(false);
+        // Form tetap bernama untuk pembaca layar: judul halaman (h1).
+        const idH1 = /<h1[^>]*id="([^"]+)"/.exec(html)?.[1];
+        expect(idH1).toBeTruthy();
+        expect(html).toMatch(new RegExp(`<form[^>]*aria-labelledby="${idH1}"`));
+      });
+    }
+  }
 });

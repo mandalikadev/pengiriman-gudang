@@ -17,7 +17,6 @@ type TokoForm = { id: number; nama: string; jadwal: IsianJadwal | null; adaUsula
 
 const teksJalur = {
   langsung: {
-    judul: "Atur jadwal toko",
     keterangan: null,
     simpan: "Simpan jadwal",
     nonaktifkan: "Nonaktifkan jadwal",
@@ -26,7 +25,6 @@ const teksJalur = {
     aksiNonaktifkan: nonaktifkanJadwal,
   },
   usulan: {
-    judul: "Usulkan jadwal toko",
     keterangan: "Usulan berlaku setelah disetujui admin. Sampai saat itu, jadwal aktif toko tetap dipakai.",
     simpan: "Kirim usulan",
     nonaktifkan: "Usulkan penonaktifan",
@@ -39,9 +37,20 @@ const teksJalur = {
 /**
  * Form buat/ubah/nonaktifkan jadwal satu toko (T55, T56; PRD A5 ▶ OD-06). Di gudang Pusat perubahan langsung menjadi
  * jadwal aktif; di gudang lain menjadi usulan untuk disetujui admin. Memilih toko memuat jadwal aktifnya. Hak
- * `kelola-usulan-jadwal`, satu usulan menunggu per toko, dan aturan jadwal diperiksa lagi di server.
+ * `kelola-usulan-jadwal`, satu usulan menunggu per toko, dan aturan jadwal diperiksa lagi di server. Nama form adalah
+ * judul halaman (`idJudul`, T103): form tidak mengulang h1.
  */
-export function FormJadwal({ idGudang, jalur, daftarToko }: { idGudang: number; jalur: JalurJadwal; daftarToko: TokoForm[] }) {
+export function FormJadwal({
+  idGudang,
+  jalur,
+  daftarToko,
+  idJudul,
+}: {
+  idGudang: number;
+  jalur: JalurJadwal;
+  daftarToko: TokoForm[];
+  idJudul: string;
+}) {
   const id = useId();
   const teks = teksJalur[jalur];
   const [idToko, setIdToko] = useState("");
@@ -63,16 +72,13 @@ export function FormJadwal({ idGudang, jalur, daftarToko }: { idGudang: number; 
 
   return (
     <form
-      aria-labelledby={`${id}-judul`}
+      aria-labelledby={idJudul}
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
         simpan(() => teks.aksiSimpan({ idGudang, idToko: Number(idToko), ...isianTerkirim(isian) }));
       }}
     >
-      <h3 id={`${id}-judul`} className="text-lg font-semibold">
-        {teks.judul}
-      </h3>
       {teks.keterangan ? <p className="text-muted-foreground">{teks.keterangan}</p> : null}
 
       <BidangJadwal

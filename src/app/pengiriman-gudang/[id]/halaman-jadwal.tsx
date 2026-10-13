@@ -1,6 +1,7 @@
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { AksesDitolakError, wajibGudangDenganHak } from "@/server/auth/kewenangan";
@@ -25,13 +26,21 @@ export const hrefHalamanJadwal: Record<JenisHalamanJadwal, string> = {
   salin: "/salin-jadwal",
 };
 
-/** Judul form satu toko per jalur (sama dengan judul `FormJadwal`): Pusat mengatur langsung, gudang lain mengusulkan. */
+/** Judul halaman form satu toko per jalur: Pusat mengatur langsung, gudang lain mengusulkan. */
 export const judulJadwalToko: Record<JalurJadwal, string> = {
   langsung: "Atur jadwal toko",
   usulan: "Usulkan jadwal toko",
 };
 
 export const JUDUL_SALIN_JADWAL = "Salin jadwal ke beberapa toko";
+
+/** Id h1 halaman satu gudang; form di halaman itu memakainya sebagai nama (T103: form tidak mengulang h1). */
+export const ID_JUDUL_HALAMAN_JADWAL = "judul-halaman-jadwal";
+
+/** Judul h1 halaman satu gudang: "<judul> — <gudang>". */
+export function judulHalamanJadwal(jenis: JenisHalamanJadwal, jalur: JalurJadwal, namaGudang: string): string {
+  return `${jenis === "salin" ? JUDUL_SALIN_JADWAL : judulJadwalToko[jalur]} — ${namaGudang}`;
+}
 
 const kelasTautanKembali =
   "inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
@@ -95,10 +104,10 @@ function keIsian(jadwal: NonNullable<TokoDenganJadwal["jadwal"]>): IsianJadwal {
 }
 
 /**
- * Satu gudang untuk halaman jadwal: tanpa hak `kelola-usulan-jadwal` di gudang itu, atau id tidak dikenal → 404.
- * Mengembalikan jalur (Pusat langsung, gudang lain usulan), jadwal aktif per toko, dan usulan terakhir (selain Pusat).
+ * Gudang dan jalurnya (Pusat langsung, gudang lain usulan): tanpa hak `kelola-usulan-jadwal` di gudang itu, atau id
+ * tidak dikenal → 404.
  */
-export async function muatGudangJadwal(id: string) {
+async function muatJalurGudangJadwal(id: string): Promise<{ gudang: GudangDapatDilihat; jalur: JalurJadwal }> {
   if (!/^\d{1,9}$/.test(id)) notFound();
   let daftarGudang;
   try {
@@ -109,9 +118,22 @@ export async function muatGudangJadwal(id: string) {
   }
   const gudang = daftarGudang.find((g) => g.id === Number(id));
   if (!gudang) notFound();
+  return { gudang, jalur: gudang.nama === NAMA_GUDANG_PUSAT ? "langsung" : "usulan" };
+}
 
-  const pusat = gudang.nama === NAMA_GUDANG_PUSAT;
-  const jalur: JalurJadwal = pusat ? "langsung" : "usulan";
+/** Judul tab halaman satu gudang (T103): sama dengan h1, diakhiri judul aplikasi. Hak diperiksa seperti halamannya. */
+export async function metadataHalamanJadwal(jenis: JenisHalamanJadwal, id: string): Promise<Metadata> {
+  const { gudang, jalur } = await muatJalurGudangJadwal(id);
+  return { title: `${judulHalamanJadwal(jenis, jalur, gudang.nama)} — Dashboard Penjualan MANDALIKA` };
+}
+
+/**
+ * Satu gudang untuk halaman jadwal: tanpa hak `kelola-usulan-jadwal` di gudang itu, atau id tidak dikenal → 404.
+ * Mengembalikan jalur (Pusat langsung, gudang lain usulan), jadwal aktif per toko, dan usulan terakhir (selain Pusat).
+ */
+export async function muatGudangJadwal(id: string) {
+  const { gudang, jalur } = await muatJalurGudangJadwal(id);
+  const pusat = jalur === "langsung";
   const daftarToko = await jadwalTokoGudang(gudang.id);
   const usulanPerToko = pusat ? null : await usulanTerakhirPerToko(gudang.id);
   const tokoForm = daftarToko.map((t) => ({
@@ -123,7 +145,7 @@ export async function muatGudangJadwal(id: string) {
   return { gudang, jalur, daftarToko, usulanPerToko, tokoForm };
 }
 
-/** Kerangka halaman satu gudang: tautan kembali ke daftar gudang, judul, lalu isi. */
+/** Kerangka halaman satu gudang: tautan kembali ke daftar gudang, judul (`ID_JUDUL_HALAMAN_JADWAL`), lalu isi. */
 export function KerangkaHalamanJadwal({
   jenis,
   judul,
@@ -139,7 +161,9 @@ export function KerangkaHalamanJadwal({
         <ArrowLeft aria-hidden strokeWidth={2} className="size-5" />
         Daftar gudang
       </Link>
-      <h1 className="text-2xl font-bold md:text-3xl">{judul}</h1>
+      <h1 id={ID_JUDUL_HALAMAN_JADWAL} className="text-2xl font-bold md:text-3xl">
+        {judul}
+      </h1>
       {children}
     </main>
   );
