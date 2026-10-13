@@ -253,8 +253,9 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
     expect(aktif).toContain("Senin (H−2), Kamis (H)");
     expect(aktif).toContain("Rabu, 10-06-2026");
     expect(aktif).toMatch(/Uji viewer, \w+, \d{2}-\d{2}-\d{4} pukul \d{2}\.\d{2} WIB/);
-    // Jadwal lama yang nonaktif tidak tampil sebagai jadwal aktif.
-    expect(aktif).not.toContain("Selasa");
+    // Jadwal lama yang nonaktif (Selasa) tidak tampil sebagai jadwal aktif. Diperiksa lewat hari kirim, bukan nama hari
+    // saja: kolom Diatur memuat nama hari jadwal dibuat, yang bisa Selasa.
+    expect(aktif).not.toContain("Selasa (H");
 
     const kosong = barisJadwal(html, tanpaJadwal.id);
     expect(kosong).toContain('data-status="belumAdaJadwal"');
