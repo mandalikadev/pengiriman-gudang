@@ -105,6 +105,16 @@ Hanya mode terang (ADR-0010).
 > - **Pengaturan** (hanya admin), dengan subjudul **Data master** (Keluarga aroma, Pemetaan produk, Alias nama stok, Libur) dan **Organisasi** (Gudang, Pengguna, Penugasan).
 > - Urutan item di dalam kelompok sesuai urutan di atas. Aturan visibilitas per peran tidak berubah. Viewer melihat Beranda dan Laporan saja.
 
+> ▶ Keputusan (2026-10-13, pemilik): **Data Master** menjadi kelompok sendiri dan pekerjaan jadwal toko mendapat halaman sendiri yang dibuka dari sidebar, menggantikan daftar kelompok pada keputusan 2026-10-12 di atas. Perilaku buka-tutup tetap.
+> - **Beranda** (item tunggal).
+> - **Pekerjaan rutin**: Impor penjualan (admin), Ranking pusat (admin), Persetujuan jadwal (admin), Usulkan jadwal toko (pengguna dengan hak `kelola-usulan-jadwal` di sedikitnya satu gudang).
+> - **Pengiriman Gudang**: Pengiriman Gudang (admin dan operator), Salin jadwal ke beberapa toko (pengguna dengan hak `kelola-usulan-jadwal` di sedikitnya satu gudang).
+> - **Laporan**: Ringkasan, Kalender.
+> - **Data Master** (hanya admin): Keluarga aroma, Pemetaan produk, Alias nama stok, Libur.
+> - **Pengaturan** (hanya admin): Gudang, Pengguna, Penugasan, tanpa subjudul.
+> - Form "Usulkan jadwal toko" (di gudang Pusat: "Atur jadwal toko") dan "Salin jadwal ke beberapa toko" pindah dari halaman Pengiriman Gudang ke halaman masing-masing. Pengguna yang berhak di lebih dari satu gudang memilih gudang dulu; yang berhak di satu gudang langsung masuk ke form gudang itu. Halaman Pengiriman Gudang tetap menampilkan tabel jadwal aktif per toko, ditambah tautan ke kedua halaman itu untuk pengguna yang berhak.
+> - Urutan item di dalam kelompok sesuai urutan di atas. Kelompok tanpa item yang boleh dibuka tidak ditampilkan. Viewer melihat Beranda dan Laporan saja.
+
 Ikon: lucide-react, stroke 2. Ukuran 20 px di zona kerja dan 28 px di zona suasana. Ikon fitur diletakkan dalam wadah `rounded-2xl bg-primary/10`.
 
 ## 7. Bahasa visual status
