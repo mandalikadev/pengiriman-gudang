@@ -234,7 +234,7 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
     return { berjadwal, tanpaJadwal };
   }
 
-  /** Tautan ke halaman Usulkan/Atur jadwal toko dan Salin jadwal (T98): [href, teks]. */
+  /** Tautan ke halaman Usulkan/Atur jadwal toko (T98) dan halaman jadwal lama: [href, teks]. */
   const tautanJadwal = (html: string) =>
     [...html.matchAll(/<a [^>]*href="(\/(?:usulan|salin)-jadwal\/\d+)"[^>]*>(.*?)<\/a>/g)].map((m) => [
       m[1],
@@ -269,14 +269,15 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
     expect(kosong).toContain("Belum ada jadwal");
     expect(kosong).toContain("lucide-circle-dashed");
 
-    // T98: kedua form pindah ke halaman sendiri; halaman ini menautkannya untuk pengguna berhak.
+    // T98: form pindah ke halaman sendiri; halaman ini menautkannya untuk pengguna berhak.
     expect(sebelumBagianDraft(html)).not.toMatch(/<form\b/);
     expect(html).not.toContain("data-salin-jadwal");
     expect(html).not.toContain("Simpan jadwal");
     expect(tautanJadwal(html)).toEqual([
       [`/usulan-jadwal/${pusat}`, "Atur jadwal toko"],
-      [`/salin-jadwal/${pusat}`, "Salin jadwal ke beberapa toko"],
     ]);
+    // T112: halaman Salin jadwal operator dihapus, jadi tidak ditautkan lagi.
+    expect(html).not.toContain("/salin-jadwal");
   });
 
   it("jadwal 1× sebulan tampil dengan label pola \"1× sebulan\" tanpa tanggal jangkar (T92)", async () => {
@@ -366,13 +367,13 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
 
     expect(barisJadwal(html, tanpaUsulan.id)).not.toContain("data-status-usulan");
 
-    // T98: form usulan dan salin jadwal pindah ke halaman sendiri; halaman ini menautkannya.
+    // T98: form usulan pindah ke halaman sendiri; halaman ini menautkannya.
     expect(sebelumBagianDraft(html)).not.toMatch(/<form\b/);
     expect(html).not.toContain("Kirim usulan");
     expect(tautanJadwal(html)).toEqual([
       [`/usulan-jadwal/${cibubur}`, "Usulkan jadwal toko"],
-      [`/salin-jadwal/${cibubur}`, "Salin jadwal ke beberapa toko"],
     ]);
+    expect(html).not.toContain("/salin-jadwal");
   });
 
   it("gudang selain Pusat: operator tanpa kelola-usulan-jadwal dan admin melihat status usulan hanya-baca", async () => {

@@ -11,6 +11,6 @@ export const metadata: Metadata = {
  * langsung ke gudang itu; tanpa hak → 404.
  */
 export default async function HalamanDaftarUsulanJadwal() {
-  const daftarGudang = await muatDaftarGudangJadwal("usulan");
-  return <DaftarGudangJadwal jenis="usulan" judul="Usulkan jadwal toko" daftarGudang={daftarGudang} />;
+  const daftarGudang = await muatDaftarGudangJadwal();
+  return <DaftarGudangJadwal judul="Usulkan jadwal toko" daftarGudang={daftarGudang} />;
 }

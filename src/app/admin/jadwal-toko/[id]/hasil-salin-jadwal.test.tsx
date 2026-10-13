@@ -17,22 +17,16 @@ describe("HasilSalinJadwal", () => {
   it("menampilkan hasil per toko dengan ikon + teks (DESIGN §7) beserta keterangan", () => {
     const html = renderToStaticMarkup(
       <HasilSalinJadwal
-        jalur="usulan"
         namaToko={namaToko}
         hasil={[
           { idToko: 1, status: "berhasil" },
           { idToko: 2, status: "ditolak", pesan: "Pola dua mingguan wajib memiliki tanggal jangkar." },
-          {
-            idToko: 3,
-            status: "usulanMenunggu",
-            pesan: "Toko ini masih punya usulan jadwal yang menunggu persetujuan admin.",
-          },
           { idToko: 4, status: "belumPasti", pesan: "Hasil belum pasti karena terjadi gangguan saat menyimpan toko ini." },
         ]}
       />,
     );
 
-    expect(html).toContain("1 dari 4 toko berhasil.");
+    expect(html).toContain("1 dari 3 toko berhasil.");
     expect(html).toContain("lucide-triangle-alert");
 
     const berhasil = baris(html, 1);
@@ -40,7 +34,7 @@ describe("HasilSalinJadwal", () => {
     expect(berhasil).toContain('data-hasil-salin="berhasil"');
     expect(berhasil).toContain("lucide-circle-check");
     expect(berhasil).toContain("Berhasil");
-    expect(berhasil).toContain("Usulan dibuat dan menunggu persetujuan admin.");
+    expect(berhasil).toContain("Jadwal tetap toko sesuai pengaturan ini.");
 
     const ditolak = baris(html, 2);
     expect(ditolak).toContain("Toko Ubud");
@@ -48,20 +42,14 @@ describe("HasilSalinJadwal", () => {
     expect(ditolak).toContain("Ditolak");
     expect(ditolak).toContain("Pola dua mingguan wajib memiliki tanggal jangkar.");
 
-    const tertahan = baris(html, 3);
-    expect(tertahan).toContain("lucide-clipboard-list");
-    expect(tertahan).toContain("Sudah ada usulan menunggu");
-    expect(tertahan).toContain("Toko ini masih punya usulan jadwal yang menunggu persetujuan admin.");
-
     const belumPasti = baris(html, 4);
     expect(belumPasti).toContain("lucide-triangle-alert");
     expect(belumPasti).toContain("Belum pasti");
   });
 
-  it("di Pusat semua berhasil → ringkasan berhasil dan keterangan jadwal aktif", () => {
+  it("semua berhasil → ringkasan berhasil tanpa ikon peringatan", () => {
     const html = renderToStaticMarkup(
       <HasilSalinJadwal
-        jalur="langsung"
         namaToko={namaToko}
         hasil={[
           { idToko: 1, status: "berhasil" },
@@ -71,6 +59,6 @@ describe("HasilSalinJadwal", () => {
     );
     expect(html).toContain("2 dari 2 toko berhasil.");
     expect(html).not.toContain("lucide-triangle-alert");
-    expect(baris(html, 2)).toContain("Jadwal aktif toko sesuai pengaturan ini.");
+    expect(baris(html, 2)).toContain("Jadwal tetap toko sesuai pengaturan ini.");
   });
 });

@@ -16,7 +16,7 @@ type Props = { params: Promise<{ id: string }> };
 
 /** T103: judul tab mengikuti jalur ("Atur jadwal toko" di Pusat, "Usulkan jadwal toko" di gudang lain). */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  return metadataHalamanJadwal("usulan", (await params).id);
+  return metadataHalamanJadwal((await params).id);
 }
 
 /**
@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function HalamanUsulanJadwal({ params }: Props) {
   const { gudang, jalur, daftarToko, usulanPerToko, tokoForm } = await muatGudangJadwal((await params).id);
   return (
-    <KerangkaHalamanJadwal jenis="usulan" judul={judulHalamanJadwal("usulan", jalur, gudang.nama)}>
+    <KerangkaHalamanJadwal judul={judulHalamanJadwal(jalur, gudang.nama)}>
       {tokoForm.length > 0 ? (
         <Card>
           <FormJadwal idGudang={gudang.id} jalur={jalur} daftarToko={tokoForm} idJudul={ID_JUDUL_HALAMAN_JADWAL} />

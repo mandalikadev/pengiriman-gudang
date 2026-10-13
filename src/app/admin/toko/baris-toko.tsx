@@ -19,7 +19,7 @@ import { TombolStatusToko } from "./tombol-status-toko";
 /** Satu toko di daftar toko admin (T111). `namaGudang` null = belum terhubung ke gudang. */
 export type DataBarisToko = { id: number; nama: string; aktif: boolean; namaGudang: string | null };
 
-function BadgeStatusToko({ aktif }: { aktif: boolean }) {
+export function BadgeStatusToko({ aktif }: { aktif: boolean }) {
   if (aktif) return <BadgeStatus status="aktif" />;
   return (
     <Badge variant="muted" data-status="nonaktif">

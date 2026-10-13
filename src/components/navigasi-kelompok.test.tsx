@@ -135,6 +135,7 @@ describe("judul kelompok sebagai tombol buka-tutup", () => {
     klik(judul("Data Master"));
     const dataMaster = daftar("Data Master");
     expect([...dataMaster.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual([
+      "/admin/jadwal-toko",
       "/admin/keluarga-aroma",
       "/admin/pemetaan-produk",
       "/admin/alias-stok",
@@ -191,9 +192,9 @@ describe("keadaan awal", () => {
     expect(keadaan()).toEqual({ "Pekerjaan rutin": true, Laporan: false, "Data Master": false, Pengaturan: false });
   });
 
-  it("halaman /salin-jadwal/3: Pekerjaan rutin terbuka, lainnya tertutup", () => {
-    pasang("/salin-jadwal/3");
-    expect(keadaan()).toEqual({ "Pekerjaan rutin": true, Laporan: false, "Data Master": false, Pengaturan: false });
+  it("halaman /admin/jadwal-toko/3: Data Master terbuka, lainnya tertutup", () => {
+    pasang("/admin/jadwal-toko/3");
+    expect(keadaan()).toEqual({ "Pekerjaan rutin": false, Laporan: false, "Data Master": true, Pengaturan: false });
   });
 
   it("halaman /admin/keluarga-aroma: Data Master terbuka, lainnya tertutup", () => {

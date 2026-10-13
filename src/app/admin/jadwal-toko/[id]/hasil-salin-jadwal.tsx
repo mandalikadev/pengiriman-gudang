@@ -1,26 +1,19 @@
-import { CircleCheck, CircleX, ClipboardList, TriangleAlert, type LucideIcon } from "lucide-react";
+import { CircleCheck, CircleX, TriangleAlert, type LucideIcon } from "lucide-react";
 
 import { Badge, type NadaBadge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import type { HasilSalinToko } from "@/server/gudang/salin-jadwal";
 
-import type { JalurJadwal } from "./form-jadwal";
-
 // DESIGN §7: status selalu ikon + teks; warna ikon dari token status, teks foreground. Hasil salin jadwal memakai token
-// dan ikon yang sudah ada: berhasil = berhasil, ditolak = gagal, sudah ada usulan menunggu = menunggu tinjauan admin
-// (sama dengan "Menunggu persetujuan" usulan), belum pasti = peringatan.
+// dan ikon yang sudah ada: berhasil = berhasil, ditolak = gagal, belum pasti = peringatan.
 const tampilanHasil = {
   berhasil: { label: "Berhasil", nada: "success", ikon: CircleCheck },
   ditolak: { label: "Ditolak", nada: "destructive", ikon: CircleX },
-  usulanMenunggu: { label: "Sudah ada usulan menunggu", nada: "default", ikon: ClipboardList },
   belumPasti: { label: "Belum pasti", nada: "warning", ikon: TriangleAlert },
 } as const satisfies Record<HasilSalinToko["status"], { label: string; nada: NadaBadge; ikon: LucideIcon }>;
 
-const keteranganBerhasil: Record<JalurJadwal, string> = {
-  langsung: "Jadwal aktif toko sesuai pengaturan ini.",
-  usulan: "Usulan dibuat dan menunggu persetujuan admin. Jadwal aktif toko tetap dipakai sampai disetujui.",
-};
+const KETERANGAN_BERHASIL = "Jadwal tetap toko sesuai pengaturan ini.";
 
 function BadgeHasilSalin({ status }: { status: HasilSalinToko["status"] }) {
   const { label, nada, ikon: Ikon } = tampilanHasil[status];
@@ -34,11 +27,9 @@ function BadgeHasilSalin({ status }: { status: HasilSalinToko["status"] }) {
 
 /** Hasil per toko setelah salin jadwal (CODING_STANDARDS "Operasi massal mengembalikan hasil per item"). */
 export function HasilSalinJadwal({
-  jalur,
   hasil,
   namaToko,
 }: {
-  jalur: JalurJadwal;
   hasil: HasilSalinToko[];
   namaToko: ReadonlyMap<number, string>;
 }) {
@@ -71,7 +62,7 @@ export function HasilSalinJadwal({
                 <BadgeHasilSalin status={h.status} />
               </TableCell>
               <TableCell className="whitespace-normal">
-                {h.status === "berhasil" ? keteranganBerhasil[jalur] : h.pesan}
+                {h.status === "berhasil" ? KETERANGAN_BERHASIL : h.pesan}
               </TableCell>
             </TableRow>
           ))}

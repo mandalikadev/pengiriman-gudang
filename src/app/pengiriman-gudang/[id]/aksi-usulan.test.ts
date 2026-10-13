@@ -92,7 +92,7 @@ describe("operator gudang selain Pusat mengusulkan jadwal", () => {
 
     await expect(usulkanJadwal(seninKamis(bali, t.id))).resolves.toEqual({ keadaan: "berhasil" });
     // T98: halaman Pengiriman Gudang dan kedua halaman jadwal sama-sama segar setelah simpan.
-    expect(kepala.dimuatUlang).toEqual([`/pengiriman-gudang/${bali}`, `/usulan-jadwal/${bali}`, `/salin-jadwal/${bali}`]);
+    expect(kepala.dimuatUlang).toEqual([`/pengiriman-gudang/${bali}`, `/usulan-jadwal/${bali}`, `/admin/jadwal-toko/${bali}`]);
 
     // Jadwal aktif dan versinya tetap.
     expect(await riwayatJadwal(t.id)).toEqual([awal]);

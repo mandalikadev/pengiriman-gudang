@@ -1,4 +1,5 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { periksaJadwal, type Jadwal, type MasukanJadwal } from "@/domain/jadwal";
 import { parseTanggalBisnis } from "@/domain/kalender";
@@ -77,13 +78,13 @@ const PESAN_TOKO_TIDAK_TERHUBUNG = "Toko tidak terhubung ke gudang ini. Muat ula
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /**
- * Memastikan gudang sesuai jalurnya (`langsung` = Pusat, `usulan` = gudang selain Pusat; PRD A5 ▶ OD-06) dan toko
- * terhubung ke gudang itu, lalu mengunci baris toko agar perubahan jadwal atau usulan bersamaan untuk toko yang sama
- * berjalan bergantian. `null` = boleh lanjut.
+ * Memastikan gudang sesuai jalurnya (`langsung` = Pusat, `usulan` = gudang selain Pusat; PRD A5 ▶ OD-06; `admin` =
+ * semua gudang, PRD A5 ▶ Revisi 2026-10-13) dan toko terhubung ke gudang itu, lalu mengunci baris toko agar perubahan
+ * jadwal atau usulan bersamaan untuk toko yang sama berjalan bergantian. `null` = boleh lanjut.
  */
 export async function periksaTujuan(
   tx: Tx,
-  { idGudang, idToko, jalur }: { idGudang: number; idToko: number; jalur: "langsung" | "usulan" },
+  { idGudang, idToko, jalur }: { idGudang: number; idToko: number; jalur: "langsung" | "usulan" | "admin" },
 ): Promise<string | null> {
   const [tujuan] = await tx.select({ nama: gudang.nama }).from(gudang).where(eq(gudang.id, idGudang));
   if (!tujuan) return "Gudang tidak ditemukan.";
@@ -207,4 +208,119 @@ export async function nonaktifkanJadwalToko({
     }
     return { keadaan: "berhasil" };
   });
+}
+
+// Jadwal tetap diatur admin (T112, PRD A5 ▶ Revisi 2026-10-13): admin membuat, mengubah, dan menonaktifkan jadwal tetap
+// toko di semua gudang termasuk Pusat, langsung berlaku tanpa usulan. Aturan penggantian sama dengan jalur lain
+// (`gantiJadwalAktif`, `nonaktifkanJadwalAktif`), sehingga draft terdampak tetap ditandai lewat versi jadwal. Peran admin
+// diperiksa pemanggil (server action).
+
+/** Menyimpan jadwal tetap satu toko atas nama admin `idPengguna`. Toko harus terhubung ke gudang `idGudang`. */
+export async function aturJadwalTetap({
+  idGudang,
+  idToko,
+  masukan,
+  idPengguna,
+}: {
+  idGudang: number;
+  idToko: number;
+  masukan: MasukanJadwal;
+  idPengguna: string;
+}): Promise<HasilJadwal> {
+  const hasil = jadwalDariMasukan(masukan);
+
+  return db.transaction(async (tx) => {
+    const pesanTujuan = await periksaTujuan(tx, { idGudang, idToko, jalur: "admin" });
+    if (pesanTujuan !== null) return { keadaan: "gagal", pesan: pesanTujuan };
+    if ("pesan" in hasil) return { keadaan: "gagal", pesan: hasil.pesan };
+
+    await gantiJadwalAktif(tx, { idToko, baru: hasil.jadwal, idPengguna });
+    return { keadaan: "berhasil" };
+  });
+}
+
+/** Menonaktifkan jadwal tetap satu toko atas nama admin `idPengguna`. Riwayat tidak dihapus. */
+export async function nonaktifkanJadwalTetap({
+  idGudang,
+  idToko,
+  idPengguna,
+}: {
+  idGudang: number;
+  idToko: number;
+  idPengguna: string;
+}): Promise<HasilJadwal> {
+  return db.transaction(async (tx) => {
+    const pesanTujuan = await periksaTujuan(tx, { idGudang, idToko, jalur: "admin" });
+    if (pesanTujuan !== null) return { keadaan: "gagal", pesan: pesanTujuan };
+
+    if (!(await nonaktifkanJadwalAktif(tx, { idToko, idPengguna }))) {
+      return { keadaan: "gagal", pesan: PESAN_TANPA_JADWAL_AKTIF };
+    }
+    return { keadaan: "berhasil" };
+  });
+}
+
+/** Satu baris riwayat jadwal tetap toko. `berakhir` null = masih aktif. */
+export type EntriRiwayatJadwal = Jadwal & {
+  id: number;
+  diaturOleh: string;
+  diaturPada: Date;
+  berakhir: { jenis: "diganti" | "dinonaktifkan"; oleh: string; pada: Date } | null;
+};
+
+/**
+ * Riwayat jadwal tetap setiap toko yang terhubung ke gudang `idGudang`: semua baris `jadwal_toko`, terbaru di atas.
+ * Jadwal yang diganti dan penggantinya ditulis dalam satu transaksi (`gantiJadwalAktif`), jadi waktu nonaktifnya sama
+ * dengan waktu dibuat jadwal berikutnya; selain itu jadwal itu dinonaktifkan. Pemeriksaan akses oleh pemanggil.
+ */
+export async function riwayatJadwalTetapGudang(idGudang: number): Promise<Map<number, EntriRiwayatJadwal[]>> {
+  const pengatur = alias(user, "pengatur");
+  const penonaktif = alias(user, "penonaktif");
+  const baris = await db
+    .select({
+      id: jadwalToko.id,
+      idToko: jadwalToko.tokoId,
+      pola: jadwalToko.pola,
+      hariKirim: jadwalToko.hariKirim,
+      tanggalJangkar: jadwalToko.tanggalJangkar,
+      diaturOleh: pengatur.name,
+      diaturPada: jadwalToko.dibuatPada,
+      dinonaktifkanOleh: penonaktif.name,
+      dinonaktifkanPada: jadwalToko.dinonaktifkanPada,
+    })
+    .from(hubunganTokoGudang)
+    .innerJoin(jadwalToko, eq(jadwalToko.tokoId, hubunganTokoGudang.tokoId))
+    .innerJoin(pengatur, eq(pengatur.id, jadwalToko.dibuatOleh))
+    .leftJoin(penonaktif, eq(penonaktif.id, jadwalToko.dinonaktifkanOleh))
+    .where(eq(hubunganTokoGudang.gudangId, idGudang))
+    .orderBy(asc(jadwalToko.tokoId), desc(jadwalToko.id));
+
+  const riwayat = new Map<number, EntriRiwayatJadwal[]>();
+  for (const b of baris) {
+    const daftar = riwayat.get(b.idToko) ?? [];
+    // Baris sebelumnya di daftar (terbaru di atas) adalah jadwal berikutnya toko ini.
+    const berikutnya = daftar.at(-1);
+    const berakhir =
+      b.dinonaktifkanPada === null
+        ? null
+        : {
+            jenis:
+              berikutnya !== undefined && berikutnya.diaturPada.getTime() === b.dinonaktifkanPada.getTime()
+                ? ("diganti" as const)
+                : ("dinonaktifkan" as const),
+            oleh: b.dinonaktifkanOleh ?? "—",
+            pada: b.dinonaktifkanPada,
+          };
+    daftar.push({
+      id: b.id,
+      pola: b.pola,
+      hariKirim: b.hariKirim,
+      tanggalJangkar: bacaJangkar(b.tanggalJangkar),
+      diaturOleh: b.diaturOleh,
+      diaturPada: b.diaturPada,
+      berakhir,
+    });
+    riwayat.set(b.idToko, daftar);
+  }
+  return riwayat;
 }

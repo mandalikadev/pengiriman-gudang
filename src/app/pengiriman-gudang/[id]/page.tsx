@@ -62,8 +62,8 @@ function BadgeStatusToko({ aktif }: { aktif: boolean }) {
 
 /**
  * Zona kerja (DESIGN §1). Halaman Pengiriman Gudang satu gudang (T50) dengan kartu Periode sumber (T51) dan bagian
- * Jadwal (T55, T56). Operator dengan hak `kelola-usulan-jadwal` mendapat tautan ke halaman Usulkan/Atur jadwal toko dan
- * Salin jadwal (T98), tempat jadwal Pusat diubah langsung dan jadwal gudang lain diusulkan (PRD A5 ▶ OD-06). Bagian Draft rencana (T58)
+ * Jadwal (T55, T56). Operator dengan hak `kelola-usulan-jadwal` mendapat tautan ke halaman Usulkan/Atur jadwal toko
+ * (T98), tempat jadwal Pusat diubah langsung dan jadwal gudang lain diusulkan (PRD A5 ▶ OD-06). Bagian Draft rencana (T58)
  * menampilkan draft yang tersimpan tanpa menghitung saat halaman dibuka (PRD C1), sebagai ringkasan per toko; `?toko=<id>`
  * membuka baris satu toko (T73) dan `?rincian=<id toko>|<kode produk>` membuka rincian perhitungan satu barisnya (T60). Operator dengan hak `finalisasi` memfinalisasi rencana per toko (T62).
  * Tautan Riwayat rencana final (T63) untuk semua yang bisa melihat halaman ini.

@@ -71,7 +71,7 @@ describe("kewenangan menyimpan jadwal Pusat (diperiksa di server)", () => {
 
     await expect(simpanJadwal(seninKamis(t.id))).resolves.toEqual({ keadaan: "berhasil" });
     // T98: halaman Pengiriman Gudang dan kedua halaman jadwal sama-sama segar setelah simpan.
-    expect(kepala.dimuatUlang).toEqual([`/pengiriman-gudang/${pusat}`, `/usulan-jadwal/${pusat}`, `/salin-jadwal/${pusat}`]);
+    expect(kepala.dimuatUlang).toEqual([`/pengiriman-gudang/${pusat}`, `/usulan-jadwal/${pusat}`, `/admin/jadwal-toko/${pusat}`]);
 
     const [baris] = await riwayat(t.id);
     expect(baris).toMatchObject({

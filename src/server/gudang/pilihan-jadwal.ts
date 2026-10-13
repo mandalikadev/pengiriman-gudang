@@ -31,3 +31,19 @@ export const labelPersiapan: Record<Persiapan, string> = { H: "H", "H-1": "H−1
 export function labelHariKirim(hariKirim: Jadwal["hariKirim"]) {
   return hariKirim.map((h) => `${h.hari} (${labelPersiapan[persiapanDariHari[h.persiapanHari]]})`).join(", ");
 }
+
+/** Isian satu form jadwal (pola, hari kirim beserta persiapan `H` / `H-1` / `H-2`, tanggal jangkar). */
+export type IsianJadwal = {
+  pola: PolaJadwal;
+  hariKirim: { hari: HariKirim; persiapan: Persiapan }[];
+  tanggalJangkar: string | null;
+};
+
+/** Jadwal tersimpan → isian form (persiapan dalam hari → `H` / `H-1` / `H-2`). */
+export function isianDariJadwal(jadwal: Jadwal): IsianJadwal {
+  return {
+    pola: jadwal.pola,
+    hariKirim: jadwal.hariKirim.map((h) => ({ hari: h.hari, persiapan: persiapanDariHari[h.persiapanHari] })),
+    tanggalJangkar: jadwal.tanggalJangkar,
+  };
+}

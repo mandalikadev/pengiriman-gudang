@@ -12,16 +12,13 @@ import {
   labelPersiapan,
   labelPola,
   type HariKirim,
+  type IsianJadwal,
   type Persiapan,
   type PolaJadwal,
 } from "@/server/gudang/pilihan-jadwal";
 
 /** Isian satu pengaturan jadwal; divalidasi domain (`periksaJadwal`, T54) di server. */
-export type IsianJadwal = {
-  pola: PolaJadwal;
-  hariKirim: { hari: HariKirim; persiapan: Persiapan }[];
-  tanggalJangkar: string | null;
-};
+export type { IsianJadwal };
 
 export const ISIAN_KOSONG: IsianJadwal = {
   pola: "mingguan",

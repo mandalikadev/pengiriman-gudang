@@ -18,12 +18,11 @@ vi.mock("next/navigation", async (asli) => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
 }));
 
-import HalamanSalinJadwal, { generateMetadata as metadataSalinJadwal } from "../salin-jadwal/[id]/page";
-import HalamanDaftarSalinJadwal from "../salin-jadwal/page";
 import HalamanUsulanJadwal, { generateMetadata as metadataUsulanJadwal } from "./[id]/page";
 import HalamanDaftarUsulanJadwal from "./page";
 
-// T98 — DESIGN §6 ▶ Keputusan (2026-10-13, pemilik): Usulkan jadwal toko dan Salin jadwal punya halaman sendiri.
+// T98 — DESIGN §6 ▶ Keputusan (2026-10-13, pemilik): Usulkan jadwal toko punya halaman sendiri. Halaman Salin jadwal
+// operator dihapus (T112); salin jadwal menjadi alat admin di halaman Jadwal toko.
 
 let pusat: number;
 let bali: number;
@@ -55,7 +54,6 @@ async function tokoDi(idGudang: number) {
 
 const rute = {
   usulan: { dasar: "/usulan-jadwal", daftar: HalamanDaftarUsulanJadwal, gudang: HalamanUsulanJadwal },
-  salin: { dasar: "/salin-jadwal", daftar: HalamanDaftarSalinJadwal, gudang: HalamanSalinJadwal },
 } as const;
 
 const bukaGudang = async (jenis: keyof typeof rute, id: number | string) =>
@@ -73,7 +71,7 @@ function kartuGudang(html: string, dasar: string) {
 
 const judulHalaman = (html: string) => /<h1[^>]*>(.*?)<\/h1>/.exec(html)?.[1]?.replace(/<!-- -->/g, "");
 
-for (const jenis of ["usulan", "salin"] as const) {
+for (const jenis of ["usulan"] as const) {
   const { dasar } = rute[jenis];
 
   describe(`${dasar}: daftar gudang`, () => {
@@ -156,7 +154,6 @@ describe("/usulan-jadwal/[id]: judul dan form mengikuti jalur", () => {
     expect(html).toContain('aria-label="Jadwal aktif per toko"');
     expect(barisJadwal(html, t.id)).toContain("Belum ada jadwal");
     expect(html).not.toContain("Usulan terakhir");
-    // Form salin ada di halamannya sendiri: hanya form satu toko di halaman ini.
     expect(html).not.toContain("data-salin-jadwal");
     expect(html.match(/<form\b/g)).toHaveLength(1);
   });
@@ -182,57 +179,20 @@ describe("/usulan-jadwal/[id]: judul dan form mengikuti jalur", () => {
   });
 });
 
-describe("/salin-jadwal/[id]: judul dan form mengikuti jalur", () => {
-  it("gudang Pusat: judul \"Salin jadwal ke beberapa toko — Pusat\", form salin yang langsung berlaku", async () => {
-    const [a, b] = [await tokoDi(pusat), await tokoDi(pusat)];
-    await masukOperator([pusat, ["kelola-usulan-jadwal"]]);
-
-    const html = await bukaGudang("salin", pusat);
-    expect(judulHalaman(html)).toBe("Salin jadwal ke beberapa toko — Pusat");
-    const salin = /<form[^>]*data-salin-jadwal.*?<\/form>/.exec(html)?.[0] ?? "";
-    expect(salin).toContain("Pengaturan yang sama langsung menjadi jadwal aktif setiap toko terpilih.");
-    expect(salin).toMatch(new RegExp(`type="checkbox"[^>]*value="${a.id}"`));
-    expect(salin).toMatch(new RegExp(`type="checkbox"[^>]*value="${b.id}"`));
-    expect(salin).toContain("Terapkan ke toko terpilih");
-    expect(html).toContain('aria-label="Jadwal aktif per toko"');
-    // Form satu toko ada di halamannya sendiri: hanya form salin di halaman ini.
-    expect(html.match(/<form\b/g)).toHaveLength(1);
-  });
-
-  it("gudang selain Pusat: form salin mengirim usulan per toko", async () => {
-    const t = await tokoDi(cibubur);
-    await masukOperator([cibubur, ["kelola-usulan-jadwal"]]);
-
-    const html = await bukaGudang("salin", cibubur);
-    expect(judulHalaman(html)).toBe("Salin jadwal ke beberapa toko — Gudang Cibubur");
-    const salin = /<form[^>]*data-salin-jadwal.*?<\/form>/.exec(html)?.[0] ?? "";
-    expect(salin).toContain("Setiap toko terpilih mendapat usulan tersendiri yang disetujui atau ditolak admin.");
-    expect(salin).toContain(t.nama);
-    expect(salin).toContain("Kirim usulan ke toko terpilih");
-    expect(html).toContain("Usulan terakhir");
-    expect(html.match(/<form\b/g)).toHaveLength(1);
-  });
-});
-
 // T103 — catatan peninjau T98: judul tab mengikuti jalur, dan urutan heading tanpa lompatan.
-describe("T103: judul tab /usulan-jadwal/[id] dan /salin-jadwal/[id]", () => {
+describe("T103: judul tab /usulan-jadwal/[id]", () => {
   const judulTab = async (fungsi: typeof metadataUsulanJadwal, id: number) =>
     (await fungsi({ params: Promise.resolve({ id: String(id) }) })).title;
 
-  it('Pusat: "Atur jadwal toko"; gudang lain: "Usulkan jadwal toko"; salin: "Salin jadwal ke beberapa toko"', async () => {
+  it('Pusat: "Atur jadwal toko"; gudang lain: "Usulkan jadwal toko"', async () => {
     await masukOperator([pusat, ["kelola-usulan-jadwal"]], [cibubur, ["kelola-usulan-jadwal"]]);
     expect(await judulTab(metadataUsulanJadwal, pusat)).toBe("Atur jadwal toko — Pusat — Dashboard Penjualan MANDALIKA");
     expect(await judulTab(metadataUsulanJadwal, cibubur)).toBe("Usulkan jadwal toko — Gudang Cibubur — Dashboard Penjualan MANDALIKA");
-    expect(await judulTab(metadataSalinJadwal, pusat)).toBe("Salin jadwal ke beberapa toko — Pusat — Dashboard Penjualan MANDALIKA");
-    expect(await judulTab(metadataSalinJadwal, cibubur)).toBe(
-      "Salin jadwal ke beberapa toko — Gudang Cibubur — Dashboard Penjualan MANDALIKA",
-    );
   });
 
   it("tanpa hak di gudang itu → 404, judul tidak membocorkan nama gudang", async () => {
     await masukOperator([bali, ["kelola-usulan-jadwal"]]);
     await expect(judulTab(metadataUsulanJadwal, cibubur)).rejects.toMatchObject({ digest: expect.stringContaining("404") });
-    await expect(judulTab(metadataSalinJadwal, cibubur)).rejects.toMatchObject({ digest: expect.stringContaining("404") });
   });
 });
 
@@ -243,7 +203,7 @@ const daftarHeading = (html: string) =>
   );
 
 describe("T103: urutan heading halaman jadwal", () => {
-  for (const jenis of ["usulan", "salin"] as const) {
+  for (const jenis of ["usulan"] as const) {
     for (const nama of ["Pusat", "Gudang Cibubur"] as const) {
       it(`${rute[jenis].dasar}/<${nama}>: h1 lalu h2 tanpa lompatan, judul form tidak mengulang h1`, async () => {
         const idGudang = nama === "Pusat" ? pusat : cibubur;

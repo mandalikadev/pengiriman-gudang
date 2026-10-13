@@ -12,7 +12,7 @@ import { labelHariKirim, labelPola } from "@/server/gudang/pilihan-jadwal";
 import type { UsulanTerakhir } from "@/server/gudang/usulan-jadwal";
 
 import type { JalurJadwal } from "./form-jadwal";
-import { hrefHalamanJadwal, JUDUL_SALIN_JADWAL, judulJadwalToko } from "./halaman-jadwal";
+import { HREF_HALAMAN_JADWAL, judulJadwalToko } from "./halaman-jadwal";
 import { BadgeStatusUsulan, labelJenisUsulan } from "./status-usulan";
 
 function BadgeTanpaJadwal() {
@@ -42,11 +42,11 @@ function SelUsulan({ usulan }: { usulan: UsulanTerakhir | undefined }) {
 }
 
 /**
- * Bagian Jadwal (T55, T56, T57; PRD A5 ▶ OD-06): setiap toko terhubung beserta jadwal aktifnya. `usulanPerToko`
- * (gudang selain Pusat) menambah kolom status usulan terakhir setiap toko. Dipakai di halaman Pengiriman Gudang dan di
- * kedua halaman jadwal toko (T98). Form satu toko dan form salin jadwal berada di halaman sendiri; `tautan` (jalur
- * pengguna dengan hak `kelola-usulan-jadwal`: Pusat mengatur langsung, gudang lain mengusulkan) menampilkan tautan ke
- * kedua halaman itu. Hak diperiksa lagi di halaman dan server action.
+ * Bagian Jadwal (T55, T56; PRD A5 ▶ OD-06): setiap toko terhubung beserta jadwal aktifnya. `usulanPerToko` (gudang
+ * selain Pusat) menambah kolom status usulan terakhir setiap toko. Dipakai di halaman Pengiriman Gudang dan halaman
+ * jadwal toko (T98). Form satu toko berada di halaman sendiri; `tautan` (jalur pengguna dengan hak
+ * `kelola-usulan-jadwal`: Pusat mengatur langsung, gudang lain mengusulkan) menampilkan tautan ke halaman itu. Salin
+ * jadwal pindah ke halaman admin Jadwal toko (T112). Hak diperiksa lagi di halaman dan server action.
  */
 export function BagianJadwal({
   idGudang,
@@ -120,11 +120,8 @@ export function BagianJadwal({
 
         {tautan !== null ? (
           <div className="flex flex-wrap gap-2">
-            <Link href={`${hrefHalamanJadwal.usulan}/${idGudang}`} data-tautan-jadwal className={kelasTautan}>
+            <Link href={`${HREF_HALAMAN_JADWAL}/${idGudang}`} data-tautan-jadwal className={kelasTautan}>
               {judulJadwalToko[tautan]}
-            </Link>
-            <Link href={`${hrefHalamanJadwal.salin}/${idGudang}`} data-tautan-jadwal className={kelasTautan}>
-              {JUDUL_SALIN_JADWAL}
             </Link>
           </div>
         ) : null}

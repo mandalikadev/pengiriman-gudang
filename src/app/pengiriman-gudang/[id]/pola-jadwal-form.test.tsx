@@ -8,14 +8,13 @@ vi.mock("./aksi", () => ({
   nonaktifkanJadwal: vi.fn(),
   usulkanJadwal: vi.fn(),
   usulkanNonaktifJadwal: vi.fn(),
-  salinJadwal: vi.fn(),
 }));
 
 import { isianTerkirim } from "./bidang-jadwal";
 import { FormJadwal } from "./form-jadwal";
-import { FormSalinJadwal } from "./form-salin-jadwal";
 
-// T92: pola 1× sebulan bisa dipilih di ketiga form jadwal (PRD A5 ▶ Keputusan 2026-10-12, UAT ketiga).
+// T92: pola 1× sebulan bisa dipilih di form jadwal (PRD A5 ▶ Keputusan 2026-10-12, UAT ketiga). Form salin jadwal
+// pindah ke halaman admin Jadwal toko (T112) dan diuji di sana.
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -67,10 +66,6 @@ describe("pilihan pola 1× sebulan di form jadwal", () => {
   it("usulkan jadwal (gudang selain Pusat)", () => {
     expect(pilihanPola(tampilkan(<FormJadwal idGudang={2} jalur="usulan" daftarToko={daftarToko} idJudul="judul" />))).toEqual(SEMUA_POLA);
   });
-
-  it("salin jadwal ke beberapa toko", () => {
-    expect(pilihanPola(tampilkan(<FormSalinJadwal idGudang={2} jalur="usulan" daftarToko={[{ id: 1, nama: "TOKO UJI" }]} idJudul="judul" />))).toEqual(SEMUA_POLA);
-  });
 });
 
 // T106: hari Minggu bisa dipilih sebagai hari kirim (PRD A5 ▶ Revisi 2026-10-13, pemilik).
@@ -88,12 +83,6 @@ describe("hari kirim Senin–Minggu di form jadwal", () => {
 
   it("usulkan jadwal menampilkan tujuh hari berurutan Senin–Minggu", () => {
     expect(pilihanHari(tampilkan(<FormJadwal idGudang={2} jalur="usulan" daftarToko={daftarToko} idJudul="judul" />))).toEqual(TUJUH_HARI);
-  });
-
-  it("salin jadwal menampilkan tujuh hari berurutan Senin–Minggu", () => {
-    expect(
-      pilihanHari(tampilkan(<FormSalinJadwal idGudang={2} jalur="usulan" daftarToko={[{ id: 1, nama: "TOKO UJI" }]} idJudul="judul" />)),
-    ).toEqual(TUJUH_HARI);
   });
 
   it("isianTerkirim mempertahankan Minggu dan mengurutkan hari Senin–Minggu", () => {

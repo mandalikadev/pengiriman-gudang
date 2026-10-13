@@ -83,7 +83,7 @@ export async function wajibAksesLihatGudang(
 
 /**
  * Seperti `wajibMasuk`, lalu mengembalikan gudang tempat pengguna ditugaskan dengan hak `tindakan` (T98: halaman
- * Usulkan jadwal toko dan Salin jadwal). Menolak dengan `AksesDitolakError` jika tidak ada. Peran admin tidak
+ * Usulkan jadwal toko). Menolak dengan `AksesDitolakError` jika tidak ada. Peran admin tidak
  * dipertimbangkan: admin tanpa penugasan ditolak (PRD A3).
  */
 export async function wajibGudangDenganHak(tindakan: HakTindakan): Promise<GudangDapatDilihat[]> {
