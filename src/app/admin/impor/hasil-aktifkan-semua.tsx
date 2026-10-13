@@ -22,7 +22,7 @@ export function HasilAktifkanSemua({ impor }: { impor: readonly HasilAktifkanSat
       <p className="font-semibold tabular-nums">
         {`Hasil aktifkan semua: ${jumlah("diaktifkan")} diaktifkan, ${jumlah("dilewati")} dilewati, ${jumlah("gagal")} gagal.`}
       </p>
-      <Table>
+      <Table aria-label="Hasil aktifkan semua">
         <TableHeader>
           <TableRow>
             <TableHead>Sheet</TableHead>

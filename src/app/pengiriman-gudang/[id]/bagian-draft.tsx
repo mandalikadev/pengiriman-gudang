@@ -128,7 +128,7 @@ const JUMLAH_KOLOM_VARIAN = 8;
 function TabelVarian({ toko, inputStok, rincian }: { toko: TokoDraft; inputStok: InputStokDraft; rincian: RincianDraft }) {
   const { idGudang, draft } = rincian;
   return (
-    <Table>
+    <Table aria-label={`Varian ${toko.nama}`} panjang kolomMenempel={2}>
       <TableHeader>
         <TableRow>
           <TableHead>Kode produk</TableHead>

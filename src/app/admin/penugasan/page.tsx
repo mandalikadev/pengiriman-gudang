@@ -64,7 +64,7 @@ export default async function HalamanPenugasan() {
 
       <section className="flex flex-col gap-4">
         <h2 className="text-xl font-semibold">Daftar penugasan</h2>
-        <Table>
+        <Table aria-label="Daftar penugasan">
           <TableHeader>
             <TableRow>
               <TableHead>Pengguna</TableHead>

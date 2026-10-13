@@ -94,7 +94,7 @@ export default async function HalamanPemetaanProduk({ searchParams }: { searchPa
         {data.produk.length === 0 ? (
           <p className="text-muted-foreground">Tidak ada produk dengan status ini.</p>
         ) : (
-          <Table aria-label="Daftar produk">
+          <Table aria-label="Daftar produk" panjang>
             <TableHeader>
               <TableRow>
                 <TableHead>Kode produk</TableHead>

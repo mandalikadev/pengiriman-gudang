@@ -115,7 +115,7 @@ export default async function HalamanPengirimanGudang({
 
       <section className="flex flex-col gap-4">
         <h2 className="text-xl font-semibold">Toko terhubung</h2>
-        <Table>
+        <Table aria-label="Toko terhubung">
           <TableHeader>
             <TableRow>
               <TableHead>Toko</TableHead>

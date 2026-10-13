@@ -38,7 +38,7 @@ function BarisAlias({ baris }: { baris: BarisAliasStok }) {
 export function DaftarAlias({ daftar }: { daftar: BarisAliasStok[] }) {
   if (daftar.length === 0) return <p className="text-muted-foreground">Belum ada alias nama stok.</p>;
   return (
-    <Table aria-label="Daftar alias nama stok">
+    <Table aria-label="Daftar alias nama stok" panjang>
       <TableHeader>
         <TableRow>
           <TableHead>Alias (nama di file stok)</TableHead>

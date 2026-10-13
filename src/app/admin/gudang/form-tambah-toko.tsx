@@ -62,7 +62,7 @@ function HasilPerToko({ hasil }: { hasil: Extract<HasilTambahTokoMassal, { hasil
         />
         {jumlahBerhasil} dari {hasil.length} toko ditambahkan.
       </p>
-      <Table>
+      <Table aria-label="Hasil tambah toko">
         <TableHeader>
           <TableRow>
             <TableHead>Toko</TableHead>

@@ -121,7 +121,7 @@ export default async function HalamanRiwayatRencanaFinal({
             toko={pilihan.toko}
             terapan={terapan}
           />
-          <Table>
+          <Table aria-label="Riwayat rencana final" panjang>
             <TableHeader>
               <TableRow>
                 <TableHead>Tanggal kirim</TableHead>

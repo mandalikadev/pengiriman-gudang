@@ -31,7 +31,7 @@ function HasilPerProduk({ hasil }: { hasil: HasilPemetaanProduk[] }) {
         />
         {jumlahBerhasil} dari {hasil.length} produk dikonfirmasi.
       </p>
-      <Table>
+      <Table aria-label="Hasil konfirmasi per produk">
         <TableHeader>
           <TableRow>
             <TableHead>Kode produk</TableHead>
@@ -102,7 +102,7 @@ export function DaftarUsulan({ usulan }: { usulan: DataUsulan[] }) {
           {usulan.length === 0 ? (
             <p className="text-muted-foreground">Tidak ada usulan untuk produk yang belum dipetakan.</p>
           ) : (
-            <Table aria-label="Daftar usulan">
+            <Table aria-label="Daftar usulan" panjang>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">

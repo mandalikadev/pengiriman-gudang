@@ -90,7 +90,7 @@ function DaftarMasalah({ data }: { data: DataTinjauImpor }) {
         {data.jumlahError > 0 ? " Error harus diperbaiki di Excel sebelum impor bisa diaktifkan." : null}
       </p>
       {data.masalah.length === 0 ? null : (
-        <Table aria-label="Daftar masalah">
+        <Table aria-label="Daftar masalah" panjang>
           <TableHeader>
             <TableRow>
               <TableHead>Tingkat</TableHead>
@@ -138,7 +138,7 @@ function DataProdukBerubah({ perubahan }: { perubahan: DataTinjauImpor["perubaha
         Kode produk yang nama, ukuran, atau kategorinya berbeda dari master produk. Saat impor ini diaktifkan, master
         produk diperbarui mengikuti impor ini dan klasifikasinya dihitung ulang.
       </p>
-      <Table aria-label="Data produk berubah">
+      <Table aria-label="Data produk berubah" panjang>
         <TableHeader>
           <TableRow>
             <TableHead>Kode produk</TableHead>
@@ -193,7 +193,7 @@ function ProdukBaru({ data }: { data: DataTinjauImpor }) {
       {data.produkBaru.length === 0 ? (
         <p>Tidak ada produk baru.</p>
       ) : (
-        <Table aria-label="Produk baru">
+        <Table aria-label="Produk baru" panjang>
           <TableHeader>
             <TableRow>
               <TableHead>Kode produk</TableHead>

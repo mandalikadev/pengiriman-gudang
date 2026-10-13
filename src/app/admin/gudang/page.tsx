@@ -56,7 +56,7 @@ export default async function HalamanGudang() {
 
       <section className="flex flex-col gap-4">
         <h2 className="text-xl font-semibold">Gudang</h2>
-        <Table>
+        <Table aria-label="Daftar gudang">
           <TableHeader>
             <TableRow>
               <TableHead>Gudang</TableHead>

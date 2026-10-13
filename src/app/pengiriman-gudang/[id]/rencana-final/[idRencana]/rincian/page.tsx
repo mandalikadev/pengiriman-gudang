@@ -63,7 +63,7 @@ function DasarPerhitungan({ rencana }: { rencana: RincianRencanaFinal }) {
           {sumber.impor.length === 0 ? (
             <p className="text-muted-foreground">Tidak ada impor aktif untuk bulan periode sumber.</p>
           ) : (
-            <Table>
+            <Table aria-label="Impor sumber penjualan">
               <TableHeader>
                 <TableRow>
                   <TableHead>Bulan impor</TableHead>
@@ -145,7 +145,7 @@ function TabelBaris({ idGudang, rencana, terbuka }: { idGudang: number; rencana:
   };
   const dasar = { bulanSumber: rencana.sumber.bulanSumber, ranking: rencana.ranking };
   return (
-    <Table>
+    <Table aria-label="Rincian rencana final per produk" panjang>
       <TableHeader>
         <TableRow>
           <TableHead>Kode produk</TableHead>

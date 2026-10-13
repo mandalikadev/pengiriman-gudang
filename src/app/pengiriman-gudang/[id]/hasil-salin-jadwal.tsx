@@ -55,7 +55,7 @@ export function HasilSalinJadwal({
         />
         {jumlahBerhasil} dari {hasil.length} toko berhasil.
       </p>
-      <Table>
+      <Table aria-label="Hasil salin jadwal">
         <TableHeader>
           <TableRow>
             <TableHead>Toko</TableHead>

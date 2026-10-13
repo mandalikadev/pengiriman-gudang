@@ -43,7 +43,7 @@ export default async function HalamanPengguna() {
 
       <section className="flex flex-col gap-4">
         <h2 className="text-xl font-semibold">Daftar pengguna</h2>
-        <Table>
+        <Table aria-label="Daftar pengguna">
           <TableHeader>
             <TableRow>
               <TableHead>Nama</TableHead>

@@ -211,7 +211,7 @@ function TabelRingkasan({ hasil }: { hasil: Extract<HasilRingkasan, { keadaan: "
   const akhir = awal + hasil.baris.length - 1;
   return (
     <section className="flex flex-col gap-4">
-      <Table aria-label="Ringkasan per produk dan toko">
+      <Table aria-label="Ringkasan per produk dan toko" panjang>
         <TableHeader>
           <TableRow>
             <TableHead>Toko</TableHead>

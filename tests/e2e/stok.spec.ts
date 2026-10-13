@@ -247,3 +247,58 @@ test("Draft rencana: isi 0 untuk stok yang kosong → simpan → baris tertahan 
 
   await db.delete(draftRencana).where(eq(draftRencana.gudangId, jabodetabek));
 });
+
+// T107 (DESIGN §11.1): draft toko dengan banyak varian. Tabel varian menggulir di wadahnya sendiri (wadah bertinggi
+// terbatas: tinggi layar dikurangi kepala halaman, minimal 20rem), sehingga tinggi dokumen tidak mengikuti jumlah
+// baris; header tetap terlihat setelah wadah digulir; kode dan nama produk menempel saat digulir horizontal.
+test("Draft rencana: tabel varian panjang menggulir di wadahnya; header dan kolom identitas tetap terlihat", async ({ page }) => {
+  const JUMLAH_VARIAN = 40;
+  const daftarKode = Array.from({ length: JUMLAH_VARIAN }, () => kodeProdukUji("GOR"));
+  const { operator, jabodetabek, toko } = await siapkanDraft((tahun) =>
+    daftarKode.map((k, i) => produkContoh(tahun, k, `15ML GLITTER - VARIAN UJI ${i + 1}`, "15ML", "15ML GLITTER/LEATHER")),
+  );
+  const TINGGI_LAYAR = 800;
+  await page.setViewportSize({ width: 1024, height: TINGGI_LAYAR });
+  await masuk(page, operator.email);
+  await page.goto(`/pengiriman-gudang/${jabodetabek}?tanggal=${TANGGAL_KIRIM}&toko=${toko.id}`);
+
+  const tabel = page.getByRole("table", { name: `Varian ${toko.nama}` });
+  await expect(tabel.locator("tr[data-kode-produk]")).toHaveCount(JUMLAH_VARIAN);
+  const wadah = tabel.locator("xpath=..");
+  const ukuran = await wadah.evaluate((el) => ({ tinggi: el.clientHeight, tinggiIsi: el.scrollHeight, lebar: el.clientWidth, lebarIsi: el.scrollWidth }));
+  // Wadah bertinggi terbatas: max(20rem, 100dvh − 10rem) = 640 px pada layar 800 px; baris sisanya digulir di dalamnya.
+  expect(ukuran.tinggi).toBeLessThanOrEqual(TINGGI_LAYAR - 160);
+  expect(ukuran.tinggiIsi).toBeGreaterThan(ukuran.tinggi);
+  // Menggandakan baris tabel tidak menambah tinggi dokumen.
+  const tinggiDokumen = () => page.evaluate(() => document.documentElement.scrollHeight);
+  const tinggiAwal = await tinggiDokumen();
+  await tabel.evaluate((el) => {
+    const badan = el.querySelector("tbody")!;
+    for (const tr of [...badan.querySelectorAll("tr")]) badan.append(tr.cloneNode(true));
+  });
+  expect(await tinggiDokumen()).toBe(tinggiAwal);
+  await tabel.evaluate((el) => {
+    const baris = [...el.querySelectorAll("tbody > tr")];
+    for (const tr of baris.slice(baris.length / 2)) tr.remove();
+  });
+
+  // Gulir wadah sampai bawah: baris terakhir terlihat, header tetap di atas wadah.
+  await wadah.scrollIntoViewIfNeeded();
+  await wadah.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+  const header = tabel.getByRole("columnheader", { name: "Jumlah kirim" });
+  const barisTerakhir = tabel.locator("tr[data-kode-produk]").last();
+  await expect(barisTerakhir).toBeInViewport();
+  const kotakWadah = (await wadah.boundingBox())!;
+  const kotakHeader = (await header.boundingBox())!;
+  expect(Math.abs(kotakHeader.y - kotakWadah.y)).toBeLessThanOrEqual(2);
+
+  // Gulir horizontal (bila tabel lebih lebar dari wadahnya): kode dan nama produk tetap di tepi kiri wadah.
+  expect(ukuran.lebarIsi).toBeGreaterThan(ukuran.lebar);
+  await wadah.evaluate((el) => el.scrollTo({ left: el.scrollWidth }));
+  const kotakKode = (await barisTerakhir.locator("td").nth(0).boundingBox())!;
+  const kotakNama = (await barisTerakhir.locator("td").nth(1).boundingBox())!;
+  expect(Math.abs(kotakKode.x - kotakWadah.x)).toBeLessThanOrEqual(2);
+  expect(Math.abs(kotakNama.x - (kotakKode.x + kotakKode.width))).toBeLessThanOrEqual(2);
+
+  await db.delete(draftRencana).where(eq(draftRencana.gudangId, jabodetabek));
+});

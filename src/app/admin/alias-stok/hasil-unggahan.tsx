@@ -32,7 +32,7 @@ export function HasilUnggahan({ baris, jumlah }: { baris: HasilBarisUnggah[]; ju
       {baris.length === 0 ? (
         <p className="text-muted-foreground">File tidak berisi baris alias.</p>
       ) : (
-        <Table aria-label="Hasil per baris">
+        <Table aria-label="Hasil per baris" panjang>
           <TableHeader>
             <TableRow>
               <TableHead angka>Baris</TableHead>
