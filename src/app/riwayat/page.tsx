@@ -4,7 +4,8 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { wajibMasuk } from "@/server/auth/kewenangan";
 
-import { urlRiwayat } from "./alamat";
+import { urlRiwayat, urlRiwayatDiLuarJadwal } from "./alamat";
+import { isiTabDiLuarJadwal } from "./tab-di-luar-jadwal";
 import { isiTabRencanaFinal } from "./tab-rencana-final";
 
 export const metadata: Metadata = {
@@ -13,7 +14,10 @@ export const metadata: Metadata = {
 
 // Tab halaman Riwayat (PRD A7 ▶ Keputusan 2026-10-14), dipilih lewat `?tab=`; nilai tidak dikenal berarti tab pertama.
 // Tab "Di luar jadwal" ditambahkan di T128.
-const daftarTab = [{ nilai: "rencana-final", label: "Rencana final", url: urlRiwayat() }] as const;
+const daftarTab = [
+  { nilai: "rencana-final", label: "Rencana final", url: urlRiwayat() },
+  { nilai: "di-luar-jadwal", label: "Di luar jadwal", url: urlRiwayatDiLuarJadwal() },
+] as const;
 type Tab = (typeof daftarTab)[number];
 
 function tabTerpilih(nilai: string | string[] | undefined): Tab {
@@ -47,14 +51,18 @@ function NavigasiTab({ terpilih }: { terpilih: Tab }) {
 
 /**
  * Halaman Riwayat (T127; PRD A7 ▶ Keputusan 2026-10-14, DESIGN §6 ▶ Keputusan 2026-10-14): zona kerja (DESIGN §1) berisi
- * catatan pengiriman yang sudah terjadi untuk semua gudang. Semua pengguna yang sudah masuk (admin, operator, viewer)
- * boleh membukanya, termasuk riwayat gudang nonaktif (OD-07); akses ini tidak membuka halaman kerja gudang.
+ * catatan pengiriman yang sudah terjadi untuk semua gudang: tab "Rencana final" dan "Di luar jadwal" (T128). Semua
+ * pengguna yang sudah masuk (admin, operator, viewer) boleh membukanya, termasuk riwayat gudang nonaktif (OD-07); akses
+ * ini tidak membuka halaman kerja gudang.
  */
 export default async function HalamanRiwayat({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const pengguna = await wajibMasuk();
   const parameter = (await searchParams) ?? {};
   const tab = tabTerpilih(parameter.tab);
-  const isi = await isiTabRencanaFinal({ pengguna, parameter, urlHalaman: tab.url });
+  const isi =
+    tab.nilai === "di-luar-jadwal"
+      ? await isiTabDiLuarJadwal({ parameter, urlHalaman: urlRiwayat(), tab: tab.nilai })
+      : await isiTabRencanaFinal({ pengguna, parameter, urlHalaman: urlRiwayat() });
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">

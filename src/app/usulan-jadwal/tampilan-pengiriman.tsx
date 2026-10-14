@@ -2,6 +2,7 @@ import { Archive, CircleCheck, CircleX, ClipboardList, Inbox, type LucideIcon } 
 import type { ReactNode } from "react";
 
 import { formatWaktu, tanggalWib } from "@/app/admin/impor/format";
+import { BadgeGudangNonaktif } from "@/app/pengiriman-gudang/hanya-baca";
 import { Badge, type NadaBadge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal } from "@/domain/kalender";
@@ -10,8 +11,8 @@ import type { EntriPengirimanDiLuarJadwal } from "@/server/gudang/pengiriman-di-
 import { labelPersiapan, persiapanDariHari } from "@/server/gudang/pilihan-jadwal";
 
 // Tampilan pengiriman di luar jadwal (T113, PRD A5 ▶ Revisi 2026-10-13, Catatan aktivitas), dipakai halaman operator,
-// Persetujuan jadwal, dan tabel jadwal Pengiriman Gudang. DESIGN §7: status selalu ikon + teks dengan token dan ikon yang
-// sudah ada: menunggu = menunggu tinjauan admin (nada "Siap ditinjau"), berlaku = berhasil, ditolak = gagal, ditarik dan
+// Persetujuan jadwal, halaman Riwayat (T128), dan tabel jadwal Pengiriman Gudang. DESIGN §7: status selalu ikon + teks
+// dengan token dan ikon yang sudah ada: menunggu = menunggu tinjauan admin (nada "Siap ditinjau"), berlaku = berhasil, ditolak = gagal, ditarik dan
 // dibatalkan = tidak berlaku lagi (nada dan ikon "Dibatalkan"/"Diarsipkan").
 
 const tampilanStatus = {
@@ -102,7 +103,8 @@ const BATAS_TABEL_PENDEK = 15;
 /**
  * Riwayat pengiriman di luar jadwal (catatan aktivitas PRD A5): status, jenis, toko, tanggal, alasan, pengusul, pemutus,
  * waktu, dan alasan penolakan/pembatalan, dalam urutan daftar yang diberikan. `tampilkanGudang` menambah kolom gudang
- * (halaman admin). `tindakan` mengisi kolom Tindakan per baris; tanpa `tindakan` kolom itu tidak ada.
+ * (halaman admin, halaman Riwayat), dengan penanda gudang nonaktif. `tindakan` mengisi kolom Tindakan per baris; tanpa
+ * `tindakan` kolom itu tidak ada.
  */
 export function TabelRiwayatPengiriman({
   label,
@@ -145,7 +147,14 @@ export function TabelRiwayatPengiriman({
         {daftar.map((e) => (
           <TableRow key={e.id} data-pengiriman={e.id}>
             <TableCell className="font-semibold">{e.toko}</TableCell>
-            {tampilkanGudang ? <TableCell>{e.gudang}</TableCell> : null}
+            {tampilkanGudang ? (
+              <TableCell>
+                <div className="flex flex-col items-start gap-1">
+                  <span>{e.gudang}</span>
+                  {e.gudangAktif ? null : <BadgeGudangNonaktif />}
+                </div>
+              </TableCell>
+            ) : null}
             <TableCell>
               <BadgeStatusPengiriman status={e.status} />
             </TableCell>

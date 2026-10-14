@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, ne, sql, type SQL, type SQLWrapper } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, ne, sql, type SQL, type SQLWrapper } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import {
@@ -317,6 +317,8 @@ export type EntriPengirimanDiLuarJadwal = {
   id: number;
   idGudang: number;
   gudang: string;
+  /** Status aktif gudang saat ini (riwayat menandai gudang nonaktif). */
+  gudangAktif: boolean;
   /** Gudang Pusat: pengiriman langsung berlaku tanpa pemutus. */
   gudangPusat: boolean;
   idToko: number;
@@ -356,6 +358,7 @@ async function bacaEntri(syaratBaris: SQL | undefined, urutan: SQL[]): Promise<E
       id: pengirimanDiLuarJadwal.id,
       idGudang: pengirimanDiLuarJadwal.gudangId,
       gudang: gudang.nama,
+      gudangAktif: gudang.aktif,
       idToko: pengirimanDiLuarJadwal.tokoId,
       toko: toko.nama,
       jenis: pengirimanDiLuarJadwal.jenis,
@@ -397,9 +400,60 @@ export function bisaDibatalkan(entri: EntriPengirimanDiLuarJadwal, hariIni: Tang
   return entri.status === "berlaku" && entri.tanggalKirim >= hariIni && !entri.sudahFinal;
 }
 
-/** Riwayat pengiriman di luar jadwal gudang `idGudang`, terbaru di atas. Pemeriksaan akses oleh pemanggil. */
-export async function riwayatPengirimanDiLuarJadwalGudang(idGudang: number) {
-  return bacaEntri(eq(pengirimanDiLuarJadwal.gudangId, idGudang), [desc(pengirimanDiLuarJadwal.diusulkanPada), desc(pengirimanDiLuarJadwal.id)]);
+/** Urutan riwayat "terbaru di atas": waktu diusulkan terbaru dulu. */
+const TERBARU_DI_ATAS = [desc(pengirimanDiLuarJadwal.diusulkanPada), desc(pengirimanDiLuarJadwal.id)];
+
+/**
+ * Daftar "Perlu tindakan" gudang `idGudang` (T128, PRD A5 ▶ Revisi 2026-10-14): usulan menunggu, ditambah pengiriman
+ * berlaku yang masih bisa dibatalkan bila `bolehBatalkan` (jalur langsung, Pusat). Terbaru di atas. Pemeriksaan akses
+ * oleh pemanggil.
+ */
+export async function pengirimanPerluTindakan(idGudang: number, { bolehBatalkan, hariIni }: { bolehBatalkan: boolean; hariIni: TanggalBisnis }) {
+  const daftar = await bacaEntri(
+    and(eq(pengirimanDiLuarJadwal.gudangId, idGudang), inArray(pengirimanDiLuarJadwal.status, bolehBatalkan ? AKTIF : ["menunggu"])),
+    TERBARU_DI_ATAS,
+  );
+  return daftar.filter((e) => e.status === "menunggu" || bisaDibatalkan(e, hariIni));
+}
+
+/**
+ * Riwayat pengiriman di luar jadwal semua gudang dan semua status, terbaru di atas (T128, halaman Riwayat). Filter
+ * opsional: gudang, toko, dan rentang tanggal kirim (inklusif). Riwayat terbuka untuk semua pengguna yang sudah masuk
+ * (PRD A7 ▶ Keputusan 2026-10-14); pemeriksaan masuk oleh pemanggil.
+ */
+export async function daftarRiwayatPengirimanDiLuarJadwal(filter: {
+  idGudang?: number;
+  tokoId?: number;
+  dari?: TanggalBisnis;
+  sampai?: TanggalBisnis;
+}) {
+  return bacaEntri(
+    and(
+      filter.idGudang === undefined ? undefined : eq(pengirimanDiLuarJadwal.gudangId, filter.idGudang),
+      filter.tokoId === undefined ? undefined : eq(pengirimanDiLuarJadwal.tokoId, filter.tokoId),
+      filter.dari === undefined ? undefined : gte(pengirimanDiLuarJadwal.tanggalKirim, filter.dari),
+      filter.sampai === undefined ? undefined : lte(pengirimanDiLuarJadwal.tanggalKirim, filter.sampai),
+    ),
+    TERBARU_DI_ATAS,
+  );
+}
+
+/** Pilihan filter tab "Di luar jadwal": semua gudang (urut id) dan toko yang pernah punya pengiriman di luar jadwal. */
+export async function pilihanFilterPengirimanDiLuarJadwal(): Promise<{
+  adaPengiriman: boolean;
+  gudang: { id: number; nama: string; aktif: boolean }[];
+  toko: { id: number; nama: string }[];
+}> {
+  const daftarGudang = await db.select({ id: gudang.id, nama: gudang.nama, aktif: gudang.aktif }).from(gudang).orderBy(asc(gudang.id));
+  const daftarToko = await db
+    .selectDistinct({ id: toko.id, nama: toko.nama })
+    .from(pengirimanDiLuarJadwal)
+    .innerJoin(toko, eq(toko.id, pengirimanDiLuarJadwal.tokoId));
+  return {
+    adaPengiriman: daftarToko.length > 0,
+    gudang: daftarGudang,
+    toko: daftarToko.sort((a, b) => a.nama.localeCompare(b.nama, "id") || a.id - b.id),
+  };
 }
 
 /** Riwayat keputusan semua gudang (semua yang tidak lagi menunggu), kejadian terakhir terbaru dulu. Hanya admin. */

@@ -53,7 +53,8 @@ async function isiForm(page: Page, namaToko: string, tanggal: string) {
 }
 
 // T113 — PRD A5 ▶ Revisi 2026-10-13: operator mengusulkan pengiriman di luar jadwal dari sidebar "Kirim di luar jadwal".
-test("Pusat: Kirim di luar jadwal dari sidebar → Simpan → langsung Berlaku di riwayat", async ({ page }) => {
+// T128 (PRD A5 ▶ Revisi 2026-10-14): halaman ini menyisakan daftar "Perlu tindakan"; riwayat ada di menu Riwayat.
+test("Pusat: Kirim di luar jadwal dari sidebar → Simpan → langsung Berlaku di Perlu tindakan, bisa dibatalkan", async ({ page }) => {
   const { idGudang, toko, operator } = await operatorJadwal("Pusat");
   await jadwalSenin(toko.id);
   await masuk(page, operator.email);
@@ -68,9 +69,10 @@ test("Pusat: Kirim di luar jadwal dari sidebar → Simpan → langsung Berlaku d
   await page.getByRole("button", { name: "Simpan", exact: true }).click();
   await expect(page.getByText("Berhasil disimpan")).toBeVisible();
 
-  const baris = page.getByRole("table", { name: "Riwayat pengiriman di luar jadwal" }).getByRole("row", { name: new RegExp(toko.nama) });
+  const baris = page.getByRole("table", { name: "Perlu tindakan" }).getByRole("row", { name: new RegExp(toko.nama) });
   await expect(baris).toContainText("Berlaku");
   await expect(baris).toContainText("Langsung berlaku (Pusat)");
+  await expect(baris.getByRole("button", { name: "Batalkan" })).toBeVisible();
 });
 
 test("Gudang selain Pusat: Kirim usulan → Menunggu; admin menyetujui di Persetujuan jadwal → Berlaku", async ({ page, browser }) => {
@@ -83,8 +85,9 @@ test("Gudang selain Pusat: Kirim usulan → Menunggu; admin menyetujui di Perset
   await isiForm(page, toko.nama, tanggalDiLuarJadwal());
   await page.getByRole("button", { name: "Kirim usulan" }).click();
   await expect(page.getByText("Berhasil disimpan")).toBeVisible();
-  const riwayat = page.getByRole("table", { name: "Riwayat pengiriman di luar jadwal" });
-  await expect(riwayat.getByRole("row", { name: new RegExp(toko.nama) })).toContainText("Menunggu");
+  const perluTindakan = page.getByRole("table", { name: "Perlu tindakan" });
+  await expect(perluTindakan.getByRole("row", { name: new RegExp(toko.nama) })).toContainText("Menunggu");
+  await expect(perluTindakan.getByRole("row", { name: new RegExp(toko.nama) }).getByRole("button", { name: /^Tarik/ })).toBeVisible();
 
   const konteksAdmin = await browser.newContext();
   const halamanAdmin = await konteksAdmin.newPage();
@@ -98,8 +101,14 @@ test("Gudang selain Pusat: Kirim usulan → Menunggu; admin menyetujui di Perset
   ).toContainText("Berlaku");
   await konteksAdmin.close();
 
+  // Usulan yang sudah diputuskan tidak lagi perlu ditindak di sini; catatannya ada di Riwayat, tab Di luar jadwal (T128).
   await page.reload();
+  await expect(page.getByRole("heading", { level: 2, name: "Perlu tindakan" })).toBeVisible();
+  await expect(page.getByRole("row", { name: new RegExp(toko.nama) })).toHaveCount(0);
+  await page.goto(`/riwayat?tab=di-luar-jadwal&cari=${encodeURIComponent(toko.nama)}`);
+  const riwayat = page.getByRole("table", { name: "Riwayat pengiriman di luar jadwal" });
   await expect(riwayat.getByRole("row", { name: new RegExp(toko.nama) })).toContainText("Berlaku");
+  await expect(riwayat.getByRole("button")).toHaveCount(0);
 });
 
 test("Halaman Salin jadwal operator sudah dihapus: /salin-jadwal → 404", async ({ page }) => {

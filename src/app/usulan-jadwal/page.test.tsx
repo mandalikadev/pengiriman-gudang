@@ -6,7 +6,7 @@ import { db } from "@/server/db";
 import { hubunganTokoGudang, jadwalToko, pengirimanDiLuarJadwal } from "@/server/db/schema";
 import type { HakTindakan } from "@/server/gudang/hak-tindakan";
 import { tugaskanOperator } from "@/server/gudang/penugasan";
-import { buatTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
+import { buatGudangUji, buatTokoUji, hapusGudangUji, idGudangUji, rencanaFinalUji } from "@/server/gudang/uji-bantu";
 
 const kepala = vi.hoisted(() => ({ cookie: "" }));
 vi.mock("next/headers", () => ({
@@ -21,7 +21,8 @@ import HalamanUsulanJadwal, { generateMetadata as metadataUsulanJadwal } from ".
 import HalamanDaftarUsulanJadwal from "./page";
 
 // T98 — DESIGN §6 ▶ Keputusan (2026-10-13, pemilik): halaman ini dibuka dari sidebar. T113 — DESIGN §6 ▶ 2026-10-13 sore
-// dan PRD A5 ▶ Revisi 2026-10-13: isinya pengiriman di luar jadwal (form + riwayat), bukan lagi form jadwal tetap.
+// dan PRD A5 ▶ Revisi 2026-10-13: isinya pengiriman di luar jadwal (form + riwayat), bukan lagi form jadwal tetap. T128 (PRD A5 ▶ Revisi
+// 2026-10-14): riwayat pindah ke halaman Riwayat; halaman ini menyisakan daftar "Perlu tindakan".
 
 let pusat: number;
 let bali: number;
@@ -149,38 +150,51 @@ for (const jenis of ["usulan"] as const) {
 const barisPengiriman = (html: string, id: number) =>
   new RegExp(`<tr[^>]*data-pengiriman="${id}".*?</tr>`).exec(html)?.[0] ?? "";
 
-describe("/usulan-jadwal/[id]: judul, form, dan riwayat pengiriman di luar jadwal", () => {
-  it('gudang Pusat: "Atur pengiriman di luar jadwal — Pusat", tombol Simpan; operator berhak bisa membatalkan yang berlaku', async () => {
+describe("/usulan-jadwal/[id]: judul, form, dan daftar Perlu tindakan (T128)", () => {
+  it('gudang Pusat: "Atur pengiriman di luar jadwal — Pusat", tombol Simpan; Perlu tindakan hanya berisi yang berlaku dan masih bisa dibatalkan', async () => {
     const t = await tokoDi(pusat);
     const operator = await masukOperator([pusat, ["kelola-usulan-jadwal"]]);
-    const [p] = await db
+    const isi = { gudangId: pusat, tokoId: t.id, jenis: "tambahan" as const, persiapanHari: 1 as const, alasan: "promo", diusulkanOleh: operator.id };
+    const [bisaBatal, sudahLewat, sudahFinal, dibatalkan] = await db
       .insert(pengirimanDiLuarJadwal)
-      .values({ gudangId: pusat, tokoId: t.id, jenis: "tambahan", tanggalKirim: "2099-01-06", persiapanHari: 1, alasan: "promo", status: "berlaku", diusulkanOleh: operator.id })
+      .values([
+        { ...isi, tanggalKirim: "2099-01-06", status: "berlaku" },
+        { ...isi, tanggalKirim: "2000-01-04", status: "berlaku" },
+        { ...isi, tanggalKirim: "2099-01-08", status: "berlaku" },
+        { ...isi, tanggalKirim: "2099-01-07", status: "dibatalkan", alasanPembatalan: "batal", dibatalkanOleh: operator.id, dibatalkanPada: new Date() },
+      ])
       .returning();
+    await rencanaFinalUji({ idGudang: pusat, idToko: t.id, tanggalKirim: "2099-01-08", idPengguna: operator.id });
 
     const html = await bukaGudang("usulan", pusat);
     expect(judulHalaman(html)).toBe("Atur pengiriman di luar jadwal — Pusat");
     expect(html).toContain("Pengiriman langsung berlaku.");
     expect(html).toContain(">Simpan</button>");
     expect(html).not.toContain("Kirim usulan");
-    expect(html).toContain("<h2");
-    expect(html).toContain("Riwayat pengiriman di luar jadwal");
-    const baris = barisPengiriman(html, p.id);
+    expect(html).not.toContain("Riwayat pengiriman di luar jadwal");
+    expect(html).toMatch(/<h2[^>]*>Perlu tindakan<\/h2>/);
+    expect(html).toMatch(/<table[^>]*aria-label="Perlu tindakan"/);
+    const baris = barisPengiriman(html, bisaBatal.id);
     expect(baris).toContain('data-status-pengiriman="berlaku"');
     expect(baris).toContain("Langsung berlaku (Pusat)");
     expect(baris).toContain("Batalkan");
+    // Yang sudah tidak bisa ditindak tidak tampil.
+    for (const p of [sudahLewat, sudahFinal, dibatalkan]) expect(html).not.toContain(`data-pengiriman="${p.id}"`);
   });
 
-  it('gudang selain Pusat: "Usulkan pengiriman di luar jadwal — <gudang>", Kirim usulan; Tarik hanya untuk usulan milik sendiri', async () => {
+  it('gudang selain Pusat: "Usulkan pengiriman di luar jadwal — <gudang>", Kirim usulan; Perlu tindakan hanya usulan Menunggu, Tarik hanya untuk pengusulnya', async () => {
     const t = await tokoDi(cibubur);
     const lain = await buatPenggunaUji("viewer");
     const operator = await masukOperator([cibubur, ["kelola-usulan-jadwal"]]);
     const isi = { gudangId: cibubur, tokoId: t.id, jenis: "tambahan" as const, persiapanHari: 1 as const, alasan: "permintaan mendesak" };
-    const [milikSendiri, milikLain] = await db
+    const [milikSendiri, milikLain, berlaku, ditolak, ditarik] = await db
       .insert(pengirimanDiLuarJadwal)
       .values([
         { ...isi, tanggalKirim: "2099-01-06", diusulkanOleh: operator.id },
         { ...isi, tanggalKirim: "2099-01-07", diusulkanOleh: lain.id },
+        { ...isi, tanggalKirim: "2099-01-08", diusulkanOleh: operator.id, status: "berlaku" },
+        { ...isi, tanggalKirim: "2099-01-09", diusulkanOleh: operator.id, status: "ditolak", alasanPenolakan: "tidak perlu", diputuskanOleh: lain.id, diputuskanPada: new Date() },
+        { ...isi, tanggalKirim: "2099-01-10", diusulkanOleh: operator.id, status: "ditarik", ditarikPada: new Date() },
       ])
       .returning();
 
@@ -188,13 +202,49 @@ describe("/usulan-jadwal/[id]: judul, form, dan riwayat pengiriman di luar jadwa
     expect(judulHalaman(html)).toBe("Usulkan pengiriman di luar jadwal — Gudang Cibubur");
     expect(html).toContain("Usulan berlaku setelah disetujui admin.");
     expect(html).toContain("Kirim usulan");
+    expect(html).not.toContain("Riwayat pengiriman di luar jadwal");
     // Terbaru di atas.
     expect(html.indexOf(`data-pengiriman="${milikLain.id}"`)).toBeLessThan(html.indexOf(`data-pengiriman="${milikSendiri.id}"`));
     expect(barisPengiriman(html, milikSendiri.id)).toContain("Tarik");
     expect(barisPengiriman(html, milikSendiri.id)).toContain("Selasa, 06-01-2099 (H−1)");
     expect(barisPengiriman(html, milikSendiri.id)).toContain("permintaan mendesak");
     expect(barisPengiriman(html, milikLain.id)).not.toContain("Tarik");
+    expect(barisPengiriman(html, milikLain.id)).toContain("—");
+    // Berlaku di gudang selain Pusat dibatalkan admin, jadi tidak perlu ditindak di sini; yang sudah diputuskan juga tidak.
+    for (const p of [berlaku, ditolak, ditarik]) expect(html).not.toContain(`data-pengiriman="${p.id}"`);
     expect(html).not.toContain("Batalkan");
+  });
+
+  it("tanpa entri yang perlu ditindak → keadaan kosong yang menunjuk ke menu Riwayat, tab Di luar jadwal", async () => {
+    const gudang = await buatGudangUji();
+    try {
+      const t = await buatTokoUji();
+      await db.insert(hubunganTokoGudang).values({ tokoId: t.id, gudangId: gudang.id });
+      const operator = await masukOperator([gudang.id, ["kelola-usulan-jadwal"]]);
+      await db.insert(pengirimanDiLuarJadwal).values({
+        gudangId: gudang.id,
+        tokoId: t.id,
+        jenis: "tambahan",
+        persiapanHari: 1,
+        alasan: "lama",
+        tanggalKirim: "2099-01-06",
+        diusulkanOleh: operator.id,
+        status: "ditolak",
+        alasanPenolakan: "tidak perlu",
+        diputuskanOleh: operator.id,
+        diputuskanPada: new Date(),
+      });
+
+      const html = await bukaGudang("usulan", gudang.id);
+      expect(html).toMatch(/<h2[^>]*>Perlu tindakan<\/h2>/);
+      expect(html).not.toContain("data-pengiriman=");
+      expect(html).not.toContain("<table");
+      expect(html).toMatch(/data-keadaan-kosong[^>]*>.*?Tidak ada pengiriman di luar jadwal yang perlu ditindak\./);
+      expect(html).toMatch(/data-keadaan-kosong[^>]*>.*?menu Riwayat, tab Di luar jadwal/);
+      expect(html).toMatch(/<a [^>]*href="\/riwayat\?tab=di-luar-jadwal"/);
+    } finally {
+      await hapusGudangUji(gudang.id);
+    }
   });
 });
 

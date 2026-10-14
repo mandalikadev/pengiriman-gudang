@@ -55,15 +55,17 @@ function Tanggal({ label, name, terapan }: { label: string; name: string; terapa
  * Filter riwayat rencana final (T63, T127): gudang, toko, dan rentang tanggal kirim dari–sampai (kosong = tidak dibatasi),
  * ditambah cari nama toko (T119). Seperti Ringkasan, hasil baru berubah setelah Terapkan: Terapkan menulis pilihan ke URL
  * (`?gudang=<id>&toko=<id>&dari=YYYY-MM-DD&sampai=YYYY-MM-DD&cari=`) dan kembali ke halaman 1; halaman menyaring di
- * server.
+ * server. `tab` (T128) ikut terkirim sebagai `?tab=` agar Terapkan tetap di tab yang dibuka.
  */
 export function FilterRiwayat({
   action,
+  tab,
   gudang,
   toko,
   terapan,
 }: {
   action: string;
+  tab?: string;
   gudang: readonly { id: number; nama: string; aktif: boolean }[];
   toko: readonly { id: number; nama: string }[];
   terapan: { gudang: string; toko: string; dari: string; sampai: string; cari: string };
@@ -71,6 +73,7 @@ export function FilterRiwayat({
   const idCari = useId();
   return (
     <Form action={action} data-filter-rencana-final className="flex flex-wrap items-end gap-4">
+      {tab === undefined ? null : <input type="hidden" name="tab" value={tab} />}
       <Pilihan
         label="Gudang"
         name="gudang"

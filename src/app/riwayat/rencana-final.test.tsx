@@ -205,8 +205,9 @@ describe("daftar rencana final", () => {
     // Tab Rencana final terpilih (bawaan, tanpa ?tab=).
     const tab = /<nav aria-label="Jenis riwayat">.*?<\/nav>/.exec(html)?.[0] ?? "";
     expect(tab).toMatch(/<a [^>]*aria-current="page"[^>]*href="\/riwayat">Rencana final<\/a>/);
-    // Tab Di luar jadwal belum ditampilkan (T128).
-    expect(tab).not.toContain("Di luar jadwal");
+    // T128: tab Di luar jadwal ada, tidak terpilih.
+    expect(tab).toMatch(/<a [^>]*href="\/riwayat\?tab=di-luar-jadwal">Di luar jadwal<\/a>/);
+    expect(tab).not.toMatch(/aria-current="page"[^>]*href="\/riwayat\?tab=di-luar-jadwal"/);
     // Tanggal kirim terbaru di atas; dalam satu tanggal urut nama toko, versi terbaru di atas.
     const tokoUrut = [tokoA, tokoB].sort((x, y) => x.nama.localeCompare(y.nama));
     const tanggal1 = tokoUrut.flatMap((t) => (t.id === tokoA.id ? [rencana.a1v2, rencana.a1v1] : [rencana.b1]));

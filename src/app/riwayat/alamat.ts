@@ -6,6 +6,11 @@ export function urlRiwayat(idGudang?: number) {
   return idGudang === undefined ? "/riwayat" : `/riwayat?${new URLSearchParams({ gudang: String(idGudang) }).toString()}`;
 }
 
+/** Halaman Riwayat, tab "Di luar jadwal" (T128). */
+export function urlRiwayatDiLuarJadwal() {
+  return "/riwayat?tab=di-luar-jadwal";
+}
+
 /** Rincian rencana final `idRencana`, dengan rincian satu baris terbuka di panel samping bila `kodeProduk` diberikan (T108). */
 export function urlRincianRencanaFinal(idRencana: number | string, kodeProduk?: string) {
   const dasar = `/riwayat/rencana-final/${idRencana}`;

@@ -145,9 +145,11 @@ Admin bisa membuka halaman Pengiriman Gudang semua gudang, tetapi **hanya-baca**
   - Untuk Pindah, tanggal rutinnya belum lewat, belum dipindah, dan belum punya rencana final.
   - Jika syarat gagal, pesan "Syarat tidak terpenuhi: …" menyebut syarat mana yang gagal.
   - Satu toko boleh punya beberapa usulan sekaligus, asalkan tanggalnya berbeda.
-- "Riwayat pengiriman di luar jadwal" (terbaru di atas) menampilkan status: Menunggu, Berlaku, Ditolak (beserta alasan penolakan), Ditarik, atau Dibatalkan (beserta alasan dan siapa yang membatalkan, atau "Otomatis oleh sistem").
-  - Selama usulan masih menunggu, pengusul bisa menekan "Tarik".
-  - Di Pusat, operator berhak juga bisa membatalkan pengiriman yang berlaku dengan alasan. Di gudang lain pembatalan dilakukan admin.
+- Di bawah form, daftar "Perlu tindakan" (terbaru di atas) hanya berisi entri yang masih bisa ditindak di halaman ini:
+  - Usulan berstatus Menunggu. Pengusulnya bisa menekan "Tarik"; entri usulan orang lain menampilkan "—".
+  - Di Pusat, pengiriman berlaku yang tanggal kirimnya belum lewat dan belum punya rencana final. Operator berhak bisa membatalkannya dengan alasan. Di gudang lain pembatalan dilakukan admin.
+  - Jika kosong, tampil "Tidak ada pengiriman di luar jadwal yang perlu ditindak." beserta tautan ke menu Riwayat.
+- Catatan lengkap semua pengiriman di luar jadwal (Menunggu, Berlaku, Ditolak, Ditarik, Dibatalkan) ada di menu **Riwayat**, tab "Di luar jadwal".
 
 **Membaca penanda di draft.** Pengiriman di luar jadwal yang berlaku ikut perhitungan seperti pengiriman biasa:
 
@@ -188,6 +190,11 @@ Admin bisa membuka halaman Pengiriman Gudang semua gudang, tetapi **hanya-baca**
 - "Lihat rincian" membuka rincian rencana final. Tombol "Ekspor (.xlsx)" di baris dan di rincian hanya tampil bagi pengguna yang punya hak Ekspor di gudang rencana itu.
 - Alamat lama riwayat di bawah Pengiriman Gudang otomatis dialihkan ke halaman ini.
 
+Tab "Di luar jadwal" berisi semua pengiriman di luar jadwal dari **semua gudang** dengan semua status, terbaru di atas. Tab ini hanya-baca: Tarik dan Batalkan tetap di halaman Kirim di luar jadwal dan Persetujuan jadwal.
+
+- Kolom: Toko, Gudang (gudang nonaktif bertanda "Nonaktif"), Status, Jenis (Tambahan, atau "Pindahan dari <hari, tanggal>"), Tanggal kirim (persiapan), Alasan, Diusulkan (siapa dan kapan), Diputuskan (penyetuju atau penolak dan kapan, atau "Langsung berlaku (Pusat)"), dan Keterangan (alasan penolakan, penarikan, atau pembatalan beserta siapa dan kapan).
+- Filter Gudang, Toko, dan rentang tanggal kirim sama dengan tab Rencana final dan baru berlaku setelah "Terapkan". Rentang tanggal memakai tanggal kirim pengiriman itu. Ada juga "Cari toko", dan daftar dibagi per 50 baris.
+
 ### Viewer
 
-Viewer melihat **Beranda**, **Riwayat**, **Ringkasan**, dan **Kalender** untuk semua toko, dan bisa mengekspor hasil Ringkasan. Di Riwayat, viewer melihat dan membuka rincian rencana final semua gudang, tetapi tidak punya tombol ekspor. Viewer tidak melihat Pengiriman Gudang dan menu admin.
+Viewer melihat **Beranda**, **Riwayat**, **Ringkasan**, dan **Kalender** untuk semua toko, dan bisa mengekspor hasil Ringkasan. Di Riwayat, viewer melihat dan membuka rincian rencana final semua gudang, tetapi tidak punya tombol ekspor. Viewer juga melihat tab "Di luar jadwal". Viewer tidak melihat Pengiriman Gudang dan menu admin.

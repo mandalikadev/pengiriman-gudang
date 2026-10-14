@@ -8,7 +8,7 @@ import { tanggalWib } from "@/app/admin/impor/format";
 import { tautanTombolVariants } from "@/components/ui/button";
 import { AksesDitolakError, wajibGudangDenganHak, wajibMasuk } from "@/server/auth/kewenangan";
 import type { GudangDapatDilihat } from "@/server/gudang/akses";
-import { pilihanTokoPengiriman, riwayatPengirimanDiLuarJadwalGudang } from "@/server/gudang/pengiriman-di-luar-jadwal";
+import { pengirimanPerluTindakan, pilihanTokoPengiriman } from "@/server/gudang/pengiriman-di-luar-jadwal";
 import { NAMA_GUDANG_PUSAT } from "@/server/gudang/seed-master";
 
 // Halaman pengiriman di luar jadwal (T98; T113, PRD A5 ▶ Revisi 2026-10-13; DESIGN §6 ▶ 2026-10-13 sore): operator
@@ -110,18 +110,18 @@ export async function metadataHalamanJadwal(id: string): Promise<Metadata> {
 
 /**
  * Satu gudang untuk halaman pengiriman di luar jadwal: tanpa hak `kelola-usulan-jadwal` di gudang itu, atau id tidak
- * dikenal → 404. Mengembalikan jalur, pilihan toko form (toko dengan jadwal tetap aktif), riwayat gudang itu, pengguna,
+ * dikenal → 404. Mengembalikan jalur, pilihan toko form (toko dengan jadwal tetap aktif), daftar "Perlu tindakan" gudang itu (T128), pengguna,
  * tanggal hari ini (WIB), dan apakah pengguna punya daftar gudang (berhak di lebih dari satu gudang).
  */
 export async function muatGudangJadwal(id: string) {
   const { gudang, jalur, adaDaftarGudang } = await muatJalurGudangJadwal(id);
   const pengguna = await wajibMasuk();
   const hariIni = tanggalWib(new Date());
-  const [pilihanToko, riwayat] = await Promise.all([
+  const [pilihanToko, perluTindakan] = await Promise.all([
     pilihanTokoPengiriman(gudang.id, hariIni),
-    riwayatPengirimanDiLuarJadwalGudang(gudang.id),
+    pengirimanPerluTindakan(gudang.id, { bolehBatalkan: jalur === "langsung", hariIni }),
   ]);
-  return { gudang, jalur, pilihanToko, riwayat, idPengguna: pengguna.id, hariIni, adaDaftarGudang };
+  return { gudang, jalur, pilihanToko, perluTindakan, idPengguna: pengguna.id, hariIni, adaDaftarGudang };
 }
 
 /**

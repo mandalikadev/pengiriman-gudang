@@ -1,6 +1,10 @@
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, Inbox } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 
+import { urlRiwayatDiLuarJadwal } from "@/app/riwayat/alamat";
+import { KeadaanKosong } from "@/components/keadaan-kosong";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { bisaDibatalkan, type EntriPengirimanDiLuarJadwal } from "@/server/gudang/pengiriman-di-luar-jadwal";
 
@@ -24,12 +28,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 /**
  * Zona kerja (DESIGN §1). Pengiriman di luar jadwal satu gudang (T113, PRD A5 ▶ Revisi 2026-10-13): form usulan (di
- * Pusat langsung berlaku), lalu "Riwayat pengiriman di luar jadwal" gudang itu, terbaru di atas. Pengusul bisa menarik
- * usulannya yang masih menunggu; di Pusat operator berhak bisa membatalkan pengiriman yang berlaku. Tanpa hak
- * `kelola-usulan-jadwal` di gudang ini → 404.
+ * Pusat langsung berlaku), lalu daftar "Perlu tindakan" (T128, PRD A5 ▶ Revisi 2026-10-14): usulan menunggu, dengan
+ * Tarik untuk pengusulnya, dan di Pusat pengiriman berlaku yang masih bisa dibatalkan, dengan Batalkan. Riwayat lengkap
+ * ada di halaman Riwayat, tab "Di luar jadwal". Tanpa hak `kelola-usulan-jadwal` di gudang ini → 404.
  */
 export default async function HalamanUsulanJadwal({ params }: Props) {
-  const { gudang, jalur, pilihanToko, riwayat, idPengguna, hariIni, adaDaftarGudang } = await muatGudangJadwal((await params).id);
+  const { gudang, jalur, pilihanToko, perluTindakan, idPengguna, hariIni, adaDaftarGudang } = await muatGudangJadwal((await params).id);
 
   function tindakan(e: EntriPengirimanDiLuarJadwal) {
     if (e.status === "menunggu" && e.idPengusul === idPengguna) return <TombolTarik idGudang={gudang.id} id={e.id} toko={e.toko} />;
@@ -52,16 +56,23 @@ export default async function HalamanUsulanJadwal({ params }: Props) {
         )}
       </Card>
 
-      <section className="flex flex-col gap-4" aria-labelledby="riwayat-pengiriman-judul">
-        <h2 id="riwayat-pengiriman-judul" className="text-xl font-semibold">
-          Riwayat pengiriman di luar jadwal
+      <section className="flex flex-col gap-4" aria-labelledby="perlu-tindakan-judul">
+        <h2 id="perlu-tindakan-judul" className="text-xl font-semibold">
+          Perlu tindakan
         </h2>
-        <TabelRiwayatPengiriman
-          label="Riwayat pengiriman di luar jadwal"
-          daftar={riwayat}
-          tindakan={tindakan}
-          kosong="Belum ada pengiriman di luar jadwal di gudang ini."
-        />
+        {perluTindakan.length > 0 ? (
+          <TabelRiwayatPengiriman label="Perlu tindakan" daftar={perluTindakan} tindakan={tindakan} kosong="" />
+        ) : (
+          <KeadaanKosong
+            ikon={Inbox}
+            judul="Tidak ada pengiriman di luar jadwal yang perlu ditindak."
+            langkah="Catatan pengiriman di luar jadwal yang sudah diputuskan, ditarik, atau dibatalkan ada di menu Riwayat, tab Di luar jadwal."
+          >
+            <Link href={urlRiwayatDiLuarJadwal()} className={tautanTombolVariants({ garisBawah: true })}>
+              Buka Riwayat di luar jadwal
+            </Link>
+          </KeadaanKosong>
+        )}
       </section>
     </KerangkaHalamanJadwal>
   );
