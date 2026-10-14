@@ -103,23 +103,27 @@ const BATAS_TABEL_PENDEK = 15;
 /**
  * Riwayat pengiriman di luar jadwal (catatan aktivitas PRD A5): status, jenis, toko, tanggal, alasan, pengusul, pemutus,
  * waktu, dan alasan penolakan/pembatalan, dalam urutan daftar yang diberikan. `tampilkanGudang` menambah kolom gudang
- * (halaman admin, halaman Riwayat), dengan penanda gudang nonaktif. `tindakan` mengisi kolom Tindakan per baris; tanpa
- * `tindakan` kolom itu tidak ada.
+ * (halaman admin, halaman Riwayat); `tandaiGudangNonaktif` menambah penanda gudang nonaktif di kolom itu (hanya halaman
+ * Riwayat, T128). `tindakan` mengisi kolom Tindakan per baris; tanpa `tindakan` kolom itu tidak ada. `kosong` = teks bila
+ * daftar kosong; tanpa `kosong`, daftar kosong tidak menampilkan apa pun.
  */
 export function TabelRiwayatPengiriman({
   label,
   daftar,
   tampilkanGudang = false,
+  tandaiGudangNonaktif = false,
   tindakan,
   kosong,
 }: {
   label: string;
   daftar: EntriPengirimanDiLuarJadwal[];
   tampilkanGudang?: boolean;
+  tandaiGudangNonaktif?: boolean;
   tindakan?: (entri: EntriPengirimanDiLuarJadwal) => ReactNode;
-  kosong: string;
+  kosong?: string;
 }) {
   if (daftar.length === 0) {
+    if (kosong === undefined) return null;
     return (
       <p className="flex items-center gap-2 text-muted-foreground">
         <Inbox aria-hidden strokeWidth={2} className="size-5" />
@@ -149,10 +153,14 @@ export function TabelRiwayatPengiriman({
             <TableCell className="font-semibold">{e.toko}</TableCell>
             {tampilkanGudang ? (
               <TableCell>
-                <div className="flex flex-col items-start gap-1">
-                  <span>{e.gudang}</span>
-                  {e.gudangAktif ? null : <BadgeGudangNonaktif />}
-                </div>
+                {tandaiGudangNonaktif && !e.gudangAktif ? (
+                  <div className="flex flex-col items-start gap-1">
+                    <span>{e.gudang}</span>
+                    <BadgeGudangNonaktif />
+                  </div>
+                ) : (
+                  e.gudang
+                )}
               </TableCell>
             ) : null}
             <TableCell>

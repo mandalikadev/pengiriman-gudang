@@ -6,7 +6,7 @@ import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
 import { hubunganTokoGudang, jadwalToko, pengirimanDiLuarJadwal } from "@/server/db/schema";
 import { tugaskanOperator } from "@/server/gudang/penugasan";
-import { buatTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
+import { buatGudangUji, buatTokoUji, hapusGudangUji, idGudangUji } from "@/server/gudang/uji-bantu";
 
 const kepala = vi.hoisted(() => ({ cookie: "" }));
 vi.mock("next/headers", () => ({
@@ -107,5 +107,37 @@ describe("/admin/jadwal", () => {
     expect(baris(html, berlaku.id)).toContain("Batalkan");
     expect(baris(html, lewat.id)).not.toContain("Batalkan");
     expect(baris(html, ditolak.id)).not.toContain("Batalkan");
+  });
+
+  it("riwayat keputusan gudang nonaktif tanpa penanda Nonaktif (penanda hanya di halaman Riwayat, T128)", async () => {
+    const nonaktif = await buatGudangUji({ aktif: false });
+    try {
+      const t = await buatTokoUji();
+      const operator = await buatPenggunaUji("viewer");
+      const admin = await buatPenggunaUji("admin");
+      const [ditolak] = await db
+        .insert(pengirimanDiLuarJadwal)
+        .values({
+          gudangId: nonaktif.id,
+          tokoId: t.id,
+          jenis: "tambahan",
+          tanggalKirim: "2099-02-03",
+          persiapanHari: 1,
+          alasan: "uji T128",
+          diusulkanOleh: operator.id,
+          status: "ditolak",
+          alasanPenolakan: "gudang tutup",
+          diputuskanOleh: admin.id,
+          diputuskanPada: new Date(),
+        })
+        .returning();
+      kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+
+      const b = baris(await buka(), ditolak.id);
+      expect(b).toContain(nonaktif.nama);
+      expect(b).not.toContain('data-status="gudangNonaktif"');
+    } finally {
+      await hapusGudangUji(nonaktif.id);
+    }
   });
 });

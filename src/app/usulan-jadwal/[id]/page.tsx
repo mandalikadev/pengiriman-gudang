@@ -61,7 +61,7 @@ export default async function HalamanUsulanJadwal({ params }: Props) {
           Perlu tindakan
         </h2>
         {perluTindakan.length > 0 ? (
-          <TabelRiwayatPengiriman label="Perlu tindakan" daftar={perluTindakan} tindakan={tindakan} kosong="" />
+          <TabelRiwayatPengiriman label="Perlu tindakan" daftar={perluTindakan} tindakan={tindakan} />
         ) : (
           <KeadaanKosong
             ikon={Inbox}

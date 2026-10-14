@@ -78,6 +78,7 @@ export async function isiTabDiLuarJadwal({
         label="Riwayat pengiriman di luar jadwal"
         daftar={daftar.baris}
         tampilkanGudang
+        tandaiGudangNonaktif
         kosong="Tidak ada pengiriman di luar jadwal yang cocok dengan filter ini."
       />
       <NavigasiHalaman

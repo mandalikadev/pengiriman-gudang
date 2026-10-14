@@ -410,10 +410,10 @@ const TERBARU_DI_ATAS = [desc(pengirimanDiLuarJadwal.diusulkanPada), desc(pengir
  */
 export async function pengirimanPerluTindakan(idGudang: number, { bolehBatalkan, hariIni }: { bolehBatalkan: boolean; hariIni: TanggalBisnis }) {
   const daftar = await bacaEntri(
-    and(eq(pengirimanDiLuarJadwal.gudangId, idGudang), inArray(pengirimanDiLuarJadwal.status, bolehBatalkan ? AKTIF : ["menunggu"])),
+    and(eq(pengirimanDiLuarJadwal.gudangId, idGudang), inArray(pengirimanDiLuarJadwal.status, AKTIF)),
     TERBARU_DI_ATAS,
   );
-  return daftar.filter((e) => e.status === "menunggu" || bisaDibatalkan(e, hariIni));
+  return daftar.filter((e) => e.status === "menunggu" || (bolehBatalkan && bisaDibatalkan(e, hariIni)));
 }
 
 /**
