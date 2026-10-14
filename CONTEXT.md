@@ -159,8 +159,12 @@ _Avoid_: menganggap hasil unggahan sudah tersimpan
 **Buffer**:
 Persen tambahan: 20 untuk keluarga aroma tujuh besar, 10 untuk produk otomatis lainnya.
 
+**Stok target**:
+⌈kebutuhan × (1 + buffer)⌉: stok yang diharapkan ada di toko setelah kiriman datang.
+
 **Jumlah kirim**:
-max(0, ⌈(kebutuhan − stok akhir) × (1 + buffer)⌉).
+max(0, stok target − stok akhir) = max(0, ⌈kebutuhan × (1 + buffer)⌉ − stok akhir). Buffer dikenakan pada seluruh kebutuhan (PRD A6 ▶ Revisi 2026-10-14).
+_Avoid_: ⌈(kebutuhan − stok akhir) × (1 + buffer)⌉ (rumus lama, hanya untuk rencana final sebelum 2026-10-14)
 
 **Ranking pusat**:
 Urutan keluarga aroma dari file yang dipublikasikan admin, dengan bulan ranking dan versi. Setiap baris file ranking adalah satu keluarga aroma (kelompok ranking). Yang berlaku untuk semua gudang adalah ranking terakhir yang dipublikasikan.

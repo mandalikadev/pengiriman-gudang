@@ -1,5 +1,5 @@
 {
-  "sumber": "docs/PRD.md Bagian A §6 — contoh pemilik (Senin, persiapan 2 hari, kebutuhan 56, stok 20, tujuh besar → 44). Tanggal kirim konkret dipilih: Senin 2026-06-08.",
+  "sumber": "docs/PRD.md Bagian A §6 — contoh pemilik (Senin, persiapan 2 hari, kebutuhan 56, stok 20, tujuh besar). Tanggal kirim konkret dipilih: Senin 2026-06-08. Jumlah kirim mengikuti PRD A6 ▶ Revisi 2026-10-14 (stok target): 56 × 1,20 − 20 → 48.",
   "rataRata": {
     "Senin–Kamis": 4,
     "Jumat": 4,
@@ -65,38 +65,109 @@
       "kebutuhan": 56,
       "stokAkhir": 20,
       "persenBuffer": 20,
-      "jumlahKirim": 44,
-      "catatan": "Contoh pemilik: ⌈36 × 1,20⌉ = ⌈43,2⌉ = 44."
+      "stokTarget": 68,
+      "jumlahKirim": 48,
+      "catatan": "Contoh PRD A6 ▶ Revisi 2026-10-14: ⌈56 × 1,20⌉ − 20 = ⌈67,2⌉ − 20 = 68 − 20 = 48. Rumus lama: 44."
     },
     {
       "kebutuhan": 56,
       "stokAkhir": 20,
       "persenBuffer": 10,
-      "jumlahKirim": 40,
-      "catatan": "Produk otomatis di luar tujuh besar: ⌈36 × 1,10⌉ = ⌈39,6⌉ = 40."
+      "stokTarget": 62,
+      "jumlahKirim": 42,
+      "catatan": "Produk otomatis di luar tujuh besar: ⌈56 × 1,10⌉ − 20 = ⌈61,6⌉ − 20 = 62 − 20 = 42."
     },
     {
-      "kebutuhan": 30,
-      "stokAkhir": 20,
-      "persenBuffer": 10,
-      "jumlahKirim": 11,
-      "catatan": "Jebakan float: 10 × 1.1 di JavaScript = 11.000000000000002 → Math.ceil = 12 (SALAH). Benar: 11."
-    },
-    {
-      "kebutuhan": 56,
-      "stokAkhir": 60,
+      "kebutuhan": 7,
+      "stokAkhir": 6,
       "persenBuffer": 20,
-      "jumlahKirim": 0,
-      "catatan": "Stok melebihi kebutuhan → max(0, …) = 0."
+      "stokTarget": 9,
+      "jumlahKirim": 3,
+      "catatan": "Contoh UAT 2026-10-14 (15ML GLITTER - GORGEOUS TUBEROSE, kirim Senin 19-10-2026): ⌈7 × 1,20⌉ − 6 = ⌈8,4⌉ − 6 = 9 − 6 = 3. Rumus lama: 2."
+    },
+    {
+      "kebutuhan": 31,
+      "stokAkhir": 24,
+      "persenBuffer": 20,
+      "stokTarget": 38,
+      "jumlahKirim": 14,
+      "catatan": "Angka acuan UAT MKG · PW110P-GOR: ⌈31 × 1,20⌉ − 24 = ⌈37,2⌉ − 24 = 38 − 24 = 14. Rumus lama: 9."
+    },
+    {
+      "kebutuhan": 50,
+      "stokAkhir": 20,
+      "persenBuffer": 10,
+      "stokTarget": 55,
+      "jumlahKirim": 35,
+      "catatan": "Jebakan float: 50 × 1.1 di JavaScript = 55.00000000000001 → Math.ceil(50 * 1.1 - 20) = 36 (SALAH). Benar: 55 − 20 = 35."
     },
     {
       "kebutuhan": 56,
       "stokAkhir": 56,
       "persenBuffer": 20,
+      "stokTarget": 68,
+      "jumlahKirim": 12,
+      "catatan": "Stok sama dengan kebutuhan → buffer tetap dikirim: 68 − 56 = 12."
+    },
+    {
+      "kebutuhan": 56,
+      "stokAkhir": 60,
+      "persenBuffer": 20,
+      "stokTarget": 68,
+      "jumlahKirim": 8,
+      "catatan": "Stok melebihi kebutuhan tetapi di bawah stok target: 68 − 60 = 8."
+    },
+    {
+      "kebutuhan": 56,
+      "stokAkhir": 68,
+      "persenBuffer": 20,
+      "stokTarget": 68,
       "jumlahKirim": 0,
-      "catatan": "Stok sama dengan kebutuhan → 0."
+      "catatan": "Stok sama dengan stok target → 0."
+    },
+    {
+      "kebutuhan": 56,
+      "stokAkhir": 70,
+      "persenBuffer": 20,
+      "stokTarget": 68,
+      "jumlahKirim": 0,
+      "catatan": "Stok melebihi stok target → max(0, 68 − 70) = 0."
+    },
+    {
+      "kebutuhan": 0,
+      "stokAkhir": 0,
+      "persenBuffer": 20,
+      "stokTarget": 0,
+      "jumlahKirim": 0,
+      "catatan": "Kebutuhan 0 dan stok 0 → 0."
     }
   ],
+  "kasusJumlahKirimRumusLama": {
+    "catatan": "Rumus sebelum PRD A6 ▶ Revisi 2026-10-14: max(0, ⌈(kebutuhan − stok akhir) × (1 + buffer)⌉). Hanya untuk menampilkan rencana final yang difinalisasi dengan rumus lama (snapshot).",
+    "kasus": [
+      {
+        "kebutuhan": 56,
+        "stokAkhir": 20,
+        "persenBuffer": 20,
+        "jumlahKirim": 44,
+        "catatan": "Contoh pemilik lama: ⌈36 × 1,20⌉ = ⌈43,2⌉ = 44."
+      },
+      {
+        "kebutuhan": 7,
+        "stokAkhir": 6,
+        "persenBuffer": 20,
+        "jumlahKirim": 2,
+        "catatan": "⌈1 × 1,20⌉ = ⌈1,2⌉ = 2."
+      },
+      {
+        "kebutuhan": 56,
+        "stokAkhir": 60,
+        "persenBuffer": 20,
+        "jumlahKirim": 0,
+        "catatan": "Stok melebihi kebutuhan → 0."
+      }
+    ]
+  },
   "kasusStatus": [
     {
       "stokAkhir": null,

@@ -291,6 +291,18 @@ Stok dikurangkan tepat satu kali sebelum buffer diterapkan.
 
 > ▶ Keputusan (ADR-0008): semua pembulatan dan buffer dihitung dengan aritmetika bilangan bulat.
 
+> ▶ Revisi (2026-10-14, UAT, pemilik): **jumlah kirim memakai stok target.** Buffer dikenakan pada seluruh kebutuhan, bukan pada selisih kebutuhan dan stok. Rumus di atas, kalimat "Stok dikurangkan tepat satu kali sebelum buffer diterapkan", dan contoh "(56−20) × 1,20 = 44" di bawah tidak berlaku lagi.
+> - **Stok target** = pembulatan ke atas dari Kebutuhan barang × (1 + Buffer).
+> - **Jumlah kirim** = nilai terbesar antara 0 dan (Stok target − Stok akhir). Stok akhir dikurangkan satu kali, setelah buffer. Karena stok akhir bilangan bulat, hasilnya sama dengan pembulatan ke atas dari (Kebutuhan × (1 + Buffer) − Stok akhir).
+> - Alasan: setelah kiriman datang, toko selalu punya cadangan sekitar 20% (tujuh besar) atau 10% (produk otomatis lain) dari kebutuhan. Dengan rumus lama, cadangan mengecil saat stok mendekati kebutuhan dan hilang jika stok sama dengan kebutuhan.
+> - Contoh UAT (kirim Senin 19-10-2026, `15ML GLITTER - GORGEOUS TUBEROSE`, tujuh besar): kebutuhan 7, stok akhir 6 → 7 × 120% − 6 = 2,4 → dibulatkan ke atas **3**. Rumus lama menghasilkan 2.
+> - Contoh PRD di bawah (kebutuhan 56, tujuh besar): stok 20 → 56 × 120% − 20 = 47,2 → **48**. Stok 56 → 12; stok 68 atau lebih → 0.
+> - Rincian di aplikasi menampilkan asal angka dengan urutan yang sama, misalnya `7 × 120% − 6 = 2,4 → dibulatkan ke atas 3`. Keterangan pembulatan hanya muncul jika hasilnya tidak bulat. Hasil negatif ditampilkan `→ paling kecil 0`.
+> - Draft yang belum final memakai rumus baru, termasuk draft yang sudah ada. Input stok tetap dipertahankan.
+> - Rencana final yang sudah ada tidak berubah: angka dan rinciannya tetap menurut rumus lama (snapshot). Rencana final menyimpan rumus jumlah kirim yang dipakai.
+> - Workbook "Phase 1_2" (sheet PHASE 2, kolom REKOMENDASI PENGIRIMAN) masih memakai rumus lama. Workbook itu tidak lagi menjadi acuan rumus jumlah kirim.
+> - Golden: `tests/golden/jumlah-kirim.json` diperbarui.
+
 Ranking pusat berasal dari file yang dipublikasikan admin dengan bulan dan versi tertentu, serta berlaku lintas gudang. Tujuh keluarga aroma teratas mendapatkan buffer 20% untuk varian yang cocok dengan keluarga tersebut. Produk otomatis lainnya mendapatkan buffer 10%.
 
 > ▶ Keputusan (OD-05, 2026-10-09): struktur file ranking pusat.
@@ -324,6 +336,8 @@ Contoh: rata-rata Senin–Kamis adalah 4, Jumat 4, Sabtu 10, dan Minggu 8. Pengi
 Kebutuhan = (4 × 4) + (1 × 4) + (2 × 10) + (2 × 8) = 56 unit.
 Jika stok akhir 20 dan aromanya termasuk tujuh besar:
 Jumlah kirim = pembulatan ke atas dari (56−20) × 1,20 = 44 unit.
+
+> ▶ Revisi (2026-10-14): dengan stok target, contoh ini menjadi 56 × 1,20 − 20 = 47,2 → dibulatkan ke atas **48 unit**. Lihat ▶ Revisi 2026-10-14 di atas.
 
 > ▶ Golden: `tests/golden/jumlah-kirim.json`.
 
