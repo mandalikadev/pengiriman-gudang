@@ -23,6 +23,11 @@ const tampilanStatus = {
   dibatalkan: { label: "Dibatalkan", nada: "muted", ikon: Archive },
 } as const satisfies Record<StatusPengirimanDiLuarJadwal, { label: string; nada: NadaBadge; ikon: LucideIcon }>;
 
+/** Label status pengiriman, sama dengan badge statusnya (dipakai ekspor halaman Riwayat, T129). */
+export function labelStatusPengiriman(status: StatusPengirimanDiLuarJadwal): string {
+  return tampilanStatus[status].label;
+}
+
 export const labelJenisPengiriman: Record<JenisPengirimanDiLuarJadwal, string> = { tambahan: "Tambahan", pindah: "Pindah" };
 
 export function BadgeStatusPengiriman({ status }: { status: StatusPengirimanDiLuarJadwal }) {

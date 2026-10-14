@@ -333,15 +333,17 @@ describe("tombol ekspor di rincian dan riwayat rencana final (zona kerja; halama
     expect(await bukaRincian()).not.toContain("data-ekspor-url");
     expect(await bukaDaftar()).not.toContain("data-ekspor-url");
 
+    // Admin tanpa penugasan hanya punya tombol ekspor halaman Riwayat (T129), bukan ekspor per rencana final.
     kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
     expect(await bukaRincian()).not.toContain("data-ekspor-url");
-    expect(await bukaDaftar()).not.toContain("data-ekspor-url");
+    expect(await bukaDaftar()).not.toContain('data-ekspor-url="/pengiriman-gudang/');
   });
 
   it("T127: hak ekspor di gudang lain tidak memunculkan tombol untuk rencana Cibubur; viewer tanpa penugasan tanpa tombol", async () => {
+    // Hak ekspor di Gudang Bali hanya memunculkan tombol ekspor halaman Riwayat (T129), bukan ekspor rencana Cibubur.
     await masukOperator(await idGudangUji("Gudang Bali"), ["ekspor"]);
     expect(await bukaRincian()).not.toContain("data-ekspor-url");
-    expect(await bukaDaftar()).not.toContain("data-ekspor-url");
+    expect(await bukaDaftar()).not.toContain('data-ekspor-url="/pengiriman-gudang/');
 
     kepala.cookie = (await kepalaPenggunaUji("viewer")).cookie;
     expect(await bukaRincian()).not.toContain("data-ekspor-url");

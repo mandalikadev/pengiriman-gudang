@@ -482,6 +482,45 @@ export async function daftarRencanaFinal(filter: FilterRiwayatRencanaFinal = {})
   }));
 }
 
+/** Baris produk untuk ekspor riwayat (T129): kolom tabel produk ekspor rencana final, dari snapshot. */
+export type BarisProdukRencanaFinal = Pick<
+  BarisRencanaFinal,
+  "kodeProduk" | "namaProduk" | "status" | "kebutuhan" | "stokAkhir" | "persenBuffer" | "jumlahKirim"
+>;
+
+/** Banyak id per kueri, jauh di bawah batas parameter PostgreSQL. */
+const UKURAN_POTONGAN_ID = 5000;
+
+/**
+ * Baris produk rencana final `idRencana` (T129, ekspor halaman Riwayat), dibaca dari snapshot, dikelompokkan per id
+ * rencana final dan urut kode produk (seperti `bacaRencanaFinal`). Kewenangan diperiksa pemanggil.
+ */
+export async function bacaBarisProdukRencanaFinal(idRencana: readonly number[]): Promise<Map<number, BarisProdukRencanaFinal[]>> {
+  const hasil = new Map<number, BarisProdukRencanaFinal[]>();
+  for (let awal = 0; awal < idRencana.length; awal += UKURAN_POTONGAN_ID) {
+    const baris = await db
+      .select({
+        rencanaFinalId: barisRencanaFinal.rencanaFinalId,
+        kodeProduk: barisRencanaFinal.kodeProduk,
+        namaProduk: barisRencanaFinal.namaProduk,
+        status: barisRencanaFinal.status,
+        kebutuhan: barisRencanaFinal.kebutuhan,
+        stokAkhir: barisRencanaFinal.stokAkhir,
+        persenBuffer: barisRencanaFinal.persenBuffer,
+        jumlahKirim: barisRencanaFinal.jumlahKirim,
+      })
+      .from(barisRencanaFinal)
+      .where(inArray(barisRencanaFinal.rencanaFinalId, idRencana.slice(awal, awal + UKURAN_POTONGAN_ID)))
+      .orderBy(asc(barisRencanaFinal.rencanaFinalId), asc(barisRencanaFinal.kodeProduk));
+    for (const { rencanaFinalId, ...b } of baris) {
+      const daftar = hasil.get(rencanaFinalId);
+      if (daftar === undefined) hasil.set(rencanaFinalId, [b]);
+      else daftar.push(b);
+    }
+  }
+  return hasil;
+}
+
 /**
  * Pilihan filter riwayat rencana final (T127): semua gudang (termasuk nonaktif, urut id seperti daftar gudang) dan toko
  * yang punya rencana final di gudang mana pun, dengan nama dari rencana final terakhirnya (snapshot), urut nama.

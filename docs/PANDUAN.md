@@ -190,6 +190,19 @@ Admin bisa membuka halaman Pengiriman Gudang semua gudang, tetapi **hanya-baca**
 - "Lihat rincian" membuka rincian rencana final. Tombol "Ekspor (.xlsx)" di baris dan di rincian hanya tampil bagi pengguna yang punya hak Ekspor di gudang rencana itu.
 - Alamat lama riwayat di bawah Pengiriman Gudang otomatis dialihkan ke halaman ini.
 
+**Ekspor dari Riwayat.** Tombol "Ekspor (.xlsx)" di atas tabel mengekspor tab yang sedang dibuka untuk **seluruh hasil filter** yang diterapkan (termasuk "Cari toko"), bukan hanya 50 baris yang terlihat. Hasilnya satu file dengan satu sheet.
+
+1. Buka menu **Riwayat** dan pilih tab "Rencana final" atau "Di luar jadwal".
+2. Atur filter Gudang, Toko, rentang tanggal kirim, dan Cari toko, lalu tekan "Terapkan".
+3. Tekan "Ekspor (.xlsx)". File `riwayat-rencana-final-<tanggal>.xlsx` atau `riwayat-di-luar-jadwal-<tanggal>.xlsx` terunduh.
+
+- Di atas tabel file ada baris keterangan: jenis riwayat, filter yang diterapkan, waktu ekspor, dan arti tanda "—" (tidak tersedia, bukan 0).
+- Tab "Rencana final" berisi satu baris per produk per rencana final, termasuk versi yang sudah digantikan. Kolom: Gudang, Tanggal kirim, Toko, Versi, Berlaku ("Ya" atau "Digantikan oleh versi n"), Jenis pengiriman, Difinalisasi oleh, Waktu finalisasi, Kode produk, Nama produk, Kebutuhan barang, Stok akhir, Buffer (%), Jumlah kirim, Status. Angkanya dari snapshot masing-masing rencana final.
+- Tab "Di luar jadwal" berisi satu baris per pengiriman. Kolom: Gudang, Jenis, Toko, Tanggal kirim, Persiapan, Tanggal rutin yang dipindah, Alasan, Status, Pengusul, Waktu usul, Penyetuju/penolak, Waktu keputusan, Alasan penolakan, Ditarik/dibatalkan oleh, Waktu penarikan/pembatalan, Alasan penarikan/pembatalan.
+- **Admin** mengekspor riwayat semua gudang, tanpa perlu penugasan.
+- **Operator** hanya mengekspor baris dari gudang tempat ia punya hak Ekspor. Jika hasil filter memuat gudang lain, halaman menyebutnya sebelum ekspor, misalnya "Gudang Cibubur tidak ikut diekspor karena Anda tidak punya hak ekspor di sana."
+- Viewer dan operator tanpa hak Ekspor di gudang mana pun tidak melihat tombol ini.
+
 Tab "Di luar jadwal" berisi semua pengiriman di luar jadwal dari **semua gudang** dengan semua status, terbaru di atas. Tab ini hanya-baca: Tarik dan Batalkan tetap di halaman Kirim di luar jadwal dan Persetujuan jadwal.
 
 - Kolom: Toko, Gudang (gudang nonaktif bertanda "Nonaktif"), Status, Jenis (Tambahan, atau "Pindahan dari <hari, tanggal>"), Tanggal kirim (persiapan), Alasan, Diusulkan (siapa dan kapan), Diputuskan (penyetuju atau penolak dan kapan, atau "Langsung berlaku (Pusat)"), dan Keterangan (alasan penolakan, penarikan, atau pembatalan beserta siapa dan kapan).
@@ -197,4 +210,4 @@ Tab "Di luar jadwal" berisi semua pengiriman di luar jadwal dari **semua gudang*
 
 ### Viewer
 
-Viewer melihat **Beranda**, **Riwayat**, **Ringkasan**, dan **Kalender** untuk semua toko, dan bisa mengekspor hasil Ringkasan. Di Riwayat, viewer melihat dan membuka rincian rencana final semua gudang, tetapi tidak punya tombol ekspor. Viewer juga melihat tab "Di luar jadwal". Viewer tidak melihat Pengiriman Gudang dan menu admin.
+Viewer melihat **Beranda**, **Riwayat**, **Ringkasan**, dan **Kalender** untuk semua toko, dan bisa mengekspor hasil Ringkasan. Di Riwayat, viewer melihat dan membuka rincian rencana final semua gudang, tetapi tidak punya tombol ekspor (baik per rencana final maupun ekspor Riwayat). Viewer juga melihat tab "Di luar jadwal". Viewer tidak melihat Pengiriman Gudang dan menu admin.

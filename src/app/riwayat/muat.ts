@@ -18,6 +18,38 @@ export async function gudangBolehEkspor(pengguna: PenggunaMasuk): Promise<Readon
   return new Set(daftar.filter((g) => g.hakTindakan.includes("ekspor")).map((g) => g.id));
 }
 
+/** Gudang yang barisnya ikut diekspor dari halaman Riwayat; lihat `cakupanEksporRiwayat`. */
+export type CakupanEksporRiwayat = { semuaGudang: true } | { semuaGudang: false; gudang: ReadonlySet<number> };
+
+/**
+ * Cakupan ekspor halaman Riwayat (T129, PRD A7 ▶ Keputusan 2026-10-14): admin semua gudang tanpa penugasan (ekspor ini
+ * hanya membaca catatan); pengguna lain hanya gudang tempat ia punya hak `ekspor` (gudang nonaktif tidak memberi hak).
+ * `null` = tidak boleh mengekspor sama sekali (viewer, operator tanpa hak `ekspor` di gudang mana pun).
+ */
+export async function cakupanEksporRiwayat(pengguna: PenggunaMasuk): Promise<CakupanEksporRiwayat | null> {
+  if (pengguna.peran === "admin") return { semuaGudang: true };
+  const gudang = await gudangBolehEkspor(pengguna);
+  return gudang.size === 0 ? null : { semuaGudang: false, gudang };
+}
+
+/** `true` bila baris gudang `idGudang` ikut diekspor dengan `cakupan`. */
+export function ikutDiekspor(cakupan: CakupanEksporRiwayat, idGudang: number): boolean {
+  return cakupan.semuaGudang || cakupan.gudang.has(idGudang);
+}
+
+/**
+ * Nama gudang (urut `pilihanGudang`) yang punya baris di hasil filter (`idGudangHasil`) tetapi tidak ikut diekspor
+ * dengan `cakupan`, untuk pemberitahuan sebelum ekspor dan baris keterangan berkas.
+ */
+export function gudangTidakIkutDiekspor(
+  cakupan: CakupanEksporRiwayat,
+  idGudangHasil: Iterable<number>,
+  pilihanGudang: readonly { id: number; nama: string }[],
+): string[] {
+  const diHasil = new Set(idGudangHasil);
+  return pilihanGudang.filter((g) => diHasil.has(g.id) && !ikutDiekspor(cakupan, g.id)).map((g) => g.nama);
+}
+
 /** Rincian rencana final `idRencana` dari snapshot, beserta status aktif gudangnya sekarang; 404 bila tidak ada. */
 export async function muatRincianRencanaFinal(idRencana: string) {
   if (!ID_VALID.test(idRencana)) notFound();

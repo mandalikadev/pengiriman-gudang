@@ -6,19 +6,20 @@ import { BadgeGudangNonaktif } from "@/app/pengiriman-gudang/hanya-baca";
 import { PenandaDiLuarJadwal } from "@/app/pengiriman-gudang/[id]/penanda-di-luar-jadwal";
 import { TombolEkspor } from "@/app/ringkasan/tombol-ekspor";
 import { BadgeStatus } from "@/components/badge-status";
-import { cocokCari, NavigasiHalaman, nomorHalaman, potongHalaman, teksParameter, urlDaftar, type ParameterUrl } from "@/components/daftar-berhalaman";
+import { NavigasiHalaman, nomorHalaman, potongHalaman, urlDaftar, type ParameterUrl } from "@/components/daftar-berhalaman";
 import { KeadaanKosong } from "@/components/keadaan-kosong";
 import { tautanTombolVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { WaktuSingkat } from "@/components/waktu-singkat";
-import { formatTanggal, parseTanggalBisnis } from "@/domain/kalender";
+import { formatTanggal } from "@/domain/kalender";
 import type { PenggunaMasuk } from "@/server/auth/kewenangan";
-import { daftarRencanaFinal, pilihanFilterRencanaFinal, type RingkasanRencanaFinal } from "@/server/gudang/rencana-final";
+import type { RingkasanRencanaFinal } from "@/server/gudang/rencana-final";
 
 import { urlEksporRencanaFinal, urlRincianRencanaFinal } from "./alamat";
+import { EksporRiwayat } from "./ekspor-riwayat";
 import { FilterRiwayat } from "./filter-riwayat";
-import { nilaiFilter, nilaiTanggal, SEMUA } from "./filter";
-import { gudangBolehEkspor } from "./muat";
+import { hasilFilterRencanaFinal, parameterTerapan } from "./hasil-filter";
+import { gudangBolehEkspor, type CakupanEksporRiwayat } from "./muat";
 
 const JUMLAH_KOLOM = 8;
 
@@ -93,20 +94,23 @@ function BarisRencana({ rencana, bolehEkspor }: { rencana: RingkasanRencanaFinal
  * Keputusan 2026-10-11) dan versi yang sudah digantikan berlabel "Digantikan oleh versi n" (DESIGN §11.9). Gudang
  * nonaktif diberi penanda. Filter `?gudang=<id>`, `?toko=<id>`, rentang `?dari=`/`?sampai=` (YYYY-MM-DD), cari nama
  * toko `?cari=`, dan halaman 50 baris `?halaman=` (DESIGN §11.1). Tombol ekspor (.xlsx) per versi hanya tampil bagi
- * pengguna dengan hak `ekspor` di gudang rencana itu (T64). Kewenangan lihat diperiksa halaman (`wajibMasuk`). Berupa
- * fungsi yang ditunggu halaman (bukan komponen async), sehingga halaman tetap bisa dirender sekali jalan.
+ * pengguna dengan hak `ekspor` di gudang rencana itu (T64); ekspor seluruh hasil filter sesuai `cakupanEkspor` (T129).
+ * Kewenangan lihat diperiksa halaman (`wajibMasuk`). Berupa fungsi yang ditunggu halaman (bukan komponen async), sehingga
+ * halaman tetap bisa dirender sekali jalan.
  */
 export async function isiTabRencanaFinal({
   pengguna,
+  cakupanEkspor,
   parameter,
   urlHalaman,
 }: {
   pengguna: PenggunaMasuk;
+  cakupanEkspor: CakupanEksporRiwayat | null;
   parameter: ParameterUrl;
   urlHalaman: string;
 }): Promise<ReactNode> {
-  const pilihan = await pilihanFilterRencanaFinal();
-  if (!pilihan.adaRencanaFinal) {
+  const filter = await hasilFilterRencanaFinal(parameter);
+  if (filter === null) {
     return (
       <KeadaanKosong
         ikon={FileCheck}
@@ -115,37 +119,10 @@ export async function isiTabRencanaFinal({
       />
     );
   }
-  const terapan = {
-    gudang: nilaiFilter(
-      parameter.gudang,
-      pilihan.gudang.map((g) => String(g.id)),
-    ),
-    toko: nilaiFilter(
-      parameter.toko,
-      pilihan.toko.map((t) => String(t.id)),
-    ),
-    dari: nilaiTanggal(parameter.dari),
-    sampai: nilaiTanggal(parameter.sampai),
-  };
-  const cari = teksParameter(parameter.cari);
-  const semua = await daftarRencanaFinal({
-    idGudang: terapan.gudang === SEMUA ? undefined : Number(terapan.gudang),
-    tokoId: terapan.toko === SEMUA ? undefined : Number(terapan.toko),
-    dari: terapan.dari === "" ? undefined : parseTanggalBisnis(terapan.dari),
-    sampai: terapan.sampai === "" ? undefined : parseTanggalBisnis(terapan.sampai),
-  });
-  const daftar = potongHalaman(
-    semua.filter((r) => cocokCari(cari, r.toko.nama)),
-    nomorHalaman(parameter.halaman),
-  );
+  const { pilihan, terapan, hasil } = filter;
+  const daftar = potongHalaman(hasil, nomorHalaman(parameter.halaman));
   const bolehEkspor = await gudangBolehEkspor(pengguna);
-  const keadaanUrl = {
-    gudang: terapan.gudang === SEMUA ? undefined : terapan.gudang,
-    toko: terapan.toko === SEMUA ? undefined : terapan.toko,
-    dari: terapan.dari,
-    sampai: terapan.sampai,
-    cari,
-  };
+  const keadaanUrl = parameterTerapan(terapan);
 
   return (
     <>
@@ -153,7 +130,8 @@ export async function isiTabRencanaFinal({
         Rencana final dibaca dari snapshot saat finalisasi dan tidak berubah oleh pembaruan data berikutnya. Finalisasi
         hanya menyatakan rencana kebutuhan barang telah disimpan, bukan konfirmasi pengiriman fisik atau penerimaan barang.
       </p>
-      <FilterRiwayat action={urlHalaman} gudang={pilihan.gudang} toko={pilihan.toko} terapan={{ ...terapan, cari }} />
+      <FilterRiwayat action={urlHalaman} gudang={pilihan.gudang} toko={pilihan.toko} terapan={terapan} />
+      <EksporRiwayat cakupan={cakupanEkspor} parameter={keadaanUrl} idGudangHasil={hasil.map((r) => r.gudang.id)} pilihanGudang={pilihan.gudang} />
       <Table aria-label="Riwayat rencana final" panjang>
         <TableHeader>
           <TableRow>

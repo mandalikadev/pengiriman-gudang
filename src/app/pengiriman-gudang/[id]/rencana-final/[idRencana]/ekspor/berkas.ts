@@ -13,14 +13,33 @@ import { labelStatusBarisRencanaFinal } from "../../label-status-baris";
 // seperti layar rincian, T77). Nilai
 // kosong/tidak tersedia ditulis "—", bukan 0 (DESIGN §7, §8).
 
-const TIDAK_TERSEDIA = "—";
+export const TIDAK_TERSEDIA = "—";
+
+/** Baris "Keterangan" arti tanda tidak tersedia, dipakai juga ekspor halaman Riwayat (T129). */
+export const KETERANGAN_TIDAK_TERSEDIA = `${TIDAK_TERSEDIA} = tidak tersedia atau belum diisi, bukan 0.`;
 
 /** `null` = sel kosong. */
-type Sel = string | number | null;
+export type Sel = string | number | null;
 
-const KOLOM_EKSPOR: readonly string[] = ["Kode produk", "Nama produk", "Kebutuhan barang", "Stok akhir", "Buffer (%)", "Jumlah kirim", "Status"];
+/** Kolom tabel produk, dipakai juga ekspor halaman Riwayat (T129). */
+export const KOLOM_PRODUK_EKSPOR: readonly string[] = ["Kode produk", "Nama produk", "Kebutuhan barang", "Stok akhir", "Buffer (%)", "Jumlah kirim", "Status"];
 
 const angkaAtauTidakTersedia = (nilai: number | null): Sel => nilai ?? TIDAK_TERSEDIA;
+
+/** Sel tabel produk satu baris rencana final, urut `KOLOM_PRODUK_EKSPOR`. */
+export function selProdukEkspor(
+  b: Pick<RencanaFinal["baris"][number], "kodeProduk" | "namaProduk" | "kebutuhan" | "stokAkhir" | "persenBuffer" | "jumlahKirim" | "status">,
+): Sel[] {
+  return [
+    b.kodeProduk,
+    b.namaProduk ?? TIDAK_TERSEDIA,
+    angkaAtauTidakTersedia(b.kebutuhan),
+    angkaAtauTidakTersedia(b.stokAkhir),
+    angkaAtauTidakTersedia(b.persenBuffer),
+    angkaAtauTidakTersedia(b.jumlahKirim),
+    labelStatusBarisRencanaFinal[b.status],
+  ];
+}
 
 /** Nama berkas, mis. `rencana-final-PMS-2026-06-08-v1.xlsx`; karakter selain huruf, angka, dan "-" dibuang dari nama toko. */
 export function namaBerkasEkspor(rencana: Pick<RencanaFinal, "toko" | "tanggalKirim" | "versi">) {
@@ -50,20 +69,12 @@ export function buatBerkasEkspor(rencana: RencanaFinal): Buffer {
           i.sha256 ?? TIDAK_TERSEDIA,
         ])),
     ["Ranking pusat", `${formatBulanLaporan(ranking.bulanRanking)} versi ${ranking.versi}`],
-    ["Keterangan", `${TIDAK_TERSEDIA} = tidak tersedia atau belum diisi, bukan 0.`],
+    ["Keterangan", KETERANGAN_TIDAK_TERSEDIA],
     [],
   ];
-  const isi: Sel[][] = rencana.baris.map((b) => [
-    b.kodeProduk,
-    b.namaProduk ?? TIDAK_TERSEDIA,
-    angkaAtauTidakTersedia(b.kebutuhan),
-    angkaAtauTidakTersedia(b.stokAkhir),
-    angkaAtauTidakTersedia(b.persenBuffer),
-    angkaAtauTidakTersedia(b.jumlahKirim),
-    labelStatusBarisRencanaFinal[b.status],
-  ]);
+  const isi: Sel[][] = rencana.baris.map(selProdukEkspor);
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([...kepala, [...KOLOM_EKSPOR], ...isi]), "Rencana final");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([...kepala, [...KOLOM_PRODUK_EKSPOR], ...isi]), "Rencana final");
   return XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
 }

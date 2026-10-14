@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { wajibMasuk } from "@/server/auth/kewenangan";
 
 import { urlRiwayat, urlRiwayatDiLuarJadwal } from "./alamat";
+import { cakupanEksporRiwayat } from "./muat";
 import { isiTabDiLuarJadwal } from "./tab-di-luar-jadwal";
 import { isiTabRencanaFinal } from "./tab-rencana-final";
 
@@ -53,16 +54,18 @@ function NavigasiTab({ terpilih }: { terpilih: Tab }) {
  * Halaman Riwayat (T127; PRD A7 ▶ Keputusan 2026-10-14, DESIGN §6 ▶ Keputusan 2026-10-14): zona kerja (DESIGN §1) berisi
  * catatan pengiriman yang sudah terjadi untuk semua gudang: tab "Rencana final" dan "Di luar jadwal" (T128). Semua
  * pengguna yang sudah masuk (admin, operator, viewer) boleh membukanya, termasuk riwayat gudang nonaktif (OD-07); akses
- * ini tidak membuka halaman kerja gudang.
+ * ini tidak membuka halaman kerja gudang. Ekspor .xlsx tab yang dibuka (T129) hanya bagi admin dan operator dengan hak
+ * `ekspor`.
  */
 export default async function HalamanRiwayat({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const pengguna = await wajibMasuk();
   const parameter = (await searchParams) ?? {};
   const tab = tabTerpilih(parameter.tab);
+  const cakupanEkspor = await cakupanEksporRiwayat(pengguna);
   const isi =
     tab.nilai === "di-luar-jadwal"
-      ? await isiTabDiLuarJadwal({ parameter, urlHalaman: urlRiwayat(), tab: tab.nilai })
-      : await isiTabRencanaFinal({ pengguna, parameter, urlHalaman: urlRiwayat() });
+      ? await isiTabDiLuarJadwal({ cakupanEkspor, parameter, urlHalaman: urlRiwayat(), tab: tab.nilai })
+      : await isiTabRencanaFinal({ pengguna, cakupanEkspor, parameter, urlHalaman: urlRiwayat() });
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
