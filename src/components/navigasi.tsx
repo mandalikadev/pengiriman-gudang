@@ -37,8 +37,16 @@ type Kelompok = { judul: string | null; item: Item[] };
 // Urutan dan pengelompokan persis DESIGN §6 ▶ Keputusan (2026-10-13 sore, pemilik, T105): kelompok Pengiriman Gudang
 // dihapus, Pengiriman Gudang masuk Pekerjaan rutin, diikuti Kirim di luar jadwal (T113). Salin jadwal operator dihapus
 // dan Jadwal toko masuk Data Master (T112). Pilihan buka/tutup tersimpan untuk kelompok lama tidak dibaca lagi.
+// Riwayat (T127, DESIGN §6 ▶ Keputusan 2026-10-14): item tunggal tanpa kelompok tepat di bawah Beranda, untuk semua
+// pengguna yang sudah masuk.
 const kelompokMenu: Kelompok[] = [
-  { judul: null, item: [{ href: "/", label: "Beranda", akses: "masuk" }] },
+  {
+    judul: null,
+    item: [
+      { href: "/", label: "Beranda", akses: "masuk" },
+      { href: "/riwayat", label: "Riwayat", akses: "masuk" },
+    ],
+  },
   {
     judul: "Pekerjaan rutin",
     item: [

@@ -21,7 +21,7 @@ vi.mock("next/navigation", async (asli) => ({
 }));
 
 import HalamanPengirimanGudang from "./page";
-import HalamanRincianRencanaFinal from "./rencana-final/[idRencana]/rincian/page";
+import HalamanRincianRencanaFinal from "@/app/riwayat/rencana-final/[idRencana]/page";
 
 // T91: header toko draft, rincian baris, dan rincian rencana final menampilkan panjang cakupan hasil hitung dari jadwal
 // (PRD A6 ▶ Revisi 2026-10-12, UAT ketiga). Contoh SMB: kirim Senin → L = 3, p = 0; kirim Kamis → L = 4, p = 1.
@@ -98,7 +98,7 @@ describe("panjang cakupan hasil hitung di tampilan", () => {
 
     const html = renderToStaticMarkup(
       await HalamanRincianRencanaFinal({
-        params: Promise.resolve({ id: String(bandung), idRencana: String(hasil.idRencana) }),
+        params: Promise.resolve({ idRencana: String(hasil.idRencana) }),
         searchParams: Promise.resolve({}),
       }),
     );

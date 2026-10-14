@@ -8,7 +8,7 @@ import { kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { daftarHakTindakan } from "@/server/gudang/hak-tindakan";
 import { tetapkanAktifGudang } from "@/server/gudang/kelola-gudang";
 import { tugaskanOperator } from "@/server/gudang/penugasan";
-import { buatGudangUji, hapusGudangUji, idGudangUji } from "@/server/gudang/uji-bantu";
+import { buatGudangUji, buatTokoUji, hapusGudangUji, idGudangUji, rencanaFinalUji } from "@/server/gudang/uji-bantu";
 
 const kepala = vi.hoisted(() => ({ cookie: "" }));
 vi.mock("next/headers", () => ({
@@ -19,13 +19,16 @@ vi.mock("next/navigation", async (asli) => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
 }));
 
+import HalamanRiwayat from "@/app/riwayat/page";
+import HalamanRincianRencanaFinal from "@/app/riwayat/rencana-final/[idRencana]/page";
+
 import HalamanPengirimanGudang from "./[id]/page";
-import HalamanRiwayatRencanaFinal from "./[id]/rencana-final/page";
 import HalamanDaftarPengirimanGudang from "./page";
 
 // T110 (PRD A3 ▶ Revisi 2026-10-13): gudang nonaktif tidak muncul di pilihan kerja; penugasan operator ke gudang
-// nonaktif tidak memberi akses. Admin tetap bisa membuka halaman Pengiriman Gudang dan riwayat rencana final gudang
-// nonaktif (hanya-baca) dengan badge Nonaktif.
+// nonaktif tidak memberi akses. Admin tetap bisa membuka halaman Pengiriman Gudang gudang nonaktif (hanya-baca) dengan
+// badge Nonaktif. T127: riwayat rencana final ada di halaman Riwayat, terbuka bagi semua pengguna yang sudah masuk,
+// termasuk untuk gudang nonaktif (dengan penanda), tanpa membuka halaman kerja gudang itu.
 
 let nonaktif: { id: number; nama: string };
 let bali: number;
@@ -48,7 +51,7 @@ afterAll(async () => {
 const params = (id: number) => ({ params: Promise.resolve({ id: String(id) }) });
 const daftar = async () => renderToStaticMarkup(await HalamanDaftarPengirimanGudang());
 const halaman = async (id: number) => renderToStaticMarkup(await HalamanPengirimanGudang(params(id)));
-const riwayat = async (id: number) => renderToStaticMarkup(await HalamanRiwayatRencanaFinal(params(id)));
+const riwayat = async (id: number) => renderToStaticMarkup(await HalamanRiwayat({ searchParams: Promise.resolve({ gudang: String(id) }) }));
 
 /** Operator dengan kelima hak tindakan di gudang uji, yang lalu dinonaktifkan. */
 async function operatorGudangNonaktif() {
@@ -67,9 +70,6 @@ describe("operator yang ditugaskan ke gudang nonaktif", () => {
     // Satu-satunya penugasan di gudang nonaktif → tidak punya akses Pengiriman Gudang sama sekali.
     await expect(HalamanDaftarPengirimanGudang()).rejects.toMatchObject({ digest: expect.stringContaining("404") });
     await expect(HalamanPengirimanGudang(params(nonaktif.id))).rejects.toMatchObject({ digest: expect.stringContaining("404") });
-    await expect(HalamanRiwayatRencanaFinal(params(nonaktif.id))).rejects.toMatchObject({
-      digest: expect.stringContaining("404"),
-    });
 
     // Dengan penugasan lain di gudang aktif, gudang aktif itu satu-satunya gudang yang bisa dibuka: operator langsung
     // diarahkan ke sana (T118), bukan ke gudang nonaktif.
@@ -118,7 +118,7 @@ describe("operator yang ditugaskan ke gudang nonaktif", () => {
 });
 
 describe("admin dan gudang nonaktif", () => {
-  it("tetap bisa melihat (hanya-baca) dengan badge Nonaktif: daftar, halaman gudang, dan riwayat rencana final", async () => {
+  it("tetap bisa melihat (hanya-baca) dengan badge Nonaktif: daftar dan halaman gudang", async () => {
     await tetapkanAktifGudang(nonaktif.id, false);
     const admin = await kepalaPenggunaUji("admin");
     // Admin yang juga ditugaskan sebelum gudang dinonaktifkan tetap hanya-baca.
@@ -137,10 +137,6 @@ describe("admin dan gudang nonaktif", () => {
     expect(html).toContain('data-status="gudangNonaktif"');
     expect(html).toContain("data-hanya-baca");
 
-    const htmlRiwayat = await riwayat(nonaktif.id);
-    expect(htmlRiwayat).toContain(`Riwayat rencana final — ${nonaktif.nama}`);
-    expect(htmlRiwayat).toContain('data-status="gudangNonaktif"');
-
     for (const tindakan of daftarHakTindakan) {
       await expect(wajibHakTindakan(nonaktif.id, tindakan)).rejects.toBeInstanceOf(AksesDitolakError);
     }
@@ -149,5 +145,39 @@ describe("admin dan gudang nonaktif", () => {
   it("gudang aktif tidak memakai badge Nonaktif", async () => {
     kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
     expect(await halaman(bali)).not.toContain('data-status="gudangNonaktif"');
+  });
+});
+
+describe("riwayat rencana final gudang nonaktif (T127)", () => {
+  it("admin, operator satu gudang lain, operator yang ditugaskan ke gudang nonaktif itu, dan viewer melihat rencana finalnya dengan penanda Nonaktif", async () => {
+    const admin = await kepalaPenggunaUji("admin");
+    const toko = await buatTokoUji();
+    await tetapkanAktifGudang(nonaktif.id, true);
+    const idRencana = await rencanaFinalUji({ idGudang: nonaktif.id, idToko: toko.id, tanggalKirim: "2030-05-06", idPengguna: admin.id });
+    await tetapkanAktifGudang(nonaktif.id, false);
+
+    const operatorBali = await kepalaPenggunaUji("viewer");
+    await tugaskanOperator({ idPengguna: operatorBali.id, idGudang: bali, hakTindakan: [...daftarHakTindakan] });
+    const operatorNonaktif = await operatorGudangNonaktif();
+    const viewer = await kepalaPenggunaUji("viewer");
+
+    for (const cookie of [admin.cookie, operatorBali.cookie, operatorNonaktif.cookie, viewer.cookie]) {
+      kepala.cookie = cookie;
+      const baris = new RegExp(`<tr[^>]*data-rencana-final="${idRencana}".*?</tr>`).exec(await riwayat(nonaktif.id))?.[0] ?? "";
+      // Nama gudang dari snapshot rencana final ("UJI", lihat rencanaFinalUji), penanda dari status gudang sekarang.
+      expect(baris).toMatch(/<td[^>]*><div[^>]*><span>UJI<\/span><span[^>]*data-status="gudangNonaktif"/);
+      // Gudang nonaktif tidak memberi hak ekspor.
+      expect(baris).not.toContain("data-ekspor-url");
+      const rincian = renderToStaticMarkup(
+        await HalamanRincianRencanaFinal({ params: Promise.resolve({ idRencana: String(idRencana) }), searchParams: Promise.resolve({}) }),
+      );
+      expect(rincian).toContain('data-status="gudangNonaktif"');
+      expect(rincian).not.toContain("data-ekspor-url");
+    }
+    // Pilihan filter gudang memuat gudang nonaktif dengan keterangannya.
+    expect(await riwayat(nonaktif.id)).toContain(`${nonaktif.nama} (nonaktif)`);
+    // Riwayat tidak membuka halaman kerja gudang nonaktif bagi bukan admin.
+    kepala.cookie = viewer.cookie;
+    await expect(HalamanPengirimanGudang(params(nonaktif.id))).rejects.toMatchObject({ digest: expect.stringContaining("404") });
   });
 });

@@ -33,6 +33,23 @@ function judulKelompok(html: string) {
 }
 
 describe("Navigasi: kelompok menu per peran", () => {
+  // T127 — DESIGN §6 ▶ Keputusan (2026-10-14, pemilik): "Riwayat" item tunggal tanpa kelompok tepat di bawah Beranda,
+  // untuk admin, operator, dan viewer.
+  it.each([
+    ["admin", ADMIN, true],
+    ["operator", OPERATOR, true],
+    ["viewer", VIEWER, false],
+  ] as const)("%s: Riwayat tepat di bawah Beranda, di luar kelompok mana pun", (_peran, pengguna, tampilkanPengirimanGudang) => {
+    const html = render({ pengguna, tampilkanPengirimanGudang, tampilkanJadwalToko: false, children: null });
+    expect(tautan(html).slice(0, 2)).toEqual([
+      ["/", "Beranda"],
+      ["/riwayat", "Riwayat"],
+    ]);
+    // Beranda dan Riwayat berada di daftar yang sama, sebelum judul kelompok pertama.
+    const sebelumKelompok = html.slice(0, html.indexOf("data-kelompok="));
+    expect(sebelumKelompok).toMatch(/<ul[^>]*><li><a [^>]*href="\/"[^>]*>Beranda<\/a><\/li><li><a [^>]*href="\/riwayat"[^>]*>Riwayat<\/a><\/li><\/ul>/);
+  });
+
   // T105 — DESIGN §6 ▶ Keputusan (2026-10-13 sore, pemilik): kelompok Pengiriman Gudang dihapus; Pengiriman Gudang
   // masuk Pekerjaan rutin. Kirim di luar jadwal tepat setelah Pengiriman Gudang (T113). T112: Salin jadwal
   // operator dihapus; Jadwal toko menjadi item pertama Data Master.
@@ -41,6 +58,7 @@ describe("Navigasi: kelompok menu per peran", () => {
     expect(judulKelompok(html)).toEqual(["Pekerjaan rutin", "Laporan", "Data Master", "Pengaturan"]);
     expect(tautan(html)).toEqual([
       ["/", "Beranda"],
+      ["/riwayat", "Riwayat"],
       ["/admin/impor", "Impor penjualan"],
       ["/admin/ranking", "Ranking pusat"],
       ["/admin/jadwal", "Persetujuan jadwal"],
@@ -64,8 +82,9 @@ describe("Navigasi: kelompok menu per peran", () => {
   it("admin tanpa hak jadwal: Pekerjaan rutin = Impor penjualan, Ranking pusat, Persetujuan jadwal, Pengiriman Gudang; tanpa kelompok Pengiriman Gudang", () => {
     const html = render({ pengguna: ADMIN, tampilkanPengirimanGudang: true, tampilkanJadwalToko: false, children: null });
     expect(judulKelompok(html)).toEqual(["Pekerjaan rutin", "Laporan", "Data Master", "Pengaturan"]);
-    expect(tautan(html).slice(0, 6)).toEqual([
+    expect(tautan(html).slice(0, 7)).toEqual([
       ["/", "Beranda"],
+      ["/riwayat", "Riwayat"],
       ["/admin/impor", "Impor penjualan"],
       ["/admin/ranking", "Ranking pusat"],
       ["/admin/jadwal", "Persetujuan jadwal"],
@@ -81,6 +100,7 @@ describe("Navigasi: kelompok menu per peran", () => {
     expect(judulKelompok(html)).toEqual(["Pekerjaan rutin", "Laporan"]);
     expect(tautan(html)).toEqual([
       ["/", "Beranda"],
+      ["/riwayat", "Riwayat"],
       ["/pengiriman-gudang", "Pengiriman Gudang"],
       ["/usulan-jadwal", "Kirim di luar jadwal"],
       ["/ringkasan", "Ringkasan"],
@@ -97,6 +117,7 @@ describe("Navigasi: kelompok menu per peran", () => {
     expect(judulKelompok(html)).toEqual(["Pekerjaan rutin", "Laporan"]);
     expect(tautan(html)).toEqual([
       ["/", "Beranda"],
+      ["/riwayat", "Riwayat"],
       ["/pengiriman-gudang", "Pengiriman Gudang"],
       ["/ringkasan", "Ringkasan"],
       ["/kalender", "Kalender"],
@@ -104,11 +125,12 @@ describe("Navigasi: kelompok menu per peran", () => {
     expect(html).not.toContain("jadwal");
   });
 
-  it("viewer tanpa penugasan melihat Beranda dan Laporan saja (tanpa Pekerjaan rutin)", () => {
+  it("viewer tanpa penugasan melihat Beranda, Riwayat, dan Laporan saja (tanpa Pekerjaan rutin)", () => {
     const html = render({ pengguna: VIEWER, tampilkanPengirimanGudang: false, tampilkanJadwalToko: false, children: null });
     expect(judulKelompok(html)).toEqual(["Laporan"]);
     expect(tautan(html)).toEqual([
       ["/", "Beranda"],
+      ["/riwayat", "Riwayat"],
       ["/ringkasan", "Ringkasan"],
       ["/kalender", "Kalender"],
     ]);
@@ -153,6 +175,13 @@ describe("Navigasi: penanda halaman aktif", () => {
         render({ pengguna: OPERATOR, tampilkanPengirimanGudang: true, tampilkanJadwalToko: true, children: null }, "/pengiriman-gudang/3/rencana-final/7"),
       ),
     ).toEqual(["/pengiriman-gudang"]);
+  });
+
+  // T127 (DESIGN §6 ▶ Keputusan 2026-10-14): rincian rencana final di bawah /riwayat menandai Riwayat.
+  it("/riwayat/rencana-final/7 → Riwayat aktif, tanpa kelompok terbuka", () => {
+    const html = render({ pengguna: VIEWER, tampilkanPengirimanGudang: false, tampilkanJadwalToko: false, children: null }, "/riwayat/rencana-final/7");
+    expect(tautanAktif(html)).toEqual(["/riwayat"]);
+    expect(kelompokTerbuka(html)).toEqual([]);
   });
 
   it("/pengiriman-gudang/3 → Pengiriman Gudang aktif dan kelompok Pekerjaan rutin terbuka", () => {

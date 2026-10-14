@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { formatAngka, formatWaktu } from "@/app/admin/impor/format";
+import { urlRincianRencanaFinal } from "@/app/riwayat/alamat";
 import { BadgeStatus } from "@/components/badge-status";
 import { tautanTombolVariants } from "@/components/ui/button";
 import { formatTanggal } from "@/domain/kalender";
@@ -80,10 +81,7 @@ export default async function HalamanRencanaFinal({ params }: { params: Promise<
           <dd className="font-semibold tabular-nums">{formatAngka(rencana.baris.length)}</dd>
         </dl>
         <div className="flex flex-wrap gap-2">
-          <Link
-            href={`/pengiriman-gudang/${idGudang}/rencana-final/${rencana.id}/rincian`}
-            className={kelasTautanSuasana}
-          >
+          <Link href={urlRincianRencanaFinal(rencana.id)} className={kelasTautanSuasana}>
             Lihat rincian rencana final
           </Link>
           <Link

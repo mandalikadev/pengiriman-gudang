@@ -59,7 +59,7 @@ function bacaTokoDiminta(nilai: string | string[] | undefined): number | null {
  * `kelola-usulan-jadwal` mendapat tautan "Kirim di luar jadwal" (PRD A5 ▶ Revisi 2026-10-13). Bagian Draft rencana (T58)
  * menampilkan draft yang tersimpan tanpa menghitung saat halaman dibuka (PRD C1), sebagai ringkasan per toko; `?toko=<id>`
  * membuka baris satu toko (T73) dan `?rincian=<id toko>|<kode produk>` membuka rincian perhitungan satu barisnya (T60). Operator dengan hak `finalisasi` memfinalisasi rencana per toko (T62).
- * Tautan Riwayat rencana final (T63) untuk semua yang bisa melihat halaman ini.
+ * Riwayat rencana final tidak ditautkan dari sini; riwayat ada di halaman Riwayat (T127, PRD A7 ▶ Keputusan 2026-10-14).
  *
  * T118 (DESIGN §11.5): urutan isi = kepala (gudang dan ringkasan periode sumber), Draft rencana, Jadwal toko (dengan status
  * toko; tabel "Toko terhubung" dihapus), lalu Periode sumber lengkap; dua bagian terakhir awalnya tertutup. Tanpa
@@ -104,15 +104,6 @@ export default async function HalamanPengirimanGudang({
         <h1 className="text-2xl font-bold md:text-3xl">Pengiriman Gudang — {gudang.nama}</h1>
         {gudang.aktif ? null : <BadgeGudangNonaktif />}
         <RingkasanPeriodeSumber periode={periodeSumber} />
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`/pengiriman-gudang/${gudang.id}/rencana-final`}
-            data-tautan-riwayat-final
-            className={tautanTombolVariants({ garisBawah: true })}
-          >
-            Riwayat rencana final
-          </Link>
-        </div>
         {gudang.hakTindakan.length === 0 ? (
           <KeteranganHanyaBaca bantuan>
             Hanya-baca: Anda bisa melihat halaman ini, tetapi tidak punya hak tindakan di gudang ini.

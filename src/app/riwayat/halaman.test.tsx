@@ -14,10 +14,10 @@ vi.mock("next/headers", () => ({
   headers: async () => new Headers(kepala.cookie ? { cookie: kepala.cookie } : {}),
 }));
 
-import HalamanRiwayatRencanaFinal from "./page";
+import HalamanRiwayat from "./page";
 
 // T119 (DESIGN §11.1, §11.9): riwayat rencana final bisa dicari (nama toko) dan dibagi per halaman 50 baris, keadaannya
-// di URL bersama filter tanggal kirim dan toko. Versi yang sudah digantikan berlabel "Digantikan oleh versi n" di samping
+// di URL bersama filter (T127: gudang, toko, dan rentang tanggal kirim di halaman Riwayat). Versi yang sudah digantikan berlabel "Digantikan oleh versi n" di samping
 // status Final. Data: 60 rencana final di gudang uji sendiri — 58 toko lain (satu per tanggal kirim) dan MKG versi 1 dan
 // 2 pada tanggal kirim paling lama (jadi tampil di halaman 2).
 
@@ -79,10 +79,9 @@ beforeEach(async () => {
   kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
 });
 
+/** Halaman Riwayat dengan filter gudang uji (riwayat memuat semua gudang, T127). */
 const buka = async (parameter: Record<string, string> = {}) =>
-  renderToStaticMarkup(
-    await HalamanRiwayatRencanaFinal({ params: Promise.resolve({ id: String(idGudang) }), searchParams: Promise.resolve(parameter) }),
-  );
+  renderToStaticMarkup(await HalamanRiwayat({ searchParams: Promise.resolve({ gudang: String(idGudang), ...parameter }) }));
 const idDiDaftar = (html: string) => [...html.matchAll(/<tr[^>]*data-rencana-final="(\d+)"/g)].map((m) => Number(m[1]));
 const baris = (html: string, idRencana: number) => new RegExp(`<tr[^>]*data-rencana-final="${idRencana}".*?</tr>`).exec(html)?.[0] ?? "";
 
@@ -92,23 +91,23 @@ describe("riwayat rencana final: halaman 50 baris + cari (T119)", () => {
     const halaman1 = await buka();
     expect(idDiDaftar(halaman1)).toEqual(urutan.slice(0, 50));
     expect(halaman1).toContain("Baris 1–50 dari 60 · Halaman 1 dari 2");
-    expect(halaman1).toContain(`href="/pengiriman-gudang/${idGudang}/rencana-final?halaman=2"`);
+    expect(halaman1).toContain(`href="/riwayat?gudang=${idGudang}&amp;halaman=2"`);
 
     const halaman2 = await buka({ halaman: "2" });
     expect(idDiDaftar(halaman2)).toEqual(urutan.slice(50));
     expect(halaman2).toContain("Baris 51–60 dari 60 · Halaman 2 dari 2");
-    expect(halaman2).toContain(`href="/pengiriman-gudang/${idGudang}/rencana-final"`);
+    expect(halaman2).toContain(`href="/riwayat?gudang=${idGudang}"`);
 
     // Halaman di luar jangkauan dibatasi ke halaman terakhir.
     expect(idDiDaftar(await buka({ halaman: "9" }))).toEqual(urutan.slice(50));
   });
 
-  it("cari nama toko menyaring; bekerja bersama filter tanggal kirim; isian cari ada di form filter", async () => {
+  it("cari nama toko menyaring; bekerja bersama rentang tanggal kirim; isian cari ada di form filter", async () => {
     const html = await buka({ cari: `mkg ${acak.toLowerCase()}` });
     expect(idDiDaftar(html)).toEqual([id.mkgV2, id.mkgV1]);
     expect(html).toMatch(new RegExp(`<form[^>]*data-filter-rencana-final.*?name="cari"[^>]*value="mkg ${acak.toLowerCase()}"`));
-    expect(idDiDaftar(await buka({ cari: "MKG", tanggal: TANGGAL_MKG }))).toEqual([id.mkgV2, id.mkgV1]);
-    expect(idDiDaftar(await buka({ cari: `MKG ${acak}`, tanggal: "2030-01-05" }))).toEqual([]);
+    expect(idDiDaftar(await buka({ cari: "MKG", dari: TANGGAL_MKG, sampai: TANGGAL_MKG }))).toEqual([id.mkgV2, id.mkgV1]);
+    expect(idDiDaftar(await buka({ cari: `MKG ${acak}`, dari: "2030-01-05", sampai: "2030-01-05" }))).toEqual([]);
     expect(await buka({ cari: `TIDAK ADA ${acak}` })).toContain("Tidak ada rencana final yang cocok dengan filter ini.");
   });
 
@@ -125,16 +124,13 @@ describe("riwayat rencana final: halaman 50 baris + cari (T119)", () => {
   });
 });
 
-describe("riwayat rencana final kosong (T120)", () => {
-  it("gudang tanpa rencana final → keadaan kosong ikon + teks + langkah berikutnya", async () => {
+describe("riwayat rencana final: gudang tanpa rencana final (T120, T127)", () => {
+  it("filter gudang tanpa rencana final → baris tabel 'Tidak ada rencana final yang cocok dengan filter ini.'", async () => {
     const kosong = (await buatGudangUji()).id;
     try {
-      const html = renderToStaticMarkup(
-        await HalamanRiwayatRencanaFinal({ params: Promise.resolve({ id: String(kosong) }), searchParams: Promise.resolve({}) }),
-      );
-      expect(html).toMatch(
-        /data-keadaan-kosong[^>]*><span[^>]*><svg[^>]*lucide-file-check[^]*?Belum ada rencana final di gudang ini\.<\/p><p[^>]*>Rencana final muncul di sini setelah toko difinalisasi dari Draft rencana\.<\/p>/,
-      );
+      const html = renderToStaticMarkup(await HalamanRiwayat({ searchParams: Promise.resolve({ gudang: String(kosong) }) }));
+      expect(idDiDaftar(html)).toEqual([]);
+      expect(html).toContain("Tidak ada rencana final yang cocok dengan filter ini.");
     } finally {
       await hapusGudangUji(kosong);
     }

@@ -33,9 +33,10 @@ vi.mock("next/navigation", async (asli) => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
 }));
 
+import HalamanRiwayat from "@/app/riwayat/page";
+import HalamanRincianRencanaFinal from "@/app/riwayat/rencana-final/[idRencana]/page";
+
 import { GET } from "./[idRencana]/ekspor/route";
-import HalamanRincianRencanaFinal from "./[idRencana]/rincian/page";
-import HalamanRiwayatRencanaFinal from "./page";
 
 // T64: ekspor rencana final (.xlsx). Hanya rencana final (termasuk dari riwayat) dan hanya untuk pengguna dengan hak
 // tindakan `ekspor` di gudang itu (PRD A7 ▶ Keputusan 2026-10-09). Isinya dibaca dari snapshot finalisasi, bukan data
@@ -237,10 +238,7 @@ describe("GET ekspor rencana final: isi berkas dari snapshot", () => {
     await masukOperator(cibubur, ["ekspor"]);
     const { baris } = await baca(await ekspor());
     const rincian = renderToStaticMarkup(
-      await HalamanRincianRencanaFinal({
-        params: Promise.resolve({ id: String(cibubur), idRencana: String(idRencana) }),
-        searchParams: Promise.resolve({}),
-      }),
+      await HalamanRincianRencanaFinal({ params: Promise.resolve({ idRencana: String(idRencana) }), searchParams: Promise.resolve({}) }),
     );
     // Kolom ketiga tabel baris rencana di layar (Klasifikasi), tanpa tag dan teks khusus pembaca layar.
     const labelLayar = (kodeProduk: string) => {
@@ -307,17 +305,14 @@ describe("GET ekspor rencana final: isi berkas dari snapshot", () => {
   });
 });
 
-describe("tombol ekspor di rincian dan riwayat rencana final (zona kerja)", () => {
+describe("tombol ekspor di rincian dan riwayat rencana final (zona kerja; halaman Riwayat T127, route ekspor tidak berubah)", () => {
   const urlEkspor = () => `/pengiriman-gudang/${cibubur}/rencana-final/${idRencana}/ekspor`;
   const bukaRincian = async () =>
     renderToStaticMarkup(
-      await HalamanRincianRencanaFinal({
-        params: Promise.resolve({ id: String(cibubur), idRencana: String(idRencana) }),
-        searchParams: Promise.resolve({}),
-      }),
+      await HalamanRincianRencanaFinal({ params: Promise.resolve({ idRencana: String(idRencana) }), searchParams: Promise.resolve({}) }),
     );
-  const bukaDaftar = async () =>
-    renderToStaticMarkup(await HalamanRiwayatRencanaFinal({ params: Promise.resolve({ id: String(cibubur) }), searchParams: Promise.resolve({}) }));
+  /** Halaman Riwayat (T127), tab Rencana final, dengan filter gudang Cibubur. */
+  const bukaDaftar = async () => renderToStaticMarkup(await HalamanRiwayat({ searchParams: Promise.resolve({ gudang: String(cibubur) }) }));
   const tombol = () => new RegExp(`<button[^>]*data-ekspor-url="${urlEkspor()}"[^>]*>.*?lucide-download[^>]*size-5.*?Ekspor \\(\\.xlsx\\)`);
 
   it("operator dengan hak ekspor melihat tombol Ekspor (.xlsx) di rincian dan di baris riwayat", async () => {
@@ -339,6 +334,16 @@ describe("tombol ekspor di rincian dan riwayat rencana final (zona kerja)", () =
     expect(await bukaDaftar()).not.toContain("data-ekspor-url");
 
     kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+    expect(await bukaRincian()).not.toContain("data-ekspor-url");
+    expect(await bukaDaftar()).not.toContain("data-ekspor-url");
+  });
+
+  it("T127: hak ekspor di gudang lain tidak memunculkan tombol untuk rencana Cibubur; viewer tanpa penugasan tanpa tombol", async () => {
+    await masukOperator(await idGudangUji("Gudang Bali"), ["ekspor"]);
+    expect(await bukaRincian()).not.toContain("data-ekspor-url");
+    expect(await bukaDaftar()).not.toContain("data-ekspor-url");
+
+    kepala.cookie = (await kepalaPenggunaUji("viewer")).cookie;
     expect(await bukaRincian()).not.toContain("data-ekspor-url");
     expect(await bukaDaftar()).not.toContain("data-ekspor-url");
   });

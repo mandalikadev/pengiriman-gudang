@@ -25,11 +25,12 @@ vi.mock("next/navigation", async (asli) => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
 }));
 
+import HalamanRiwayat from "@/app/riwayat/page";
+import HalamanRincianRencanaFinal from "@/app/riwayat/rencana-final/[idRencana]/page";
+
 import HalamanPengirimanGudang from "../page";
 import { GET } from "./[idRencana]/ekspor/route";
 import HalamanRencanaFinal from "./[idRencana]/page";
-import HalamanRincianRencanaFinal from "./[idRencana]/rincian/page";
-import HalamanRiwayatRencanaFinal from "./page";
 
 // T114 (PRD A5 ▶ Revisi 2026-10-13, Catatan aktivitas): toko yang dikirim di luar jadwal diberi penanda "Di luar jadwal ·
 // Tambahan" beserta alasan dan penyetujunya di draft, rencana final, rinciannya, dan riwayat. Rencana final menyimpan
@@ -138,17 +139,12 @@ describe("penanda pengiriman di luar jadwal", () => {
     expect(final).toContain(`Jenis pengiriman ${penanda} ${keterangan()}`);
 
     const rincian = (idRencana: number) =>
-      HalamanRincianRencanaFinal({
-        params: Promise.resolve({ id: String(cibubur), idRencana: String(idRencana) }),
-        searchParams: Promise.resolve({}),
-      });
+      HalamanRincianRencanaFinal({ params: Promise.resolve({ idRencana: String(idRencana) }), searchParams: Promise.resolve({}) });
     expect(teks(renderToStaticMarkup(await rincian(idSelasa)))).toContain(`Jenis pengiriman ${penanda} ${keterangan()}`);
     expect(teks(renderToStaticMarkup(await rincian(idSenin)))).toContain("Jenis pengiriman Rutin");
 
-    const riwayat = renderToStaticMarkup(
-      await HalamanRiwayatRencanaFinal({ params: Promise.resolve({ id: String(cibubur) }), searchParams: Promise.resolve({}) }),
-    );
-    const baris = (id: number) => teks(new RegExp(`<tr[^>]*>(?:(?!</tr>).)*rencana-final/${id}/rincian.*?</tr>`).exec(riwayat)?.[0] ?? "");
+    const riwayat = renderToStaticMarkup(await HalamanRiwayat({ searchParams: Promise.resolve({ gudang: String(cibubur) }) }));
+    const baris = (id: number) => teks(new RegExp(`<tr[^>]*data-rencana-final="${id}".*?</tr>`).exec(riwayat)?.[0] ?? "");
     expect(baris(idSelasa)).toContain(`${penanda} ${keterangan()}`);
     expect(baris(idSenin)).toContain(toko.nama);
     expect(baris(idSenin)).not.toContain("Di luar jadwal");

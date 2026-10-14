@@ -71,7 +71,8 @@ export async function hapusGudangUji(...id: number[]) {
 
 /**
  * Rencana final minimal versi 1 toko `idToko` untuk `tanggalKirim` (T113: syarat "belum punya rencana final"). Kolom
- * snapshot lain berisi nilai tetap yang tidak dipakai test pemanggilnya.
+ * snapshot lain (termasuk nama gudang "UJI") berisi nilai tetap yang tidak dipakai test pemanggilnya. Mengembalikan id
+ * rencana finalnya.
  */
 export async function rencanaFinalUji({
   idGudang,
@@ -95,29 +96,33 @@ export async function rencanaFinalUji({
       diunggahOleh: idPengguna,
     })
     .returning({ id: versiRanking.id });
-  await db.insert(rencanaFinal).values({
-    gudangId: idGudang,
-    namaGudang: "UJI",
-    tokoId: idToko,
-    namaToko: "UJI",
-    tanggalKirim,
-    versi: 1,
-    difinalisasiOleh: idPengguna,
-    namaPemfinalisasi: "Uji",
-    bulanSumber: ["2026-09"],
-    versiPeriodeSumber: 1,
-    impor: [],
-    versiRankingId: ranking.id,
-    bulanRanking: "2026-09",
-    versiRanking: 1,
-    versiJadwal: 1,
-    jadwal: { pola: "mingguan", hariKirim: [{ hari: "Senin", persiapanHari: 0 }], tanggalJangkar: null },
-    persiapanHari: 0,
-    panjangCakupan: 7,
-    revisiKalender: 1,
-    perubahanKategori: [],
-    cakupan: [],
-  });
+  const [rencana] = await db
+    .insert(rencanaFinal)
+    .values({
+      gudangId: idGudang,
+      namaGudang: "UJI",
+      tokoId: idToko,
+      namaToko: "UJI",
+      tanggalKirim,
+      versi: 1,
+      difinalisasiOleh: idPengguna,
+      namaPemfinalisasi: "Uji",
+      bulanSumber: ["2026-09"],
+      versiPeriodeSumber: 1,
+      impor: [],
+      versiRankingId: ranking.id,
+      bulanRanking: "2026-09",
+      versiRanking: 1,
+      versiJadwal: 1,
+      jadwal: { pola: "mingguan", hariKirim: [{ hari: "Senin", persiapanHari: 0 }], tanggalJangkar: null },
+      persiapanHari: 0,
+      panjangCakupan: 7,
+      revisiKalender: 1,
+      perubahanKategori: [],
+      cakupan: [],
+    })
+    .returning({ id: rencanaFinal.id });
+  return rencana.id;
 }
 
 /** Nilai baris tanpa kolom identitas `id`, untuk disisipkan lagi sebagai baris baru. */

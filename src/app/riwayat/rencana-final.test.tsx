@@ -33,13 +33,17 @@ vi.mock("next/navigation", async (asli) => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
 }));
 
-import HalamanPengirimanGudang from "../page";
-import HalamanRencanaFinal from "./[idRencana]/page";
-import HalamanRincianRencanaFinal from "./[idRencana]/rincian/page";
-import HalamanRiwayatRencanaFinal from "./page";
+import HalamanPengirimanGudang from "@/app/pengiriman-gudang/[id]/page";
+import HalamanRencanaFinal from "@/app/pengiriman-gudang/[id]/rencana-final/[idRencana]/page";
+import AlihkanRincianRencanaFinal from "@/app/pengiriman-gudang/[id]/rencana-final/[idRencana]/rincian/page";
+import AlihkanRiwayatRencanaFinal from "@/app/pengiriman-gudang/[id]/rencana-final/page";
 
-// T63: riwayat rencana final. Pengguna dengan akses lihat gudang membuka daftar rencana final (filter tanggal kirim dan
-// toko; siapa dan kapan memfinalisasi) dan rinciannya, semuanya dibaca dari snapshot (PRD A7, B9). Versi lama tetap
+import HalamanRiwayat from "./page";
+import HalamanRincianRencanaFinal from "./rencana-final/[idRencana]/page";
+
+// T63: riwayat rencana final. T127: riwayat pindah ke halaman Riwayat (PRD A7 ▶ Keputusan 2026-10-14); semua pengguna
+// yang sudah masuk membuka daftar rencana final semua gudang (filter gudang, toko, dan rentang tanggal kirim; siapa dan
+// kapan memfinalisasi) dan rinciannya, semuanya dibaca dari snapshot (PRD A7, B9). Versi lama tetap
 // tampil; versi baru ditandai "Versi N menggantikan versi N−1" (PRD A7 ▶ Keputusan 2026-10-11, T62). Zona kerja
 // (DESIGN §1), status ikon + teks (DESIGN §7). Contoh PRD A6 / golden `jumlah-kirim.json`: kebutuhan 56, stok 20, tujuh
 // besar → jumlah kirim 48 (stok target, PRD A6 ▶ Revisi 2026-10-14). T126: rencana final lama tetap dengan angka dan
@@ -52,7 +56,7 @@ type Golden = {
   kasusJumlahKirim: KasusJumlahKirim[];
   kasusJumlahKirimRumusLama: { kasus: KasusJumlahKirim[] };
 };
-const golden = JSON.parse(readFileSync(join(import.meta.dirname, "../../../../../tests/golden/jumlah-kirim.json"), "utf8")) as Golden;
+const golden = JSON.parse(readFileSync(join(import.meta.dirname, "../../../tests/golden/jumlah-kirim.json"), "utf8")) as Golden;
 const [CONTOH] = golden.kasusJumlahKirim;
 const [CONTOH_RUMUS_LAMA] = golden.kasusJumlahKirimRumusLama.kasus;
 
@@ -170,17 +174,13 @@ async function masukOperator(idGudang: number, hakTindakan: HakTindakan[]) {
 }
 const masukAdmin = async () => (kepala.cookie = (await kepalaPenggunaUji("admin")).cookie);
 
-const bukaDaftar = async (filter: Record<string, string> = {}, idGudang: number | string = cibubur) =>
-  renderToStaticMarkup(
-    await HalamanRiwayatRencanaFinal({ params: Promise.resolve({ id: String(idGudang) }), searchParams: Promise.resolve(filter) }),
-  );
+/** Halaman Riwayat, tab Rencana final, dengan filter gudang Cibubur (riwayat memuat semua gudang). */
+const bukaDaftar = async (filter: Record<string, string> = {}) =>
+  renderToStaticMarkup(await HalamanRiwayat({ searchParams: Promise.resolve({ gudang: String(cibubur), ...filter }) }));
 
-const bukaRincian = async (idRencana: number | string, filter: Record<string, string> = {}, idGudang: number | string = cibubur) =>
+const bukaRincian = async (idRencana: number | string, filter: Record<string, string> = {}) =>
   renderToStaticMarkup(
-    await HalamanRincianRencanaFinal({
-      params: Promise.resolve({ id: String(idGudang), idRencana: String(idRencana) }),
-      searchParams: Promise.resolve(filter),
-    }),
+    await HalamanRincianRencanaFinal({ params: Promise.resolve({ idRencana: String(idRencana) }), searchParams: Promise.resolve(filter) }),
   );
 
 /** Id rencana final di daftar, urut tampil. */
@@ -201,7 +201,12 @@ describe("daftar rencana final", () => {
     const html = await bukaDaftar();
     // Zona kerja: tanpa blob latar, judul halaman zona kerja.
     expect(html).not.toContain("blur-3xl");
-    expect(html).toMatch(/<h1[^>]*class="[^"]*text-2xl[^"]*md:text-3xl[^"]*"[^>]*>Riwayat rencana final/);
+    expect(html).toMatch(/<h1[^>]*class="[^"]*text-2xl[^"]*md:text-3xl[^"]*"[^>]*>Riwayat<\/h1>/);
+    // Tab Rencana final terpilih (bawaan, tanpa ?tab=).
+    const tab = /<nav aria-label="Jenis riwayat">.*?<\/nav>/.exec(html)?.[0] ?? "";
+    expect(tab).toMatch(/<a [^>]*aria-current="page"[^>]*href="\/riwayat">Rencana final<\/a>/);
+    // Tab Di luar jadwal belum ditampilkan (T128).
+    expect(tab).not.toContain("Di luar jadwal");
     // Tanggal kirim terbaru di atas; dalam satu tanggal urut nama toko, versi terbaru di atas.
     const tokoUrut = [tokoA, tokoB].sort((x, y) => x.nama.localeCompare(y.nama));
     const tanggal1 = tokoUrut.flatMap((t) => (t.id === tokoA.id ? [rencana.a1v2, rencana.a1v1] : [rencana.b1]));
@@ -215,7 +220,10 @@ describe("daftar rencana final", () => {
     expect(v2).toContain(`Alasan: ${ALASAN_ULANG}`);
     expect(v2).toContain("Uji viewer");
     expect(v2).toContain(await waktuFinal(rencana.a1v2));
-    expect(v2).toContain(`href="/pengiriman-gudang/${cibubur}/rencana-final/${rencana.a1v2}/rincian"`);
+    expect(v2).toContain(`href="/riwayat/rencana-final/${rencana.a1v2}"`);
+    // T127: kolom Gudang (gudang aktif tanpa penanda nonaktif).
+    expect(v2).toContain(">Gudang Cibubur<");
+    expect(v2).not.toContain('data-status="gudangNonaktif"');
     // T121 (DESIGN §11.6): label tautan "Lihat rincian", bukan "Rincian" saja.
     expect(v2).toMatch(/<a[^>]*data-tautan-rincian-final="\d+"[^>]*>Lihat rincian<span class="sr-only">/);
 
@@ -232,25 +240,47 @@ describe("daftar rencana final", () => {
     expect(barisDaftar(html, rencana.a2)).toContain("Senin, 15-06-2026");
   });
 
-  it("filter tanggal kirim dan toko; nilai filter yang tidak dikenal diabaikan", async () => {
+  it("filter rentang tanggal kirim dan toko; rentang kosong = semua; nilai filter yang tidak dikenal diabaikan", async () => {
     await masukAdmin();
-    expect(idDiDaftar(await bukaDaftar({ tanggal: TANGGAL_2 }))).toEqual([rencana.a2]);
+    expect(idDiDaftar(await bukaDaftar({ dari: TANGGAL_2 }))).toEqual([rencana.a2]);
+    expect(idDiDaftar(await bukaDaftar({ sampai: TANGGAL_1 }))).toHaveLength(3);
+    expect(idDiDaftar(await bukaDaftar({ dari: TANGGAL_1, sampai: TANGGAL_2 }))).toHaveLength(4);
+    expect(idDiDaftar(await bukaDaftar({ dari: "2026-06-09", sampai: "2026-06-14" }))).toEqual([]);
+    expect(idDiDaftar(await bukaDaftar({ dari: "", sampai: "" }))).toHaveLength(4);
     expect(idDiDaftar(await bukaDaftar({ toko: String(tokoB.id) }))).toEqual([rencana.b1]);
-    expect(idDiDaftar(await bukaDaftar({ tanggal: TANGGAL_1, toko: String(tokoA.id) }))).toEqual([rencana.a1v2, rencana.a1v1]);
-    expect(idDiDaftar(await bukaDaftar({ tanggal: TANGGAL_2, toko: String(tokoB.id) }))).toEqual([]);
-    expect(await bukaDaftar({ tanggal: TANGGAL_2, toko: String(tokoB.id) })).toContain("Tidak ada rencana final yang cocok dengan filter ini.");
-    expect(idDiDaftar(await bukaDaftar({ tanggal: "2026-02-30", toko: "bukan-angka" }))).toHaveLength(4);
-    expect(idDiDaftar(await bukaDaftar({ tanggal: "semua", toko: "semua" }))).toHaveLength(4);
+    expect(idDiDaftar(await bukaDaftar({ dari: TANGGAL_1, sampai: TANGGAL_1, toko: String(tokoA.id) }))).toEqual([rencana.a1v2, rencana.a1v1]);
+    expect(idDiDaftar(await bukaDaftar({ dari: TANGGAL_2, toko: String(tokoB.id) }))).toEqual([]);
+    expect(await bukaDaftar({ dari: TANGGAL_2, toko: String(tokoB.id) })).toContain("Tidak ada rencana final yang cocok dengan filter ini.");
+    expect(idDiDaftar(await bukaDaftar({ dari: "2026-02-30", sampai: "bukan-tanggal", toko: "bukan-angka" }))).toHaveLength(4);
+    expect(idDiDaftar(await bukaDaftar({ toko: "semua" }))).toHaveLength(4);
   });
 
-  it("pilihan filter berisi tanggal kirim dan toko yang punya rencana final", async () => {
+  it("filter gudang: semua gudang memuat rencana final Cibubur dan gudang lain; gudang tidak dikenal = semua", async () => {
     await masukAdmin();
-    const html = await bukaDaftar({ tanggal: TANGGAL_1 });
+    const semua = idDiDaftar(renderToStaticMarkup(await HalamanRiwayat({ searchParams: Promise.resolve({ toko: String(tokoA.id) }) })));
+    expect(semua).toEqual([rencana.a2, rencana.a1v2, rencana.a1v1]);
+    const bali = await idGudangUji("Gudang Bali");
+    expect(idDiDaftar(await bukaDaftar({ gudang: String(bali) }))).toEqual([]);
+    const takDikenal = renderToStaticMarkup(await HalamanRiwayat({ searchParams: Promise.resolve({ gudang: "999999999", toko: String(tokoA.id) }) }));
+    expect(idDiDaftar(takDikenal)).toEqual(semua);
+  });
+
+  it("form filter: gudang, toko, rentang tanggal kirim dari–sampai berisi nilai terapan, cari, dan tombol Terapkan", async () => {
+    await masukAdmin();
+    const html = await bukaDaftar({ dari: TANGGAL_1, sampai: TANGGAL_2 });
     const filter = /<form[^>]*data-filter-rencana-final.*?<\/form>/.exec(html)?.[0] ?? "";
-    expect(filter).toMatch(/Tanggal kirim/);
+    expect(filter).toMatch(/<form[^>]*action="\/riwayat"/);
+    expect(filter).toMatch(/Gudang/);
+    expect(filter).toContain("Gudang Cibubur");
     expect(filter).toMatch(/Toko/);
-    expect(filter).toContain("Senin, 08-06-2026");
+    expect(filter).toMatch(/<label[^>]*>Tanggal kirim dari<\/label><input[^>]*type="date"[^>]*name="dari"[^>]*value="2026-06-08"/);
+    expect(filter).toMatch(/<label[^>]*>Tanggal kirim sampai<\/label><input[^>]*type="date"[^>]*name="sampai"[^>]*value="2026-06-15"/);
+    expect(filter).toMatch(/name="cari"/);
     expect(filter).toMatch(/<button[^>]*type="submit"[^>]*>Terapkan/);
+    // Tanpa isian tanggal: kedua isian kosong.
+    const kosong = /<form[^>]*data-filter-rencana-final.*?<\/form>/.exec(await bukaDaftar())?.[0] ?? "";
+    expect(kosong).toMatch(/name="dari"[^>]*value=""/);
+    expect(kosong).toMatch(/name="sampai"[^>]*value=""/);
   });
 });
 
@@ -330,7 +360,7 @@ describe("rincian rencana final", () => {
     expect(panel).toContain(rincian);
     expect(html.indexOf('role="dialog"')).toBeGreaterThan(html.lastIndexOf("</table>"));
     // Tautan pembuka: navigasi tanpa jangkar ke halaman yang sama.
-    expect(baris).toContain(`href="/pengiriman-gudang/${cibubur}/rencana-final/${rencana.a1v1}/rincian?rincian=${encodeURIComponent(kode.contoh)}"`);
+    expect(baris).toContain(`href="/riwayat/rencana-final/${rencana.a1v1}?rincian=${encodeURIComponent(kode.contoh)}"`);
     expect(baris).toContain(`Lihat rincian<span class="sr-only"> perhitungan ${kode.contoh}</span>`);
   });
 
@@ -422,45 +452,88 @@ describe("rincian rencana final", () => {
 });
 
 describe("tautan ke riwayat dan rincian", () => {
-  it("halaman Pengiriman Gudang menautkan riwayat; layar berhasil menautkan rinciannya", async () => {
+  it("halaman Pengiriman Gudang tidak lagi menautkan riwayat rencana final; layar berhasil menautkan rincian di Riwayat", async () => {
     await masukOperator(cibubur, []);
     const gudang = renderToStaticMarkup(
       await HalamanPengirimanGudang({ params: Promise.resolve({ id: String(cibubur) }), searchParams: Promise.resolve({}) }),
     );
-    expect(gudang).toMatch(new RegExp(`<a[^>]*href="/pengiriman-gudang/${cibubur}/rencana-final"[^>]*>Riwayat rencana final</a>`));
+    expect(gudang).not.toContain("Riwayat rencana final");
+    expect(gudang).not.toContain(`/pengiriman-gudang/${cibubur}/rencana-final"`);
+    expect(gudang).not.toContain("data-tautan-riwayat-final");
     const berhasil = renderToStaticMarkup(
       await HalamanRencanaFinal({ params: Promise.resolve({ id: String(cibubur), idRencana: String(rencana.a1v2) }) }),
     );
-    expect(berhasil).toMatch(
-      new RegExp(`<a[^>]*href="/pengiriman-gudang/${cibubur}/rencana-final/${rencana.a1v2}/rincian"[^>]*>Lihat rincian rencana final</a>`),
-    );
+    expect(berhasil).toMatch(new RegExp(`<a[^>]*href="/riwayat/rencana-final/${rencana.a1v2}"[^>]*>Lihat rincian rencana final</a>`));
+  });
+
+  it("rincian: tautan kembali ke Riwayat; kolom Gudang", async () => {
+    await masukOperator(cibubur, []);
+    const html = await bukaRincian(rencana.a1v1);
+    expect(html).toMatch(/<a[^>]*href="\/riwayat"[^>]*>.*?Riwayat<\/a>/);
+    expect(html).toMatch(/Gudang<\/dt><dd[^>]*>Gudang Cibubur</);
+  });
+
+  it("alamat lama dialihkan: riwayat gudang → /riwayat?gudang=<id>; rincian → /riwayat/rencana-final/<id> (panel tetap)", async () => {
+    const tujuan = (promise: Promise<unknown>) => expect(promise).rejects.toMatchObject({ digest: expect.stringMatching(/^NEXT_REDIRECT;/) });
+    const lokasi = async (promise: Promise<unknown>) => {
+      try {
+        await promise;
+      } catch (galat) {
+        return String((galat as { digest?: string }).digest).split(";")[2];
+      }
+      return null;
+    };
+    await tujuan(AlihkanRiwayatRencanaFinal({ params: Promise.resolve({ id: String(cibubur) }) }));
+    expect(await lokasi(AlihkanRiwayatRencanaFinal({ params: Promise.resolve({ id: String(cibubur) }) }))).toBe(`/riwayat?gudang=${cibubur}`);
+    expect(await lokasi(AlihkanRiwayatRencanaFinal({ params: Promise.resolve({ id: "bukan-angka" }) }))).toBe("/riwayat");
+    expect(
+      await lokasi(
+        AlihkanRincianRencanaFinal({ params: Promise.resolve({ id: String(cibubur), idRencana: String(rencana.a1v1) }), searchParams: Promise.resolve({}) }),
+      ),
+    ).toBe(`/riwayat/rencana-final/${rencana.a1v1}`);
+    expect(
+      await lokasi(
+        AlihkanRincianRencanaFinal({
+          params: Promise.resolve({ id: String(cibubur), idRencana: String(rencana.a1v1) }),
+          searchParams: Promise.resolve({ rincian: kode.contoh }),
+        }),
+      ),
+    ).toBe(`/riwayat/rencana-final/${rencana.a1v1}?rincian=${encodeURIComponent(kode.contoh)}`);
   });
 });
 
 describe("kewenangan riwayat rencana final (diperiksa di server)", () => {
   const ditolak = (promise: Promise<unknown>) => expect(promise).rejects.toMatchObject({ digest: expect.stringContaining("404") });
 
-  it("operator gudang lain ditolak (404), walaupun punya semua hak tindakan di gudangnya", async () => {
-    await masukOperator(await idGudangUji("Gudang Bali"), [...daftarHakTindakan]);
-    await ditolak(bukaDaftar());
-    await ditolak(bukaRincian(rencana.a1v1));
+  it("belum masuk → diarahkan ke halaman masuk", async () => {
+    const keMasuk = { digest: expect.stringContaining(";/masuk;") };
+    await expect(HalamanRiwayat({ searchParams: Promise.resolve({}) })).rejects.toMatchObject(keMasuk);
+    await expect(
+      HalamanRincianRencanaFinal({ params: Promise.resolve({ idRencana: String(rencana.a1v1) }), searchParams: Promise.resolve({}) }),
+    ).rejects.toMatchObject(keMasuk);
   });
 
-  it("viewer tanpa penugasan ditolak; admin tanpa penugasan boleh melihat", async () => {
+  it("operator yang hanya ditugaskan di gudang lain melihat riwayat dan rincian Cibubur, tetapi tetap 404 di Pengiriman Gudang Cibubur", async () => {
+    await masukOperator(await idGudangUji("Gudang Bali"), [...daftarHakTindakan]);
+    expect(idDiDaftar(await bukaDaftar())).toHaveLength(4);
+    expect(await bukaRincian(rencana.a1v1)).toContain(`Rencana final ${tokoA.nama}`);
+    await ditolak(HalamanPengirimanGudang({ params: Promise.resolve({ id: String(cibubur) }), searchParams: Promise.resolve({}) }));
+  });
+
+  it("viewer tanpa penugasan dan admin tanpa penugasan melihat riwayat dan rincian; viewer tetap 404 di Pengiriman Gudang", async () => {
     kepala.cookie = (await kepalaPenggunaUji("viewer")).cookie;
-    await ditolak(bukaDaftar());
-    await ditolak(bukaRincian(rencana.a1v1));
+    expect(idDiDaftar(await bukaDaftar())).toHaveLength(4);
+    expect(await bukaRincian(rencana.a1v1)).toContain(`Rencana final ${tokoA.nama}`);
+    await ditolak(HalamanPengirimanGudang({ params: Promise.resolve({ id: String(cibubur) }), searchParams: Promise.resolve({}) }));
 
     await masukAdmin();
     expect(idDiDaftar(await bukaDaftar())).toHaveLength(4);
     expect(await bukaRincian(rencana.a1v1)).toContain(`Rencana final ${tokoA.nama}`);
   });
 
-  it("rencana final gudang lain, id tidak dikenal, atau id tidak valid → 404", async () => {
+  it("id rencana final tidak dikenal atau tidak valid → 404", async () => {
     await masukAdmin();
-    await ditolak(bukaRincian(rencana.a1v1, {}, await idGudangUji("Gudang Bali")));
     await ditolak(bukaRincian(999_999_999));
     await ditolak(bukaRincian("bukan-angka"));
-    await ditolak(bukaDaftar({}, "bukan-angka"));
   });
 });

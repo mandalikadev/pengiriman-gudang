@@ -2,13 +2,14 @@ import { notFound } from "next/navigation";
 
 import { AksesDitolakError, wajibAksesLihatGudang } from "@/server/auth/kewenangan";
 
-// Pemuat bersama halaman rencana final (layar berhasil T62, riwayat dan rincian T63). Akses lihat gudang diperiksa di
-// server sebelum membaca data (CODING_STANDARDS "Kewenangan"); tanpa akses atau id tidak dikenal mendapat 404.
+// Pemuat layar berhasil finalisasi (T62); riwayat dan rinciannya pindah ke halaman Riwayat (T127, `src/app/riwayat`).
+// Akses lihat gudang diperiksa di server sebelum membaca data (CODING_STANDARDS "Kewenangan"); tanpa akses atau id tidak
+// dikenal mendapat 404.
 
 const ID_VALID = /^\d{1,9}$/;
 
 /** Gudang `id` yang boleh dilihat pengguna (admin hanya-baca, atau operator yang ditugaskan di gudang itu). */
-export async function muatGudangLihat(id: string) {
+async function muatGudangLihat(id: string) {
   if (!ID_VALID.test(id)) notFound();
   try {
     return (await wajibAksesLihatGudang(Number(id))).gudang;
@@ -20,7 +21,7 @@ export async function muatGudangLihat(id: string) {
 
 /**
  * Rencana final `idRencana` milik gudang `id`, dibaca dari snapshot dengan `baca` (`bacaRencanaFinal` untuk layar
- * berhasil, `bacaRincianRencanaFinal` untuk rincian riwayat), beserta gudangnya (termasuk hak tindakan pengguna di sana).
+ * berhasil), beserta gudangnya (termasuk hak tindakan pengguna di sana).
  */
 export async function muatRencanaFinal<T>(id: string, idRencana: string, baca: (idGudang: number, idRencana: number) => Promise<T | null>) {
   if (!ID_VALID.test(idRencana)) notFound();

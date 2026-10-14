@@ -41,32 +41,53 @@ function Pilihan({
   );
 }
 
+function Tanggal({ label, name, terapan }: { label: string; name: string; terapan: string }) {
+  const id = useId();
+  return (
+    <div className="flex min-w-44 flex-col gap-2 font-semibold">
+      <label htmlFor={id}>{label}</label>
+      <Input id={id} type="date" name={name} defaultValue={terapan} />
+    </div>
+  );
+}
+
 /**
- * Filter riwayat rencana final (T63): tanggal kirim dan toko, ditambah cari nama toko (T119). Terapkan menulis pilihan
- * ke URL (`?tanggal=YYYY-MM-DD&toko=<id>&cari=`) dan kembali ke halaman 1; halaman menyaring di server.
+ * Filter riwayat rencana final (T63, T127): gudang, toko, dan rentang tanggal kirim dari–sampai (kosong = tidak dibatasi),
+ * ditambah cari nama toko (T119). Seperti Ringkasan, hasil baru berubah setelah Terapkan: Terapkan menulis pilihan ke URL
+ * (`?gudang=<id>&toko=<id>&dari=YYYY-MM-DD&sampai=YYYY-MM-DD&cari=`) dan kembali ke halaman 1; halaman menyaring di
+ * server.
  */
-export function FilterRencanaFinal({
+export function FilterRiwayat({
   action,
-  tanggalKirim,
+  gudang,
   toko,
   terapan,
 }: {
   action: string;
-  /** Tanggal kirim yang punya rencana final, beserta teks tampilnya. */
-  tanggalKirim: readonly { nilai: string; label: string }[];
+  gudang: readonly { id: number; nama: string; aktif: boolean }[];
   toko: readonly { id: number; nama: string }[];
-  terapan: { tanggal: string; toko: string; cari: string };
+  terapan: { gudang: string; toko: string; dari: string; sampai: string; cari: string };
 }) {
   const idCari = useId();
   return (
     <Form action={action} data-filter-rencana-final className="flex flex-wrap items-end gap-4">
-      <Pilihan label="Tanggal kirim" name="tanggal" terapan={terapan.tanggal} opsi={[{ nilai: SEMUA, label: "Semua tanggal kirim" }, ...tanggalKirim]} />
+      <Pilihan
+        label="Gudang"
+        name="gudang"
+        terapan={terapan.gudang}
+        opsi={[
+          { nilai: SEMUA, label: "Semua gudang" },
+          ...gudang.map((g) => ({ nilai: String(g.id), label: g.aktif ? g.nama : `${g.nama} (nonaktif)` })),
+        ]}
+      />
       <Pilihan
         label="Toko"
         name="toko"
         terapan={terapan.toko}
         opsi={[{ nilai: SEMUA, label: "Semua toko" }, ...toko.map((t) => ({ nilai: String(t.id), label: t.nama }))]}
       />
+      <Tanggal label="Tanggal kirim dari" name="dari" terapan={terapan.dari} />
+      <Tanggal label="Tanggal kirim sampai" name="sampai" terapan={terapan.sampai} />
       <div className="flex min-w-56 flex-col gap-2 font-semibold">
         <label htmlFor={idCari}>Cari toko</label>
         <div className="flex items-center gap-2">
