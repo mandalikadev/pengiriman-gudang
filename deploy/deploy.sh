@@ -35,6 +35,10 @@ if [[ ! -f "$BERKAS_ENV" ]]; then
   exit 1
 fi
 
+# Folder kunci service account Google untuk backup-luar (T131). Dibuat di sini, bukan oleh bind mount Docker, agar
+# milik user deploy dan tertutup bagi user lain.
+[[ -d "$DIR_DRP/rahasia" ]] || install -d -m 700 "$DIR_DRP/rahasia"
+
 BUCKET=$(sed -n 's/^S3_BUCKET=//p' "$BERKAS_ENV" | tail -n 1)
 if ! grep -Eq "^[[:space:]]*@storage path /${BUCKET} /${BUCKET}/\*$" deploy/drp.caddy; then
   echo "S3_BUCKET di $BERKAS_ENV ($BUCKET) tidak sama dengan path bucket di deploy/drp.caddy." >&2

@@ -3,8 +3,9 @@
 # docker), bukan root. Aman dijalankan berulang:
 # - /opt/proxy (proxy HTTPS bersama): jika belum ada, dipasang dari deploy/proxy/ dan Caddy dinyalakan; jika sudah
 #   ada, tidak diubah. Network Docker `proxy` dibuat jika belum ada.
-# - /opt/drp (milik user yang menjalankan): clone repo publik ke /opt/drp/repo jika belum ada, folder backup, dan
-#   /opt/drp/.env dari deploy/.env.produksi.example dengan rahasia acak, HANYA jika .env belum ada.
+# - /opt/drp (milik user yang menjalankan): clone repo publik ke /opt/drp/repo jika belum ada, folder backup dan
+#   rahasia (chmod 700), dan /opt/drp/.env dari deploy/.env.produksi.example dengan rahasia acak, HANYA jika .env
+#   belum ada.
 # Tidak menyentuh firewall (ufw/iptables), user sistem, paket, atau layanan sistem.
 #
 # Pemakaian (di VPS):
@@ -44,6 +45,8 @@ buat_folder_milik_saya() {
 echo "==> Folder aplikasi $DIR_DRP"
 buat_folder_milik_saya "$DIR_DRP"
 mkdir -p "$DIR_DRP/backup"
+# Kunci service account Google untuk backup luar (T131) disalin pemilik ke sini.
+[[ -d "$DIR_DRP/rahasia" ]] || install -d -m 700 "$DIR_DRP/rahasia"
 if [[ -d "$DIR_REPO/.git" ]]; then
   echo "Repo sudah ada di $DIR_REPO; tidak diubah (deploy.sh yang memperbaruinya)."
 else

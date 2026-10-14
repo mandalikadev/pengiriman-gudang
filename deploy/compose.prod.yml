@@ -158,6 +158,45 @@ services:
     networks:
       - default
 
+  # Backup luar VPS (T131): setiap hari, 1 jam setelah dump `backup`, salin dump terbaru ke Google Drive
+  # gdrive:drp/database/ (dump >30 hari dihapus) dan `rclone sync` bucket MinIO ke gdrive:drp/workbook/
+  # (deploy/backup-luar.sh). Satu putaran per nyala container; keluar non-nol jika gagal, lalu dinyalakan lagi oleh
+  # Docker untuk jadwal berikutnya. Tanpa BACKUP_GDRIVE_* hanya mencatat belum dikonfigurasi.
+  # Kunci service account Google: /opt/drp/rahasia/google-backup.json (tidak di repo).
+  backup-luar:
+    image: rclone/rclone:1.75.1
+    restart: unless-stopped
+    # Sinyal stop diteruskan ke skrip yang sedang `sleep` (tanpa init, sh sebagai PID 1 menunggu 10 detik lalu di-kill).
+    init: true
+    environment:
+      BACKUP_GDRIVE_DRIVE_ID: ${BACKUP_GDRIVE_DRIVE_ID:-}
+      BACKUP_GDRIVE_FOLDER_ID: ${BACKUP_GDRIVE_FOLDER_ID:-}
+      S3_BUCKET: ${S3_BUCKET:?}
+      RCLONE_VERBOSE: "1"
+      # Remote `gdrive`: Shared Drive, autentikasi service account.
+      RCLONE_CONFIG_GDRIVE_TYPE: drive
+      RCLONE_CONFIG_GDRIVE_SCOPE: drive
+      RCLONE_CONFIG_GDRIVE_SERVICE_ACCOUNT_FILE: /rahasia/google-backup.json
+      RCLONE_CONFIG_GDRIVE_TEAM_DRIVE: ${BACKUP_GDRIVE_DRIVE_ID:-}
+      RCLONE_CONFIG_GDRIVE_ROOT_FOLDER_ID: ${BACKUP_GDRIVE_FOLDER_ID:-}
+      # Remote `minio`: MinIO stack ini lewat network internal.
+      RCLONE_CONFIG_MINIO_TYPE: s3
+      RCLONE_CONFIG_MINIO_PROVIDER: Minio
+      RCLONE_CONFIG_MINIO_ENDPOINT: http://minio:9000
+      RCLONE_CONFIG_MINIO_REGION: ${S3_REGION:?}
+      RCLONE_CONFIG_MINIO_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?}
+      RCLONE_CONFIG_MINIO_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?}
+    volumes:
+      - /opt/drp/backup:/backup:ro
+      - /opt/drp/rahasia:/rahasia:ro
+      - ./backup-luar.sh:/backup-luar.sh:ro
+    entrypoint: ["sh", "/backup-luar.sh"]
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - default
+
 volumes:
   postgres-data:
   minio-data:

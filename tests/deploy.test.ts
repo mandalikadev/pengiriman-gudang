@@ -1,3 +1,4 @@
+import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -15,6 +16,11 @@ const envContoh = baca("deploy/.env.produksi.example");
 const workflow = baca(".github/workflows/deploy.yml");
 const migrasi = baca("deploy/migrasi.sh");
 const bootstrap = baca("deploy/bootstrap-vps.sh");
+const deploySh = baca("deploy/deploy.sh");
+const backupLuar = baca("deploy/backup-luar.sh");
+
+// Blok satu layanan di compose.prod.yml (dari `  <nama>:` sampai layanan atau blok tingkat atas berikutnya).
+const blokLayanan = (nama: string) => compose.match(new RegExp(`^ {2}${nama}:\\n(?: {4}.*\\n|\\s*#.*\\n|\\n)*`, "m"))?.[0] ?? "";
 
 const tanpaKomentar = (isi: string) =>
   isi
@@ -30,7 +36,7 @@ describe("deploy/compose.prod.yml", () => {
   it("nama compose project drp, image dan alias network berawalan drp", () => {
     expect(compose).toMatch(/^name: drp$/m);
     for (const [, image] of compose.matchAll(/^\s*image:\s*(\S+)/gm)) {
-      if (image.startsWith("postgres:") || image.startsWith("pgsty/minio:")) continue;
+      if (image.startsWith("postgres:") || image.startsWith("pgsty/minio:") || image.startsWith("rclone/rclone:")) continue;
       expect(image).toMatch(/^drp-/);
     }
     const alias = [...compose.matchAll(/aliases:\n\s*- (\S+)/g)].map(([, nama]) => nama);
@@ -47,6 +53,56 @@ describe("deploy/compose.prod.yml", () => {
     const imageDev = baca("docker-compose.yml").match(/image:\s*(pgsty\/minio:\S+)/)?.[1];
     expect(imageDev).toBeDefined();
     expect(compose).toContain(`image: ${imageDev}`);
+  });
+});
+
+describe("layanan backup-luar (T131)", () => {
+  const blok = blokLayanan("backup-luar");
+
+  it("image resmi rclone/rclone dengan versi dipatok", () => {
+    expect(blok).toMatch(/^ {4}image: rclone\/rclone:\d+\.\d+\.\d+$/m);
+  });
+
+  it("membaca dump dan kunci service account hanya-baca, kunci dari /opt/drp/rahasia di luar repo", () => {
+    expect(blok).toContain("- /opt/drp/backup:/backup:ro");
+    expect(blok).toContain("- /opt/drp/rahasia:/rahasia:ro");
+    expect(blok).toContain("RCLONE_CONFIG_GDRIVE_SERVICE_ACCOUNT_FILE: /rahasia/google-backup.json");
+    expect(blok).toContain("RCLONE_CONFIG_GDRIVE_TEAM_DRIVE: ${BACKUP_GDRIVE_DRIVE_ID:-}");
+    expect(blok).toContain("RCLONE_CONFIG_GDRIVE_ROOT_FOLDER_ID: ${BACKUP_GDRIVE_FOLDER_ID:-}");
+  });
+
+  it("membaca MinIO lewat network internal, hanya network default", () => {
+    expect(blok).toContain("RCLONE_CONFIG_MINIO_ENDPOINT: http://minio:9000");
+    expect(blok).toMatch(/networks:\n {6}- default\n/);
+    expect(blok).not.toMatch(/proxy/);
+  });
+
+  it("deploy.sh dan bootstrap membuat folder rahasia milik user deploy (chmod 700)", () => {
+    for (const isi of [deploySh, bootstrap]) {
+      expect(isi).toContain(`[[ -d "$DIR_DRP/rahasia" ]] || install -d -m 700 "$DIR_DRP/rahasia"`);
+    }
+  });
+});
+
+describe("deploy/backup-luar.sh", () => {
+  const perintah = tanpaKomentar(backupLuar);
+
+  it("tanpa BACKUP_GDRIVE_* hanya mencatat belum dikonfigurasi dan tidak menyalin apa pun", () => {
+    expect(perintah).toMatch(
+      /if \[ -z "\$\{BACKUP_GDRIVE_DRIVE_ID:-\}" \] && \[ -z "\$\{BACKUP_GDRIVE_FOLDER_ID:-\}" \]; then\n\s*log "Backup luar belum dikonfigurasi[^\n]*\n\s*exec sleep infinity\n/,
+    );
+    expect(perintah.indexOf("exec sleep infinity")).toBeLessThan(perintah.indexOf("rclone "));
+  });
+
+  it("menyalin dump terbaru, sync bucket ke workbook, menghapus hanya dump lebih tua dari 30 hari", () => {
+    expect(perintah).toContain('rclone copy "$terbaru" gdrive:drp/database/');
+    expect(perintah).toContain('rclone sync "minio:${S3_BUCKET:?}" gdrive:drp/workbook/');
+    const hapus = perintah.split("\n").filter((baris) => /rclone (delete|purge|rmdirs|deletefile)|--min-age|--max-age/.test(baris));
+    expect(hapus).toEqual([expect.stringContaining("rclone delete gdrive:drp/database/ --min-age 30d --include 'drp-*.sql.gz'")]);
+  });
+
+  it("gagal → kode keluar non-nol", () => {
+    expect(perintah).toMatch(/if \[ "\$gagal" -ne 0 \]; then\n[^\n]*\n\s*exit 1\n/);
   });
 });
 
@@ -85,6 +141,25 @@ describe("deploy/.env.produksi.example", () => {
     }
     expect(envContoh).toMatch(/^BETTER_AUTH_URL=https:\/\/drp\.mandalika\.web\.id$/m);
     expect(envContoh).toMatch(/^S3_ENDPOINT=https:\/\/drp\.mandalika\.web\.id$/m);
+  });
+
+  it("BACKUP_GDRIVE_* tersedia dan kosong", () => {
+    expect(envContoh).toMatch(/^BACKUP_GDRIVE_DRIVE_ID=$/m);
+    expect(envContoh).toMatch(/^BACKUP_GDRIVE_FOLDER_ID=$/m);
+  });
+});
+
+describe("rahasia", () => {
+  it("tidak ada kunci service account Google atau private key di repo", () => {
+    const berkas = execFileSync("git", ["ls-files"], { cwd: akar, encoding: "utf8" }).split("\n").filter(Boolean);
+    expect(berkas.filter((nama) => /google-backup\.json$/.test(nama))).toEqual([]);
+    // git grep keluar 1 jika tidak ada yang cocok.
+    const cari = spawnSync("git", ["grep", "-lE", "-e", '"type": *"service_account"', "-e", "BEGIN (RSA )?PRIVATE KEY"], {
+      cwd: akar,
+      encoding: "utf8",
+    });
+    expect(cari.stdout).toBe("");
+    expect(cari.status).toBe(1);
   });
 });
 
