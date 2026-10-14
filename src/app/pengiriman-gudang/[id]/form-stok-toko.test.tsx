@@ -125,7 +125,7 @@ describe("perlindungan draft input stok", () => {
     // Dikosongkan = belum diketahui, tampil "—" dengan status belum diketahui.
     expect(isian(setelahMuatUlang, "UJI-B").value).toBe("");
     expect(isian(setelahMuatUlang, "UJI-B").placeholder).toBe("—");
-    expect(isian(setelahMuatUlang, "UJI-B").parentElement?.querySelector('[data-status="belumDiketahui"]')?.textContent).toBe("Belum diketahui");
+    expect(isian(setelahMuatUlang, "UJI-B").parentElement?.querySelector("[data-stok-kosong]")?.textContent).toBe("Belum diketahui");
     expect(status(setelahMuatUlang)?.textContent).toBe("Ada perubahan yang belum disimpan");
     expect(setelahMuatUlang.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(false);
   });
@@ -534,5 +534,46 @@ describe("isi 0 untuk stok yang kosong", () => {
     ]);
     expect(tombolIsiNol(wadah).textContent).toBe("Isi 0 untuk 0 stok yang kosong");
     expect(tombolIsiNol(wadah).disabled).toBe(true);
+  });
+});
+
+// T117 (DESIGN §11.4): baris ringkas dan bar aksi menempel.
+describe("meja kerja ringkas", () => {
+  it('stok kosong tampil "—" dengan ikon CircleDashed di samping isian, tanpa badge bertumpuk', () => {
+    const wadah = buka();
+    const kosong = isian(wadah, "UJI-A");
+    expect(kosong.value).toBe("");
+    expect(kosong.placeholder).toBe("—");
+    const penanda = kosong.parentElement?.querySelector("[data-stok-kosong]");
+    expect(penanda?.querySelector("svg")?.classList.contains("lucide-circle-dashed")).toBe(true);
+    expect(penanda?.getAttribute("title")).toBe("Belum diketahui");
+    // Ikon di baris yang sama dengan isian (bersaudara), bukan badge di bawahnya.
+    expect(penanda?.nextElementSibling).toBe(kosong);
+    expect(wadah.querySelector("[data-status]")).toBeNull();
+    expect(wadah.querySelector('[data-slot="badge"]')).toBeNull();
+    // Stok terisi tanpa ikon.
+    expect(isian(wadah, "UJI-B").parentElement?.querySelector("[data-stok-kosong]")).toBeNull();
+    ketik(isian(wadah, "UJI-A"), "3");
+    expect(isian(wadah, "UJI-A").parentElement?.querySelector("[data-stok-kosong]")).toBeNull();
+  });
+
+  it("bar aksi menempel di bawah berisi status simpan, jumlah isian yang berubah, dan tombol Simpan stok", async () => {
+    tiruan.simpanStok.mockResolvedValue({ keadaan: "berhasil" });
+    const wadah = buka();
+    const bar = wadah.querySelector<HTMLElement>("[data-bar-aksi-stok]");
+    expect(bar?.className).toMatch(/(^| )sticky( |$)/);
+    expect(bar?.className).toMatch(/(^| )bottom-0( |$)/);
+    expect(bar?.querySelector('button[type="submit"]')?.textContent).toBe("Simpan stok");
+    expect(bar?.querySelector("[data-jumlah-isian-berubah]")).toBeNull();
+
+    ketik(isian(wadah, "UJI-A"), "12");
+    expect(bar?.querySelector("[data-jumlah-isian-berubah]")?.textContent).toBe("1 isian berubah");
+    expect(bar?.querySelector("[data-keadaan]")?.getAttribute("data-keadaan")).toBe("belumDisimpan");
+    ketik(isian(wadah, "UJI-B"), "7");
+    expect(bar?.querySelector("[data-jumlah-isian-berubah]")?.textContent).toBe("2 isian berubah");
+
+    await kirim(wadah);
+    expect(bar?.querySelector("[data-keadaan]")?.textContent).toBe("Berhasil disimpan");
+    expect(bar?.querySelector("[data-jumlah-isian-berubah]")).toBeNull();
   });
 });

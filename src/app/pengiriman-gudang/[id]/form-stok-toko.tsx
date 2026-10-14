@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { createContext, useContext, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { formatAngka } from "@/app/admin/impor/format";
-import { BadgeStatus } from "@/components/badge-status";
 import { usePenyimpanan } from "@/components/keadaan-simpan";
 import { PesanStatusSimpan } from "@/components/pesan-status-simpan";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import { STOK_MAKS } from "@/domain/batas-stok";
 import { simpanStok } from "./aksi-stok";
 import { bacaIsianLokal, kunciIsianLokal, langgananIsianLokal, teksStok, tulisIsianLokal, uraiIsianLokal } from "./isian-lokal";
 import { usePeringatanTinggalkan } from "./perlindungan-draft";
+import { IkonStokKosong } from "./stok-kosong";
 import { UnggahStok } from "./unggah-stok";
 
 // Form stok akhir satu toko di draft rencana (T59; PRD A6, A7). Isian kosong = belum diketahui (`null`), bukan nol; stok
@@ -24,6 +24,8 @@ import { UnggahStok } from "./unggah-stok";
 // Unggah file stok (T83): hasil terisi diterapkan lewat jalur isian yang sama dengan mengetik (`ubahBanyak`).
 // Isi 0 untuk stok yang kosong (T90; PRD A6 ▶ Keputusan 2026-10-12, UAT kedua): tindakan eksplisit operator yang mengisi 0
 // lewat jalur yang sama, hanya pada produk otomatis yang isiannya masih kosong. Stok kosong tetap berarti belum diketahui.
+// Meja kerja ringkas (T117; DESIGN §11.4): status simpan, jumlah isian yang berubah, dan tombol Simpan stok berada di bar
+// aksi yang menempel di bawah layar; isian yang tersembunyi oleh filter tampilan tetap ikut tersimpan.
 
 const PESAN_ISIAN_TIDAK_VALID = "Isi bilangan bulat, atau kosongkan jika belum diketahui.";
 
@@ -152,18 +154,29 @@ export function FormStokToko({
           {`Isi 0 untuk ${formatAngka(otomatisKosong.length)} stok yang kosong`}
         </Button>
         {children}
-        <div className="flex flex-wrap items-center gap-4">
-          <Button type="submit" disabled={menunggu || !belumDisimpan} className="active:scale-95">
+        <div
+          data-bar-aksi-stok
+          className="sticky bottom-0 z-35 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/60 bg-card/95 py-3 backdrop-blur-md"
+        >
+          {keadaan ? <PesanStatusSimpan keadaan={keadaan.keadaan} pesan={keadaan.pesan} /> : null}
+          {belumDisimpan ? (
+            <span data-jumlah-isian-berubah={berbeda.length} className="text-sm text-muted-foreground tabular-nums">
+              {`${formatAngka(berbeda.length)} isian berubah`}
+            </span>
+          ) : null}
+          <Button type="submit" disabled={menunggu || !belumDisimpan} className="ml-auto active:scale-95">
             Simpan stok
           </Button>
-          {keadaan ? <PesanStatusSimpan keadaan={keadaan.keadaan} pesan={keadaan.pesan} /> : null}
         </div>
       </form>
     </Konteks.Provider>
   );
 }
 
-/** Isian stok akhir satu varian di dalam `FormStokToko`. Kosong tampil "—" dengan status belum diketahui (DESIGN §7). */
+/**
+ * Isian stok akhir satu varian di dalam `FormStokToko`. Kosong tampil "—" dengan ikon belum diketahui di sampingnya, tanpa
+ * badge bertumpuk (DESIGN §7, §11.4).
+ */
 export function InputStok({ kodeProduk }: { kodeProduk: string }) {
   const konteks = useContext(Konteks);
   if (konteks === null) throw new Error("InputStok harus berada di dalam FormStokToko.");
@@ -172,26 +185,27 @@ export function InputStok({ kodeProduk }: { kodeProduk: string }) {
   const idPesan = `stok-salah-${kodeProduk}`;
   return (
     <div className="flex flex-col items-end gap-1">
-      <Input
-        ukuran="tabel"
-        inputMode="numeric"
-        autoComplete="off"
-        aria-label={`Stok akhir ${kodeProduk}`}
-        aria-invalid={salah || undefined}
-        aria-describedby={salah ? idPesan : undefined}
-        placeholder="—"
-        value={nilai}
-        disabled={konteks.menunggu}
-        onChange={(event) => konteks.ubah(kodeProduk, event.target.value)}
-        className="w-28 text-right tabular-nums"
-      />
+      <div className="flex items-center justify-end gap-2">
+        {nilai.trim() === "" ? <IkonStokKosong /> : null}
+        <Input
+          ukuran="tabel"
+          inputMode="numeric"
+          autoComplete="off"
+          aria-label={`Stok akhir ${kodeProduk}`}
+          aria-invalid={salah || undefined}
+          aria-describedby={salah ? idPesan : undefined}
+          placeholder="—"
+          value={nilai}
+          disabled={konteks.menunggu}
+          onChange={(event) => konteks.ubah(kodeProduk, event.target.value)}
+          className="w-28 text-right tabular-nums"
+        />
+      </div>
       {salah ? (
         <p id={idPesan} className="flex items-start gap-1 text-left">
           <CircleX aria-hidden strokeWidth={2} className="size-5 shrink-0 text-destructive" />
           {PESAN_ISIAN_TIDAK_VALID}
         </p>
-      ) : nilai.trim() === "" ? (
-        <BadgeStatus status="belumDiketahui" />
       ) : null}
     </div>
   );

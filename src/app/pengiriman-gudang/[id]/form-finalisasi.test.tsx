@@ -106,6 +106,10 @@ describe("FormFinalisasi", () => {
       ["Total jumlah kirim", "1.250"],
     ]);
     expect(dialogKonfirmasi()!.querySelector("[data-peringatan-finalisasi]")).toBeNull();
+    // T117: penjelasan finalisasi tampil di dialog, karena form ringkas berada di kepala toko yang menempel.
+    expect(dialogKonfirmasi()!.querySelector("[data-penjelasan-finalisasi]")?.textContent).toBe(
+      "Finalisasi menyimpan rencana kebutuhan barang toko ini beserta dasar perhitungannya. Ini bukan konfirmasi pengiriman fisik atau penerimaan barang.",
+    );
     expect(tombolDialogKonfirmasi("Finalisasi").className).toContain("bg-primary");
     expect(document.activeElement).toBe(tombolDialogKonfirmasi("Batal"));
     expect(tiruan.finalisasiRencana).not.toHaveBeenCalled();
@@ -167,7 +171,6 @@ describe("FormFinalisasi", () => {
   it("finalisasi ulang: alasan wajib sebelum bisa dikirim, lalu dikirim bersama versi toko", async () => {
     tiruan.finalisasiRencana.mockResolvedValue({ keadaan: "berhasil", idRencana: 43 });
     const wadah = buka(2);
-    expect(wadah.textContent).toContain("Rencana toko ini sudah final (versi 2). Finalisasi ulang menyimpan versi 3 yang menggantikan versi 2; versi 2 tetap tersimpan.");
     expect(tombol(wadah).textContent).toContain("Finalisasi ulang");
     const isian = wadah.querySelector<HTMLInputElement>('input[name="alasan"]');
     if (isian === null) throw new Error("Isian alasan tidak ada.");

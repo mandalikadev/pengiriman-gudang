@@ -25,6 +25,10 @@ import { bacaIsianLokal, kunciIsianLokal, langgananIsianLokal, teksStok, uraiIsi
  *
  * Rencana final hanya dibuat setelah dikonfirmasi di dialog konfirmasi yang meringkas toko, tanggal kirim, jumlah varian,
  * total jumlah kirim, dan peringatan yang masih tampil (DESIGN §11.3, T109).
+ *
+ * Form ini berada di kepala toko yang menempel (T117; DESIGN §11.4), jadi tampil ringkas dalam satu baris: alasan
+ * finalisasi ulang (bila perlu), penahan stok belum disimpan, tombol, dan status. Penjelasan bahwa finalisasi bukan
+ * konfirmasi pengiriman fisik tampil di dialog konfirmasi; versi yang digantikan disebut di akibat dialog.
  */
 export function FormFinalisasi({
   idGudang,
@@ -84,34 +88,26 @@ export function FormFinalisasi({
       data-finalisasi-toko={tokoId}
       data-finalisasi-ulang={ulang ? "" : undefined}
       aria-label={`Finalisasi rencana ${namaToko}`}
-      className="flex flex-col gap-3"
+      className="flex flex-wrap items-center gap-x-4 gap-y-2"
       onSubmit={(event) => {
         event.preventDefault();
         setKonfirmasiTerbuka(true);
       }}
     >
-      {versiFinal !== null ? (
-        <p>
-          Rencana toko ini sudah final (versi {versiFinal}). Finalisasi ulang menyimpan versi {versiFinal + 1} yang
-          menggantikan versi {versiFinal}; versi {versiFinal} tetap tersimpan.
-        </p>
-      ) : null}
-      <p>
-        Finalisasi menyimpan rencana kebutuhan barang toko ini beserta dasar perhitungannya. Ini bukan konfirmasi
-        pengiriman fisik atau penerimaan barang.
-      </p>
       {ulang ? (
-        <label className="flex flex-col gap-2 font-semibold" htmlFor={`${id}-alasan`}>
+        <label className="flex items-center gap-2 font-semibold" htmlFor={`${id}-alasan`}>
           Alasan finalisasi ulang
           <Input
             id={`${id}-alasan`}
             name="alasan"
             required
+            ukuran="tabel"
             value={alasan}
             onChange={(e) => {
               setAlasan(e.target.value);
               tandaiBerubah();
             }}
+            className="w-56"
           />
         </label>
       ) : null}
@@ -159,6 +155,10 @@ export function FormFinalisasi({
           <dt className="text-muted-foreground">Total jumlah kirim</dt>
           <dd className="font-semibold tabular-nums">{formatAngka(ringkasan.totalJumlahKirim)}</dd>
         </dl>
+        <p data-penjelasan-finalisasi>
+          Finalisasi menyimpan rencana kebutuhan barang toko ini beserta dasar perhitungannya. Ini bukan konfirmasi
+          pengiriman fisik atau penerimaan barang.
+        </p>
         {ringkasan.peringatan.map((teks) => (
           <p key={teks} data-peringatan-finalisasi className="flex items-start gap-2 font-semibold">
             <TriangleAlert aria-hidden strokeWidth={2} className="size-5 shrink-0 text-warning" />

@@ -306,7 +306,10 @@ describe("draft rencana di halaman Pengiriman Gudang", () => {
     expect(html).toContain("data-hanya-baca");
     expect(html).toContain(`data-draft-tanggal="${TANGGAL_KIRIM}"`);
     expect(html).toContain(`data-kebutuhan="${golden.kasusCakupan.kebutuhan}"`);
-    expect(html).not.toMatch(/<(button|input|select|form)\b/);
+    expect(html).not.toMatch(/<(select|form)\b/);
+    // T117: kontrol yang ada hanya filter tampilan tabel varian (pilihan filter dan cari), bukan tindakan yang mengubah data.
+    expect([...html.matchAll(/<button\b[^>]*>/g)].every(([tag]) => tag.includes("data-filter-varian"))).toBe(true);
+    expect([...html.matchAll(/<input\b[^>]*>/g)].map(([tag]) => /type="search"/.test(tag))).toEqual([true]);
   });
 
   it("halaman tidak menghitung saat dibuka: draft tersimpan tetap tampil walau jadwal toko sudah berubah", async () => {
@@ -440,11 +443,15 @@ describe("input stok di draft rencana (T59)", () => {
   });
 
   it("stok kosong tampil \"—\" belum diketahui; operator berhak mengisi stok → simpan → jumlah kirim tampil", async () => {
-    // Pengguna tanpa hak input-stok melihat "—" dengan status belum diketahui (DESIGN §7), tanpa isian stok.
+    // Pengguna tanpa hak input-stok melihat "—" dengan ikon belum diketahui (DESIGN §7), tanpa isian stok. Baris ringkas
+    // (T117; DESIGN §11.4): tanpa badge bertumpuk; status "Stok belum diisi" cukup di kolom Masalah.
     kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
     const baris = (html: string, k: string) => new RegExp(`<tr[^>]*data-kode-produk="${k}".*?</tr>`).exec(html)?.[0] ?? "";
     const hanyaBaca = await bukaToko(tokoContoh.id);
-    expect(baris(hanyaBaca, kode.contoh)).toMatch(/data-stok-akhir="kosong"[^>]*>.*?—.*?data-status="belumDiketahui".*?lucide-circle-dashed.*?Belum diketahui/);
+    const selStok = /data-stok-akhir="kosong"[^>]*>(.*?)<\/td>/.exec(baris(hanyaBaca, kode.contoh))?.[1] ?? "";
+    expect(selStok).toMatch(/data-stok-kosong.*?lucide-circle-dashed.*?Belum diketahui.*?—/);
+    expect(selStok).not.toContain("data-status=");
+    expect(baris(hanyaBaca, kode.contoh)).toContain('data-masalah="stok-belum-diisi"');
     expect(hanyaBaca).not.toContain("Simpan stok");
     // T83: isian unggah file stok juga hanya untuk operator berhak input-stok.
     expect(hanyaBaca).not.toContain("Unggah file stok");

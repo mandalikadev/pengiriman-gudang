@@ -16,7 +16,7 @@ const tampilanMasalah = {
 export function DaftarMasalah({ masalah }: { masalah: readonly MasalahBarisDraft[] }) {
   if (masalah.length === 0) return null;
   return (
-    <ul aria-label="Masalah" className="flex flex-col gap-1">
+    <ul aria-label="Masalah" className="flex flex-wrap gap-1">
       {masalah.map((m) => {
         const { label, nada, ikon: Ikon } = tampilanMasalah[m];
         return (

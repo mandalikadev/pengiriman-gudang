@@ -21,12 +21,25 @@ import { labelPersiapan, persiapanDariHari } from "@/server/gudang/pilihan-jadwa
 import { MASALAH_TANPA_VARIAN } from "@/server/gudang/masalah-draft";
 
 import { DaftarMasalah } from "./daftar-masalah";
+import { BarisFilterKosong, BarisVarian, FilterVarian, KontrolFilterVarian, TautanTampilkanTertahan } from "./filter-varian";
 import { FormFinalisasi } from "./form-finalisasi";
 import { FormHitungDraft } from "./form-hitung-draft";
 import { FormHitungUlang } from "./form-hitung-ulang";
 import { FormStokToko, InputStok } from "./form-stok-toko";
 import { PenandaDiLuarJadwal } from "./penanda-di-luar-jadwal";
 import { RincianBaris } from "./rincian-baris";
+import { IkonStokKosong } from "./stok-kosong";
+
+/** Stok akhir tersimpan di baris ringkas draft (pengguna tanpa hak `input-stok`): kosong tampil "—" + ikon (DESIGN §11.4). */
+function SelStokRingkas({ stokAkhir }: { stokAkhir: number | null }) {
+  if (stokAkhir !== null) return <>{formatAngka(stokAkhir)}</>;
+  return (
+    <span className="inline-flex items-center gap-2">
+      <IkonStokKosong />
+      <span aria-hidden>—</span>
+    </span>
+  );
+}
 
 /** Kebutuhan barang di tabel varian; juga dipakai rincian rencana final (T63). */
 export function SelKebutuhan({ baris }: { baris: Pick<BarisDraft, "kebutuhan" | "tanpaRataRata"> }) {
@@ -132,66 +145,80 @@ function urlDraft(
 const kelasDasarTautan =
   "inline-flex min-h-11 items-center rounded-full px-4 font-semibold underline underline-offset-4 transition-colors duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
 const kelasTautan = `${kelasDasarTautan} text-primary hover:bg-primary/10`;
+/** Tautan di baris ringkas tabel varian (DESIGN §11.4): setinggi isian tabel (h-9) agar baris ±44 px; area sel ikut. */
+const kelasTautanBarisRingkas = kelasTautan.replace("min-h-11", "min-h-9");
 /** Tautan di baris terpilih (latar accent): primary di atas accent di bawah 4,5 : 1, jadi accent-foreground (DESIGN §2). */
 const kelasTautanBarisTerpilih = `${kelasDasarTautan} text-accent-foreground hover:bg-accent-foreground/10`;
 
+/** Id tabel varian satu toko; tujuan "Tampilkan baris tertahan" (T117). */
+const idTabelVarian = (tokoId: number) => `tabel-varian-${tokoId}`;
+const JUMLAH_KOLOM_VARIAN = 8;
+
+/**
+ * Tabel varian satu toko yang dibuka, dengan baris ringkas (±44 px, isi sel sejajar tengah) dan filter tampilan beserta
+ * pencarian (T117; DESIGN §11.4). Filter hanya menyembunyikan baris; isian stok di baris tersembunyi tetap ikut disimpan.
+ */
 function TabelVarian({ toko, inputStok, rincian }: { toko: TokoDraft; inputStok: InputStokDraft; rincian: RincianDraft }) {
   const { idGudang, draft } = rincian;
   return (
-    <Table aria-label={`Varian ${toko.nama}`} panjang kolomMenempel={2}>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Kode produk</TableHead>
-          <TableHead>Nama produk</TableHead>
-          <TableHead>Klasifikasi</TableHead>
-          <TableHead angka>Kebutuhan barang</TableHead>
-          <TableHead angka>Stok akhir</TableHead>
-          <TableHead angka>Jumlah kirim</TableHead>
-          <TableHead>Masalah</TableHead>
-          <TableHead>
-            <span className="sr-only">Rincian perhitungan</span>
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {toko.baris.map((b) => {
-          const nilaiRincian = `${toko.id}|${b.kodeProduk}`;
-          return (
-            <TableRow key={b.kodeProduk} data-kode-produk={b.kodeProduk}>
-              <TableCell className="font-semibold">{b.kodeProduk}</TableCell>
-              <TableCell>{b.namaProduk ?? "—"}</TableCell>
-              <TableCell>{b.klasifikasi === "manual" ? <BadgeStatus status="manual" /> : "Otomatis"}</TableCell>
-              <TableCell angka className="align-top" data-kebutuhan={b.kebutuhan ?? "tidak-tersedia"}>
-                <SelKebutuhan baris={b} />
-              </TableCell>
-              <TableCell angka className="align-top" data-stok-akhir={b.stokAkhir ?? "kosong"}>
-                {inputStok === null ? <SelStok stokAkhir={b.stokAkhir} /> : <InputStok kodeProduk={b.kodeProduk} />}
-              </TableCell>
-              <TableCell angka className="align-top" data-jumlah-kirim={b.jumlahKirim ?? "kosong"}>
-                {b.jumlahKirim === null ? "—" : formatAngka(b.jumlahKirim)}
-              </TableCell>
-              <TableCell className="align-top">
-                <DaftarMasalah masalah={b.masalah} />
-              </TableCell>
-              <TableCell className="align-top">
-                {/* Navigasi klien tanpa menggulir: panel terbuka di atas halaman, isian stok tetap (DESIGN §11.2). */}
-                <Link
-                  href={urlDraft(idGudang, draft.tanggalKirim, { toko: toko.id, rincian: nilaiRincian })}
-                  scroll={false}
-                  aria-current={rincian.terbuka === nilaiRincian ? "true" : undefined}
-                  data-tautan-rincian-baris={nilaiRincian}
-                  data-buka-panel
-                  className={kelasTautan}
-                >
-                  Lihat rincian
-                  <span className="sr-only"> perhitungan {b.kodeProduk}</span>
-                </Link>
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+    <>
+      <KontrolFilterVarian namaToko={toko.nama} />
+      <Table id={idTabelVarian(toko.id)} aria-label={`Varian ${toko.nama}`} panjang kolomMenempel={2} className="[&_td]:py-1">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Kode produk</TableHead>
+            <TableHead>Nama produk</TableHead>
+            <TableHead>Klasifikasi</TableHead>
+            <TableHead angka>Kebutuhan barang</TableHead>
+            <TableHead angka>Stok akhir</TableHead>
+            <TableHead angka>Jumlah kirim</TableHead>
+            <TableHead>Masalah</TableHead>
+            <TableHead>
+              <span className="sr-only">Rincian perhitungan</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {toko.baris.map((b) => {
+            const nilaiRincian = `${toko.id}|${b.kodeProduk}`;
+            return (
+              <BarisVarian key={b.kodeProduk} kodeProduk={b.kodeProduk}>
+                <TableCell className="font-semibold">{b.kodeProduk}</TableCell>
+                <TableCell>{b.namaProduk ?? "—"}</TableCell>
+                <TableCell>{b.klasifikasi === "manual" ? <BadgeStatus status="manual" /> : "Otomatis"}</TableCell>
+                <TableCell angka data-kebutuhan={b.kebutuhan ?? "tidak-tersedia"}>
+                  <SelKebutuhan baris={b} />
+                </TableCell>
+                <TableCell angka data-stok-akhir={b.stokAkhir ?? "kosong"}>
+                  {inputStok === null ? <SelStokRingkas stokAkhir={b.stokAkhir} /> : <InputStok kodeProduk={b.kodeProduk} />}
+                </TableCell>
+                <TableCell angka data-jumlah-kirim={b.jumlahKirim ?? "kosong"}>
+                  {b.jumlahKirim === null ? "—" : formatAngka(b.jumlahKirim)}
+                </TableCell>
+                <TableCell>
+                  <DaftarMasalah masalah={b.masalah} />
+                </TableCell>
+                <TableCell>
+                  {/* Navigasi klien tanpa menggulir: panel terbuka di atas halaman, isian stok tetap (DESIGN §11.2). */}
+                  <Link
+                    href={urlDraft(idGudang, draft.tanggalKirim, { toko: toko.id, rincian: nilaiRincian })}
+                    scroll={false}
+                    aria-current={rincian.terbuka === nilaiRincian ? "true" : undefined}
+                    data-tautan-rincian-baris={nilaiRincian}
+                    data-buka-panel
+                    className={kelasTautanBarisRingkas}
+                  >
+                    Lihat rincian
+                    <span className="sr-only"> perhitungan {b.kodeProduk}</span>
+                  </Link>
+                </TableCell>
+              </BarisVarian>
+            );
+          })}
+          <BarisFilterKosong jumlahKolom={JUMLAH_KOLOM_VARIAN} />
+        </TableBody>
+      </Table>
+    </>
   );
 }
 
@@ -245,11 +272,16 @@ export function FinalisasiToko({
           ? `${formatAngka(toko.jumlahTertahan)} baris masih tertahan.`
           : null;
   if (alasan !== null) {
+    const hanyaTertahan = toko.perluDihitungUlang.length === 0 && toko.baris.length > 0;
     return (
-      <p data-finalisasi-tertahan={toko.id} className="flex items-start gap-2 font-semibold">
-        <TriangleAlert aria-hidden strokeWidth={2} className="size-5 shrink-0 text-warning" />
-        Belum bisa difinalisasi: {alasan}
-      </p>
+      <div className="flex flex-wrap items-center gap-x-2">
+        <p data-finalisasi-tertahan={toko.id} className="flex items-start gap-2 font-semibold">
+          <TriangleAlert aria-hidden strokeWidth={2} className="size-5 shrink-0 text-warning" />
+          Belum bisa difinalisasi: {alasan}
+        </p>
+        {/* T117: memasang filter Tertahan di tabel varian toko ini. */}
+        {hanyaTertahan ? <TautanTampilkanTertahan idTabel={idTabelVarian(toko.id)} /> : null}
+      </div>
     );
   }
   return (
@@ -285,42 +317,51 @@ function TabelToko({
 }) {
   return (
     <section aria-labelledby={idBagianToko(toko.id)} data-draft-toko={toko.id} className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <h4 id={idBagianToko(toko.id)} className="scroll-mt-24 text-lg font-semibold">
-          {toko.nama}
-        </h4>
-        {toko.versiFinal !== null ? (
-          <span className="flex items-center gap-2 self-center">
-            <BadgeStatus status="final" />
-            <span data-versi-final={toko.versiFinal} className="text-muted-foreground">
-              Versi {toko.versiFinal}
-            </span>
-          </span>
-        ) : null}
+      <FilterVarian
+        baris={toko.baris.map((b) => ({
+          kodeProduk: b.kodeProduk,
+          namaProduk: b.namaProduk,
+          tertahan: b.masalah.length > 0,
+          stokKosong: b.stokAkhir === null,
+          kirimPositif: (b.jumlahKirim ?? 0) > 0,
+        }))}
+      >
+        {/* Kepala toko menempel (T117; DESIGN §11.4): nama, status, baris tertahan, dan finalisasi tetap terlihat. */}
+        <div
+          data-kepala-toko={toko.id}
+          className="sticky top-15 z-35 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border/60 bg-card/95 py-3 backdrop-blur-md lg:top-0"
+        >
+          <h4 id={idBagianToko(toko.id)} className="scroll-mt-24 text-lg font-semibold">
+            {toko.nama}
+          </h4>
+          <StatusToko toko={toko} terpilih={false} />
+          {toko.baris.length === 0 ? null : <RingkasanTertahan jumlah={toko.jumlahTertahan} />}
+          <div className="lg:ml-auto">
+            <FinalisasiToko toko={toko} finalisasi={finalisasi} />
+          </div>
+        </div>
         <p className="text-muted-foreground">
           Persiapan {labelPersiapan[persiapanDariHari[toko.persiapanHari]]} · Panjang cakupan {toko.panjangCakupan} hari
         </p>
-        {toko.baris.length === 0 ? null : <RingkasanTertahan jumlah={toko.jumlahTertahan} />}
-      </div>
-      <PenandaDiLuarJadwal keterangan={toko.diLuarJadwal} />
-      <PeringatanKirimanSebelumnya tanggal={toko.kirimanSebelumnyaBelumSampai} />
-      {toko.baris.length === 0 ? (
-        <MasalahTanpaVarian />
-      ) : inputStok === null ? (
-        <TabelVarian toko={toko} inputStok={null} rincian={rincian} />
-      ) : (
-        <FormStokToko
-          idGudang={inputStok.idGudang}
-          tanggalKirim={inputStok.tanggalKirim}
-          tokoId={toko.id}
-          namaToko={toko.nama}
-          stokTersimpan={toko.baris.map((b) => ({ kodeProduk: b.kodeProduk, stokAkhir: b.stokAkhir, klasifikasi: b.klasifikasi }))}
-        >
-          <TabelVarian toko={toko} inputStok={inputStok} rincian={rincian} />
-        </FormStokToko>
-      )}
-      <FinalisasiToko toko={toko} finalisasi={finalisasi} />
-      <PanelRincianBaris toko={toko} rincian={rincian} />
+        <PenandaDiLuarJadwal keterangan={toko.diLuarJadwal} />
+        <PeringatanKirimanSebelumnya tanggal={toko.kirimanSebelumnyaBelumSampai} />
+        {toko.baris.length === 0 ? (
+          <MasalahTanpaVarian />
+        ) : inputStok === null ? (
+          <TabelVarian toko={toko} inputStok={null} rincian={rincian} />
+        ) : (
+          <FormStokToko
+            idGudang={inputStok.idGudang}
+            tanggalKirim={inputStok.tanggalKirim}
+            tokoId={toko.id}
+            namaToko={toko.nama}
+            stokTersimpan={toko.baris.map((b) => ({ kodeProduk: b.kodeProduk, stokAkhir: b.stokAkhir, klasifikasi: b.klasifikasi }))}
+          >
+            <TabelVarian toko={toko} inputStok={inputStok} rincian={rincian} />
+          </FormStokToko>
+        )}
+        <PanelRincianBaris toko={toko} rincian={rincian} />
+      </FilterVarian>
     </section>
   );
 }
@@ -408,7 +449,7 @@ function KeteranganStokTidakDipakai({ daftarStok }: { daftarStok: readonly StokT
 }
 
 /** Status toko di ringkasan: Final beserta versinya (T62), atau Draft; ditambah Perlu dihitung ulang bila terdampak (T61). */
-function StatusToko({ toko, terpilih }: { toko: RingkasanTokoDraft; terpilih: boolean }) {
+function StatusToko({ toko, terpilih }: { toko: Pick<RingkasanTokoDraft, "versiFinal" | "perluDihitungUlang">; terpilih: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       {toko.versiFinal !== null ? (

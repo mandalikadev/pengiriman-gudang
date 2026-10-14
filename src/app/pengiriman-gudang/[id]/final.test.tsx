@@ -214,14 +214,16 @@ describe("finalisasi di halaman Pengiriman Gudang", () => {
     const html = await bukaDraft(tokoSiap.id);
     const siap = bagianToko(html, tokoSiap.id);
     expect(siap).toMatch(/data-finalisasi-toko.*?<button[^>]*type="submit"[^>]*>Finalisasi rencana/);
-    expect(siap).toContain("Finalisasi menyimpan rencana kebutuhan barang toko ini beserta dasar perhitungannya.");
-    expect(siap).toContain("Ini bukan konfirmasi pengiriman fisik atau penerimaan barang.");
+    // T117 (DESIGN §11.4): form finalisasi berada di kepala toko yang menempel; penjelasannya tampil di dialog konfirmasi.
+    expect(siap).toMatch(/data-kepala-toko="\d+"[^>]*class="sticky[^"]*"[^>]*>.*?data-finalisasi-toko/);
     // Form finalisasi hanya untuk toko yang dibuka (T73).
     expect([...html.matchAll(/data-finalisasi-toko="(\d+)"/g)].map((m) => m[1])).toEqual([String(tokoSiap.id)]);
     expect(bagianToko(html, tokoTertahan.id)).toBe("");
     const tertahan = bagianToko(await bukaDraft(tokoTertahan.id), tokoTertahan.id);
     expect(tertahan).not.toContain("data-finalisasi-toko");
     expect(tertahan).toMatch(/data-finalisasi-tertahan[^>]*>.*?lucide-triangle-alert.*?Belum bisa difinalisasi: 1 baris masih tertahan\./);
+    // T117: alasan baris tertahan diikuti "Tampilkan baris tertahan" yang memasang filter Tertahan di tabel varian.
+    expect(tertahan).toMatch(/1 baris masih tertahan\.<\/p><button[^>]*type="button"[^>]*data-tampilkan-tertahan[^>]*>Tampilkan baris tertahan</);
     // Toko tanpa varian tampil sebagai masalah dan tidak bisa difinalisasi (PRD A7 ▶ Keputusan 2026-10-11, T62).
     const tanpaVarian = bagianToko(await bukaDraft(tokoTanpaVarian.id), tokoTanpaVarian.id);
     expect(tanpaVarian).toMatch(/data-tanpa-varian[^>]*>.*?lucide-triangle-alert.*?Tidak ada varian dari periode sumber untuk toko ini</);
@@ -287,7 +289,6 @@ describe("finalisasi di halaman Pengiriman Gudang", () => {
     const siap = bagianToko(await bukaDraft(tokoSiap.id), tokoSiap.id);
     expect(siap).toMatch(/data-status="final".*?lucide-circle-check.*?Final.*?data-versi-final="1"[^>]*>Versi 1</);
     expect(siap).toMatch(/data-finalisasi-toko[^>]*data-finalisasi-ulang/);
-    expect(siap).toContain("Rencana toko ini sudah final (versi 1). Finalisasi ulang menyimpan versi 2 yang menggantikan versi 1; versi 1 tetap tersimpan.");
     expect(siap).toMatch(/<label[^>]*>Alasan finalisasi ulang<input(?=[^>]*\brequired="")(?=[^>]*\bname="alasan")/);
     expect(siap).toMatch(/<button[^>]*type="submit"[^>]*>Finalisasi ulang/);
 

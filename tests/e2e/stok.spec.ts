@@ -51,7 +51,10 @@ function produkContoh(tahun: number, kode: string, nama: string, ukuran: string,
  * Satu toko Gudang Jabodetabek dengan jadwal Senin H−2, impor Juni berisi `daftarProduk` (semua dipetakan ke keluarga
  * tujuh besar), periode sumber, ranking berlaku, operator berhak input-stok, dan draft rencana untuk TANGGAL_KIRIM.
  */
-async function siapkanDraft(daftarProduk: (tahun: number) => ProdukUji[]) {
+async function siapkanDraft(
+  daftarProduk: (tahun: number) => ProdukUji[],
+  hakTindakan: readonly ("input-stok" | "finalisasi")[] = ["input-stok"],
+) {
   const [admin] = await db.select({ id: user.id }).from(user).where(eq(user.email, EMAIL_ADMIN_E2E));
   const operator = await buatPenggunaUji("viewer");
   const jabodetabek = await idGudangUji("Gudang Jabodetabek");
@@ -91,7 +94,7 @@ async function siapkanDraft(daftarProduk: (tahun: number) => ProdukUji[]) {
         daftar.map((p) => p.kode),
       ),
     );
-  expect(await tugaskanOperator({ idPengguna: operator.id, idGudang: jabodetabek, hakTindakan: ["input-stok"] })).toMatchObject({
+  expect(await tugaskanOperator({ idPengguna: operator.id, idGudang: jabodetabek, hakTindakan })).toMatchObject({
     keadaan: "berhasil",
   });
   expect(
@@ -334,7 +337,9 @@ test("Draft rencana: rincian baris di panel samping; isian stok dan posisi gulir
   const tabel = page.locator(`table[aria-label="Varian ${toko.nama}"]`);
   const wadah = tabel.locator("xpath=..");
   await wadah.scrollIntoViewIfNeeded();
-  const kodeDibuka = daftarKode[20];
+  // Baris ke-21 menurut urutan tampil (draft mengurutkan baris menurut kode produk, bukan urutan pembuatan), agar wadah
+  // memang perlu digulir untuk menampilkannya.
+  const kodeDibuka = (await tabel.locator("tr[data-kode-produk]").evaluateAll((daftar) => daftar.map((tr) => tr.getAttribute("data-kode-produk"))))[20]!;
   const tautan = page.locator(`a[data-tautan-rincian-baris="${toko.id}|${kodeDibuka}"]`);
   const posisi = async () => ({
     wadah: await wadah.evaluate((el) => el.scrollTop),
@@ -402,6 +407,89 @@ test("Draft rencana: rincian baris di panel samping; isian stok dan posisi gulir
   const panelLangsung = page.getByRole("dialog", { name: `Rincian perhitungan ${kodeLangsung} · ${toko.nama}` });
   await expect(panelLangsung).toBeVisible();
   await expect(panelLangsung.locator(`[data-rincian-baris="${toko.id}|${kodeLangsung}"]`)).toBeVisible();
+
+  await db.delete(draftRencana).where(eq(draftRencana.gudangId, jabodetabek));
+});
+
+// T117 (DESIGN §11.4): meja kerja ringkas. Toko dengan banyak varian (semua tertahan "Stok belum diisi"): kepala toko dan
+// bar aksi menempel, isian di baris jauh di bawah tetap memperlihatkan bar dengan jumlah isian yang berubah, dan status
+// simpan tampil di bar tanpa menggulir. Filter Tertahan, cari "GOR", isian di baris tersembunyi tetap tersimpan, dan
+// "Tampilkan baris tertahan" memasang filter Tertahan.
+test("Draft rencana: kepala dan bar aksi menempel; filter dan cari; isian tersembunyi tetap tersimpan", async ({ page }) => {
+  const JUMLAH_PER_AROMA = 30;
+  const kodeGor = Array.from({ length: JUMLAH_PER_AROMA }, () => kodeProdukUji("GOR"));
+  const kodeSan = Array.from({ length: JUMLAH_PER_AROMA }, () => kodeProdukUji("SAN"));
+  const { operator, jabodetabek, toko } = await siapkanDraft(
+    (tahun) => [
+      ...kodeGor.map((k, i) => produkContoh(tahun, k, `15ML GLITTER - GORGEOUS ${i + 1}`, "15ML", "15ML GLITTER/LEATHER")),
+      ...kodeSan.map((k, i) => produkContoh(tahun, k, `15ML GLITTER - SANTAL ${i + 1}`, "15ML", "15ML GLITTER/LEATHER")),
+    ],
+    ["input-stok", "finalisasi"],
+  );
+  const JUMLAH_VARIAN = 2 * JUMLAH_PER_AROMA;
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await masuk(page, operator.email);
+  await page.goto(`/pengiriman-gudang/${jabodetabek}?tanggal=${TANGGAL_KIRIM}&toko=${toko.id}`);
+
+  const form = page.getByRole("form", { name: `Stok akhir ${toko.nama}` });
+  const bar = form.locator("[data-bar-aksi-stok]");
+  const kepala = page.locator(`[data-kepala-toko="${toko.id}"]`);
+  const tabel = page.getByRole("table", { name: `Varian ${toko.nama}` });
+  const barisKode = (k: string) => tabel.locator(`tr[data-kode-produk="${k}"]`);
+  await expect(tabel.locator("tr[data-kode-produk]")).toHaveCount(JUMLAH_VARIAN);
+  await expect(kepala.locator("[data-jumlah-tertahan]")).toHaveText(`${JUMLAH_VARIAN} baris tertahan`);
+
+  // Baris ringkas: ±44 px, tanpa badge bertumpuk di sel stok.
+  const tinggiBaris = (await barisKode(kodeGor[0]).boundingBox())!.height;
+  expect(tinggiBaris).toBeLessThanOrEqual(50);
+
+  // Isi stok di baris paling bawah tabel (urutan tampil menurut kode produk): bar aksi tetap terlihat dengan "1 isian berubah".
+  const urutan = await tabel.locator("tr[data-kode-produk]").evaluateAll((daftar) => daftar.map((tr) => tr.getAttribute("data-kode-produk")));
+  const terakhir = urutan[urutan.length - 1]!;
+  const isianTerakhir = form.getByRole("textbox", { name: `Stok akhir ${terakhir}` });
+  await isianTerakhir.fill(String(golden.kasusJumlahKirim[0].stokAkhir));
+  await expect(isianTerakhir).toBeInViewport();
+  await expect(bar).toBeInViewport();
+  await expect(bar.locator("[data-jumlah-isian-berubah]")).toHaveText("1 isian berubah");
+  await expect(kepala).toBeInViewport();
+
+  // Simpan dari bar: status tampil di bar tanpa menggulir.
+  const gulirSebelum = await page.evaluate(() => window.scrollY);
+  await bar.getByRole("button", { name: "Simpan stok" }).click();
+  await expect(bar.getByRole("status")).toHaveText("Berhasil disimpan");
+  await expect(bar.getByRole("status")).toBeInViewport();
+  expect(await page.evaluate(() => window.scrollY)).toBe(gulirSebelum);
+  await expect(kepala.locator("[data-jumlah-tertahan]")).toHaveText(`${JUMLAH_VARIAN - 1} baris tertahan`);
+
+  // Filter Tertahan: tepat baris yang punya masalah (baris yang baru diisi tidak lagi tertahan).
+  const filter = page.getByRole("group", { name: `Filter baris ${toko.nama}` });
+  await expect(filter.getByRole("button", { name: /^Tertahan/ })).toHaveText(`Tertahan(${JUMLAH_VARIAN - 1})`);
+  await filter.getByRole("button", { name: /^Tertahan/ }).click();
+  await expect(filter.getByRole("button", { name: /^Tertahan/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(tabel.locator("tr[data-kode-produk]:visible")).toHaveCount(JUMLAH_VARIAN - 1);
+  await expect(barisKode(terakhir)).toBeHidden();
+  await expect(tabel.locator("tr[data-kode-produk]:visible [data-masalah]")).toHaveCount(JUMLAH_VARIAN - 1);
+
+  // Cari "GOR" bersama filter Semua: hanya varian GOR. Isian di baris SAN yang tersembunyi tetap tersimpan.
+  await filter.getByRole("button", { name: /^Semua/ }).click();
+  const isianSan = form.getByRole("textbox", { name: `Stok akhir ${kodeSan[0]}` });
+  await isianSan.fill("7");
+  await page.getByRole("searchbox", { name: "Cari kode atau nama produk" }).fill("GOR");
+  await expect(tabel.locator("tr[data-kode-produk]:visible")).toHaveCount(JUMLAH_PER_AROMA);
+  await expect(barisKode(kodeSan[0])).toBeHidden();
+  await expect(bar.locator("[data-jumlah-isian-berubah]")).toHaveText("1 isian berubah");
+  await bar.getByRole("button", { name: "Simpan stok" }).click();
+  await expect(bar.getByRole("status")).toHaveText("Berhasil disimpan");
+  await expect(barisKode(kodeSan[0]).locator("[data-stok-akhir]")).toHaveAttribute("data-stok-akhir", "7");
+
+  // "Tampilkan baris tertahan" di kepala memasang filter Tertahan.
+  const tautan = kepala.getByRole("button", { name: "Tampilkan baris tertahan" });
+  await expect(kepala.locator("[data-finalisasi-tertahan]")).toHaveText(
+    `Belum bisa difinalisasi: ${JUMLAH_VARIAN - 2} baris masih tertahan.`,
+  );
+  await tautan.click();
+  await expect(filter.getByRole("button", { name: /^Tertahan/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(tabel.locator("tr[data-kode-produk]:visible")).toHaveCount(JUMLAH_VARIAN - 2);
 
   await db.delete(draftRencana).where(eq(draftRencana.gudangId, jabodetabek));
 });
