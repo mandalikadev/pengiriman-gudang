@@ -696,6 +696,14 @@ describe("tanggal kirim toko: L dan peringatan memakai jadwal tetap + pengiriman
       expect(tanggalKirimTokoBerikutnya(toko, t("2026-11-17"))).toBe("2026-12-01");
     });
 
+    it("pindah 1× sebulan Senin (H) 2026-11-02 → Rabu 2026-11-04, berikutnya 2026-12-07 (33 hari): L = 30 (keputusan pemilik 2026-10-14)", () => {
+      const seninPertama = jadwalValid({ pola: "1x-sebulan", hariKirim: [{ hari: "Senin", persiapan: "H" }], tanggalJangkar: null });
+      const pindah = { tanggalKirim: t("2026-11-04"), persiapanHari: 0 as const, tanggalRutinDipindah: t("2026-11-02") };
+      const tokoPindah = { jadwal: seninPertama, diLuarJadwal: [pindah] };
+      expect(tanggalKirimTokoBerikutnya(tokoPindah, t("2026-11-04"))).toBe("2026-12-07");
+      expect(cekToko(tokoPindah, "2026-11-04")).toEqual({ kirim: true, persiapanHari: 0, panjangCakupan: 30, diLuarJadwal: pindah });
+    });
+
     it("tanpa tambahan, 2026-11-03 tetap L = 30", () => {
       expect(cekToko({ jadwal: sebulan, diLuarJadwal: [] }, "2026-11-03")).toMatchObject({ kirim: true, panjangCakupan: 30 });
     });

@@ -303,7 +303,6 @@ export type RencanaFinal = {
   baris: BarisRencanaFinal[];
 };
 
-/** Rencana final `idRencana` milik gudang `idGudang`, dibaca dari snapshot; `null` bila tidak ada di gudang itu. */
 /** Keterangan pengiriman di luar jadwal dari snapshot rencana final. */
 function keteranganDariSnapshot(k: DiLuarJadwalRencanaFinal | null): KeteranganDiLuarJadwal | null {
   if (k === null) return null;
@@ -315,6 +314,7 @@ function keteranganDariSnapshot(k: DiLuarJadwalRencanaFinal | null): KeteranganD
   };
 }
 
+/** Rencana final `idRencana` milik gudang `idGudang`, dibaca dari snapshot; `null` bila tidak ada di gudang itu. */
 export async function bacaRencanaFinal(idGudang: number, idRencana: number): Promise<RencanaFinal | null> {
   const [r] = await db
     .select()
