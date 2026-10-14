@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleX, Info } from "lucide-react";
+import { CircleCheck, CircleX, Info } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useId } from "react";
 
@@ -42,10 +42,13 @@ export function TombolCocokkanUlang({ idVersi }: { idVersi: number }) {
 export function TombolPublikasikan({
   idVersi,
   alasanTidakBisa,
+  berlaku,
   rankingBerlakuLain,
 }: {
   idVersi: number;
   alasanTidakBisa: string | null;
+  /** Ranking ini yang sedang berlaku: alasannya tampil sebagai status Aktif, bukan error (DESIGN §11.9, §7). */
+  berlaku: boolean;
   /** Ranking berlaku saat ini yang akan diarsipkan, mis. `Agustus 2026 versi 1`. */
   rankingBerlakuLain: string | null;
 }) {
@@ -81,7 +84,9 @@ export function TombolPublikasikan({
       </div>
       {keterangan && !sudahBerhasil ? (
         <p id={`${id}-keterangan`} className="flex items-start gap-2" data-alasan-publikasi>
-          {alasanTidakBisa ? (
+          {berlaku ? (
+            <CircleCheck aria-hidden strokeWidth={2} className="size-5 shrink-0 text-success" />
+          ) : alasanTidakBisa ? (
             <CircleX aria-hidden strokeWidth={2} className="size-5 shrink-0 text-destructive" />
           ) : (
             <Info aria-hidden strokeWidth={2} className="size-5 shrink-0 text-info" />

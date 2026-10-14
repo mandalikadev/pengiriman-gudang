@@ -170,6 +170,10 @@ export default async function HalamanTinjauRanking({ params }: { params: Promise
   if (!data) notFound();
 
   const adaError = data.errorValidasi.length > 0;
+  // Ringkasan keputusan: error = hal yang menahan publikasi (error validasi, atau baris tidak cocok dan keluarga ganda);
+  // peringatan = baris yang cocok ke keluarga aroma nonaktif (tidak menahan publikasi).
+  const jumlahError = adaError ? data.errorValidasi.length : data.tidakCocok.length + data.keluargaGanda.length;
+  const jumlahPeringatan = adaError ? 0 : data.baris.filter((b) => b.keluarga !== null && !b.keluarga.aktif).length;
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
@@ -204,20 +208,6 @@ export default async function HalamanTinjauRanking({ params }: { params: Promise
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Publikasikan</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <TombolPublikasikan
-            idVersi={data.id}
-            alasanTidakBisa={data.alasanTidakBisaDipublikasikan}
-            rankingBerlakuLain={data.rankingBerlakuLain ? formatVersiRanking(data.rankingBerlakuLain) : null}
-          />
-          {data.status === "draft" && !adaError ? <TombolCocokkanUlang idVersi={data.id} /> : null}
-        </CardContent>
-      </Card>
-
       {adaError ? (
         <ErrorValidasi data={data} />
       ) : (
@@ -235,6 +225,25 @@ export default async function HalamanTinjauRanking({ params }: { params: Promise
           </section>
         </>
       )}
+
+      {/* DESIGN §11.4: tombol keputusan setelah data yang ditinjau, bersama ringkasan jumlah error dan peringatan. */}
+      <Card data-keputusan-tinjau>
+        <CardHeader>
+          <CardTitle>Publikasikan</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <p data-ringkasan-masalah>
+            {formatAngka(jumlahError)} error, {formatAngka(jumlahPeringatan)} peringatan.
+          </p>
+          <TombolPublikasikan
+            idVersi={data.id}
+            alasanTidakBisa={data.alasanTidakBisaDipublikasikan}
+            berlaku={data.status === "dipublikasikan"}
+            rankingBerlakuLain={data.rankingBerlakuLain ? formatVersiRanking(data.rankingBerlakuLain) : null}
+          />
+          {data.status === "draft" && !adaError ? <TombolCocokkanUlang idVersi={data.id} /> : null}
+        </CardContent>
+      </Card>
     </main>
   );
 }

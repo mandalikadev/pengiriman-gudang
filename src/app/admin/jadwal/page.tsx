@@ -1,9 +1,11 @@
+import { Inbox } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { formatWaktu, tanggalWib } from "@/app/admin/impor/format";
 import { BadgeStatusPengiriman, TabelRiwayatPengiriman, teksJenis, teksTanggalKirim } from "@/app/usulan-jadwal/tampilan-pengiriman";
 import { FormBatalkanPengiriman } from "@/app/usulan-jadwal/tindakan-pengiriman";
+import { KeadaanKosong } from "@/components/keadaan-kosong";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatTanggal } from "@/domain/kalender";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
@@ -67,7 +69,11 @@ export default async function HalamanPersetujuanJadwal() {
 
       <h2 className="text-xl font-semibold">Usulan menunggu</h2>
       {daftarUsulan.length === 0 ? (
-        <p className="text-muted-foreground">Tidak ada usulan pengiriman di luar jadwal yang menunggu persetujuan.</p>
+        <KeadaanKosong
+          ikon={Inbox}
+          judul="Tidak ada usulan pengiriman di luar jadwal yang menunggu persetujuan."
+          langkah="Usulan baru dari operator gudang akan muncul di sini untuk disetujui atau ditolak."
+        />
       ) : (
         <ul className="flex flex-col gap-6" aria-label="Usulan pengiriman di luar jadwal menunggu persetujuan">
           {daftarUsulan.map((u) => (

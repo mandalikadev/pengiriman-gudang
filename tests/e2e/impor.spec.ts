@@ -31,11 +31,16 @@ test("alur bahagia: admin mengunggah dua sheet sekaligus, keduanya diproses, lal
   await expect(page).not.toHaveURL(/\/masuk/);
 
   await page.goto("/admin/impor");
-  await page.getByLabel("File Excel").setInputFiles({
-    name: "penjualan-e2e.xlsx",
-    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    buffer: workbook,
-  });
+  // Halaman di-stream lewat kerangka memuat (T120): file yang dipilih sebelum form terhidrasi tidak terbaca, jadi pilih
+  // ulang sampai daftar sheet tampil.
+  await expect(async () => {
+    await page.getByLabel("File Excel").setInputFiles({
+      name: "penjualan-e2e.xlsx",
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      buffer: workbook,
+    });
+    await expect(page.getByRole("checkbox", { name: /MP PUSAT \(S\)/ })).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
   await expect(page.getByRole("checkbox", { name: /MP PUSAT \(S\)/ })).toBeDisabled();
   await expect(page.getByText("di luar cakupan saat ini")).toBeVisible();
   await page.getByRole("checkbox", { name: "JUNI (S)" }).check();
@@ -67,7 +72,9 @@ test("alur bahagia: admin mengunggah dua sheet sekaligus, keduanya diproses, lal
 
   const ringkasan = page.getByRole("table", { name: "Ringkasan per toko" });
   await expect(ringkasan.getByRole("cell", { name: "PMS", exact: true })).toBeVisible();
-  await expect(page.getByText("0 error, 0 peringatan.")).toBeVisible();
+  // T120: jumlah yang sama juga tampil di kartu Aktifkan setelah data yang ditinjau.
+  await expect(page.getByText("0 error, 0 peringatan.")).toHaveCount(2);
+  await expect(page.locator("[data-ringkasan-masalah]")).toHaveText("0 error, 0 peringatan.");
   await expect(page.getByRole("table", { name: "Produk baru" }).getByRole("cell", { name: kode })).toBeVisible();
 
   await page.getByRole("button", { name: "Aktifkan" }).click();

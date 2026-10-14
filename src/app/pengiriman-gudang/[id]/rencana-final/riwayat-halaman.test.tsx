@@ -124,3 +124,19 @@ describe("riwayat rencana final: halaman 50 baris + cari (T119)", () => {
     expect(baris(await buka({ halaman: "2" }), id.mkgV1)).toContain("Digantikan oleh versi 2");
   });
 });
+
+describe("riwayat rencana final kosong (T120)", () => {
+  it("gudang tanpa rencana final → keadaan kosong ikon + teks + langkah berikutnya", async () => {
+    const kosong = (await buatGudangUji()).id;
+    try {
+      const html = renderToStaticMarkup(
+        await HalamanRiwayatRencanaFinal({ params: Promise.resolve({ id: String(kosong) }), searchParams: Promise.resolve({}) }),
+      );
+      expect(html).toMatch(
+        /data-keadaan-kosong[^>]*><span[^>]*><svg[^>]*lucide-file-check[^]*?Belum ada rencana final di gudang ini\.<\/p><p[^>]*>Rencana final muncul di sini setelah toko difinalisasi dari Draft rencana\.<\/p>/,
+      );
+    } finally {
+      await hapusGudangUji(kosong);
+    }
+  });
+});

@@ -137,6 +137,12 @@ describe("T118: tanggal yang dibuka pertama kali", () => {
     expect(html).not.toContain('data-draft-tanggal="2026-10-19"');
     expect(html).toContain("Belum ada draft rencana untuk Kamis, 15-10-2026.");
     expect(html).toMatch(new RegExp(`data-ajakan-hitung="${TERDEKAT}".*?Hitung kebutuhan untuk Kamis, 15-10-2026</button>`));
+    // T120 (DESIGN §11.6): keadaan kosong = ikon + teks + satu kalimat langkah berikutnya, dengan ajakannya.
+    expect(html).toMatch(
+      new RegExp(
+        `data-keadaan-kosong[^>]*><span[^>]*><svg[^>]*lucide-clipboard-list[^]*?Belum ada draft rencana untuk Kamis, 15-10-2026\\.</p><p[^>]*>Pilih tanggal kirim, lalu tekan Hitung kebutuhan\\.</p><form[^>]*data-ajakan-hitung`,
+      ),
+    );
 
     // Draft tanggal terdekat yang dihitung lebih dulu tetap dipilih walaupun draft 19-10 dihitung terakhir.
     await buatDraftUji(TERDEKAT, new Date(Date.now() - 86_400_000));
@@ -156,6 +162,9 @@ describe("T118: tanggal yang dibuka pertama kali", () => {
     const html = await buka();
     expect(html).toContain("Belum ada draft rencana untuk Kamis, 15-10-2026.");
     expect(html).not.toContain("data-ajakan-hitung");
+    expect(html).toMatch(
+      /data-keadaan-kosong[^>]*><span[^>]*><svg[^>]*lucide-clipboard-list[^]*?Draft dibuat oleh operator gudang ini yang berhak menghitung kebutuhan\./,
+    );
   });
 });
 

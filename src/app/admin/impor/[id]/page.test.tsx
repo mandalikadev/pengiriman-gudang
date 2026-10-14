@@ -104,6 +104,33 @@ describe("/admin/impor/[id]", () => {
     expect(html).not.toContain("blur-3xl");
   });
 
+  it("T120 (DESIGN §11.4): kartu Aktifkan berada setelah daftar masalah dan produk baru, bersama jumlah error dan peringatan", async () => {
+    const tahun = await tahunUjiBebas();
+    const toko = await buatTokoUji();
+    const id = await imporUji({
+      isi: buatWorkbookUji({
+        "JUNI (S)": sheetPenjualanUji({
+          toko: toko.nama,
+          bulan: 6,
+          hari: [1, 2, "31/6"],
+          produk: [produk(kodeProdukUji(), [1200, 0, null]), produk(kodeProdukUji("T"), [-1, null, null])],
+        }),
+      }),
+      tahunImpor: tahun,
+      idPengguna: idAdmin,
+    });
+
+    const html = await tampil(id);
+    const posisiKeputusan = html.indexOf("data-keputusan-tinjau");
+    expect(posisiKeputusan).toBeGreaterThan(-1);
+    expect(html.indexOf('aria-label="Daftar masalah"')).toBeLessThan(posisiKeputusan);
+    expect(html.indexOf('aria-label="Produk baru"')).toBeLessThan(posisiKeputusan);
+    const keputusan = html.slice(posisiKeputusan);
+    expect(keputusan).toMatch(/data-ringkasan-masalah[^>]*>1 error, 1 peringatan\.</);
+    expect(keputusan).toMatch(/<button[^>]*>Aktifkan<\/button>/);
+    expect(keputusan.indexOf("1 error, 1 peringatan.")).toBeLessThan(keputusan.indexOf(">Aktifkan</button>"));
+  });
+
   it("toko nonaktif: peringatan di daftar masalah, penanda di ringkasan per toko, dan Aktifkan tetap bisa", async () => {
     const tahun = await tahunUjiBebas();
     const nonaktif = await buatTokoUji({ aktif: false });

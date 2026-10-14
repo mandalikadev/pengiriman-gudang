@@ -207,7 +207,11 @@ export default async function HalamanTinjauSnapshotLibur({ params }: { params: P
         </CardContent>
       </Card>
 
-      <Card>
+      <Perbedaan data={data} />
+      <DaftarLibur entri={data.entri} />
+
+      {/* DESIGN §11.4: tombol keputusan setelah data yang ditinjau. */}
+      <Card data-keputusan-tinjau>
         <CardHeader>
           <CardTitle>Aktivasi</CardTitle>
         </CardHeader>
@@ -227,8 +231,6 @@ export default async function HalamanTinjauSnapshotLibur({ params }: { params: P
         </CardContent>
       </Card>
 
-      <Perbedaan data={data} />
-      <DaftarLibur entri={data.entri} />
       <Riwayat riwayat={data.riwayat} />
     </main>
   );

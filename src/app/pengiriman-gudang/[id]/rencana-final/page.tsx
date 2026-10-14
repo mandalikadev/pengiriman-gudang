@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileCheck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -6,6 +6,7 @@ import { formatWaktu } from "@/app/admin/impor/format";
 import { TombolEkspor } from "@/app/ringkasan/tombol-ekspor";
 import { BadgeStatus } from "@/components/badge-status";
 import { cocokCari, NavigasiHalaman, nomorHalaman, potongHalaman, teksParameter, urlDaftar } from "@/components/daftar-berhalaman";
+import { KeadaanKosong } from "@/components/keadaan-kosong";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, parseTanggalBisnis } from "@/domain/kalender";
 import { daftarRencanaFinal, pilihanFilterRencanaFinal, type RingkasanRencanaFinal } from "@/server/gudang/rencana-final";
@@ -139,7 +140,11 @@ export default async function HalamanRiwayatRencanaFinal({
         </p>
       </div>
       {pilihan.tanggalKirim.length === 0 ? (
-        <p className="text-muted-foreground">Belum ada rencana final di gudang ini.</p>
+        <KeadaanKosong
+          ikon={FileCheck}
+          judul="Belum ada rencana final di gudang ini."
+          langkah="Rencana final muncul di sini setelah toko difinalisasi dari Draft rencana."
+        />
       ) : (
         <>
           <FilterRencanaFinal

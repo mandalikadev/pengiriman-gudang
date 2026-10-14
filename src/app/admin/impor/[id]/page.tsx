@@ -294,20 +294,6 @@ export default async function HalamanTinjauImpor({ params }: { params: Promise<{
         </Card>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Aktifkan</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TombolAktifkan
-            idImpor={data.id}
-            alasanTidakBisa={data.alasanTidakBisaAktif}
-            karenaError={data.status === "siap-ditinjau" && data.jumlahError > 0}
-            imporAktifLain={data.imporAktifLain}
-          />
-        </CardContent>
-      </Card>
-
       {selesaiDibaca ? (
         <>
           <RingkasanPerToko ringkasan={data.ringkasanPerToko} />
@@ -316,6 +302,26 @@ export default async function HalamanTinjauImpor({ params }: { params: Promise<{
           <ProdukBaru data={data} />
         </>
       ) : null}
+
+      {/* DESIGN §11.4: tombol keputusan setelah data yang ditinjau, bersama ringkasan jumlah error dan peringatan. */}
+      <Card data-keputusan-tinjau>
+        <CardHeader>
+          <CardTitle>Aktifkan</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {selesaiDibaca ? (
+            <p data-ringkasan-masalah>
+              {formatAngka(data.jumlahError)} error, {formatAngka(data.jumlahPeringatan)} peringatan.
+            </p>
+          ) : null}
+          <TombolAktifkan
+            idImpor={data.id}
+            alasanTidakBisa={data.alasanTidakBisaAktif}
+            karenaError={data.status === "siap-ditinjau" && data.jumlahError > 0}
+            imporAktifLain={data.imporAktifLain}
+          />
+        </CardContent>
+      </Card>
     </main>
   );
 }

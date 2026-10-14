@@ -95,6 +95,21 @@ describe("/admin/libur/[id]", () => {
     expect(html).not.toContain("blur-3xl");
   });
 
+  it("T120 (DESIGN §11.4): kartu Aktivasi berada setelah perbedaan dan daftar libur yang ditinjau", async () => {
+    const tahun = await tahunLiburUji();
+    const baru = await buatSnapshotUji(tahun, idAdmin, "menunggu-persetujuan", [
+      { tanggal: `${tahun}-12-25`, keterangan: "Natal", jenis: "libur nasional" },
+    ]);
+
+    const html = await tampil(baru.id);
+    const posisiKeputusan = html.indexOf("data-keputusan-tinjau");
+    expect(posisiKeputusan).toBeGreaterThan(-1);
+    expect(html.indexOf("Perbedaan terhadap snapshot aktif")).toBeLessThan(posisiKeputusan);
+    expect(html.indexOf('aria-label="Daftar libur"')).toBeLessThan(posisiKeputusan);
+    expect(html.slice(posisiKeputusan)).toMatch(/<button[^>]*>Aktifkan<\/button>/);
+    expect(html.slice(0, posisiKeputusan)).not.toContain(">Aktifkan</button>");
+  });
+
   it("snapshot arsip: persetujuan pertama (siapa, kapan), riwayat, dan tombol Aktifkan ulang", async () => {
     const tahun = await tahunLiburUji();
     const a = await buatSnapshotUji(tahun, idAdmin, "menunggu-persetujuan", [

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { formatAngka, formatWaktu } from "@/app/admin/impor/format";
 import { BadgeStatus } from "@/components/badge-status";
 import { DialogUrl } from "@/components/dialog-url";
+import { KeadaanKosong } from "@/components/keadaan-kosong";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, type TanggalBisnis } from "@/domain/kalender";
@@ -718,16 +719,23 @@ export function BagianDraft({
             finalisasi={bolehFinalisasi ? { idGudang, tanggalKirim: draft.tanggalKirim } : null}
           />
         ) : (
-          <div className="flex flex-col gap-3">
-            <p className="text-muted-foreground">
-              {tanggalDiminta === null
+          <KeadaanKosong
+            ikon={ClipboardList}
+            judul={
+              tanggalDiminta === null
                 ? "Belum ada draft rencana di gudang ini."
-                : `Belum ada draft rencana untuk ${formatTanggal(tanggalDiminta)}.`}
-            </p>
+                : `Belum ada draft rencana untuk ${formatTanggal(tanggalDiminta)}.`
+            }
+            langkah={
+              bolehHitung
+                ? "Pilih tanggal kirim, lalu tekan Hitung kebutuhan."
+                : "Draft dibuat oleh operator gudang ini yang berhak menghitung kebutuhan."
+            }
+          >
             {bolehHitung && tanggalDiminta !== null && tanggalDiminta === tanggalTerdekat ? (
               <AjakanHitung idGudang={idGudang} tanggalKirim={tanggalDiminta} />
             ) : null}
-          </div>
+          </KeadaanKosong>
         )}
       </CardContent>
     </Card>

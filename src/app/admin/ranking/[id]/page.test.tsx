@@ -117,6 +117,28 @@ describe("/admin/ranking/[id]", () => {
     expect(html).toContain(`GANDA ${k} muncul di RANK 1 (GANDA A ${k}) dan RANK 2 (GANDA B ${k})`);
   });
 
+  it("T120 (DESIGN §11.4): kartu Publikasikan berada setelah data yang ditinjau, bersama jumlah error dan peringatan", async () => {
+    const k = kode();
+    const aktif = await keluargaUji(`TINJAU ${k}`);
+    const [nonaktif] = await db.insert(keluargaAroma).values({ nama: `TIDUR ${k}`, aktif: false }).returning();
+    await db.insert(aliasKeluargaAroma).values({ keluargaId: nonaktif.id, alias: nonaktif.nama });
+    const id = await rankingUji({
+      isi: workbookRankingUji([[1, aktif.nama, 9], [2, nonaktif.nama, 5], [3, `LAIN ${k}`, 1]]),
+      idPengguna: idAdmin,
+    });
+
+    const html = await tampil(id);
+    const posisiKeputusan = html.indexOf("data-keputusan-tinjau");
+    expect(posisiKeputusan).toBeGreaterThan(-1);
+    expect(html.indexOf('aria-label="Baris tidak cocok"')).toBeLessThan(posisiKeputusan);
+    expect(html.indexOf('aria-label="Pencocokan setiap baris"')).toBeLessThan(posisiKeputusan);
+    const keputusan = html.slice(posisiKeputusan);
+    // 1 baris tidak cocok menahan publikasi (error); 1 baris cocok ke keluarga nonaktif (peringatan).
+    expect(keputusan).toMatch(/data-ringkasan-masalah[^>]*>1 error, 1 peringatan\.</);
+    expect(keputusan).toMatch(/<button[^>]*disabled=""[^>]*>Publikasikan<\/button>/);
+    expect(html.slice(0, posisiKeputusan)).not.toContain(">Publikasikan</button>");
+  });
+
   it("file dengan error validasi → daftar error (T52) dengan status Gagal; Publikasikan dinonaktifkan", async () => {
     const id = await rankingUji({ isi: workbookRankingUji([[1, `A ${kode()}`, 1], [1, `B ${kode()}`, 2]]), idPengguna: idAdmin });
     const html = await tampil(id);
@@ -125,6 +147,10 @@ describe("/admin/ranking/[id]", () => {
     expect(html).toContain('data-status="gagal"');
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Publikasikan<\/button>/);
     expect(html).not.toContain("Cocokkan ulang");
+    // T120: kartu Publikasikan setelah daftar error, dengan jumlah error.
+    const posisiKeputusan = html.indexOf("data-keputusan-tinjau");
+    expect(html.indexOf('aria-label="Error validasi"')).toBeLessThan(posisiKeputusan);
+    expect(html.slice(posisiKeputusan)).toMatch(/data-ringkasan-masalah[^>]*>1 error, 0 peringatan\.</);
   });
 
   it("ranking yang sudah dipublikasikan → status Dipublikasikan dan siapa/kapan", async () => {
@@ -135,5 +161,9 @@ describe("/admin/ranking/[id]", () => {
     expect(html).toContain('data-status-ranking="dipublikasikan"');
     expect(html).toContain("Dipublikasikan");
     expect(html).toContain("sudah dipublikasikan dan sedang berlaku");
+    // T120 (DESIGN §11.9, §7): ranking berlaku berstatus Aktif (success, CircleCheck), tanpa ikon error.
+    expect(html).toMatch(/data-status-ranking="dipublikasikan"[^>]*><svg[^>]*lucide-circle-check[^>]*>.*?<\/svg>Aktif</);
+    expect(html).toMatch(/data-alasan-publikasi[^>]*><svg[^>]*lucide-circle-check[^>]*text-success[^>]*>.*?<\/svg>Ranking ini sudah dipublikasikan/);
+    expect(html).not.toContain("lucide-circle-x");
   });
 });
