@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * `kelola-usulan-jadwal` di gudang ini → 404.
  */
 export default async function HalamanUsulanJadwal({ params }: Props) {
-  const { gudang, jalur, pilihanToko, riwayat, idPengguna, hariIni } = await muatGudangJadwal((await params).id);
+  const { gudang, jalur, pilihanToko, riwayat, idPengguna, hariIni, adaDaftarGudang } = await muatGudangJadwal((await params).id);
 
   function tindakan(e: EntriPengirimanDiLuarJadwal) {
     if (e.status === "menunggu" && e.idPengusul === idPengguna) return <TombolTarik idGudang={gudang.id} id={e.id} toko={e.toko} />;
@@ -40,7 +40,7 @@ export default async function HalamanUsulanJadwal({ params }: Props) {
   }
 
   return (
-    <KerangkaHalamanJadwal judul={judulHalamanJadwal(jalur, gudang.nama)}>
+    <KerangkaHalamanJadwal judul={judulHalamanJadwal(jalur, gudang.nama)} adaDaftarGudang={adaDaftarGudang}>
       <Card>
         {pilihanToko.length > 0 ? (
           <FormPengiriman idGudang={gudang.id} jalur={jalur} daftarToko={pilihanToko} idJudul={ID_JUDUL_HALAMAN_JADWAL} />

@@ -2,7 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 
 import type { Peran } from "@/server/auth/auth";
 import { db } from "@/server/db";
-import { gudang, hubunganTokoGudang, penugasanOperator, toko } from "@/server/db/schema";
+import { gudang, penugasanOperator } from "@/server/db/schema";
 import type { HakTindakan } from "@/server/gudang/hak-tindakan";
 
 /**
@@ -30,12 +30,10 @@ export async function daftarGudangDapatDilihat(pengguna: { id: string; peran: Pe
     .map((b) => ({ id: b.id, nama: b.nama, aktif: b.aktif, hakTindakan: b.aktif ? (b.hakTindakan ?? []) : [] }));
 }
 
-/** Toko yang terhubung ke satu gudang, urut nama. */
-export async function tokoTerhubung(idGudang: number) {
-  return db
-    .select({ id: toko.id, nama: toko.nama, aktif: toko.aktif })
-    .from(hubunganTokoGudang)
-    .innerJoin(toko, eq(toko.id, hubunganTokoGudang.tokoId))
-    .where(eq(hubunganTokoGudang.gudangId, idGudang))
-    .orderBy(asc(toko.nama));
+/**
+ * Gudang tempat pengguna langsung masuk tanpa melewati daftar gudang (DESIGN §11.5, T118): operator (bukan admin) yang
+ * hanya punya tepat satu gudang yang bisa dibuka. `null` = pengguna melihat daftar gudang. Admin selalu melihat daftar.
+ */
+export function gudangLangsungMasuk<G>(pengguna: { peran: Peran }, daftarGudang: readonly G[]): G | null {
+  return pengguna.peran !== "admin" && daftarGudang.length === 1 ? daftarGudang[0] : null;
 }

@@ -23,7 +23,7 @@ import { MASALAH_TANPA_VARIAN } from "@/server/gudang/masalah-draft";
 import { DaftarMasalah } from "./daftar-masalah";
 import { BarisFilterKosong, BarisVarian, FilterVarian, KontrolFilterVarian, TautanTampilkanTertahan } from "./filter-varian";
 import { FormFinalisasi } from "./form-finalisasi";
-import { FormHitungDraft } from "./form-hitung-draft";
+import { AjakanHitung, FormHitungDraft } from "./form-hitung-draft";
 import { FormHitungUlang } from "./form-hitung-ulang";
 import { FormStokToko, InputStok } from "./form-stok-toko";
 import { PenandaDiLuarJadwal } from "./penanda-di-luar-jadwal";
@@ -601,6 +601,23 @@ function PeringatanTokoNonaktif({ daftarToko }: { daftarToko: readonly { id: num
 }
 
 /**
+ * Chip draft tersimpan dari yang terdekat (T118, DESIGN §11.5): tanggal kirim hari ini atau sesudahnya urut naik, lalu
+ * tanggal yang sudah lewat dari yang paling baru.
+ */
+function urutDariTerdekat(daftarTanggal: readonly TanggalBisnis[], hariIni: TanggalBisnis): TanggalBisnis[] {
+  const akanDatang = daftarTanggal.filter((t) => t >= hariIni).sort();
+  const lewat = daftarTanggal.filter((t) => t < hariIni).sort().reverse();
+  return [...akanDatang, ...lewat];
+}
+
+/** Penanda chip tanggal kirim terdekat (T118). Latar `card` + teks `foreground` terbaca di chip biasa maupun terpilih. */
+function PenandaTerdekat() {
+  return (
+    <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs font-semibold text-foreground">Terdekat</span>
+  );
+}
+
+/**
  * Bagian Draft rencana halaman Pengiriman Gudang (T58, PRD A6 ▶ Keputusan perencanaan M2–M3). Menampilkan draft yang
  * tersimpan, tanpa menghitung saat halaman dibuka (PRD C1). Form hitung tampil hanya untuk operator dengan hak
  * `hitung-kebutuhan` (diperiksa lagi di server); pengguna lain, termasuk admin, hanya melihat. Isian stok akhir per toko
@@ -608,7 +625,9 @@ function PeringatanTokoNonaktif({ daftarToko }: { daftarToko: readonly { id: num
  * berubah diberi penanda "Perlu dihitung ulang" (T61). Finalisasi per toko (T62) hanya untuk operator dengan hak
  * `finalisasi` (diperiksa lagi di server); toko yang sudah final ditandai Final beserta versinya untuk semua yang bisa
  * melihat halaman. Draft tampil sebagai ringkasan per toko; baris, isian stok, finalisasi, dan rincian baris hanya
- * dirender untuk toko yang dibuka (T73; PRD C1 ▶ Keputusan 2026-10-11, T65).
+ * dirender untuk toko yang dibuka (T73; PRD C1 ▶ Keputusan 2026-10-11, T65). T118 (DESIGN §11.5): chip draft tersimpan
+ * urut dari yang terdekat dengan penanda "Terdekat", form hitung menampilkan saran tanggal kirim, dan tanggal kirim
+ * terdekat yang belum punya draft mendapat ajakan "Hitung kebutuhan untuk …".
  */
 export function BagianDraft({
   idGudang,
@@ -617,6 +636,9 @@ export function BagianDraft({
   bolehFinalisasi,
   daftarTanggal,
   tanggalDiminta,
+  tanggalTerdekat,
+  hariIni,
+  saranTanggal,
   draft,
   rincianDiminta,
   tokoNonaktifBerjadwal,
@@ -625,9 +647,15 @@ export function BagianDraft({
   bolehHitung: boolean;
   bolehInputStok: boolean;
   bolehFinalisasi: boolean;
-  /** Tanggal kirim draft yang tersimpan, terbaru di atas. */
+  /** Tanggal kirim draft yang tersimpan. */
   daftarTanggal: TanggalBisnis[];
+  /** Tanggal kirim yang dibuka: dari URL, atau tanggal kirim terdekat; `null` = draft terakhir dihitung. */
   tanggalDiminta: TanggalBisnis | null;
+  /** Tanggal kirim terdekat gudang (hari ini atau sesudahnya); `null` = tidak ada toko aktif berjadwal. */
+  tanggalTerdekat: TanggalBisnis | null;
+  hariIni: TanggalBisnis;
+  /** Saran tanggal kirim form "Hitung kebutuhan": tanggal kirim toko 14 hari ke depan. */
+  saranTanggal: TanggalBisnis[];
   /** Draft sebagai ringkasan per toko, dengan baris hanya untuk toko yang dibuka (T73). */
   draft: RingkasanDraftRencana | null;
   /** Nilai URL `<id toko>|<kode produk>` baris draft yang rincian perhitungannya dibuka (T60). */
@@ -652,24 +680,27 @@ export function BagianDraft({
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         <PeringatanTokoNonaktif daftarToko={tokoNonaktifBerjadwal} />
-        {bolehHitung ? <FormHitungDraft idGudang={idGudang} /> : null}
+        {bolehHitung ? <FormHitungDraft idGudang={idGudang} saranTanggal={saranTanggal} /> : null}
         {daftarTanggal.length > 0 ? (
           <nav aria-label="Draft tersimpan" className="flex flex-col gap-2">
             <span className="font-semibold">Draft tersimpan</span>
             <ul className="flex flex-wrap gap-2">
-              {daftarTanggal.map((tanggal) => {
+              {urutDariTerdekat(daftarTanggal, hariIni).map((tanggal) => {
                 const terpilih = draft?.tanggalKirim === tanggal;
+                const terdekat = tanggal === tanggalTerdekat;
                 return (
                   <li key={tanggal}>
                     <Link
                       href={`/pengiriman-gudang/${idGudang}?tanggal=${tanggal}`}
                       aria-current={terpilih ? "page" : undefined}
+                      data-terdekat={terdekat ? "" : undefined}
                       className={cn(
-                        "inline-flex min-h-11 items-center rounded-full px-4 font-semibold transition-colors duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                        "inline-flex min-h-11 items-center gap-2 rounded-full px-4 font-semibold transition-colors duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                         terpilih ? "bg-accent text-accent-foreground" : "text-primary hover:bg-primary/10",
                       )}
                     >
                       {formatTanggal(tanggal)}
+                      {terdekat ? <PenandaTerdekat /> : null}
                     </Link>
                   </li>
                 );
@@ -687,11 +718,16 @@ export function BagianDraft({
             finalisasi={bolehFinalisasi ? { idGudang, tanggalKirim: draft.tanggalKirim } : null}
           />
         ) : (
-          <p className="text-muted-foreground">
-            {tanggalDiminta === null
-              ? "Belum ada draft rencana di gudang ini."
-              : `Belum ada draft rencana untuk ${formatTanggal(tanggalDiminta)}.`}
-          </p>
+          <div className="flex flex-col gap-3">
+            <p className="text-muted-foreground">
+              {tanggalDiminta === null
+                ? "Belum ada draft rencana di gudang ini."
+                : `Belum ada draft rencana untuk ${formatTanggal(tanggalDiminta)}.`}
+            </p>
+            {bolehHitung && tanggalDiminta !== null && tanggalDiminta === tanggalTerdekat ? (
+              <AjakanHitung idGudang={idGudang} tanggalKirim={tanggalDiminta} />
+            ) : null}
+          </div>
         )}
       </CardContent>
     </Card>

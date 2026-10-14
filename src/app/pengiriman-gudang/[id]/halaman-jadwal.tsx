@@ -85,7 +85,9 @@ export function DaftarGudangJadwal({ judul, daftarGudang }: { judul: string; daf
  * Gudang dan jalurnya (Pusat langsung, gudang lain usulan): tanpa hak `kelola-usulan-jadwal` di gudang itu, atau id
  * tidak dikenal → 404.
  */
-async function muatJalurGudangJadwal(id: string): Promise<{ gudang: GudangDapatDilihat; jalur: JalurPengiriman }> {
+async function muatJalurGudangJadwal(
+  id: string,
+): Promise<{ gudang: GudangDapatDilihat; jalur: JalurPengiriman; adaDaftarGudang: boolean }> {
   if (!/^\d{1,9}$/.test(id)) notFound();
   let daftarGudang;
   try {
@@ -96,7 +98,8 @@ async function muatJalurGudangJadwal(id: string): Promise<{ gudang: GudangDapatD
   }
   const gudang = daftarGudang.find((g) => g.id === Number(id));
   if (!gudang) notFound();
-  return { gudang, jalur: gudang.nama === NAMA_GUDANG_PUSAT ? "langsung" : "usulan" };
+  // Berhak di satu gudang → daftar gudang langsung mengarah ke sini, jadi tautan "Daftar gudang" tidak ditampilkan (T118).
+  return { gudang, jalur: gudang.nama === NAMA_GUDANG_PUSAT ? "langsung" : "usulan", adaDaftarGudang: daftarGudang.length > 1 };
 }
 
 /** Judul tab halaman satu gudang (T103): sama dengan h1, diakhiri judul aplikasi. Hak diperiksa seperti halamannya. */
@@ -108,27 +111,40 @@ export async function metadataHalamanJadwal(id: string): Promise<Metadata> {
 /**
  * Satu gudang untuk halaman pengiriman di luar jadwal: tanpa hak `kelola-usulan-jadwal` di gudang itu, atau id tidak
  * dikenal → 404. Mengembalikan jalur, pilihan toko form (toko dengan jadwal tetap aktif), riwayat gudang itu, pengguna,
- * dan tanggal hari ini (WIB).
+ * tanggal hari ini (WIB), dan apakah pengguna punya daftar gudang (berhak di lebih dari satu gudang).
  */
 export async function muatGudangJadwal(id: string) {
-  const { gudang, jalur } = await muatJalurGudangJadwal(id);
+  const { gudang, jalur, adaDaftarGudang } = await muatJalurGudangJadwal(id);
   const pengguna = await wajibMasuk();
   const hariIni = tanggalWib(new Date());
   const [pilihanToko, riwayat] = await Promise.all([
     pilihanTokoPengiriman(gudang.id, hariIni),
     riwayatPengirimanDiLuarJadwalGudang(gudang.id),
   ]);
-  return { gudang, jalur, pilihanToko, riwayat, idPengguna: pengguna.id, hariIni };
+  return { gudang, jalur, pilihanToko, riwayat, idPengguna: pengguna.id, hariIni, adaDaftarGudang };
 }
 
-/** Kerangka halaman satu gudang: tautan kembali ke daftar gudang, judul (`ID_JUDUL_HALAMAN_JADWAL`), lalu isi. */
-export function KerangkaHalamanJadwal({ judul, children }: { judul: string; children: ReactNode }) {
+/**
+ * Kerangka halaman satu gudang: tautan kembali ke daftar gudang (hanya bila `adaDaftarGudang`), judul
+ * (`ID_JUDUL_HALAMAN_JADWAL`), lalu isi.
+ */
+export function KerangkaHalamanJadwal({
+  judul,
+  adaDaftarGudang,
+  children,
+}: {
+  judul: string;
+  adaDaftarGudang: boolean;
+  children: ReactNode;
+}) {
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
-      <Link href={HREF_HALAMAN_JADWAL} className={kelasTautanKembali}>
-        <ArrowLeft aria-hidden strokeWidth={2} className="size-5" />
-        Daftar gudang
-      </Link>
+      {adaDaftarGudang ? (
+        <Link href={HREF_HALAMAN_JADWAL} className={kelasTautanKembali}>
+          <ArrowLeft aria-hidden strokeWidth={2} className="size-5" />
+          Daftar gudang
+        </Link>
+      ) : null}
       <h1 id={ID_JUDUL_HALAMAN_JADWAL} className="text-2xl font-bold md:text-3xl">
         {judul}
       </h1>

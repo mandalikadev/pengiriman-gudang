@@ -237,7 +237,10 @@ describe("kewenangan menghitung draft rencana (diperiksa di server)", () => {
 describe("draft rencana di halaman Pengiriman Gudang", () => {
   it("operator berhak membuat draft; halaman menampilkan kebutuhan, produk manual, dan kebutuhan tidak tersedia", async () => {
     await masukOperator(cibubur, ["hitung-kebutuhan"]);
-    expect(await buka(cibubur)).toMatch(/data-draft-rencana.*Hitung kebutuhan.*type="date".*Belum ada draft rencana di gudang ini\./);
+    // T118: tanpa ?tanggal halaman membuka tanggal kirim terdekat (Senin berikutnya) dan mengajak menghitungnya.
+    expect(await buka(cibubur)).toMatch(
+      /data-draft-rencana.*Hitung kebutuhan.*type="date".*Belum ada draft rencana untuk Senin, .*data-ajakan-hitung.*Hitung kebutuhan untuk Senin, /,
+    );
 
     await expect(hitungDraft({ idGudang: cibubur, tanggalKirim: TANGGAL_KIRIM })).resolves.toEqual({ keadaan: "berhasil" });
     expect(kepala.dimuatUlang).toEqual([`/pengiriman-gudang/${cibubur}`]);
@@ -302,7 +305,7 @@ describe("draft rencana di halaman Pengiriman Gudang", () => {
 
   it("admin melihat draft tersimpan hanya-baca, tanpa form hitung", async () => {
     kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
-    const html = await buka(cibubur, undefined, { toko: String(tokoContoh.id) });
+    const html = await buka(cibubur, TANGGAL_KIRIM, { toko: String(tokoContoh.id) });
     expect(html).toContain("data-hanya-baca");
     expect(html).toContain(`data-draft-tanggal="${TANGGAL_KIRIM}"`);
     expect(html).toContain(`data-kebutuhan="${golden.kasusCakupan.kebutuhan}"`);
@@ -532,7 +535,10 @@ describe("rincian perhitungan per baris draft (T60)", () => {
     expect(panel).toContain(`>Rincian perhitungan ${kode.contoh} · ${tokoContoh.nama}</h2>`);
     expect(panel).toMatch(/<button[^>]*>.*?Tutup<\/button>/);
     expect(panel).toContain(rincian);
-    expect(html.indexOf('role="dialog"')).toBeGreaterThan(html.lastIndexOf("</table>"));
+    // T118: tabel Jadwal toko kini sesudah Draft rencana, jadi yang dibandingkan adalah akhir tabel varian toko itu.
+    const akhirTabelVarian = html.indexOf("</table>", html.indexOf(`id="tabel-varian-${tokoContoh.id}"`));
+    expect(akhirTabelVarian).toBeGreaterThan(0);
+    expect(html.indexOf('role="dialog"')).toBeGreaterThan(akhirTabelVarian);
 
     // Tanggal cakupan Sabtu 06-06 sampai Minggu 14-06-2026 (sembilan hari) dengan kategori efektif dan sumbernya.
     const tanggalCakupan = [...rincian.matchAll(/<li[^>]*data-tanggal-cakupan="([^"]+)"[^>]*>(.*?)<\/li>/g)];

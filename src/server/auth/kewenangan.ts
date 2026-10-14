@@ -71,14 +71,16 @@ export async function wajibAksesPengirimanGudang(): Promise<{ pengguna: Pengguna
 /**
  * Seperti `wajibMasuk`, lalu menolak dengan `AksesDitolakError` jika pengguna tidak boleh melihat Pengiriman Gudang
  * `idGudang`: tidak punya penugasan di gudang itu dan bukan admin (PRD A3). Tindakan tetap lewat `wajibHakTindakan`.
+ * `daftarGudang` = semua gudang yang boleh dilihat pengguna (untuk `gudangLangsungMasuk`).
  */
 export async function wajibAksesLihatGudang(
   idGudang: number,
-): Promise<{ pengguna: PenggunaMasuk; gudang: GudangDapatDilihat }> {
+): Promise<{ pengguna: PenggunaMasuk; gudang: GudangDapatDilihat; daftarGudang: GudangDapatDilihat[] }> {
   const pengguna = await wajibMasuk();
-  const gudang = (await daftarGudangDapatDilihat(pengguna)).find((g) => g.id === idGudang);
+  const daftarGudang = await daftarGudangDapatDilihat(pengguna);
+  const gudang = daftarGudang.find((g) => g.id === idGudang);
   if (!gudang) throw new AksesDitolakError("Anda tidak punya akses ke gudang tersebut.");
-  return { pengguna, gudang };
+  return { pengguna, gudang, daftarGudang };
 }
 
 /**

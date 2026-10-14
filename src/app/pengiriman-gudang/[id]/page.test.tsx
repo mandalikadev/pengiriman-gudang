@@ -37,11 +37,15 @@ beforeEach(() => {
 const buka = async (id: number | string) =>
   renderToStaticMarkup(await HalamanPengirimanGudang({ params: Promise.resolve({ id: String(id) }) }));
 
-/** Isi halaman sebelum bagian Draft rencana (bagian terakhir halaman). */
+/**
+ * Isi halaman tanpa bagian Draft rencana: kepala sebelum Draft rencana, lalu Jadwal toko dan Periode sumber sesudahnya
+ * (T118, DESIGN §11.5).
+ */
 function sebelumBagianDraft(html: string) {
-  const posisi = html.indexOf("data-draft-rencana");
-  if (posisi === -1) throw new Error("Penanda bagian Draft rencana (data-draft-rencana) tidak ditemukan di halaman.");
-  return html.slice(0, posisi);
+  const awal = html.indexOf("data-draft-rencana");
+  const akhir = html.indexOf('aria-labelledby="jadwal-judul"');
+  if (awal === -1 || akhir < awal) throw new Error("Bagian Draft rencana atau Jadwal toko tidak ditemukan di halaman.");
+  return html.slice(0, awal) + html.slice(akhir);
 }
 
 const ditolak = (id: number | string) =>
@@ -56,7 +60,7 @@ describe("/pengiriman-gudang/[id]", () => {
     });
   });
 
-  it("operator tanpa hak tindakan di gudang X bisa membuka X (hanya-baca, daftar toko terhubung) dan ditolak di Y", async () => {
+  it("operator tanpa hak tindakan di gudang X bisa membuka X (hanya-baca, toko terhubung di tabel jadwal) dan ditolak di Y", async () => {
     const aktif = await buatTokoUji();
     const nonaktif = await buatTokoUji();
     await db.insert(hubunganTokoGudang).values([
@@ -75,8 +79,10 @@ describe("/pengiriman-gudang/[id]", () => {
     expect(html).toContain("Pengiriman Gudang — Gudang Jabodetabek");
     expect(html).toContain("data-hanya-baca");
     expect(html).toContain("Hanya-baca: Anda bisa melihat halaman ini, tetapi tidak punya hak tindakan di gudang ini.");
-    expect(html).toMatch(new RegExp(`data-id-toko="${aktif.id}".*?${aktif.nama}.*?data-status="aktif"`));
-    expect(html).toMatch(new RegExp(`data-id-toko="${nonaktif.id}".*?${nonaktif.nama}.*?Nonaktif`));
+    // T118: tabel "Toko terhubung" dihapus; status toko tampil di tabel Jadwal toko.
+    expect(html).toMatch(new RegExp(`data-jadwal-toko="${aktif.id}".*?${aktif.nama}.*?data-status-toko="aktif"[^>]*>.*?data-status="aktif"`));
+    expect(html).toMatch(new RegExp(`data-jadwal-toko="${nonaktif.id}".*?${nonaktif.nama}.*?data-status-toko="nonaktif"[^>]*>.*?Nonaktif`));
+    expect(html).not.toContain("Toko terhubung");
     expect(html).not.toContain(lain.nama);
     // Tanpa kontrol ubah.
     expect(html).not.toMatch(/<(button|input|select|form)\b/);

@@ -1,8 +1,7 @@
 import { and, asc, count, countDistinct, desc, eq, gte, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 
-import { tanggalKirimMenurutToko, tanggalKirimTokoBerikutnya } from "@/domain/jadwal";
-import { geserHari, parseTanggalBisnis, type TanggalBisnis } from "@/domain/kalender";
+import { parseTanggalBisnis, type TanggalBisnis } from "@/domain/kalender";
 import type { PenggunaMasuk } from "@/server/auth/kewenangan";
 import { db } from "@/server/db";
 import {
@@ -12,14 +11,13 @@ import {
   impor,
   penugasanOperator,
   produk,
-  rencanaFinal,
   snapshotLibur,
   pengirimanDiLuarJadwal,
   tokoDraftRencana,
   versiRanking,
 } from "@/server/db/schema";
 import { periksaHitungUlang } from "@/server/gudang/dasar-draft";
-import { jadwalKirimTokoGudang } from "@/server/gudang/pengiriman-di-luar-jadwal";
+import { tanggalKirimTerdekat, type TanggalKirimTerdekat } from "@/server/gudang/tanggal-kirim-terdekat";
 import { muatStatusCacheLaporan, type StatusCacheLaporan } from "@/server/laporan/cache";
 
 // Isi beranda (T79; DESIGN §9 ▶ Keputusan 2026-10-11): sapaan sesuai peran, kartu "Perlu tindakan", dan status data.
@@ -186,41 +184,8 @@ async function jumlahTokoBarisTertahan(idGudang: number, hariIni: TanggalBisnis)
   return baris?.jumlah ?? 0;
 }
 
-/**
- * Tanggal kirim terdekat gudang `idGudang` (hari ini atau sesudahnya) beserta toko aktif yang mengirim pada tanggal itu
- * dan belum punya rencana final untuk tanggal itu. `null` bila tidak ada toko aktif berjadwal. Toko nonaktif tidak
- * mengirim walaupun masih punya jadwal aktif (PRD A6 ▶ Keputusan 2026-10-10), jadi tidak ikut menentukan tanggalnya.
- */
-async function tokoBelumFinalTerdekat(
-  idGudang: number,
-  hariIni: TanggalBisnis,
-): Promise<{ tanggalKirim: TanggalBisnis; jumlah: number } | null> {
-  const berjadwal = (await jadwalKirimTokoGudang(idGudang)).flatMap(({ id, aktif, jadwal, diLuarJadwal }) =>
-    aktif && jadwal !== null ? [{ id, sumber: { jadwal, diLuarJadwal } }] : [],
-  );
-  // Tanggal kirim toko pertama tiap toko mulai hari ini (= sesudah kemarin) menurut domain, untuk semua pola termasuk
-  // 1× sebulan, termasuk pengiriman di luar jadwal yang berlaku (PRD A5 ▶ Revisi 2026-10-13, T114).
-  const kemarin = geserHari(hariIni, -1);
-  const tanggalKirim = berjadwal
-    .map((t) => tanggalKirimTokoBerikutnya(t.sumber, kemarin))
-    .reduce<TanggalBisnis | null>((terdekat, calon) => (terdekat === null || calon < terdekat ? calon : terdekat), null);
-  if (tanggalKirim === null) return null;
-  const mengirim = berjadwal.filter((t) => tanggalKirimMenurutToko(t.sumber, tanggalKirim).kirim).map((t) => t.id);
-  const sudahFinal = await db
-    .selectDistinct({ tokoId: rencanaFinal.tokoId })
-    .from(rencanaFinal)
-    .where(
-      and(
-        eq(rencanaFinal.gudangId, idGudang),
-        eq(rencanaFinal.tanggalKirim, tanggalKirim),
-        inArray(rencanaFinal.tokoId, mengirim),
-      ),
-    );
-  return { tanggalKirim, jumlah: mengirim.length - sudahFinal.length };
-}
-
 /** Gudang penugasan beserta tanggal kirim terdekatnya dan jumlah toko yang belum final untuk tanggal itu. */
-type GudangTerdekat = { gudang: GudangRingkas; belumFinal: { tanggalKirim: TanggalBisnis; jumlah: number } | null };
+type GudangTerdekat = { gudang: GudangRingkas; belumFinal: TanggalKirimTerdekat | null };
 
 /**
  * Kartu operator per gudang penugasan (urut gudang), dalam urutan issue T79, hanya yang jumlahnya > 0. Kartu toko belum
@@ -242,7 +207,7 @@ async function perluTindakanOperator(daftarGudang: readonly GudangTerdekat[], ha
       if (belumFinal !== null) {
         kartu.push({
           jenis: "toko-belum-final",
-          jumlah: belumFinal.jumlah,
+          jumlah: belumFinal.jumlahBelumFinal,
           href: `${href}?tanggal=${belumFinal.tanggalKirim}`,
           gudang: g,
           tanggalKirim: belumFinal.tanggalKirim,
@@ -300,7 +265,7 @@ async function langkahGudang({ gudang: g, belumFinal }: GudangTerdekat): Promise
     langkah: [
       { jenis: "hitung-kebutuhan", selesai: draft !== undefined, href },
       { jenis: "isi-stok", selesai: draft !== undefined && barisTertahan === 0, href },
-      { jenis: "finalisasi", selesai: belumFinal.jumlah === 0, href },
+      { jenis: "finalisasi", selesai: belumFinal.jumlahBelumFinal === 0, href },
     ],
   };
 }
@@ -332,7 +297,7 @@ export async function muatIsiBeranda(pengguna: PenggunaMasuk, hariIni: TanggalBi
   const daftarGudang = await gudangDitugaskan(pengguna.id);
   const peran: PeranTampil = pengguna.peran === "admin" ? "admin" : daftarGudang.length > 0 ? "operator" : "viewer";
   const gudangTerdekat = await Promise.all(
-    daftarGudang.map(async (g): Promise<GudangTerdekat> => ({ gudang: g, belumFinal: await tokoBelumFinalTerdekat(g.id, hariIni) })),
+    daftarGudang.map(async (g): Promise<GudangTerdekat> => ({ gudang: g, belumFinal: await tanggalKirimTerdekat(g.id, hariIni) })),
   );
   const [kartuAdmin, kartuOperator, daftarAdmin, daftarPerGudang, imporTerakhir, statusCache] = await Promise.all([
     peran === "admin" ? perluTindakanAdmin(bulanBerjalan) : Promise.resolve([]),

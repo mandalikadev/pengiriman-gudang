@@ -29,9 +29,11 @@ import HalamanDaftarPengirimanGudang from "./page";
 
 let nonaktif: { id: number; nama: string };
 let bali: number;
+let bandung: number;
 
 beforeAll(async () => {
   bali = await idGudangUji("Gudang Bali");
+  bandung = await idGudangUji("Gudang Bandung");
   nonaktif = await buatGudangUji();
 });
 
@@ -69,10 +71,18 @@ describe("operator yang ditugaskan ke gudang nonaktif", () => {
       digest: expect.stringContaining("404"),
     });
 
-    // Dengan penugasan lain di gudang aktif, daftar hanya berisi gudang aktif itu.
+    // Dengan penugasan lain di gudang aktif, gudang aktif itu satu-satunya gudang yang bisa dibuka: operator langsung
+    // diarahkan ke sana (T118), bukan ke gudang nonaktif.
     await tugaskanOperator({ idPengguna: operator.id, idGudang: bali, hakTindakan: [] });
+    await expect(HalamanDaftarPengirimanGudang()).rejects.toMatchObject({
+      digest: expect.stringContaining(`;/pengiriman-gudang/${bali};`),
+    });
+
+    // Dengan dua gudang aktif, daftar hanya berisi gudang aktif itu.
+    await tugaskanOperator({ idPengguna: operator.id, idGudang: bandung, hakTindakan: [] });
     const html = await daftar();
     expect(html).toContain(`href="/pengiriman-gudang/${bali}"`);
+    expect(html).toContain(`href="/pengiriman-gudang/${bandung}"`);
     expect(html).not.toContain(`href="/pengiriman-gudang/${nonaktif.id}"`);
     expect(html).not.toContain(nonaktif.nama);
   });

@@ -132,9 +132,15 @@ for (const jenis of ["usulan"] as const) {
       }
     });
 
-    it("tautan kembali ke daftar gudang", async () => {
+    // T118 (DESIGN §11.5): yang berhak di satu gudang langsung masuk, jadi tidak diberi tautan ke daftar gudang.
+    it("tautan kembali ke daftar gudang hanya bila berhak di lebih dari satu gudang", async () => {
       await tokoDi(bali);
-      await masukOperator([bali, ["kelola-usulan-jadwal"]]);
+      await masukOperator([bali, ["kelola-usulan-jadwal"]], [cibubur, ["input-stok"]]);
+      const satu = await bukaGudang(jenis, bali);
+      expect(judulHalaman(satu)).toBe("Usulkan pengiriman di luar jadwal — Gudang Bali");
+      expect(satu).not.toContain("Daftar gudang");
+
+      await masukOperator([bali, ["kelola-usulan-jadwal"]], [cibubur, ["kelola-usulan-jadwal"]]);
       expect(await bukaGudang(jenis, bali)).toMatch(new RegExp(`<a [^>]*href="${dasar}"[^>]*>.*?Daftar gudang</a>`));
     });
   });
