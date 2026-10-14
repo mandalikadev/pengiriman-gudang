@@ -1,0 +1,17 @@
+# Konteks build image produksi (T130): hanya kode sumber. Tanpa rahasia, data lokal, atau hasil build.
+.git
+.github
+.claude
+node_modules
+.next
+.env
+.env.*
+data-lokal
+test-results
+playwright-report
+coverage
+*.tsbuildinfo
+next-env.d.ts
+*.xlsx
+*.xls
+*.csv

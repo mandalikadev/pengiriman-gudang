@@ -1,0 +1,168 @@
+# Stack produksi Dashboard Penjualan MANDALIKA di VPS bersama (T130, docs/DEPLOY.md).
+# Dijalankan deploy/deploy.sh dari /opt/drp/repo:
+#   docker compose -f deploy/compose.prod.yml --env-file /opt/drp/.env up -d --build --remove-orphans
+#
+# - Tidak ada layanan yang memublikasikan port ke host. Lalu lintas masuk hanya lewat proxy bersama di /opt/proxy
+#   (deploy/proxy/), yang menjangkau `app` dan `minio` lewat network Docker eksternal `proxy` dengan alias `drp-app`
+#   dan `drp-minio` (lihat deploy/drp.caddy).
+# - Nama compose project `drp`, sehingga container, volume, dan network berawalan `drp` (drp-app-1, drp_postgres-data,
+#   drp_default, ...).
+# - `app` dan `worker` menjangkau storage lewat S3_ENDPOINT publik (https://drp.mandalika.web.id) karena presigned URL
+#   untuk browser ditandatangani dengan alamat itu. `extra_hosts` mengarahkan nama domain ke host (proxy bersama di
+#   port 443) agar tidak bergantung pada hairpin NAT penyedia VPS.
+name: drp
+
+x-lingkungan: &lingkungan
+  env_file:
+    - /opt/drp/.env
+  environment:
+    # Sandi PostgreSQL dibangkitkan bootstrap-vps.sh sebagai heksadesimal, jadi aman di dalam URL.
+    DATABASE_URL: postgres://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
+  extra_hosts:
+    - "drp.mandalika.web.id:host-gateway"
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:?}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - default
+
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    command: server /data
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:?}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:?}
+      # Konsol MinIO tidak dibuka.
+      MINIO_BROWSER: "off"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      default:
+      proxy:
+        aliases:
+          - drp-minio
+
+  # Sekali jalan setiap deploy: migrasi skema, admin pertama (idempoten), dan data master hanya pada instalasi
+  # pertama (deploy/migrasi.sh).
+  migrasi:
+    <<: *lingkungan
+    build:
+      context: ..
+      target: alat
+    image: drp-alat:terbaru
+    command: ["sh", "deploy/migrasi.sh"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - default
+
+  app:
+    <<: *lingkungan
+    build:
+      context: ..
+      target: app
+    image: drp-app:terbaru
+    restart: unless-stopped
+    depends_on:
+      migrasi:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/masuk').then((r) => process.exit(r.status === 200 ? 0 : 1), () => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      default:
+      proxy:
+        aliases:
+          - drp-app
+
+  worker:
+    <<: *lingkungan
+    build:
+      context: ..
+      target: alat
+    image: drp-alat:terbaru
+    restart: unless-stopped
+    depends_on:
+      migrasi:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+    networks:
+      - default
+
+  # Backup harian: pg_dump (gzip) ke /opt/drp/backup/drp-<tanggal>.sql.gz, menyimpan 14 hari terakhir.
+  # Pertama kali saat container menyala, lalu setiap 24 jam. Dump hari yang sama ditimpa.
+  backup:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:?}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?}
+      PGDATABASE: ${POSTGRES_DB:?}
+    volumes:
+      - /opt/drp/backup:/backup
+    # Image postgres mendeklarasikan volume data; container backup tidak memakainya, jadi cukup tmpfs (tanpa volume
+    # anonim yang tidak berawalan drp).
+    tmpfs:
+      - /var/lib/postgresql/data
+    entrypoint: ["bash", "-c"]
+    command:
+      - |
+        set -uo pipefail
+        while true; do
+          berkas="/backup/drp-$$(date +%F).sql.gz"
+          if pg_dump --no-owner | gzip > "$$berkas.tmp"; then
+            mv "$$berkas.tmp" "$$berkas"
+            echo "Backup tersimpan: $$berkas"
+          else
+            rm -f "$$berkas.tmp"
+            echo "Backup gagal." >&2
+          fi
+          find /backup -maxdepth 1 -name 'drp-*.sql.gz' -mtime +13 -delete
+          sleep 86400
+        done
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - default
+
+volumes:
+  postgres-data:
+  minio-data:
+
+networks:
+  default:
+  proxy:
+    external: true

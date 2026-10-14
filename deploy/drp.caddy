@@ -1,0 +1,17 @@
+# Situs Dashboard Penjualan MANDALIKA di proxy bersama (T130). deploy.sh menyalinnya ke /opt/proxy/sites/drp.caddy
+# lalu menjalankan `caddy reload`. Sertifikat Let's Encrypt diurus Caddy otomatis.
+# - /mandalika/* (bucket S3_BUCKET) diteruskan ke MinIO stack ini dengan header Host asli, sehingga presigned URL
+#   yang ditandatangani untuk https://drp.mandalika.web.id tetap sah (path-style). Nama bucket di sini harus sama
+#   dengan S3_BUCKET di /opt/drp/.env; deploy.sh menolak deploy jika berbeda.
+# - Selain itu diteruskan ke aplikasi Next.js. Konsol MinIO tidak dibuka.
+drp.mandalika.web.id {
+	@storage path /mandalika /mandalika/*
+	handle @storage {
+		# Caddy meneruskan header Host asli secara bawaan.
+		reverse_proxy drp-minio:9000
+	}
+
+	handle {
+		reverse_proxy drp-app:3000
+	}
+}

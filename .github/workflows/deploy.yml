@@ -1,0 +1,52 @@
+# Deploy otomatis ke VPS drp.mandalika.web.id (T130, docs/DEPLOY.md).
+# Berjalan setelah workflow CI selesai HIJAU untuk push ke main (bukan PR, bukan CI merah), atau manual lewat
+# "Run workflow" dari main. Hanya satu deploy berjalan sekaligus; deploy yang sedang berjalan tidak dibatalkan.
+# Secrets: VPS_HOST, VPS_USER, VPS_SSH_KEY (private key deploy). Tanpa action pihak ketiga: hanya ssh bawaan runner.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-produksi
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Siapkan kunci SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/kunci_deploy
+          chmod 600 ~/.ssh/kunci_deploy
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2> /dev/null
+      - name: Deploy commit ke VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          ssh -i ~/.ssh/kunci_deploy -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" "bash /opt/drp/repo/deploy/deploy.sh $SHA"
+      - name: Hapus kunci SSH
+        if: always()
+        run: rm -f ~/.ssh/kunci_deploy

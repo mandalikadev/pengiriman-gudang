@@ -10,6 +10,7 @@ node_modules/
 .env.*
 !.env.example
 !.env.ci
+!deploy/.env.produksi.example
 coverage/
 playwright-report/
 test-results/

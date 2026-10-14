@@ -1,0 +1,3 @@
+# Caddyfile utama proxy bersama (T130). Isinya hanya memuat berkas situs setiap aplikasi; jangan menambah situs di
+# sini. Contoh: /opt/proxy/sites/drp.caddy (dari deploy/drp.caddy), /opt/proxy/sites/hris.caddy.
+import /etc/caddy/sites/*.caddy

@@ -1,0 +1,32 @@
+# Proxy HTTPS bersama untuk semua aplikasi di VPS (T130, docs/DEPLOY.md). Dipasang sekali oleh bootstrap-vps.sh ke
+# /opt/proxy dan tidak diubah atau di-restart oleh deploy aplikasi mana pun.
+# - Satu-satunya pemegang port 80/443 di VPS.
+# - Setiap aplikasi menaruh satu berkas situs di /opt/proxy/sites/<nama>.caddy, menyambungkan layanannya ke network
+#   Docker eksternal `proxy` dengan alias unik, lalu menjalankan:
+#     docker compose -f /opt/proxy/compose.yml exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+# - Sertifikat Let's Encrypt disimpan di volume `caddy-data`.
+name: proxy
+
+services:
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./sites:/etc/caddy/sites:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - proxy
+
+volumes:
+  caddy-data:
+  caddy-config:
+
+networks:
+  proxy:
+    external: true
