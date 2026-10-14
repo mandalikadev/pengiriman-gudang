@@ -138,6 +138,8 @@ Hanya mode terang (ADR-0010).
 >   - Langkah admin (4) "Mulai di sini" menjadi "Setujui pengiriman di luar jadwal".
 > - Urutan item di dalam kelompok sesuai urutan di atas. Kelompok tanpa item yang boleh dibuka tidak ditampilkan. Viewer melihat Beranda dan Laporan saja.
 
+> ▶ Keputusan (2026-10-14, pemilik): item **"Riwayat"** (`/riwayat`, PRD A7 ▶ Keputusan 2026-10-14) adalah item tunggal tanpa kelompok, tepat di bawah Beranda, seperti Beranda. Item ini terlihat oleh semua pengguna yang sudah masuk, termasuk viewer. Viewer melihat Beranda, Riwayat, dan Laporan. Halaman Riwayat termasuk zona kerja (§1) dan memakai pola §11: tab, tabel panjang, filter dengan Terapkan, serta cari dan halaman 50 baris.
+
 > ▶ Revisi (2026-10-13 sore, pemilik, audit UI/UX): ukuran tombol `default` menjadi h-11 (44 px, sesuai §9); `sm` h-9 hanya di dalam tabel dan baris filter. Komponen baru: **Panel samping** dan **Dialog** (§11.2), serta **Dialog konfirmasi** (§11.3), dibangun dari Radix Dialog/AlertDialog lewat paket `radix-ui` yang sudah dipakai.
 
 Ikon: lucide-react, stroke 2. Ukuran 20 px di zona kerja dan 28 px di zona suasana. Ikon fitur diletakkan dalam wadah `rounded-2xl bg-primary/10`.

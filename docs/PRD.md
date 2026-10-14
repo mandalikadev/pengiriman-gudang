@@ -254,6 +254,8 @@ Pembuatan, perubahan, dan penonaktifan jadwal empat gudang selain Pusat memerluk
 >   - **Tabel jadwal di halaman Pengiriman Gudang**: jadwal tetap setiap toko ditambah pengiriman di luar jadwal yang akan datang.
 >   - **Draft, rencana final, riwayat rencana final, dan ekspor**: toko yang dikirim di luar jadwal diberi penanda "Di luar jadwal · Tambahan" atau "Di luar jadwal · Pindahan dari <hari, tanggal>", beserta alasan dan penyetujunya. Rencana final menyimpan keterangan ini di snapshot. Ekspor menambah baris keterangan "Jenis pengiriman".
 > - Label hak `kelola-usulan-jadwal` di halaman Penugasan menjadi "Usulkan pengiriman di luar jadwal". Kode hak tidak berubah.
+>
+> ▶ Revisi (2026-10-14, pemilik): daftar "Riwayat pengiriman di luar jadwal" pindah dari halaman usulan operator ke halaman **Riwayat**, tab "Di luar jadwal" (A7 ▶ Keputusan 2026-10-14). Halaman usulan operator menyisakan daftar "Perlu tindakan" (usulan Menunggu dengan Tarik; di Pusat, pengiriman berlaku yang masih bisa dibatalkan).
 
 
 Jika jadwal atau dasar perhitungan berubah, draft terkait harus dihitung ulang. Input stok tetap dipertahankan. Rencana yang sudah final tidak berubah mengikuti aturan baru.
@@ -398,6 +400,30 @@ Saya ingin alur akhirnya terasa sederhana: data penjualan yang valid menghasilka
 >   - Jika gagal, tampil pesan yang jelas dan tindakan tidak diulang otomatis.
 >   - Jika hasilnya belum pasti (misalnya koneksi terputus), pesan menyarankan memeriksa folder sebelum mencoba lagi.
 > - Tombol hanya tampil jika koneksi Google sudah diatur di server (akun layanan dan folder tujuan).
+
+> ▶ Keputusan (2026-10-14, pemilik): **halaman Riwayat**. Semua catatan pengiriman yang sudah terjadi dikumpulkan di satu halaman, terpisah dari halaman kerja.
+> - **Letak:** halaman `/riwayat`, dengan item sidebar sendiri bernama **"Riwayat"** (DESIGN §6 ▶ Keputusan 2026-10-14).
+> - **Isi:** dua tab.
+>   - **"Rencana final"**: riwayat rencana final. Isi baris, kolom, label versi, dan penanda di luar jadwal sama seperti riwayat rencana final sebelumnya.
+>   - **"Di luar jadwal"**: riwayat pengiriman di luar jadwal dengan semua status, terbaru di atas. Isiannya sama dengan catatan aktivitas di A5. Tab ini hanya-baca.
+> - **Yang dipindah:**
+>   - Halaman riwayat rencana final (`/pengiriman-gudang/<id>/rencana-final`) dan rinciannya pindah ke Riwayat. Alamat lama dialihkan otomatis ke tempat barunya.
+>   - Tautan "Riwayat rencana final" di halaman Pengiriman Gudang dihapus.
+>   - Daftar "Riwayat pengiriman di luar jadwal" di halaman Kirim di luar jadwal diganti daftar **"Perlu tindakan"**. Daftar ini hanya berisi entri yang masih bisa ditindak di sana:
+>     - usulan berstatus Menunggu, dengan tombol Tarik untuk pengusulnya;
+>     - di Pusat, pengiriman berlaku yang masih bisa dibatalkan, dengan tombol Batalkan.
+>   - Tombol Tarik dan Batalkan tetap di halaman kerja, bukan di Riwayat.
+> - **Siapa melihat:** semua pengguna yang sudah masuk (admin, operator, viewer) melihat riwayat **semua gudang**, termasuk gudang nonaktif (diberi penanda). Riwayat diperlakukan sebagai laporan, seperti Ringkasan (OD-07). Pengecualian ini hanya untuk melihat riwayat dan tidak memberi akses ke halaman kerja gudang.
+> - **Filter:** gudang, toko, dan rentang tanggal kirim (dari–sampai, boleh kosong = semua). Seperti Ringkasan, hasil baru berubah setelah Terapkan. Cari dan halaman 50 baris tetap berlaku (DESIGN §11.1).
+> - **Ekspor Excel (`.xlsx`) dari Riwayat:**
+>   - Tombol "Ekspor .xlsx" mengekspor tab yang sedang dibuka, untuk **seluruh hasil filter** (bukan hanya halaman tabel yang dibuka). Satu file, satu sheet.
+>   - **Admin** boleh mengekspor riwayat semua gudang tanpa penugasan, karena ekspor ini hanya membaca catatan.
+>   - **Operator** hanya mengekspor baris dari gudang tempat ia punya hak tindakan `ekspor`. Jika hasil filter mencakup gudang tanpa hak itu, baris gudang tersebut tidak ikut, dan halaman menyebutnya sebelum ekspor.
+>   - **Viewer** tidak mengekspor.
+>   - Tab Rencana final: **satu baris per produk per rencana final**, termasuk versi yang sudah digantikan. Kolom: Gudang, Tanggal kirim, Toko, Versi, Berlaku ("Ya", atau "Digantikan oleh versi n"), Jenis pengiriman, Difinalisasi oleh, Waktu finalisasi, lalu kolom tabel produk ekspor rencana final (Kode produk, Nama produk, Kebutuhan barang, Stok akhir, Buffer (%), Jumlah kirim, Status). Angka diambil dari snapshot masing-masing rencana final.
+>   - Tab Di luar jadwal: **satu baris per pengiriman di luar jadwal**. Kolom mengikuti catatan aktivitas A5: Gudang, Jenis, Toko, Tanggal kirim, Persiapan, Tanggal rutin yang dipindah, Alasan, Status, Pengusul, Waktu usul, Penyetuju/penolak, Waktu keputusan, Alasan penolakan, Ditarik/dibatalkan oleh, Waktu penarikan/pembatalan, Alasan penarikan/pembatalan.
+>   - Di atas tabel ada baris keterangan: jenis riwayat, filter yang diterapkan, waktu ekspor, dan arti tanda tidak tersedia.
+> - Ekspor satu rencana final (`.xlsx` dan Google Sheets, aturan hak di atas) tetap seperti sebelumnya dan tersedia dari rincian rencana final di Riwayat.
 
 ---
 

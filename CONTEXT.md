@@ -198,3 +198,7 @@ _Avoid_: kirim, terima
 
 **Rencana final**:
 Rencana yang sudah difinalisasi. Tidak berubah oleh perubahan data berikutnya.
+
+**Riwayat**:
+Halaman catatan pengiriman yang sudah terjadi: rencana final (semua versi) dan pengiriman di luar jadwal (semua status), untuk semua gudang. Hanya untuk dibaca dan diekspor; tindakan tetap di halaman kerja.
+_Avoid_: arsip, log
