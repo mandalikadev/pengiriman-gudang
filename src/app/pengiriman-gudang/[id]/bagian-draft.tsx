@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { formatAngka, formatWaktu } from "@/app/admin/impor/format";
 import { BadgeStatus } from "@/components/badge-status";
+import { BantuanIstilah } from "@/components/bantuan-istilah";
 import { DialogUrl } from "@/components/dialog-url";
 import { KeadaanKosong } from "@/components/keadaan-kosong";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
@@ -18,7 +19,6 @@ import type {
   StokTidakDipakai,
   TokoDraft,
 } from "@/server/gudang/draft-rencana";
-import { labelPersiapan, persiapanDariHari } from "@/server/gudang/pilihan-jadwal";
 import { MASALAH_TANPA_VARIAN } from "@/server/gudang/masalah-draft";
 
 import { DaftarMasalah } from "./daftar-masalah";
@@ -30,6 +30,7 @@ import { FormStokToko, InputStok } from "./form-stok-toko";
 import { PenandaDiLuarJadwal } from "./penanda-di-luar-jadwal";
 import { RincianBaris } from "./rincian-baris";
 import { IkonStokKosong } from "./stok-kosong";
+import { TeksCakupan } from "./teks-cakupan";
 
 /** Stok akhir tersimpan di baris ringkas draft (pengguna tanpa hak `input-stok`): kosong tampil "—" + ikon (DESIGN §11.4). */
 function SelStokRingkas({ stokAkhir }: { stokAkhir: number | null }) {
@@ -169,7 +170,12 @@ function TabelVarian({ toko, inputStok, rincian }: { toko: TokoDraft; inputStok:
           <TableRow>
             <TableHead>Kode produk</TableHead>
             <TableHead>Nama produk</TableHead>
-            <TableHead>Klasifikasi</TableHead>
+            <TableHead>
+              <span className="inline-flex items-center gap-1">
+                Klasifikasi
+                <BantuanIstilah istilah="klasifikasiProduk" />
+              </span>
+            </TableHead>
             <TableHead angka>Kebutuhan barang</TableHead>
             <TableHead angka>Stok akhir</TableHead>
             <TableHead angka>Jumlah kirim</TableHead>
@@ -342,7 +348,7 @@ function TabelToko({
           </div>
         </div>
         <p className="text-muted-foreground">
-          Persiapan {labelPersiapan[persiapanDariHari[toko.persiapanHari]]} · Panjang cakupan {toko.panjangCakupan} hari
+          <TeksCakupan persiapanHari={toko.persiapanHari} panjangCakupan={toko.panjangCakupan} />
         </p>
         <PenandaDiLuarJadwal keterangan={toko.diLuarJadwal} />
         <PeringatanKirimanSebelumnya tanggal={toko.kirimanSebelumnyaBelumSampai} />
@@ -387,11 +393,11 @@ function PenandaHitungUlang({ alasan, hitungUlang }: { alasan: readonly AlasanHi
   return (
     <div data-perlu-dihitung-ulang className="flex flex-col gap-3">
       <BadgeStatus status="perluDihitungUlang" className="w-fit" />
+      {/* DESIGN §11.6: paling banyak dua kalimat; keterangan stok yang tetap disimpan ada di bantuan istilah. */}
       <p>
         Dasar perhitungan berubah sejak draft ini dihitung. Toko yang terkena perubahan ini tidak bisa difinalisasi sebelum
         draft dihitung ulang.
-        Stok akhir yang sudah diisi tetap disimpan. Stok untuk toko atau varian yang tidak ada lagi di draft ditampilkan
-        sebagai keterangan dan dipakai kembali jika toko atau varian itu muncul lagi.
+        <BantuanIstilah istilah="perluDihitungUlang" className="ml-1" />
       </p>
       <div className="flex flex-col gap-1">
         <span className="font-semibold">Yang berubah:</span>
@@ -522,7 +528,7 @@ function TabelRingkasanToko({
                   data-tautan-buka-toko={t.id}
                   className={dibuka ? kelasTautanBarisTerpilih : kelasTautan}
                 >
-                  {dibuka ? "Tutup" : "Buka"}
+                  {dibuka ? "Tutup" : "Buka toko"}
                   <span className="sr-only"> {t.nama}</span>
                 </Link>
               </TableCell>
@@ -674,9 +680,8 @@ export function BagianDraft({
           Draft rencana
         </h2>
         <CardDescription>
-          Toko yang mengirim pada tanggal kirim menurut jadwal aktifnya, beserta kebutuhan barang setiap varian dari
-          rata-rata periode sumber, stok akhir, jumlah kirim, dan masalah yang menahan finalisasi. Buka rincian baris
-          untuk melihat asal perhitungannya, termasuk buffer dari ranking pusat.
+          Kebutuhan barang, stok akhir, dan jumlah kirim setiap varian untuk toko yang mengirim pada tanggal kirim. Lihat
+          rincian baris untuk asal perhitungannya, termasuk buffer dari ranking pusat.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">

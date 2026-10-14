@@ -4,6 +4,7 @@ import { CircleCheck, CircleMinus, CircleX, TriangleAlert } from "lucide-react";
 import { useState, useTransition } from "react";
 
 import { formatAngka } from "@/app/admin/impor/format";
+import { BantuanIstilah } from "@/components/bantuan-istilah";
 import { PesanStatusSimpan } from "@/components/pesan-status-simpan";
 import { Button } from "@/components/ui/button";
 
@@ -138,10 +139,11 @@ export function UnggahStok({
           <PesanStatusSimpan keadaan="gagal" pesan={hasil.pesan} />
         ) : null}
       </div>
+      {/* DESIGN §11.6: paling banyak dua kalimat; format file stok ada di bantuan istilah. */}
       <p className="text-muted-foreground">
-        Ekspor stok akhir kasir untuk toko ini: CSV berpemisah titik koma (;) atau Excel (.xlsx, sheet pertama), maksimal 1 MB,
-        dengan judul kolom <span className="font-semibold">Name - Variant</span> dan <span className="font-semibold">Ending</span>.
-        Hasilnya mengisi stok di bawah sebagai perubahan yang belum disimpan; periksa, lalu tekan Simpan stok.
+        Pilih file stok kasir untuk toko ini; hasilnya mengisi stok di bawah sebagai perubahan yang belum disimpan. Periksa,
+        lalu tekan Simpan stok.
+        <BantuanIstilah istilah="fileStok" className="-my-1 ml-1" />
       </p>
       {hasil?.keadaan === "berhasil" ? <RingkasanUnggahStok hasil={hasil} /> : null}
     </div>

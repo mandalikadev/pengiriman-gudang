@@ -113,7 +113,7 @@ export default async function HalamanPengirimanGudang({
           </Link>
         </div>
         {gudang.hakTindakan.length === 0 ? (
-          <KeteranganHanyaBaca>
+          <KeteranganHanyaBaca bantuan>
             Hanya-baca: Anda bisa melihat halaman ini, tetapi tidak punya hak tindakan di gudang ini.
           </KeteranganHanyaBaca>
         ) : null}

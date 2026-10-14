@@ -4,13 +4,14 @@ import { notFound } from "next/navigation";
 
 import { StatusCacheLaporan } from "@/components/status-cache-laporan";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { WaktuSingkat } from "@/components/waktu-singkat";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
 import { jumlahImporSiapDiaktifkan } from "@/server/impor/impor";
 import { muatDaftarImpor } from "@/server/impor/tinjau";
 import { muatStatusCacheLaporan } from "@/server/laporan/cache";
 
 import { AlurUnggahImpor } from "./alur-unggah-impor";
-import { formatBulanImpor, formatWaktu } from "./format";
+import { formatBulanImpor } from "./format";
 import { BadgeStatusImpor } from "./status-impor";
 
 export const metadata: Metadata = {
@@ -59,7 +60,7 @@ export default async function HalamanImpor() {
                 <BadgeStatusImpor status={i.status} />
               </TableCell>
               <TableCell className="whitespace-normal">
-                {formatWaktu(i.diunggahPada)}
+                <WaktuSingkat waktu={i.diunggahPada} />
                 <span className="block text-muted-foreground">oleh {i.diunggahOleh}</span>
               </TableCell>
               <TableCell>
@@ -67,7 +68,7 @@ export default async function HalamanImpor() {
                   href={`/admin/impor/${i.id}`}
                   className="inline-flex min-h-11 items-center rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                  Tinjau<span className="sr-only"> impor {i.namaSheet} ({i.namaFile})</span>
+                  Tinjau impor<span className="sr-only"> {i.namaSheet} ({i.namaFile})</span>
                 </Link>
               </TableCell>
             </TableRow>

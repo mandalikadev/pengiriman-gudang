@@ -59,6 +59,8 @@ describe("/admin/libur", () => {
     expect(html).toContain("Uji admin");
     // Setiap snapshot bisa dibuka untuk ditinjau (T41).
     expect(html).toContain(`href="/admin/libur/${aktif.id}"`);
+    // T121 (DESIGN §11.6): label tautan menyebut tindakannya.
+    expect(html).toMatch(new RegExp(`<a[^>]*href="/admin/libur/${aktif.id}"[^>]*>Tinjau libur<span class="sr-only">`));
 
     // Kegagalan terakhir tampil beserta pesannya; snapshot aktif tetap.
     expect(html).toContain("Kegagalan sinkronisasi terakhir");

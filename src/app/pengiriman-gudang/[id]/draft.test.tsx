@@ -18,6 +18,7 @@ import { kodeProdukUji, tahunUjiBebas } from "@/server/impor/uji-bantu";
 import { hitungUlangCacheLaporan } from "@/server/laporan/cache";
 import { aktifkanImporJuniUji, kuantitasJuniMenurutHari } from "@/server/laporan/uji-bantu";
 import { buatKeluargaUji, publikasikanRankingUji } from "@/server/ranking/uji-bantu";
+import { tanpaBantuanIstilah } from "@/components/uji-bantu-bantuan-istilah";
 
 const kepala = vi.hoisted(() => ({ cookie: "", dimuatUlang: [] as string[] }));
 vi.mock("next/headers", () => ({
@@ -250,7 +251,9 @@ describe("draft rencana di halaman Pengiriman Gudang", () => {
     expect(html).toContain('data-status="draft"');
     expect(html).toContain("Tanggal kirim Senin, 08-06-2026");
     expect(html).toContain("Dihitung oleh <span class=\"font-semibold text-foreground\">Uji viewer</span>");
-    expect(html).toMatch(new RegExp(`data-draft-toko="${tokoContoh.id}".*?Persiapan H−2 · Panjang cakupan 7 hari`));
+    expect(html).toMatch(
+      new RegExp(`data-draft-toko="${tokoContoh.id}".*?data-teks-cakupan="Cakupan 9 hari: persiapan 2 hari \\+ 7 hari sampai sebelum kiriman berikutnya"`),
+    );
     expect(html).toMatch(new RegExp(`data-kode-produk="${kode.contoh}".*?Otomatis.*?data-kebutuhan="${golden.kasusCakupan.kebutuhan}">${golden.kasusCakupan.kebutuhan}<`));
     expect(html).toMatch(new RegExp(`data-kode-produk="${kode.manual}".*?data-status="manual".*?Manual`));
     expect(htmlTanpaMinggu).toMatch(
@@ -279,7 +282,7 @@ describe("draft rencana di halaman Pengiriman Gudang", () => {
     // tertahan (PRD A7 ▶ Keputusan 2026-10-11, T62; ikon + teks, DESIGN §7).
     const tanpaVarian =
       new RegExp(`<section[^>]*data-draft-toko="${tokoTanpaVarian.id}".*?</section>`).exec(await bukaToko(tokoTanpaVarian.id))?.[0] ?? "";
-    expect(tanpaVarian).toMatch(/Persiapan H−2 · Panjang cakupan 7 hari.*?data-tanpa-varian[^>]*>.*?lucide-triangle-alert.*?Tidak ada varian dari periode sumber untuk toko ini</);
+    expect(tanpaVarian).toMatch(/data-teks-cakupan="Cakupan 9 hari: persiapan 2 hari \+ 7 hari sampai sebelum kiriman berikutnya".*?data-tanpa-varian[^>]*>.*?lucide-triangle-alert.*?Tidak ada varian dari periode sumber untuk toko ini</);
     expect(tanpaVarian).not.toContain("data-jumlah-tertahan");
     // Toko nonaktif tidak ikut masuk draft walaupun masih punya jadwal aktif (PRD A6 ▶ T58).
     expect(html).not.toContain(`data-ringkasan-toko="${tokoNonaktif.id}"`);
@@ -311,7 +314,8 @@ describe("draft rencana di halaman Pengiriman Gudang", () => {
     expect(html).toContain(`data-kebutuhan="${golden.kasusCakupan.kebutuhan}"`);
     expect(html).not.toMatch(/<(select|form)\b/);
     // T117: kontrol yang ada hanya filter tampilan tabel varian (pilihan filter dan cari), bukan tindakan yang mengubah data.
-    expect([...html.matchAll(/<button\b[^>]*>/g)].every(([tag]) => tag.includes("data-filter-varian"))).toBe(true);
+    // Bantuan istilah (T121) hanya membuka penjelasan.
+    expect([...tanpaBantuanIstilah(html).matchAll(/<button\b[^>]*>/g)].every(([tag]) => tag.includes("data-filter-varian"))).toBe(true);
     expect([...html.matchAll(/<input\b[^>]*>/g)].map(([tag]) => /type="search"/.test(tag))).toEqual([true]);
   });
 
@@ -354,6 +358,8 @@ describe("ringkasan per toko; rincian dibuka per toko (T73)", () => {
       new RegExp(`${tokoContoh.nama}.*?data-jumlah-baris="4"[^>]*>4<.*?data-jumlah-tertahan="3"[^>]*>.*?lucide-triangle-alert.*?3 baris tertahan<`),
     );
     expect(contoh).toMatch(/data-status="draft".*?Draft/);
+    // T121 (DESIGN §11.6): label tautan "Buka toko", bukan "Buka" saja.
+    expect(contoh).toMatch(new RegExp(`<a[^>]*data-tautan-buka-toko="${tokoContoh.id}"[^>]*>Buka toko<span class="sr-only"> ${tokoContoh.nama}</span></a>`));
     expect(contoh).not.toContain('data-status="final"');
     expect(contoh).toMatch(/data-status="perluDihitungUlang".*?Perlu dihitung ulang/);
     const tanpaMinggu = ringkasan(html, tokoTanpaMinggu.id);
@@ -627,11 +633,13 @@ describe("draft perlu dihitung ulang (T61)", () => {
     expect(penanda(html)).toMatch(/data-status="perluDihitungUlang".*?lucide-triangle-alert.*?Perlu dihitung ulang/);
     expect(penanda(html)).toMatch(/data-alasan-hitung-ulang="jadwal"[^>]*>Jadwal toko</);
     expect(penanda(html)).not.toContain('data-alasan-hitung-ulang="ranking"');
+    // T121 (DESIGN §11.6): paragraf paling banyak dua kalimat; keterangan stok yang tetap disimpan di bantuan istilah.
     expect(penanda(html)).toContain(
-      "Stok akhir yang sudah diisi tetap disimpan. Stok untuk toko atau varian yang tidak ada lagi di draft ditampilkan sebagai keterangan dan dipakai kembali jika toko atau varian itu muncul lagi.",
+      "Dasar perhitungan berubah sejak draft ini dihitung. Toko yang terkena perubahan ini tidak bisa difinalisasi sebelum draft dihitung ulang.",
     );
+    expect(penanda(html)).toContain('data-bantuan-istilah="perluDihitungUlang"');
     expect(html).not.toContain("Hitung ulang</button>");
-    expect(html).not.toMatch(/<(button|input|select|form)\b/);
+    expect(tanpaBantuanIstilah(html)).not.toMatch(/<(button|input|select|form)\b/);
   });
 
   it("operator dengan hak hitung-kebutuhan melihat tombol Hitung ulang; tanpa hak itu tidak", async () => {

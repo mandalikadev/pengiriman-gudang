@@ -143,8 +143,8 @@ function TandaTidakTersedia({ terpilih, labelTerlihat = false }: { terpilih: boo
 }
 
 /**
- * Rata-rata Ringkasan satu kategori: nilai, penanda parsial, dan jumlah ÷ pembaginya (DESIGN §7, §8). Nilainya
- * tautan ke rincian penelusuran angka (T37).
+ * Rata-rata Ringkasan satu kategori: angka dan penanda parsial saja (DESIGN §7, §11.6). Jumlah ÷ pembaginya tampil di
+ * panel rincian penelusuran angka (T37, DESIGN §8), yang dibuka dari angka ini.
  */
 function SelRataRata({
   kategori,
@@ -185,9 +185,6 @@ function SelRataRata({
           {formatAngka(nilai.rataRataRingkasan)}
           <span className="sr-only">: rincian {tautanRincian.label}</span>
         </Link>
-        <span className={`text-xs ${kelasTeksSekunder(terpilih)}`}>
-          Σ {formatAngka(nilai.jumlahRataRataBulanan)} ÷ {nilai.pembagiBulan} bulan
-        </span>
         {nilai.kelengkapan === "parsial" ? <BadgeStatus status="parsial" /> : null}
       </div>
     </TableCell>

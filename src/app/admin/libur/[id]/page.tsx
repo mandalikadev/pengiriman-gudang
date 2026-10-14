@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { formatAngka, formatWaktu } from "@/app/admin/impor/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { WaktuSingkat } from "@/components/waktu-singkat";
 import { formatTanggal, parseTanggalBisnis } from "@/domain/kalender";
 import type { JenisLibur, PerubahanLibur } from "@/domain/libur";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
@@ -144,7 +145,9 @@ function Riwayat({ riwayat }: { riwayat: DataTinjauSnapshotLibur["riwayat"] }) {
             {riwayat.map((r, i) => (
               <TableRow key={i} data-kejadian={r.jenis}>
                 <TableCell className="font-semibold">{labelKejadian[r.jenis]}</TableCell>
-                <TableCell>{formatWaktu(r.terjadiPada)}</TableCell>
+                <TableCell>
+                  <WaktuSingkat waktu={r.terjadiPada} />
+                </TableCell>
                 <TableCell>{r.pelaku}</TableCell>
               </TableRow>
             ))}

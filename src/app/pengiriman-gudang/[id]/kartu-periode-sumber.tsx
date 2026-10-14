@@ -1,6 +1,7 @@
 import { CalendarRange, TriangleAlert } from "lucide-react";
 
 import { formatBulanLaporan, formatWaktu } from "@/app/admin/impor/format";
+import { BantuanIstilah } from "@/components/bantuan-istilah";
 import { Badge } from "@/components/ui/badge";
 import type { PeriodeSumberPerhitungan } from "@/server/gudang/periode-sumber";
 
@@ -28,6 +29,7 @@ export function RingkasanPeriodeSumber({ periode }: { periode: PeriodeSumberPerh
           <span className="font-semibold">
             {periode.bulanDipakai.length > 0 ? periode.bulanDipakai.map(formatBulanLaporan).join(", ") : "—"}
           </span>
+          <BantuanIstilah istilah="periodeSumber" className="-my-1 ml-1" />
         </span>
       </p>
       {periode.bulanHilang.length > 0 ? (

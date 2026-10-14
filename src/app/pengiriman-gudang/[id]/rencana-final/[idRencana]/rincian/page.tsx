@@ -6,16 +6,19 @@ import type { ReactNode } from "react";
 import { formatAngka, formatBulanImpor, formatBulanLaporan, formatWaktu } from "@/app/admin/impor/format";
 import { TombolEkspor } from "@/app/ringkasan/tombol-ekspor";
 import { BadgeStatus } from "@/components/badge-status";
+import { BantuanIstilah } from "@/components/bantuan-istilah";
+import { DetailTeknis } from "@/components/detail-teknis";
 import { DialogUrl } from "@/components/dialog-url";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, parseTanggalBisnis } from "@/domain/kalender";
-import { labelHariKirim, labelPersiapan, labelPola, persiapanDariHari } from "@/server/gudang/pilihan-jadwal";
+import { labelHariKirim, labelPola } from "@/server/gudang/pilihan-jadwal";
 import { bacaRincianRencanaFinal, type RincianRencanaFinal } from "@/server/gudang/rencana-final";
 
 import { SelKebutuhan, SelStok } from "../../../bagian-draft";
 import { PenandaDiLuarJadwal } from "../../../penanda-di-luar-jadwal";
 import { labelSumberKategori, RincianBaris } from "../../../rincian-baris";
+import { TeksCakupan } from "../../../teks-cakupan";
 import { labelStatusBarisRencanaFinal } from "../../label-status-baris";
 import { muatRencanaFinal } from "../../muat";
 
@@ -59,7 +62,10 @@ function DasarPerhitungan({ rencana }: { rencana: RincianRencanaFinal }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         <BagianDasar nama="sumber" judul="Sumber penjualan">
-          <p>{`Periode sumber: ${sumber.bulanSumber.map(formatBulanLaporan).join(", ")} (penetapan #${sumber.versiPeriodeSumber}).`}</p>
+          <p>
+            {`Periode sumber: ${sumber.bulanSumber.map(formatBulanLaporan).join(", ")}.`}
+            <BantuanIstilah istilah="periodeSumber" className="-my-1 ml-1" />
+          </p>
           {sumber.impor.length === 0 ? (
             <p className="text-muted-foreground">Tidak ada impor aktif untuk bulan periode sumber.</p>
           ) : (
@@ -69,8 +75,6 @@ function DasarPerhitungan({ rencana }: { rencana: RincianRencanaFinal }) {
                   <TableHead>Bulan impor</TableHead>
                   <TableHead>Sheet</TableHead>
                   <TableHead>Nama file</TableHead>
-                  <TableHead angka>Ukuran file</TableHead>
-                  <TableHead>SHA-256</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -79,13 +83,35 @@ function DasarPerhitungan({ rencana }: { rencana: RincianRencanaFinal }) {
                     <TableCell>{formatBulanImpor(i.tahunImpor, i.bulanImpor)}</TableCell>
                     <TableCell>{i.namaSheet}</TableCell>
                     <TableCell className="font-semibold">{i.namaFile}</TableCell>
-                    <TableCell angka>{`${formatAngka(i.ukuranByte)} byte`}</TableCell>
-                    <TableCell className="break-all whitespace-normal">{i.sha256 ?? "—"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           )}
+          {/* DESIGN §11.6: nomor penetapan, ukuran byte, dan SHA-256 disembunyikan di "Detail teknis"; datanya tetap ada. */}
+          <DetailTeknis>
+            <p>{`Nomor penetapan periode sumber: #${sumber.versiPeriodeSumber}`}</p>
+            {sumber.impor.length === 0 ? null : (
+              <Table aria-label="Identitas teknis file impor sumber">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nama file</TableHead>
+                    <TableHead angka>Ukuran file</TableHead>
+                    <TableHead>SHA-256</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sumber.impor.map((i) => (
+                    <TableRow key={i.id} data-impor-teknis={i.id}>
+                      <TableCell className="font-semibold">{i.namaFile}</TableCell>
+                      <TableCell angka>{`${formatAngka(i.ukuranByte)} byte`}</TableCell>
+                      <TableCell className="break-all whitespace-normal">{i.sha256 ?? "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </DetailTeknis>
         </BagianDasar>
         <BagianDasar nama="ranking" judul="Ranking pusat">
           <p>{`Ranking pusat ${formatBulanLaporan(ranking.bulanRanking)} versi ${ranking.versi}.`}</p>
@@ -98,12 +124,17 @@ function DasarPerhitungan({ rencana }: { rencana: RincianRencanaFinal }) {
             <dd>{labelHariKirim(jadwal.hariKirim)}</dd>
             {jadwal.tanggalJangkar === null ? null : (
               <>
-                <dt className="text-muted-foreground">Tanggal jangkar</dt>
+                <dt className="text-muted-foreground">
+                  Tanggal jangkar
+                  <BantuanIstilah istilah="tanggalJangkar" className="-my-1 ml-1" />
+                </dt>
                 <dd>{formatTanggal(parseTanggalBisnis(jadwal.tanggalJangkar))}</dd>
               </>
             )}
             <dt className="text-muted-foreground">Dipakai untuk tanggal kirim ini</dt>
-            <dd>{`Persiapan ${labelPersiapan[persiapanDariHari[jadwal.persiapanHari]]} · Panjang cakupan ${jadwal.panjangCakupan} hari`}</dd>
+            <dd>
+              <TeksCakupan persiapanHari={jadwal.persiapanHari} panjangCakupan={jadwal.panjangCakupan} />
+            </dd>
             <dt className="text-muted-foreground">Versi jadwal</dt>
             <dd>{`#${jadwal.versi}`}</dd>
           </dl>

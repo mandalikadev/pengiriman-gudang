@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { formatAngka, formatWaktu } from "@/app/admin/impor/format";
+import { formatAngka } from "@/app/admin/impor/format";
 import {
   cocokCari,
   KotakCari,
@@ -14,6 +14,7 @@ import {
   type ParameterUrl,
 } from "@/components/daftar-berhalaman";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { WaktuSingkat } from "@/components/waktu-singkat";
 import { cn } from "@/lib/utils";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
 import { daftarStatusKeluargaAroma, type StatusKeluargaAroma } from "@/server/db/schema";
@@ -222,7 +223,9 @@ export default async function HalamanPemetaanProduk({ searchParams }: { searchPa
             <TableBody>
               {data.riwayat.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell>{formatWaktu(r.terjadiPada)}</TableCell>
+                  <TableCell>
+                    <WaktuSingkat waktu={r.terjadiPada} />
+                  </TableCell>
                   <TableCell>{r.pelaku}</TableCell>
                   <TableCell className="font-semibold">{r.kodeProduk}</TableCell>
                   <TableCell className="whitespace-normal">{labelPemetaan(r.dari)}</TableCell>

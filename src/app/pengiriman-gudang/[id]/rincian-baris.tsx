@@ -4,14 +4,16 @@ import type { ReactNode } from "react";
 
 import { formatAngka, formatBulanLaporan } from "@/app/admin/impor/format";
 import { BadgeStatus } from "@/components/badge-status";
+import { BantuanIstilah } from "@/components/bantuan-istilah";
+import type { IstilahBantuan } from "@/components/teks-bantuan-istilah";
 import { formatTanggal, type KategoriDasar } from "@/domain/kalender";
 import type { BarisDraft, DraftRencana, TokoDraft } from "@/server/gudang/draft-rencana";
-import { labelPersiapan, persiapanDariHari } from "@/server/gudang/pilihan-jadwal";
 import type { SumberKategoriDraft } from "@/server/gudang/rincian-draft";
 import { nilaiRincian } from "@/server/laporan/rincian";
 
 import { DaftarMasalah } from "./daftar-masalah";
 import { formatJumlahKirim, formatKebutuhan } from "./format-rincian";
+import { TeksCakupan } from "./teks-cakupan";
 
 // Rincian perhitungan satu baris draft (T60; PRD A1, A6; DESIGN §8), juga satu baris rencana final dari snapshotnya
 // (T63). Zona kerja. Semua angka dibaca dari data tersimpan; komponen hanya menampilkan dan tidak menghitung rumus.
@@ -68,10 +70,18 @@ function TidakTersedia() {
   );
 }
 
-function Bagian({ judul, children, ...props }: { judul: string; children: ReactNode } & Record<`data-${string}`, string | number>) {
+function Bagian({
+  judul,
+  bantuan,
+  children,
+  ...props
+}: { judul: string; bantuan?: IstilahBantuan; children: ReactNode } & Record<`data-${string}`, string | number>) {
   return (
     <div className="flex flex-col gap-2 rounded-2xl bg-muted px-4 py-3" {...props}>
-      <h3 className="font-sans text-sm font-semibold">{judul}</h3>
+      <h3 className="flex items-center gap-1 font-sans text-sm font-semibold">
+        {judul}
+        {bantuan === undefined ? null : <BantuanIstilah istilah={bantuan} className="-my-1" />}
+      </h3>
       {children}
     </div>
   );
@@ -88,11 +98,10 @@ function TanggalCakupan({
   const awal = cakupan[0];
   const akhir = cakupan[cakupan.length - 1];
   return (
-    <Bagian judul="Tanggal cakupan" data-tahap="cakupan">
+    <Bagian judul="Tanggal cakupan" bantuan="kategori" data-tahap="cakupan">
       <p className="text-muted-foreground">
         {awal && akhir ? `${formatTanggal(awal.tanggal)} – ${formatTanggal(akhir.tanggal)} · ` : null}
-        {cakupan.length} hari · Persiapan {labelPersiapan[persiapanDariHari[toko.persiapanHari]]} · Panjang cakupan{" "}
-        {toko.panjangCakupan} hari
+        <TeksCakupan persiapanHari={toko.persiapanHari} panjangCakupan={toko.panjangCakupan} />
       </p>
       <ul aria-label="Tanggal cakupan" className="flex flex-col gap-1">
         {cakupan.map((t) => {
@@ -203,7 +212,7 @@ function Kebutuhan({ baris }: { baris: BarisRincian }) {
 function Buffer({ baris, ranking }: { baris: BarisRincian; ranking: DasarRincian["ranking"] }) {
   const asalRanking = `ranking pusat ${formatBulanLaporan(ranking.bulanRanking)} versi ${ranking.versi}`;
   return (
-    <Bagian judul="Buffer" data-buffer={baris.persenBuffer ?? "kosong"}>
+    <Bagian judul="Buffer" bantuan="buffer" data-buffer={baris.persenBuffer ?? "kosong"}>
       {baris.persenBuffer !== null ? (
         <p>
           <span className="font-semibold tabular-nums">{baris.persenBuffer}%</span>

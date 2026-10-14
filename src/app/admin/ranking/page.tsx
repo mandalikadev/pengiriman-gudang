@@ -4,10 +4,10 @@ import { notFound } from "next/navigation";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { WaktuSingkat } from "@/components/waktu-singkat";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
 import { muatDaftarRanking, rankingBerlaku } from "@/server/ranking/ranking";
 
-import { formatWaktu } from "../impor/format";
 import { formatVersiRanking } from "./format";
 import { FormUnggahRanking } from "./form-unggah-ranking";
 import { BadgeStatusRanking } from "./status-ranking";
@@ -85,13 +85,13 @@ export default async function HalamanRanking() {
                     <BadgeStatusRanking status={r.status} />
                   </TableCell>
                   <TableCell className="whitespace-normal">
-                    {formatWaktu(r.diunggahPada)}
+                    <WaktuSingkat waktu={r.diunggahPada} />
                     <span className="block text-muted-foreground">oleh {r.diunggahOleh}</span>
                   </TableCell>
                   <TableCell className="whitespace-normal">
                     {r.dipublikasikanPada ? (
                       <>
-                        {formatWaktu(r.dipublikasikanPada)}
+                        <WaktuSingkat waktu={r.dipublikasikanPada} />
                         <span className="block text-muted-foreground">oleh {r.dipublikasikanOleh ?? "—"}</span>
                       </>
                     ) : (
@@ -103,7 +103,7 @@ export default async function HalamanRanking() {
                       href={`/admin/ranking/${r.id}`}
                       className="inline-flex min-h-11 items-center rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
-                      Tinjau<span className="sr-only"> ranking {formatVersiRanking(r)}</span>
+                      Tinjau ranking<span className="sr-only"> {formatVersiRanking(r)}</span>
                     </Link>
                   </TableCell>
                 </TableRow>

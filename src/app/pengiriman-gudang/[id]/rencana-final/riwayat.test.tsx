@@ -212,6 +212,8 @@ describe("daftar rencana final", () => {
     expect(v2).toContain("Uji viewer");
     expect(v2).toContain(await waktuFinal(rencana.a1v2));
     expect(v2).toContain(`href="/pengiriman-gudang/${cibubur}/rencana-final/${rencana.a1v2}/rincian"`);
+    // T121 (DESIGN §11.6): label tautan "Lihat rincian", bukan "Rincian" saja.
+    expect(v2).toMatch(/<a[^>]*data-tautan-rincian-final="\d+"[^>]*>Lihat rincian<span class="sr-only">/);
 
     // T119 (DESIGN §11.9): versi lama tetap Final, dengan label versi penggantinya; versi terbaru tanpa label.
     expect(v2).not.toContain("Digantikan");
@@ -274,11 +276,23 @@ describe("rincian rencana final", () => {
     expect(sumber).toContain(fileA.namaFile);
     expect(sumber).toContain(fileA.sha256 ?? "tanpa-sha");
     expect(sumber).toContain("JUNI (S)");
+    // T121 (DESIGN §11.6): SHA-256, ukuran byte, dan nomor penetapan hanya di "Detail teknis" yang awalnya tertutup;
+    // datanya tetap ada di DOM.
+    const detailTeknis = /<details data-detail-teknis[^>]*>.*?<\/details>/.exec(sumber)?.[0] ?? "";
+    expect(detailTeknis).not.toMatch(/^<details[^>]*\bopen\b/);
+    expect(detailTeknis).toMatch(/<summary[^>]*>Detail teknis/);
+    expect(detailTeknis).toContain(fileA.sha256 ?? "tanpa-sha");
+    expect(detailTeknis).toMatch(/[\d.]+ byte/);
+    expect(detailTeknis).toMatch(/Nomor penetapan periode sumber: #\d+/);
+    const luarDetail = sumber.replace(detailTeknis, "");
+    expect(luarDetail).not.toContain(fileA.sha256 ?? "tanpa-sha");
+    expect(luarDetail).not.toContain("byte");
+    expect(luarDetail).not.toContain("penetapan");
     expect(bagianDasar(html, "ranking")).toMatch(/September 2026 versi \d+/);
     const jadwal = bagianDasar(html, "jadwal");
     expect(jadwal).toContain("Mingguan");
     expect(jadwal).toContain("Senin (H−2)");
-    expect(jadwal).toContain("Panjang cakupan 7 hari");
+    expect(jadwal).toContain('data-teks-cakupan="Cakupan 9 hari: persiapan 2 hari + 7 hari sampai sebelum kiriman berikutnya"');
     const kalender = bagianDasar(html, "kalender");
     expect(kalender).toMatch(/Revisi kalender/);
     for (const t of golden.kasusCakupan.tanggalCakupan) {

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { WaktuSingkat } from "@/components/waktu-singkat";
 
 import { tetapkanPeriodeSumberGudang } from "./aksi";
 import type { DataGudang } from "./form-tambah-toko";
@@ -19,7 +20,7 @@ const MAKS_BULAN = 12;
 type Bulan = { kode: string; label: string };
 
 /** Periode sumber yang berlaku untuk satu gudang, siap tampil. */
-export type DataPeriodeSumber = { idGudang: number; bulan: Bulan[]; ditetapkanOleh: string; ditetapkanPada: string };
+export type DataPeriodeSumber = { idGudang: number; bulan: Bulan[]; ditetapkanOleh: string; ditetapkanPada: Date };
 
 function BelumDitetapkan() {
   return (
@@ -105,7 +106,13 @@ export function FormPeriodeSumber({
                       {periode ? periode.bulan.map((b) => b.label).join(", ") : <BelumDitetapkan />}
                     </TableCell>
                     <TableCell className="whitespace-normal text-muted-foreground">
-                      {periode ? `${periode.ditetapkanOleh}, ${periode.ditetapkanPada}` : "—"}
+                      {periode ? (
+                        <>
+                          {periode.ditetapkanOleh}, <WaktuSingkat waktu={periode.ditetapkanPada} />
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </TableCell>
                   </TableRow>
                 );

@@ -9,6 +9,7 @@ import { tugaskanOperator } from "@/server/gudang/penugasan";
 import { bacaPeriodeSumber, tetapkanPeriodeSumber } from "@/server/gudang/periode-sumber";
 import { buatTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
 import { siapkanBulanTersediaUji } from "@/server/laporan/uji-bantu";
+import { tanpaBantuanIstilah } from "@/components/uji-bantu-bantuan-istilah";
 
 const kepala = vi.hoisted(() => ({ cookie: "" }));
 vi.mock("next/headers", () => ({
@@ -85,7 +86,7 @@ describe("/pengiriman-gudang/[id]", () => {
     expect(html).not.toContain("Toko terhubung");
     expect(html).not.toContain(lain.nama);
     // Tanpa kontrol ubah.
-    expect(html).not.toMatch(/<(button|input|select|form)\b/);
+    expect(tanpaBantuanIstilah(html)).not.toMatch(/<(button|input|select|form)\b/);
     // Zona kerja: judul halaman text-2xl md:text-3xl, tanpa blob.
     expect(html).toContain("text-2xl font-bold md:text-3xl");
     expect(html).not.toContain("blur-3xl");
@@ -109,7 +110,7 @@ describe("/pengiriman-gudang/[id]", () => {
       const html = await buka(await idGudangUji(nama));
       expect(html).toContain(`Pengiriman Gudang — ${nama}`);
       expect(html).toContain("data-hanya-baca");
-      expect(html).not.toMatch(/<(button|input|select|form)\b/);
+      expect(tanpaBantuanIstilah(html)).not.toMatch(/<(button|input|select|form)\b/);
     }
   });
 
@@ -171,7 +172,7 @@ describe("/pengiriman-gudang/[id]: kartu Periode sumber", () => {
     expect(kartu).toContain("Ditetapkan oleh <span class=\"font-semibold text-foreground\">Uji admin</span> pada");
     expect(kartu).toMatch(/pada \w+, \d{2}-\d{2}-\d{4} pukul \d{2}\.\d{2} WIB/);
     // Hanya-baca: tanpa kontrol ubah di halaman (form hitung draft untuk hak hitung-kebutuhan diuji di draft.test.tsx).
-    expect(sebelumBagianDraft(html)).not.toMatch(/<(button|input|select|form)\b/);
+    expect(tanpaBantuanIstilah(sebelumBagianDraft(html))).not.toMatch(/<(button|input|select|form)\b/);
     // Semua bulan punya data aktif → tanpa penanda bulan hilang.
     expect(html).not.toContain("data-bulan-hilang");
     expect(html).not.toContain("Tidak ada data aktif");
@@ -196,7 +197,7 @@ describe("/pengiriman-gudang/[id]: kartu Periode sumber", () => {
     );
     expect(kartu).toContain("Perhitungan memakai bulan yang masih punya data aktif.");
     expect(kartu).toContain("Ditetapkan oleh <span class=\"font-semibold text-foreground\">Uji admin</span> pada");
-    expect(html).not.toMatch(/<(button|input|select|form)\b/);
+    expect(tanpaBantuanIstilah(html)).not.toMatch(/<(button|input|select|form)\b/);
   });
 });
 
@@ -264,7 +265,8 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
     expect(aktif).toContain("Dua mingguan");
     expect(aktif).toContain("Senin (H−2), Kamis (H)");
     expect(aktif).toContain("Rabu, 10-06-2026");
-    expect(aktif).toMatch(/Uji viewer, \w+, \d{2}-\d{2}-\d{4} pukul \d{2}\.\d{2} WIB/);
+    // T121 (DESIGN §11.6): kolom Diatur berisi tanggal singkat; waktu lengkap lewat title saat disorot.
+    expect(aktif).toMatch(/Uji viewer, <time dateTime="[^"]+" title="\w+, \d{2}-\d{2}-\d{4} pukul \d{2}\.\d{2} WIB">\w+, \d{2}-\d{2}-\d{4}<\/time>/);
     // Jadwal lama yang nonaktif (Selasa) tidak tampil sebagai jadwal aktif. Diperiksa lewat hari kirim, bukan nama hari
     // saja: kolom Diatur memuat nama hari jadwal dibuat, yang bisa Selasa.
     expect(aktif).not.toContain("Selasa (H");
@@ -323,7 +325,7 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
     expect(html).not.toContain("Kirim di luar jadwal");
     expect(tautanJadwal(html)).toEqual([]);
     // Form hitung draft untuk hak hitung-kebutuhan (T58) diuji di draft.test.tsx.
-    expect(sebelumBagianDraft(html)).not.toMatch(/<(button|input|select|form)\b/);
+    expect(tanpaBantuanIstilah(sebelumBagianDraft(html))).not.toMatch(/<(button|input|select|form)\b/);
   });
 
   it("admin tanpa penugasan melihat jadwal Pusat hanya-baca", async () => {
@@ -332,7 +334,7 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
 
     const html = await buka(pusat);
     expect(barisJadwal(html, berjadwal.id)).toContain("Dua mingguan");
-    expect(html).not.toMatch(/<(button|input|select|form)\b/);
+    expect(tanpaBantuanIstilah(html)).not.toMatch(/<(button|input|select|form)\b/);
     expect(tautanJadwal(html)).toEqual([]);
   });
 
@@ -388,7 +390,7 @@ describe("/pengiriman-gudang/[id]: bagian Jadwal", () => {
       const html = await buka(cibubur);
       expect(html).toContain("Di luar jadwal (akan datang)");
       expect(html).not.toContain("Kirim di luar jadwal");
-      expect(html).not.toMatch(/<(button|input|select|form)\b/);
+      expect(tanpaBantuanIstilah(html)).not.toMatch(/<(button|input|select|form)\b/);
       expect(tautanJadwal(html)).toEqual([]);
     }
   });

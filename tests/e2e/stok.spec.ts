@@ -125,7 +125,7 @@ test("Draft rencana: buka toko → isi stok → simpan → jumlah kirim tampil",
   await expect(baris).toHaveCount(0);
   await expect(page.getByRole("textbox", { name: `Stok akhir ${kode}` })).toHaveCount(0);
 
-  await page.getByRole("link", { name: `Buka ${toko.nama}` }).click();
+  await page.getByRole("link", { name: `Buka toko ${toko.nama}` }).click();
   await expect(page).toHaveURL(new RegExp(`[?&]toko=${toko.id}(&|#|$)`));
   await expect(baris.locator("[data-kebutuhan]")).toHaveText(String(golden.kasusCakupan.kebutuhan));
   await expect(baris.locator("[data-jumlah-kirim]")).toHaveText("—");

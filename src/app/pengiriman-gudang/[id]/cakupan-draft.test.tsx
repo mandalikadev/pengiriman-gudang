@@ -60,20 +60,31 @@ const bukaToko = async (tanggal: string, tambahan: Record<string, string> = {}) 
     }),
   );
 
+/** Teks yang terbaca: tanpa tombol bantuan istilah (berlabel aria-label saja) dan tanpa tag. */
+const teksTerbaca = (html: string) => html.replace(/<button[^>]*>.*?<\/button>/g, "").replace(/<[^>]+>/g, "");
+
 const bagianRincian = (html: string) =>
   new RegExp(`<section[^>]*data-rincian-baris="${toko.id}\\|${kodeProduk}".*?</section>`).exec(html)?.[0] ?? "";
 
 describe("panjang cakupan hasil hitung di tampilan", () => {
-  it("header toko draft: Senin → Panjang cakupan 3 hari; Kamis → Panjang cakupan 4 hari", async () => {
-    expect(await bukaToko(SENIN)).toMatch(new RegExp(`data-draft-toko="${toko.id}".*?Persiapan H · Panjang cakupan 3 hari`));
-    expect(await bukaToko(KAMIS)).toMatch(new RegExp(`data-draft-toko="${toko.id}".*?Persiapan H−1 · Panjang cakupan 4 hari`));
+  // T121 (DESIGN §11.6): teks cakupan lengkap, "Cakupan <L+p> hari: persiapan <p> hari + <L> hari sampai sebelum kiriman
+  // berikutnya"; p = 0 tanpa bagian persiapan.
+  it("header toko draft: Senin → Cakupan 3 hari (p = 0, L = 3); Kamis → Cakupan 5 hari (p = 1, L = 4)", async () => {
+    expect(await bukaToko(SENIN)).toMatch(
+      new RegExp(`data-draft-toko="${toko.id}".*?data-teks-cakupan="Cakupan 3 hari: 3 hari sampai sebelum kiriman berikutnya"`),
+    );
+    expect(await bukaToko(KAMIS)).toMatch(
+      new RegExp(`data-draft-toko="${toko.id}".*?data-teks-cakupan="Cakupan 5 hari: persiapan 1 hari \\+ 4 hari sampai sebelum kiriman berikutnya"`),
+    );
   });
 
   it("rincian baris: tanggal cakupan dan panjang cakupan hasil hitung", async () => {
     const senin = bagianRincian(await bukaToko(SENIN, { rincian: `${toko.id}|${kodeProduk}` }));
-    expect(senin).toContain("Senin, 19-10-2026 – Rabu, 21-10-2026 · 3 hari · Persiapan H · Panjang cakupan 3 hari");
+    expect(teksTerbaca(senin)).toContain("Senin, 19-10-2026 – Rabu, 21-10-2026 · Cakupan 3 hari: 3 hari sampai sebelum kiriman berikutnya");
     const kamis = bagianRincian(await bukaToko(KAMIS, { rincian: `${toko.id}|${kodeProduk}` }));
-    expect(kamis).toContain("Rabu, 21-10-2026 – Minggu, 25-10-2026 · 5 hari · Persiapan H−1 · Panjang cakupan 4 hari");
+    expect(teksTerbaca(kamis)).toContain(
+      "Rabu, 21-10-2026 – Minggu, 25-10-2026 · Cakupan 5 hari: persiapan 1 hari + 4 hari sampai sebelum kiriman berikutnya",
+    );
   });
 
   it("rincian rencana final: panjang cakupan hasil hitung yang tersimpan", async () => {
@@ -92,6 +103,6 @@ describe("panjang cakupan hasil hitung di tampilan", () => {
       }),
     );
     const jadwal = new RegExp(`<section[^>]*data-dasar="jadwal".*?</section>`).exec(html)?.[0] ?? "";
-    expect(jadwal).toContain("Persiapan H−1 · Panjang cakupan 4 hari");
+    expect(teksTerbaca(jadwal)).toContain("Cakupan 5 hari: persiapan 1 hari + 4 hari sampai sebelum kiriman berikutnya");
   });
 });

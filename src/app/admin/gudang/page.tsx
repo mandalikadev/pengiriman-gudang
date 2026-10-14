@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { formatBulanLaporan, formatWaktu, tanggalWib } from "@/app/admin/impor/format";
+import { formatBulanLaporan, tanggalWib } from "@/app/admin/impor/format";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
 import { tokoTerhubungUntukDilepas } from "@/server/gudang/hubungan";
@@ -40,7 +40,7 @@ async function muatPeriodeSumber(): Promise<{ daftarPeriode: DataPeriodeSumber[]
     idGudang: p.idGudang,
     bulan: p.bulan.map(keBulan),
     ditetapkanOleh: p.ditetapkanOleh,
-    ditetapkanPada: formatWaktu(p.ditetapkanPada),
+    ditetapkanPada: p.ditetapkanPada,
   }));
   return { daftarPeriode, bulanTersedia: (await bulanTersediaUntukPeriode()).map(keBulan) };
 }

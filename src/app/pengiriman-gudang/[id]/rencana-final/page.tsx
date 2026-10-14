@@ -2,12 +2,12 @@ import { ArrowLeft, FileCheck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { formatWaktu } from "@/app/admin/impor/format";
 import { TombolEkspor } from "@/app/ringkasan/tombol-ekspor";
 import { BadgeStatus } from "@/components/badge-status";
 import { cocokCari, NavigasiHalaman, nomorHalaman, potongHalaman, teksParameter, urlDaftar } from "@/components/daftar-berhalaman";
 import { KeadaanKosong } from "@/components/keadaan-kosong";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { WaktuSingkat } from "@/components/waktu-singkat";
 import { formatTanggal, parseTanggalBisnis } from "@/domain/kalender";
 import { daftarRencanaFinal, pilihanFilterRencanaFinal, type RingkasanRencanaFinal } from "@/server/gudang/rencana-final";
 
@@ -64,7 +64,9 @@ function BarisRencana({ idGudang, rencana, bolehEkspor }: { idGudang: number; re
         </div>
       </TableCell>
       <TableCell className="align-top">{rencana.difinalisasiOleh}</TableCell>
-      <TableCell className="align-top">{formatWaktu(rencana.difinalisasiPada)}</TableCell>
+      <TableCell className="align-top">
+        <WaktuSingkat waktu={rencana.difinalisasiPada} />
+      </TableCell>
       <TableCell className="align-top">
         <div className="flex flex-wrap items-center gap-2">
           <Link
@@ -72,7 +74,7 @@ function BarisRencana({ idGudang, rencana, bolehEkspor }: { idGudang: number; re
             data-tautan-rincian-final={rencana.id}
             className={`${kelasTautan} underline underline-offset-4`}
           >
-            Rincian
+            Lihat rincian
             <span className="sr-only">{` ${keterangan}`}</span>
           </Link>
           {bolehEkspor ? (

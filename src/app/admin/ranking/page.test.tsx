@@ -58,6 +58,8 @@ describe("/admin/ranking", () => {
     expect(html).toContain("Bulan ranking");
     expect(html).toContain('aria-label="Daftar ranking"');
     expect(html).toContain(`href="/admin/ranking/${id}"`);
+    // T121 (DESIGN §11.6): label tautan menyebut tindakannya.
+    expect(html).toMatch(new RegExp(`<a[^>]*href="/admin/ranking/${id}"[^>]*>Tinjau ranking<span class="sr-only">`));
     expect(html).toContain('data-status-ranking="dipublikasikan"');
     expect(html).toContain("text-2xl font-bold md:text-3xl");
     expect(html).not.toContain("blur-3xl");

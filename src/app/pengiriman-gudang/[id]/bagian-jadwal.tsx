@@ -1,11 +1,12 @@
 import { Archive, CalendarClock, CircleDashed } from "lucide-react";
 import Link from "next/link";
 
-import { formatWaktu } from "@/app/admin/impor/format";
 import { BadgeStatusPengiriman, teksJenis, teksTanggalKirim } from "@/app/usulan-jadwal/tampilan-pengiriman";
 import { BadgeStatus } from "@/components/badge-status";
+import { BantuanIstilah } from "@/components/bantuan-istilah";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { WaktuSingkat } from "@/components/waktu-singkat";
 import { formatTanggal } from "@/domain/kalender";
 import type { TokoDenganJadwal } from "@/server/gudang/jadwal";
 import type { EntriPengirimanDiLuarJadwal } from "@/server/gudang/pengiriman-di-luar-jadwal";
@@ -89,7 +90,12 @@ export function BagianJadwal({
             <TableHead>Status jadwal</TableHead>
             <TableHead>Pola</TableHead>
             <TableHead>Hari kirim (persiapan)</TableHead>
-            <TableHead>Tanggal jangkar</TableHead>
+            <TableHead>
+              <span className="inline-flex items-center gap-1">
+                Tanggal jangkar
+                <BantuanIstilah istilah="tanggalJangkar" />
+              </span>
+            </TableHead>
             <TableHead>Diatur</TableHead>
             <TableHead>Di luar jadwal (akan datang)</TableHead>
           </TableRow>
@@ -115,7 +121,13 @@ export function BagianJadwal({
                 </TableCell>
                 <TableCell>{t.jadwal?.tanggalJangkar ? formatTanggal(t.jadwal.tanggalJangkar) : "—"}</TableCell>
                 <TableCell className="whitespace-normal text-muted-foreground">
-                  {t.jadwal ? `${t.jadwal.diaturOleh}, ${formatWaktu(t.jadwal.diaturPada)}` : "—"}
+                  {t.jadwal ? (
+                    <>
+                      {t.jadwal.diaturOleh}, <WaktuSingkat waktu={t.jadwal.diaturPada} />
+                    </>
+                  ) : (
+                    "—"
+                  )}
                 </TableCell>
                 <TableCell className="whitespace-normal" data-di-luar-jadwal-toko={t.id}>
                   <SelDiLuarJadwal daftar={diLuarJadwalPerToko.get(t.id)} />

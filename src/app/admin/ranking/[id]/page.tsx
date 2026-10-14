@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { BadgeStatus } from "@/components/badge-status";
+import { DetailTeknis } from "@/components/detail-teknis";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
@@ -190,11 +191,10 @@ export default async function HalamanTinjauRanking({ params }: { params: Promise
         <CardHeader>
           <CardTitle>Identitas ranking</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-4">
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Identitas label="Bulan ranking">{formatVersiRanking(data)}</Identitas>
             <Identitas label="File">{data.namaFile}</Identitas>
-            <Identitas label="Ukuran file">{formatAngka(data.ukuranByte)} byte</Identitas>
             <Identitas label="Diunggah">
               {formatWaktu(data.diunggahPada)} oleh {data.diunggahOleh}
             </Identitas>
@@ -205,6 +205,12 @@ export default async function HalamanTinjauRanking({ params }: { params: Promise
             ) : null}
             {data.diarsipkanPada ? <Identitas label="Diarsipkan">{formatWaktu(data.diarsipkanPada)}</Identitas> : null}
           </dl>
+          {/* DESIGN §11.6: identitas teknis file disembunyikan di bawah "Detail teknis", datanya tetap ada. */}
+          <DetailTeknis>
+            <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <Identitas label="Ukuran file">{formatAngka(data.ukuranByte)} byte</Identitas>
+            </dl>
+          </DetailTeknis>
         </CardContent>
       </Card>
 

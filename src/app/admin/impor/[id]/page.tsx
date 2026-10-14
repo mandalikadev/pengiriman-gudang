@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { BadgeStatus } from "@/components/badge-status";
+import { DetailTeknis } from "@/components/detail-teknis";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -255,13 +256,11 @@ export default async function HalamanTinjauImpor({ params }: { params: Promise<{
         <CardHeader>
           <CardTitle>Identitas impor</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-4">
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Identitas label="File">{data.namaFile}</Identitas>
             <Identitas label="Sheet">{data.namaSheet}</Identitas>
             <Identitas label="Bulan impor">{formatBulanImpor(data.tahunImpor, data.bulanImpor)}</Identitas>
-            <Identitas label="Ukuran file">{formatAngka(data.ukuranByte)} byte</Identitas>
-            <Identitas label="SHA-256">{data.sha256 ?? "—"}</Identitas>
             <Identitas label="Diunggah">
               {formatWaktu(data.diunggahPada)} oleh {data.diunggahOleh}
             </Identitas>
@@ -272,6 +271,13 @@ export default async function HalamanTinjauImpor({ params }: { params: Promise<{
             ) : null}
             {data.diarsipkanPada ? <Identitas label="Diarsipkan">{formatWaktu(data.diarsipkanPada)}</Identitas> : null}
           </dl>
+          {/* DESIGN §11.6: identitas teknis file disembunyikan di bawah "Detail teknis", datanya tetap ada. */}
+          <DetailTeknis>
+            <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <Identitas label="Ukuran file">{formatAngka(data.ukuranByte)} byte</Identitas>
+              <Identitas label="SHA-256">{data.sha256 ?? "—"}</Identitas>
+            </dl>
+          </DetailTeknis>
         </CardContent>
       </Card>
 

@@ -97,6 +97,11 @@ describe("/admin/ranking/[id]", () => {
     expect(html).not.toMatch(new RegExp(`>AKTIF ${k}<span[^>]*data-penanda="keluarga-nonaktif"`));
     expect(html).toMatch(/<button[^>]*>Publikasikan<\/button>/);
     expect(html).not.toMatch(/<button[^>]*disabled=""[^>]*>Publikasikan<\/button>/);
+    // T121 (DESIGN §11.6): ukuran byte hanya di "Detail teknis" yang awalnya tertutup.
+    const detail = /<details data-detail-teknis[^>]*>.*?<\/details>/.exec(html)?.[0] ?? "";
+    expect(detail).not.toMatch(/^<details[^>]*\bopen\b/);
+    expect(detail).toMatch(/Ukuran file<\/dt><dd[^>]*>[\d.]+ byte</);
+    expect(html.replace(detail, "")).not.toContain(" byte");
   });
 
   it("dua baris cocok ke keluarga yang sama → bagian Keluarga aroma ganda dengan baris-barisnya; Publikasikan dinonaktifkan dengan alasannya", async () => {

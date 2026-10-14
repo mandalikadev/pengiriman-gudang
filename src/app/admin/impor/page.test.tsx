@@ -69,6 +69,8 @@ describe("/admin/impor", () => {
     expect(html).toContain("Unggah dan proses");
     expect(html).toContain(`Juni ${tahun}`);
     expect(html).toContain(`href="/admin/impor/${id}"`);
+    // T121 (DESIGN §11.6): label tautan menyebut tindakannya.
+    expect(html).toMatch(new RegExp(`<a[^>]*href="/admin/impor/${id}"[^>]*>Tinjau impor<span class="sr-only">`));
     expect(html).toContain('data-status-impor="diunggah"');
     expect(html).toContain("text-2xl font-bold md:text-3xl");
     expect(html).not.toContain("blur-3xl");

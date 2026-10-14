@@ -6,6 +6,7 @@ import { formatAngka, formatWaktu, tanggalWib } from "@/app/admin/impor/format";
 import { BadgeStatus } from "@/components/badge-status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { WaktuSingkat } from "@/components/waktu-singkat";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
 import { muatDataLibur, type KegagalanSinkronisasi } from "@/server/libur/sinkronisasi";
 
@@ -83,12 +84,12 @@ export default async function HalamanLibur() {
                   <TableCell className="text-right tabular-nums">{formatAngka(s.jumlahLibur)}</TableCell>
                   <TableCell className="break-all whitespace-normal">{s.sumber}</TableCell>
                   <TableCell className="whitespace-normal">
-                    {formatWaktu(s.disinkronkanPada)}
+                    <WaktuSingkat waktu={s.disinkronkanPada} />
                     <span className="block text-muted-foreground">oleh {s.disinkronkanOleh}</span>
                   </TableCell>
                   <TableCell>
                     <Link href={`/admin/libur/${s.id}`} className={kelasTautan}>
-                      Tinjau<span className="sr-only"> snapshot libur {s.tahun}</span>
+                      Tinjau libur<span className="sr-only"> (snapshot {s.tahun})</span>
                     </Link>
                   </TableCell>
                 </TableRow>

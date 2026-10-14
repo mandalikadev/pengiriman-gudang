@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { formatBulanImpor, formatWaktu, tanggalWib } from "@/app/admin/impor/format";
 import { labelJenisLibur } from "@/app/admin/libur/format";
 import { BadgeStatus } from "@/components/badge-status";
+import { BantuanIstilah } from "@/components/bantuan-istilah";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, kisiBulan, parseTanggalBisnis, posisiLaporan, type TanggalBisnis } from "@/domain/kalender";
@@ -471,11 +472,12 @@ export default async function HalamanKalender({ searchParams }: { searchParams: 
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold md:text-3xl">Kalender</h1>
+        {/* DESIGN §11.6: paling banyak dua kalimat; sisanya di bantuan istilah. */}
         <p className="text-muted-foreground">
-          Kategori dasar setiap tanggal dan minggu laporannya. Label di atas setiap baris menunjukkan minggu dan bulan
-          laporan; satu baris bisa memiliki dua label. Nama dan jenis libur berasal dari daftar libur aktif dan hanya
-          informasi: libur tidak mengubah kategori. Penanda Manual berarti admin mengubah kategori tanggal itu untuk
-          cakupan toko yang dilihat; kategori efektif dipakai untuk menghitung, sedangkan bulan dan minggu laporan tetap.
+          Kategori dasar setiap tanggal dan minggu laporannya
+          <BantuanIstilah istilah="mingguLaporan" className="-my-1 ml-1" />. Libur hanya informasi dan tidak mengubah
+          kategori; penanda Manual berarti admin mengubah kategori tanggal itu untuk toko yang dilihat (kategori efektif
+          <BantuanIstilah istilah="kategori" className="-my-1 ml-1" />).
         </p>
       </div>
 

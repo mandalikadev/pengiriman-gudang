@@ -51,6 +51,26 @@ describe("/admin/impor/[id]", () => {
     await expect(tampil(id)).rejects.toMatchObject({ digest: expect.stringContaining("404") });
   });
 
+  it("T121: SHA-256 dan ukuran byte hanya di \"Detail teknis\" yang awalnya tertutup; datanya tetap ada di DOM", async () => {
+    const tahun = await tahunUjiBebas();
+    const toko = await buatTokoUji();
+    const id = await imporUji({
+      isi: buatWorkbookUji({ "JUNI (S)": sheetPenjualanUji({ toko: toko.nama, bulan: 6, hari: [1], produk: [produk(kodeProdukUji(), [1])] }) }),
+      tahunImpor: tahun,
+      idPengguna: idAdmin,
+    });
+    const html = await tampil(id);
+    const detail = /<details data-detail-teknis[^>]*>.*?<\/details>/.exec(html)?.[0] ?? "";
+    expect(detail).not.toMatch(/^<details[^>]*\bopen\b/);
+    expect(detail).toMatch(/<summary[^>]*>Detail teknis/);
+    expect(detail).toMatch(/SHA-256<\/dt><dd[^>]*>[0-9a-f]{64}</);
+    expect(detail).toMatch(/Ukuran file<\/dt><dd[^>]*>[\d.]+ byte</);
+    const luar = html.replace(detail, "");
+    expect(luar).not.toMatch(/[0-9a-f]{64}/);
+    expect(luar).not.toContain("SHA-256");
+    expect(luar).not.toContain(" byte");
+  });
+
   it("impor yang tidak ada → 404", async () => {
     await expect(tampil(2_000_000_000)).rejects.toMatchObject({ digest: expect.stringContaining("404") });
     await expect(tampil("abc")).rejects.toMatchObject({ digest: expect.stringContaining("404") });

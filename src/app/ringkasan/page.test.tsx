@@ -175,7 +175,12 @@ describe("/ringkasan: bulan tidak berurutan", () => {
     expect(html).toContain("Maret 2027, Juni 2027 (2 bulan)");
     const { kategori, totalMentah } = baris(html, toko.nama, kode);
     expect(kategori.Sabtu).toMatchObject({ nilai: "3", pembagi: "2", tersedia: true });
-    expect(kategori.Sabtu.isi).toContain("Σ 5 ÷ 2 bulan");
+    // T121 (DESIGN §11.6): sel Ringkasan hanya berisi angka; "Σ … ÷ …" pindah ke panel rincian (§8 tetap berlaku di sana).
+    expect(kategori.Sabtu.isi).not.toContain("Σ");
+    expect(kategori.Sabtu.isi).not.toContain("÷");
+    expect(kategori.Sabtu.isi.replace(/<[^>]+>/g, "")).toBe("3: rincian rata-rata Sabtu " + kode + " di " + toko.nama);
+    const panel = isiDialog(await buka("admin", { bulan: ["2027-06", "2027-03"], rincian: `${toko.id}|${kode}|Sabtu` }), "samping");
+    expect(panel).toContain("Σ 5 ÷ 2 bulan = 2,5 → dibulatkan ke atas 3");
     for (const nama of ["Senin–Kamis", "Jumat", "Minggu"]) {
       expect(kategori[nama]).toMatchObject({ tersedia: false, nilai: undefined });
       // DESIGN §7: ikon CircleDashed + "—", bukan 0.
@@ -438,13 +443,14 @@ describe("/ringkasan: perbandingan minggu yang sama antarbulan (T36, PRD A2)", (
     const { tr } = baris(html, d.toko.nama, d.kode);
     expect(html).toMatch(new RegExp(`<tr[^>]*data-baris="${d.toko.nama}\\|${d.kode}"[^>]*data-state="selected"`));
     expect(tr).toMatch(/class="[^"]*text-accent-foreground[^"]*"[^>]*data-total-mentah/);
-    // DESIGN §2: semua teks sekunder di baris terpilih memakai accent-foreground (nama produk, Σ ÷ bulan, "—");
+    // DESIGN §2: semua teks sekunder di baris terpilih memakai accent-foreground (nama produk, "—");
     // hanya ikon CircleDashed yang tetap muted-foreground (§7).
     const trTanpaIkon = tr.replace(/<svg[^>]*>.*?<\/svg>/g, "");
     expect(trTanpaIkon).not.toContain("text-muted-foreground");
     expect(tr).toMatch(/<svg[^>]*lucide-circle-dashed[^>]*text-muted-foreground/);
     expect(tr).toMatch(/class="block text-accent-foreground">15ML GLITTER - GORGEOUS</);
-    expect(tr).toMatch(/class="text-xs text-accent-foreground">Σ/);
+    // T121 (DESIGN §11.6): sel Ringkasan tanpa "Σ … ÷ …".
+    expect(tr).not.toContain("Σ");
     expect(tr).toMatch(/class="[^"]*text-accent-foreground[^"]*" data-status="tidakTersedia"/);
     // Tautan "Minggu sama" di baris terpilih: accent-foreground (6,6 : 1 di accent), bukan primary (±3,97 : 1).
     const tautan = /<a[^>]*data-tautan-minggu-sama="[^"]*"[^>]*>/.exec(tr)?.[0] ?? "";

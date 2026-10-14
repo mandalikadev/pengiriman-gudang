@@ -12,6 +12,7 @@ import { user } from "@/server/db/schema";
 import { buatTokoUji } from "@/server/gudang/uji-bantu";
 import { batalkanPerubahanKategori, buatPerubahanKategori, revisiPerubahanKategori } from "@/server/kalender/perubahan-kategori";
 import { buatSnapshotUji, tahunLiburUji } from "@/server/libur/uji-bantu";
+import { tanpaBantuanIstilah } from "@/components/uji-bantu-bantuan-istilah";
 
 const kepala = vi.hoisted(() => ({ cookie: "" }));
 // "Hari ini" dibaca dari jam server (WIB); dipatok agar test tidak bergantung pada tanggal menjalankan test.
@@ -80,7 +81,7 @@ describe("/kalender: akses", () => {
     const html = await buka({ bulan: "2026-05" });
     expect(html).toContain("Kalender");
     expect(html).toContain('data-tanggal="2026-05-04"');
-    expect(html).not.toMatch(/<form|<button|<input|<select|<textarea/);
+    expect(tanpaBantuanIstilah(html)).not.toMatch(/<form|<button|<input|<select|<textarea/);
     expect(html).not.toMatch(/Ubah|Simpan|Sinkron/);
   });
 });
@@ -298,7 +299,7 @@ describe("/kalender: perubahan kategori di detail tanggal (T42)", () => {
 
     const html = await buka({ tanggal });
     expect(bagianPerubahan(html)).toBeNull();
-    expect(html).not.toMatch(/<form|<button|<input|<select|<textarea/);
+    expect(tanpaBantuanIstilah(html)).not.toMatch(/<form|<button|<input|<select|<textarea/);
   });
 });
 
@@ -430,7 +431,7 @@ describe("/kalender: kategori efektif sesuai cakupan toko (T43, PRD B4, B6)", ()
     // Navigasi bulan dan pilihan tanggal tetap di cakupan yang sama.
     expect(html).toContain(`href="/kalender?bulan=2427-06&amp;toko=${tokoA.id}"`);
     expect(html).toContain(`href="/kalender?bulan=2427-05&amp;tanggal=${rabu}&amp;toko=${tokoA.id}"`);
-    expect(html).not.toMatch(/<form|<button|<input|<select|<textarea/);
+    expect(tanpaBantuanIstilah(html)).not.toMatch(/<form|<button|<input|<select|<textarea/);
   });
 
   it("tanpa parameter atau toko tidak dikenal/nonaktif: cakupan Semua toko", async () => {
@@ -530,7 +531,7 @@ describe("/kalender: riwayat perubahan kategori yang dibatalkan (T71, PRD B4 ▶
     expect(seluruh.teks).toContain("Alasan pembatalan Event lama ditunda");
 
     // Hanya-baca untuk non-admin: tidak ada kontrol baru.
-    expect(html).not.toMatch(/<form|<button|<input|<select|<textarea/);
+    expect(tanpaBantuanIstilah(html)).not.toMatch(/<form|<button|<input|<select|<textarea/);
   });
 
   it("perubahan yang dibatalkan tidak mengubah kategori efektif maupun penanda di sel kalender", async () => {
