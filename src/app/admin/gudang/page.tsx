@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { formatBulanLaporan, formatWaktu } from "@/app/admin/impor/format";
+import { formatBulanLaporan, formatWaktu, tanggalWib } from "@/app/admin/impor/format";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
+import { tokoTerhubungUntukDilepas } from "@/server/gudang/hubungan";
 import { daftarGudangKelola, type GudangKelola } from "@/server/gudang/kelola-gudang";
 import { daftarTokoKelola } from "@/server/gudang/kelola-toko";
 import { bulanTersediaUntukPeriode, daftarPeriodeSumber } from "@/server/gudang/periode-sumber";
@@ -18,7 +19,18 @@ export const metadata: Metadata = {
 };
 
 async function muatData(): Promise<{ daftarGudang: GudangKelola[]; daftarToko: DataToko[] }> {
-  return { daftarGudang: await daftarGudangKelola(), daftarToko: await daftarTokoKelola() };
+  const terhubung = await tokoTerhubungUntukDilepas(tanggalWib(new Date()));
+  const daftarToko = (await daftarTokoKelola()).map((t): DataToko => {
+    const hubungan = terhubung.get(t.id);
+    return {
+      ...t,
+      terhubung:
+        hubungan === undefined || t.namaGudang === null
+          ? null
+          : { idGudang: hubungan.idGudang, namaGudang: t.namaGudang, jumlahPengirimanDibatalkan: hubungan.jumlahPengirimanDibatalkan },
+    };
+  });
+  return { daftarGudang: await daftarGudangKelola(), daftarToko };
 }
 
 const keBulan = (kode: string) => ({ kode, label: formatBulanLaporan(kode) });

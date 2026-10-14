@@ -1,7 +1,10 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 
+import type { TanggalBisnis } from "@/domain/kalender";
 import { db } from "@/server/db";
-import { gudang, hubunganTokoGudang, toko } from "@/server/db/schema";
+import { gudang, hubunganTokoGudang, pengirimanDiLuarJadwal, toko } from "@/server/db/schema";
+
+import { batalkanPengirimanDiLuarJadwalTerdampak, bisaDibatalkanOtomatis, nonaktifkanJadwalAktif, periksaTujuan } from "./jadwal";
 
 export type StatusTambahToko = "berhasil" | "sudahTerhubung" | "nonaktif" | "terkaitGudangLain";
 
@@ -87,5 +90,57 @@ export async function hubungkanTokoKeGudang(idGudang: number, idToko: readonly n
       throw new Error(`Hasil hubungan toko ${id} tidak diketahui.`);
     });
     return { keadaan: "berhasil", hasil };
+  });
+}
+
+// --- Lepas toko dari gudang (T115, PRD A3 ▶ Revisi 2026-10-13, Hubungan toko–gudang) ---
+
+/** Alasan pembatalan otomatis pengiriman di luar jadwal saat toko dilepas (PRD A5 ▶ Revisi 2026-10-13). */
+const ALASAN_TOKO_DILEPAS = "Toko dilepas dari gudang";
+
+export type HasilLepasToko = { keadaan: "berhasil" } | { keadaan: "gagal"; pesan: string };
+
+/**
+ * Toko yang terhubung ke gudang, per id toko: gudangnya dan banyaknya pengiriman di luar jadwal yang akan dibatalkan bila
+ * toko itu dilepas pada `hariIni` (untuk dialog konfirmasi). Pemeriksaan akses oleh pemanggil.
+ */
+export async function tokoTerhubungUntukDilepas(
+  hariIni: TanggalBisnis,
+): Promise<Map<number, { idGudang: number; jumlahPengirimanDibatalkan: number }>> {
+  const baris = await db
+    .select({ idToko: hubunganTokoGudang.tokoId, idGudang: hubunganTokoGudang.gudangId, jumlah: count(pengirimanDiLuarJadwal.id) })
+    .from(hubunganTokoGudang)
+    .leftJoin(pengirimanDiLuarJadwal, and(eq(pengirimanDiLuarJadwal.tokoId, hubunganTokoGudang.tokoId), bisaDibatalkanOtomatis(hariIni)))
+    .groupBy(hubunganTokoGudang.tokoId, hubunganTokoGudang.gudangId);
+  return new Map(baris.map((b) => [b.idToko, { idGudang: b.idGudang, jumlahPengirimanDibatalkan: b.jumlah }]));
+}
+
+/**
+ * Melepas toko `idToko` dari gudang `idGudang` atas nama admin `idPengguna`, dalam satu transaksi: hubungan dihapus,
+ * jadwal tetap aktif toko dinonaktifkan (tetap tersimpan sebagai riwayat), dan pengiriman di luar jadwal toko yang belum
+ * lewat dan belum final dibatalkan otomatis dengan alasan "Toko dilepas dari gudang". Rencana final lama tidak disentuh.
+ * Draft gudang lama yang memuat toko ini terdeteksi perlu dihitung ulang karena toko tidak lagi mengirim dari gudang itu
+ * (`periksaHitungUlang`). Setelahnya toko bisa dihubungkan ke gudang lain (ADR-0009). Gudang harus sama dengan hubungan
+ * saat ini agar tampilan yang usang tidak melepas toko dari gudang lain. Kewenangan admin diperiksa pemanggil.
+ */
+export async function lepasTokoDariGudang({
+  idGudang,
+  idToko,
+  idPengguna,
+  hariIni,
+}: {
+  idGudang: number;
+  idToko: number;
+  idPengguna: string;
+  hariIni: TanggalBisnis;
+}): Promise<HasilLepasToko> {
+  return db.transaction(async (tx) => {
+    const pesanTujuan = await periksaTujuan(tx, { idGudang, idToko });
+    if (pesanTujuan !== null) return { keadaan: "gagal", pesan: pesanTujuan };
+
+    await tx.delete(hubunganTokoGudang).where(eq(hubunganTokoGudang.tokoId, idToko));
+    await nonaktifkanJadwalAktif(tx, { idToko, idPengguna });
+    await batalkanPengirimanDiLuarJadwalTerdampak(tx, { idToko, alasan: ALASAN_TOKO_DILEPAS, hariIni });
+    return { keadaan: "berhasil" };
   });
 }

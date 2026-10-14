@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { tanggalWib } from "@/app/admin/impor/format";
 import type { HasilSimpan } from "@/components/keadaan-simpan";
 import { wajibAdmin } from "@/server/auth/kewenangan";
-import { hubungkanTokoKeGudang, type HasilTambahToko } from "@/server/gudang/hubungan";
+import { hubungkanTokoKeGudang, lepasTokoDariGudang, type HasilTambahToko } from "@/server/gudang/hubungan";
 import { tambahGudang, tetapkanAktifGudang, ubahNamaGudang, type HasilKelolaGudang } from "@/server/gudang/kelola-gudang";
 import { tetapkanPeriodeSumber } from "@/server/gudang/periode-sumber";
 
@@ -114,4 +115,38 @@ export async function ubahStatusGudang(input: unknown): Promise<HasilSimpan> {
     .safeParse(input);
   if (!isian.success) return { keadaan: "gagal", pesan: isian.error.issues[0].message };
   return muatUlangSetelahGudangBerubah(await tetapkanAktifGudang(isian.data.idGudang, isian.data.aktif));
+}
+
+// --- Lepas toko dari gudang (T115, PRD A3 ▶ Revisi 2026-10-13) ---
+
+const pesanTokoTidakDitemukan = "Toko tidak ditemukan. Muat ulang halaman.";
+const skemaLepas = z.object({
+  idGudang: skemaIdGudang,
+  idToko: z.number({ error: pesanTokoTidakDitemukan }).int({ error: pesanTokoTidakDitemukan }),
+});
+
+/**
+ * Melepas toko dari gudangnya: hubungan dihapus, jadwal tetapnya dinonaktifkan, dan pengiriman di luar jadwal yang belum
+ * lewat dibatalkan, dalam satu transaksi. Hanya admin (diperiksa di server). Memuat ulang halaman yang menampilkan
+ * hubungan toko, jadwal tetap, dan pengiriman di luar jadwal gudang itu.
+ */
+export async function lepasToko(input: unknown): Promise<HasilSimpan> {
+  const admin = await wajibAdmin();
+  const isian = skemaLepas.safeParse(input);
+  if (!isian.success) return { keadaan: "gagal", pesan: isian.error.issues[0].message };
+
+  const { idGudang, idToko } = isian.data;
+  const hasil = await lepasTokoDariGudang({ idGudang, idToko, idPengguna: admin.id, hariIni: tanggalWib(new Date()) });
+  if (hasil.keadaan === "gagal") return hasil;
+  try {
+    revalidatePath(PATH_HALAMAN);
+    revalidatePath(PATH_HALAMAN_TOKO);
+    revalidatePath(`/admin/jadwal-toko/${idGudang}`);
+    revalidatePath("/admin/jadwal");
+    revalidatePath(`/usulan-jadwal/${idGudang}`);
+    revalidatePath(`/pengiriman-gudang/${idGudang}`);
+  } catch {
+    return { keadaan: "tersimpanGagalMuatUlang" };
+  }
+  return { keadaan: "berhasil" };
 }

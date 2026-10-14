@@ -61,6 +61,10 @@ describe("/admin/gudang", () => {
     const barisNonaktif = new RegExp(`<tr[^>]*>(?:(?!</tr>).)*${nonaktif.nama}(?:(?!</tr>).)*</tr>`).exec(html)?.[0] ?? "";
     expect(barisNonaktif).toContain("Nonaktif");
     expect(barisNonaktif).not.toContain("<button");
+    // T115: tombol Lepas hanya untuk toko yang terhubung.
+    const barisTerhubung = new RegExp(`<tr[^>]*>(?:(?!</tr>).)*${terhubung.nama}(?:(?!</tr>).)*</tr>`).exec(html)?.[0] ?? "";
+    expect(barisTerhubung).toContain(`aria-label="Lepas ${terhubung.nama} dari Gudang Cibubur"`);
+    expect(html).not.toContain(`aria-label="Lepas ${nonaktif.nama}`);
     // Zona kerja: judul halaman text-2xl md:text-3xl, tanpa blob.
     expect(html).toContain("text-2xl font-bold md:text-3xl");
     expect(html).not.toContain("blur-3xl");

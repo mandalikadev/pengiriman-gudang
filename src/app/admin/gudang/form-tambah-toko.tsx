@@ -15,9 +15,11 @@ import { cn } from "@/lib/utils";
 import type { StatusTambahToko } from "@/server/gudang/hubungan";
 
 import { tambahTokoKeGudang, type HasilTambahTokoMassal } from "./aksi";
+import { TombolLepasToko, type DataLepasToko } from "./tombol-lepas-toko";
 
 export type DataGudang = { id: number; nama: string };
-export type DataToko = { id: number; nama: string; aktif: boolean; namaGudang: string | null };
+/** `terhubung` = data untuk melepas toko dari gudangnya (T115); `null` = belum terhubung. */
+export type DataToko = { id: number; nama: string; aktif: boolean; namaGudang: string | null; terhubung: DataLepasToko | null };
 
 // DESIGN §7: status selalu ikon + teks; warna ikon dari token status, teks foreground.
 const tampilanStatus = {
@@ -85,7 +87,10 @@ function HasilPerToko({ hasil }: { hasil: Extract<HasilTambahTokoMassal, { hasil
   );
 }
 
-/** Tambah toko massal (PRD A3): pilih gudang dan beberapa toko, satu tombol, hasil per toko. */
+/**
+ * Tambah toko massal (PRD A3): pilih gudang dan beberapa toko, satu tombol, hasil per toko. Toko yang terhubung punya
+ * tindakan "Lepas" di barisnya (T115).
+ */
 export function FormTambahToko({ daftarGudang, daftarToko }: { daftarGudang: DataGudang[]; daftarToko: DataToko[] }) {
   const id = useId();
   const [idGudang, setIdGudang] = useState("");
@@ -156,6 +161,7 @@ export function FormTambahToko({ daftarGudang, daftarToko }: { daftarGudang: Dat
                 <TableHead>Toko</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Gudang</TableHead>
+                <TableHead>Tindakan</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -190,6 +196,9 @@ export function FormTambahToko({ daftarGudang, daftarToko }: { daftarGudang: Dat
                       )}
                     >
                       {t.namaGudang ?? "Belum terhubung"}
+                    </TableCell>
+                    <TableCell className="whitespace-normal">
+                      <TombolLepasToko idToko={t.id} namaToko={t.nama} terhubung={t.terhubung} />
                     </TableCell>
                   </TableRow>
                 );

@@ -77,7 +77,7 @@ export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
  * Memastikan gudang ada dan toko terhubung ke gudang itu, lalu mengunci baris toko agar perubahan jadwal bersamaan untuk
  * toko yang sama berjalan bergantian. `null` = boleh lanjut.
  */
-async function periksaTujuan(tx: Tx, { idGudang, idToko }: { idGudang: number; idToko: number }): Promise<string | null> {
+export async function periksaTujuan(tx: Tx, { idGudang, idToko }: { idGudang: number; idToko: number }): Promise<string | null> {
   const [tujuan] = await tx.select({ id: gudang.id }).from(gudang).where(eq(gudang.id, idGudang));
   if (!tujuan) return "Gudang tidak ditemukan.";
 
@@ -139,7 +139,7 @@ export async function gantiJadwalAktif(tx: Tx, { idToko, baru, idPengguna }: { i
 }
 
 /** Menonaktifkan jadwal aktif toko atas nama `idPengguna`. `false` = toko tidak punya jadwal aktif. */
-async function nonaktifkanJadwalAktif(tx: Tx, { idToko, idPengguna }: { idToko: number; idPengguna: string }) {
+export async function nonaktifkanJadwalAktif(tx: Tx, { idToko, idPengguna }: { idToko: number; idPengguna: string }) {
   const baris = await tx
     .update(jadwalToko)
     .set({ status: "nonaktif", dinonaktifkanOleh: idPengguna, dinonaktifkanPada: sql`now()` })
@@ -155,14 +155,28 @@ const ALASAN_JADWAL_BERUBAH = "Jadwal tetap berubah";
 const ALASAN_SUDAH_RUTIN = "Tanggal itu sudah menjadi tanggal kirim rutin";
 
 /**
- * Pembatalan otomatis oleh sistem (T113, PRD A5 ▶ Revisi 2026-10-13) setelah jadwal tetap toko diubah (`jadwal` = jadwal
- * tetap baru) atau dinonaktifkan (`jadwal` = `null`). Berlaku untuk pengiriman di luar jadwal yang menunggu atau berlaku,
- * yang tanggal kirimnya belum lewat (`hariIni` atau sesudahnya) dan belum punya rencana final toko itu. Pembatal kosong =
- * sistem. Dipanggil di dalam transaksi perubahan jadwal, setelah baris toko dikunci.
+ * Pengiriman di luar jadwal yang terkena pembatalan otomatis oleh sistem (PRD A5 ▶ Revisi 2026-10-13): menunggu atau
+ * berlaku, tanggal kirimnya belum lewat (`hariIni` atau sesudahnya), dan belum punya rencana final toko itu untuk tanggal
+ * tersebut.
  */
-async function batalkanPengirimanDiLuarJadwalTerdampak(
+export function bisaDibatalkanOtomatis(hariIni: TanggalBisnis) {
+  return and(
+    inArray(pengirimanDiLuarJadwal.status, ["menunggu", "berlaku"]),
+    gte(pengirimanDiLuarJadwal.tanggalKirim, hariIni),
+    sql`not exists (select 1 from ${rencanaFinal} where ${rencanaFinal.tokoId} = ${pengirimanDiLuarJadwal.tokoId} and ${rencanaFinal.tanggalKirim} = ${pengirimanDiLuarJadwal.tanggalKirim})`,
+  );
+}
+
+/**
+ * Pembatalan otomatis oleh sistem (T113, PRD A5 ▶ Revisi 2026-10-13) untuk pengiriman di luar jadwal toko yang
+ * `bisaDibatalkanOtomatis`. Setelah jadwal tetap toko diubah (`jadwal` = jadwal tetap baru), hanya yang tidak lagi sesuai
+ * yang dibatalkan, dengan alasannya masing-masing. Dengan `alasan` (jadwal tetap dinonaktifkan, atau toko dilepas dari
+ * gudang, T115), semuanya dibatalkan dengan alasan itu. Pembatal kosong = sistem. Dipanggil di dalam transaksi
+ * perubahannya, setelah baris toko dikunci.
+ */
+export async function batalkanPengirimanDiLuarJadwalTerdampak(
   tx: Tx,
-  { idToko, jadwal, hariIni }: { idToko: number; jadwal: Jadwal | null; hariIni: TanggalBisnis },
+  { idToko, hariIni, ...perubahan }: { idToko: number; hariIni: TanggalBisnis } & ({ jadwal: Jadwal } | { alasan: string }),
 ) {
   const terdampak = await tx
     .select({
@@ -171,21 +185,17 @@ async function batalkanPengirimanDiLuarJadwalTerdampak(
       tanggalRutinDipindah: pengirimanDiLuarJadwal.tanggalRutinDipindah,
     })
     .from(pengirimanDiLuarJadwal)
-    .where(
-      and(
-        eq(pengirimanDiLuarJadwal.tokoId, idToko),
-        inArray(pengirimanDiLuarJadwal.status, ["menunggu", "berlaku"]),
-        gte(pengirimanDiLuarJadwal.tanggalKirim, hariIni),
-        sql`not exists (select 1 from ${rencanaFinal} where ${rencanaFinal.tokoId} = ${pengirimanDiLuarJadwal.tokoId} and ${rencanaFinal.tanggalKirim} = ${pengirimanDiLuarJadwal.tanggalKirim})`,
-      ),
-    );
+    .where(and(eq(pengirimanDiLuarJadwal.tokoId, idToko), bisaDibatalkanOtomatis(hariIni)));
 
-  const rutin = (tanggal: string) => jadwal !== null && tanggalKirimMenurutJadwal(jadwal, parseTanggalBisnis(tanggal)).kirim;
+  const alasanUntuk = (p: (typeof terdampak)[number]): string | null => {
+    if ("alasan" in perubahan) return perubahan.alasan;
+    const rutin = (tanggal: string) => tanggalKirimMenurutJadwal(perubahan.jadwal, parseTanggalBisnis(tanggal)).kirim;
+    if (p.tanggalRutinDipindah !== null && !rutin(p.tanggalRutinDipindah)) return ALASAN_JADWAL_BERUBAH;
+    if (rutin(p.tanggalKirim)) return ALASAN_SUDAH_RUTIN;
+    return null;
+  };
   for (const p of terdampak) {
-    let alasan: string | null = null;
-    if (jadwal === null) alasan = ALASAN_JADWAL_DINONAKTIFKAN;
-    else if (p.tanggalRutinDipindah !== null && !rutin(p.tanggalRutinDipindah)) alasan = ALASAN_JADWAL_BERUBAH;
-    else if (rutin(p.tanggalKirim)) alasan = ALASAN_SUDAH_RUTIN;
+    const alasan = alasanUntuk(p);
     if (alasan === null) continue;
     await tx
       .update(pengirimanDiLuarJadwal)
@@ -245,7 +255,7 @@ export async function nonaktifkanJadwalTetap({
     if (!(await nonaktifkanJadwalAktif(tx, { idToko, idPengguna }))) {
       return { keadaan: "gagal", pesan: PESAN_TANPA_JADWAL_AKTIF };
     }
-    await batalkanPengirimanDiLuarJadwalTerdampak(tx, { idToko, jadwal: null, hariIni });
+    await batalkanPengirimanDiLuarJadwalTerdampak(tx, { idToko, alasan: ALASAN_JADWAL_DINONAKTIFKAN, hariIni });
     return { keadaan: "berhasil" };
   });
 }
