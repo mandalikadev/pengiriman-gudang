@@ -46,7 +46,7 @@ import { muatStatusCacheLaporan, type StatusCacheLaporan } from "@/server/lapora
 //   selesai = ada ranking berlaku (versi berstatus `dipublikasikan`); (3) periksa pemetaan selesai = tidak ada produk
 //   `belum-dipetakan`; (4) setujui pengiriman di luar jadwal selesai = tidak ada pengiriman di luar jadwal `menunggu`;
 // - operator, per gudang penugasan, untuk tanggal kirim terdekat gudang (definisi T79 di atas): (1) hitung kebutuhan
-//   selesai = draft tanggal itu ada; (2) isi stok selesai = draft itu ada dan tidak punya baris tertahan; (3) finalisasi
+//   selesai = draft tanggal itu ada dan tidak perlu dihitung ulang (`periksaHitungUlang`, DESIGN §11.9); (2) isi stok selesai = draft itu ada dan tidak punya baris tertahan; (3) finalisasi
 //   selesai = semua toko aktif yang mengirim tanggal itu sudah punya rencana final. Gudang tanpa tanggal kirim terdekat
 //   tidak punya langkah.
 
@@ -241,9 +241,17 @@ async function langkahGudang({ gudang: g, belumFinal }: GudangTerdekat): Promise
   if (belumFinal === null) return { untuk: "gudang", gudang: g, tanggalKirim: null, langkah: [] };
   const { tanggalKirim } = belumFinal;
   const [draft] = await db
-    .select({ id: draftRencana.id })
+    .select({
+      id: draftRencana.id,
+      versiPeriodeSumber: draftRencana.versiPeriodeSumber,
+      imporAktif: draftRencana.imporAktif,
+      versiRankingId: draftRencana.versiRankingId,
+    })
     .from(draftRencana)
     .where(and(eq(draftRencana.gudangId, g.id), eq(draftRencana.tanggalKirim, tanggalKirim)));
+  const perluDihitungUlang =
+    draft !== undefined &&
+    (await periksaHitungUlang({ ...draft, idDraft: draft.id, idGudang: g.id, tanggalKirim })).alasan.length > 0;
   const barisTertahan =
     draft === undefined
       ? 0
@@ -263,7 +271,7 @@ async function langkahGudang({ gudang: g, belumFinal }: GudangTerdekat): Promise
     gudang: g,
     tanggalKirim,
     langkah: [
-      { jenis: "hitung-kebutuhan", selesai: draft !== undefined, href },
+      { jenis: "hitung-kebutuhan", selesai: draft !== undefined && !perluDihitungUlang, href },
       { jenis: "isi-stok", selesai: draft !== undefined && barisTertahan === 0, href },
       { jenis: "finalisasi", selesai: belumFinal.jumlahBelumFinal === 0, href },
     ],

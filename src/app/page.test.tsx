@@ -333,6 +333,7 @@ function langkahMulai(html: string) {
       jenis: m[1],
       status: /data-status-langkah="([^"]+)"/.exec(isi)?.[1],
       href: /<a [^>]*href="([^"]+)"/.exec(isi)?.[1]?.replaceAll("&amp;", "&"),
+      tombol: /<a [^>]*>(.*?)<\/a>/.exec(isi)?.[1]?.replace(/<[^>]+>/g, "").trim(),
       teks: isi.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
     };
   });
@@ -408,6 +409,26 @@ describe("/ (beranda)", () => {
       ["/ringkasan", "Ringkasan"],
       ["/admin/gudang", "Gudang"],
     ]);
+  });
+
+  it("admin dengan semua langkah selesai dan 1 kartu Perlu tindakan → Langkah rutin beres, masih ada yang perlu ditindak (DESIGN §11.9)", async () => {
+    // Keadaan admin dari test sebelumnya: semua langkah selesai dan tanpa kartu. Satu snapshot libur menunggu → 1 kartu.
+    const snapshot = await buatSnapshotUji(await tahunLiburUji(), idAdmin, "menunggu-persetujuan", []);
+    kepala.cookie = (await kepalaPenggunaUji("admin")).cookie;
+    const html = await buka();
+    expect(Object.keys(kartu(html))).toEqual(["snapshot-libur"]);
+    expect(langkahMulai(html)).toEqual([]);
+    const beres = /<p[^>]*data-semua-langkah-beres[^>]*>(.*?)<\/p>/.exec(bagianMulai(html))?.[1] ?? "";
+    expect(beres).toContain("Langkah rutin beres. Masih ada yang perlu ditindak di bawah.");
+    expect(beres).not.toContain("Semua langkah beres");
+
+    // Kartu dibereskan → kembali "Semua langkah beres".
+    await db.update(snapshotLibur).set({ status: "diarsipkan" }).where(eq(snapshotLibur.id, snapshot.id));
+    const sesudah = await buka();
+    expect(kartu(sesudah)).toEqual({});
+    const beresSesudah = /<p[^>]*data-semua-langkah-beres[^>]*>(.*?)<\/p>/.exec(bagianMulai(sesudah))?.[1] ?? "";
+    expect(beresSesudah).toContain("Semua langkah beres");
+    expect(beresSesudah).not.toContain("Masih ada");
   });
 
   it("admin melihat kartu dengan jumlah yang benar per jenis tindakan; kartu berjumlah 0 tidak tampil", async () => {
@@ -660,9 +681,12 @@ describe("/ (beranda)", () => {
       ["3", "finalisasi", "belum", href],
     ]);
     expect(langkah.map((l) => l.teks)).toEqual([
-      expect.stringMatching(/^1 Hitung kebutuhan .+ Belum Buka Pengiriman Gudang$/),
-      expect.stringMatching(/^2 Isi stok dan bereskan masalah .*unggah file stok atau ketik.* Belum Buka Pengiriman Gudang$/),
-      expect.stringMatching(/^3 Finalisasi .+ Belum Buka Pengiriman Gudang$/),
+      expect.stringMatching(/^1 Hitung kebutuhan .+ Belum Hitung kebutuhan$/),
+      expect.stringMatching(/^2 Isi stok dan bereskan masalah .*unggah file stok atau ketik.* Belum Isi stok$/),
+      expect.stringMatching(/^3 Finalisasi .+ Belum Finalisasi$/),
     ]);
+    // Tombol langkah berlabel tindakannya (DESIGN §11.9), tetap menuju halaman/tanggal yang sama.
+    expect(langkah.map((l) => l.tombol)).toEqual(["Hitung kebutuhan", "Isi stok", "Finalisasi"]);
+    expect(mulai).not.toContain("Buka Pengiriman Gudang");
   });
 });

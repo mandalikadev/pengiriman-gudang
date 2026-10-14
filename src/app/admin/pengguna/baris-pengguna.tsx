@@ -15,10 +15,30 @@ import type { Peran } from "@/server/auth/auth";
 
 import { aktifkanKembaliPengguna, nonaktifkanPengguna, ubahPeran } from "./aksi";
 
-export type DataPengguna = { id: string; nama: string; email: string; peran: Peran; nonaktif: boolean };
+/** Peran yang ditampilkan, aturan sama seperti sidebar (CONTEXT.md): operator = bukan admin, tetapi ditugaskan ke gudang. */
+type PeranTampil = "admin" | "operator" | "viewer";
+
+const labelPeranTampil: Record<PeranTampil, string> = { admin: "Admin", operator: "Operator", viewer: "Viewer" };
+
+/** Bunyi pilihan peran yang disimpan (DESIGN §11.9); nilai yang disimpan tetap `admin`/`viewer`. */
+export const labelPilihanPeran: Record<Peran, string> = {
+  admin: "Admin",
+  viewer: "Bukan admin (operator atau viewer, menurut penugasan)",
+};
+
+export type DataPengguna = {
+  id: string;
+  nama: string;
+  email: string;
+  peran: Peran;
+  peranTampil: PeranTampil;
+  /** Akun admin yang sedang masuk: tanpa tombol Nonaktifkan (server juga menolak, PRD A3 ▶ T20). */
+  akunSendiri: boolean;
+  nonaktif: boolean;
+};
 
 export function BarisPengguna({ pengguna }: { pengguna: DataPengguna }) {
-  const [peran, setPeran] = useState<string>(pengguna.peran);
+  const [peran, setPeran] = useState<Peran>(pengguna.peran);
   const { tampilan, menunggu, berubah, tandaiBerubah, simpan } = usePenyimpanan("daftar pengguna");
 
   return (
@@ -26,20 +46,23 @@ export function BarisPengguna({ pengguna }: { pengguna: DataPengguna }) {
       <TableCell className="font-semibold">{pengguna.nama}</TableCell>
       <TableCell>{pengguna.email}</TableCell>
       <TableCell>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span data-peran-tampil={pengguna.peranTampil} className="w-20 font-semibold">
+            {labelPeranTampil[pengguna.peranTampil]}
+          </span>
           <Select
             value={peran}
             onValueChange={(nilai) => {
-              setPeran(nilai);
+              setPeran(nilai === "admin" ? "admin" : "viewer");
               tandaiBerubah();
             }}
           >
-            <SelectTrigger ukuran="tabel" className="w-32" aria-label={`Peran ${pengguna.nama}`}>
-              <SelectValue>{peran}</SelectValue>
+            <SelectTrigger ukuran="tabel" className="w-auto" aria-label={`Peran ${pengguna.nama}`}>
+              <SelectValue>{labelPilihanPeran[peran]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="viewer">viewer</SelectItem>
-              <SelectItem value="admin">admin</SelectItem>
+              <SelectItem value="admin">{labelPilihanPeran.admin}</SelectItem>
+              <SelectItem value="viewer">{labelPilihanPeran.viewer}</SelectItem>
             </SelectContent>
           </Select>
           <Button
@@ -75,7 +98,7 @@ export function BarisPengguna({ pengguna }: { pengguna: DataPengguna }) {
               </Button>
             }
           />
-        ) : (
+        ) : pengguna.akunSendiri ? null : (
           <DialogKonfirmasi
             judul={`Nonaktifkan ${pengguna.nama}?`}
             akibat="Pengguna ini tidak bisa masuk lagi."

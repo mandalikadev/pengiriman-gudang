@@ -88,8 +88,17 @@ async function tokoBerjadwal(idGudang: number) {
   return { id: t.id, versiJadwal: jadwal.id };
 }
 
-/** Draft tersimpan langsung (tanpa menghitung) untuk toko-toko `toko`; `tertahan` = satu dari dua barisnya bermasalah. */
-async function buatDraftUji(idGudang: number, tanggalKirim: TanggalBisnis, toko: { id: number; versiJadwal: number; tertahan: boolean }[]) {
+/**
+ * Draft tersimpan langsung (tanpa menghitung) untuk toko-toko `toko`; `tertahan` = satu dari dua barisnya bermasalah.
+ * `mutakhir` = dasar perhitungannya sama dengan yang berlaku; `false` = impor aktif yang dipakai tidak tercatat, yang oleh
+ * `periksaHitungUlang` dianggap berubah (perlu dihitung ulang, T61).
+ */
+async function buatDraftUji(
+  idGudang: number,
+  tanggalKirim: TanggalBisnis,
+  toko: { id: number; versiJadwal: number; tertahan: boolean }[],
+  { mutakhir = true }: { mutakhir?: boolean } = {},
+) {
   const versiRankingId = await publikasikanRankingUji({ keluarga: [], idPengguna: admin.id });
   const [periode] = await db
     .insert(periodeSumberGudang)
@@ -106,7 +115,7 @@ async function buatDraftUji(idGudang: number, tanggalKirim: TanggalBisnis, toko:
       revisiKalender: kunci.revisiKalender,
       versiRankingId,
       bulanSumber: ["2026-06"],
-      imporAktif: kunci.imporAktif,
+      imporAktif: mutakhir ? kunci.imporAktif : null,
     })
     .returning({ id: draftRencana.id });
   for (const t of toko) {
@@ -126,6 +135,8 @@ async function buatDraftUji(idGudang: number, tanggalKirim: TanggalBisnis, toko:
           masalah: bermasalah ? (["stok-belum-diisi"] satisfies MasalahBarisDraft[]) : ([] satisfies MasalahBarisDraft[]),
           stokAkhir: bermasalah ? null : 2,
           jumlahKirim: bermasalah ? null : 4,
+          // Tanpa master produk → belum dipetakan, sama seperti yang tercatat saat dihitung (pemetaan tidak berubah).
+          statusKeluargaAroma: "belum-dipetakan" as const,
         };
       }),
     );
@@ -283,6 +294,26 @@ describe("Mulai di sini: operator (per gudang, tanggal kirim terdekat)", () => {
       ["isi-stok", false],
       ["finalisasi", false],
     ]);
+  });
+
+  it("draft tanggal terdekat ada tetapi perlu dihitung ulang → hitung kebutuhan Belum; setelah dihitung ulang → Selesai (DESIGN §11.9)", async () => {
+    await db.delete(draftRencana).where(eq(draftRencana.gudangId, cibubur));
+    await db.delete(hubunganTokoGudang).where(eq(hubunganTokoGudang.gudangId, cibubur));
+    const a = await tokoBerjadwal(cibubur);
+    const { draftId } = await buatDraftUji(cibubur, tanggalKirimTerdekat, [{ ...a, tertahan: false }], { mutakhir: false });
+    const operator = await operatorUji([cibubur]);
+    expect(daftarGudang(await muatIsiBeranda(operator, hariIni), cibubur).langkah[0]).toMatchObject({
+      jenis: "hitung-kebutuhan",
+      selesai: false,
+    });
+
+    // Dihitung ulang: dasar draft kembali sama dengan yang berlaku.
+    const kunci = await bacaKunciVersi(db);
+    await db.update(draftRencana).set({ imporAktif: kunci.imporAktif }).where(eq(draftRencana.id, draftId));
+    expect(daftarGudang(await muatIsiBeranda(operator, hariIni), cibubur).langkah[0]).toMatchObject({
+      jenis: "hitung-kebutuhan",
+      selesai: true,
+    });
   });
 
   it("draft tanpa baris tertahan dan semua toko yang mengirim tanggal itu final → semua Selesai; gudang kedua punya daftar sendiri", async () => {

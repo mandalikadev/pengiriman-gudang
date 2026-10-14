@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { buatPengguna } from "./aksi";
+import { labelPilihanPeran } from "./baris-pengguna";
 
 const isianKosong = { nama: "", email: "", sandi: "", peran: "viewer" };
 
@@ -72,11 +73,11 @@ export function FormBuatPengguna() {
             <span id={`${id}-peran`}>Peran</span>
             <Select value={isian.peran} onValueChange={(nilai) => ubah("peran", nilai)}>
               <SelectTrigger aria-labelledby={`${id}-peran`}>
-                <SelectValue>{isian.peran}</SelectValue>
+                <SelectValue>{isian.peran === "admin" ? labelPilihanPeran.admin : labelPilihanPeran.viewer}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="viewer">viewer</SelectItem>
-                <SelectItem value="admin">admin</SelectItem>
+                <SelectItem value="admin">{labelPilihanPeran.admin}</SelectItem>
+                <SelectItem value="viewer">{labelPilihanPeran.viewer}</SelectItem>
               </SelectContent>
             </Select>
           </div>

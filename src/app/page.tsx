@@ -64,42 +64,46 @@ const pintasanPeran: Record<PeranTampil, { href: string; label: string }[]> = {
   ],
 };
 
-/** Judul, satu kalimat penjelasan, dan nama halaman tujuan setiap langkah "Mulai di sini"; nomor = urutan dari server. */
-const tampilanLangkah: Record<LangkahMulai["jenis"], { judul: string; penjelasan: string; tujuan: string }> = {
+/**
+ * Judul, satu kalimat penjelasan, dan label tombol setiap langkah "Mulai di sini"; nomor = urutan dari server. Tombol
+ * langkah operator berlabel tindakannya (DESIGN §11.9), bukan "Buka Pengiriman Gudang" yang diulang; tombol langkah admin
+ * menyebut halaman tujuannya yang berbeda-beda.
+ */
+const tampilanLangkah: Record<LangkahMulai["jenis"], { judul: string; penjelasan: string; tombol: string }> = {
   "impor-penjualan": {
     judul: "Impor penjualan",
     penjelasan: "Unggah file Excel penjualan, tinjau hasilnya, lalu aktifkan agar laporan memakai data terbaru.",
-    tujuan: "Impor",
+    tombol: "Buka Impor",
   },
   "terbitkan-ranking": {
     judul: "Terbitkan ranking pusat",
     penjelasan: "Unggah file ranking lalu publikasikan agar buffer setiap gudang mengikuti ranking itu.",
-    tujuan: "Ranking",
+    tombol: "Buka Ranking",
   },
   "periksa-pemetaan": {
     judul: "Periksa pemetaan produk",
     penjelasan: "Pastikan setiap produk sudah punya keluarga aroma atau ditandai tanpa aroma.",
-    tujuan: "Pemetaan produk",
+    tombol: "Buka Pemetaan produk",
   },
   "setujui-usulan-jadwal": {
     judul: "Setujui pengiriman di luar jadwal",
     penjelasan: "Tinjau usulan pengiriman di luar jadwal dari operator, lalu setujui atau tolak.",
-    tujuan: "Persetujuan jadwal",
+    tombol: "Buka Persetujuan jadwal",
   },
   "hitung-kebutuhan": {
     judul: "Hitung kebutuhan",
     penjelasan: "Hitung draft rencana kirim semua toko yang mengirim pada tanggal ini.",
-    tujuan: "Pengiriman Gudang",
+    tombol: "Hitung kebutuhan",
   },
   "isi-stok": {
     judul: "Isi stok dan bereskan masalah",
     penjelasan: "Isi stok akhir (unggah file stok atau ketik), lalu bereskan baris yang masih tertahan.",
-    tujuan: "Pengiriman Gudang",
+    tombol: "Isi stok",
   },
   finalisasi: {
     judul: "Finalisasi",
     penjelasan: "Finalisasi rencana kirim setiap toko yang mengirim pada tanggal ini.",
-    tujuan: "Pengiriman Gudang",
+    tombol: "Finalisasi",
   },
 };
 
@@ -166,7 +170,7 @@ function StatusLangkah({ selesai }: { selesai: boolean }) {
 }
 
 function Langkah({ langkah, nomor }: { langkah: LangkahMulai; nomor: number }) {
-  const { judul, penjelasan, tujuan } = tampilanLangkah[langkah.jenis];
+  const { judul, penjelasan, tombol } = tampilanLangkah[langkah.jenis];
   return (
     <li data-langkah={langkah.jenis} className="flex flex-col gap-4 sm:flex-row sm:items-center">
       <span
@@ -185,15 +189,18 @@ function Langkah({ langkah, nomor }: { langkah: LangkahMulai; nomor: number }) {
           href={langkah.href}
           className={cn(buttonVariants({ size: "lg", variant: "outline" }), "hover:scale-105 active:scale-95")}
         >
-          Buka {tujuan}
+          {tombol}
         </Link>
       </span>
     </li>
   );
 }
 
-/** Satu daftar langkah: semua selesai → "Semua langkah beres" tanpa daftar (ikon + teks, token `success`). */
-function IsiDaftarLangkah({ daftar, berjudul }: { daftar: DaftarLangkah; berjudul: boolean }) {
+/**
+ * Satu daftar langkah: semua selesai → "Semua langkah beres" tanpa daftar (ikon + teks, token `success`), atau "Langkah
+ * rutin beres. Masih ada yang perlu ditindak di bawah." bila masih ada kartu "Perlu tindakan" (DESIGN §11.9).
+ */
+function IsiDaftarLangkah({ daftar, berjudul, adaTindakan }: { daftar: DaftarLangkah; berjudul: boolean; adaTindakan: boolean }) {
   const judul =
     daftar.untuk === "gudang"
       ? [daftar.gudang.nama, daftar.tanggalKirim ? `Tanggal kirim ${formatTanggal(daftar.tanggalKirim)}` : null]
@@ -209,7 +216,7 @@ function IsiDaftarLangkah({ daftar, berjudul }: { daftar: DaftarLangkah; berjudu
     ) : semuaSelesai ? (
       <p data-semua-langkah-beres className="flex items-center gap-3 text-lg font-semibold text-foreground">
         <CircleCheck aria-hidden strokeWidth={2} className="size-7 shrink-0 text-success" />
-        Semua langkah beres.
+        {adaTindakan ? "Langkah rutin beres. Masih ada yang perlu ditindak di bawah." : "Semua langkah beres."}
       </p>
     ) : (
       <ol className="flex flex-col gap-6">
@@ -226,7 +233,7 @@ function IsiDaftarLangkah({ daftar, berjudul }: { daftar: DaftarLangkah; berjudu
   );
 }
 
-function MulaiDiSini({ daftar }: { daftar: DaftarLangkah[] }) {
+function MulaiDiSini({ daftar, adaTindakan }: { daftar: DaftarLangkah[]; adaTindakan: boolean }) {
   return (
     <section
       aria-labelledby="judul-mulai-di-sini"
@@ -237,7 +244,7 @@ function MulaiDiSini({ daftar }: { daftar: DaftarLangkah[] }) {
         Mulai di sini
       </h2>
       {daftar.map((d) => (
-        <IsiDaftarLangkah key={d.untuk === "gudang" ? `gudang-${d.gudang.id}` : "admin"} daftar={d} berjudul={daftar.length > 1} />
+        <IsiDaftarLangkah key={d.untuk === "gudang" ? `gudang-${d.gudang.id}` : "admin"} daftar={d} berjudul={daftar.length > 1} adaTindakan={adaTindakan} />
       ))}
     </section>
   );
@@ -321,7 +328,7 @@ export default async function Beranda() {
           </p>
         </header>
 
-        {isi.mulaiDiSini === null ? null : <MulaiDiSini daftar={isi.mulaiDiSini} />}
+        {isi.mulaiDiSini === null ? null : <MulaiDiSini daftar={isi.mulaiDiSini} adaTindakan={(isi.kartu?.length ?? 0) > 0} />}
 
         {isi.kartu === null ? null : <PerluTindakan kartu={isi.kartu} bulanBerjalan={bulanBerjalan} />}
 
