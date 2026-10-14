@@ -70,7 +70,7 @@ export function FormUnggahRanking() {
         }}
       >
         <CardHeader>
-          <CardTitle>Unggah file ranking</CardTitle>
+          <CardTitle level={2}>Unggah file ranking</CardTitle>
           <CardDescription>
             File Excel dengan sheet RANKING SALES dan kolom RANK, VARIANT, QTY SALES. Bulan ranking diisi dari nama file
             bila bisa ditebak; periksa dan ubah bila perlu.

@@ -3,6 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import golden from "../../../tests/golden/laporan-15GL-GOR-PMS-juni.json";
 
+import { lompatanHeading } from "@/components/uji-bantu-heading";
 import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { buatTokoUji } from "@/server/gudang/uji-bantu";
 import { aktifkanImpor } from "@/server/impor/impor";
@@ -137,6 +138,8 @@ describe("/ringkasan: golden 15GL-GOR PMS Juni", () => {
     expect(html).toContain('data-periode-aktif="2026-06"');
     expect(html).toContain("Juni 2026 (1 bulan)");
     expect(html).toContain('data-status-cache="terbaru"');
+    // DESIGN §11.8 (T122): urutan heading h1 → h2 → h3 tanpa melompat (filter, kartu jumlah, tabel).
+    expect(lompatanHeading(html)).toEqual([]);
 
     const { kategori, totalMentah } = baris(html, toko.nama, kode);
     expect(Object.fromEntries(Object.entries(kategori).map(([nama, k]) => [nama, k.nilai]))).toEqual({
@@ -234,6 +237,7 @@ describe("/ringkasan: viewer, pagination, dan pilihan", () => {
   it("tanpa pilihan di URL: belum ada periode yang diterapkan dan tabel tidak tampil", async () => {
     const html = await buka("viewer", {});
     expect(html).toContain("Belum ada periode yang diterapkan");
+    expect(lompatanHeading(html)).toEqual([]);
     expect(html).not.toContain("data-baris=");
     expect(html).toContain("Terapkan");
     expect(html).not.toContain("data-ekspor-url=");
@@ -717,6 +721,8 @@ describe("/ringkasan: penelusuran angka sampai sel sumber (T37, PRD A1, A2)", ()
     expect(panel).toContain(`data-rincian="${nilaiRincian("Sabtu")}"`);
     expect(denganRincian.indexOf('role="dialog"')).toBeGreaterThan(akhirTabel(denganRincian));
     expect(isiDialog(denganRincian, "tengah")).toBeUndefined();
+    // DESIGN §11.8 (T122): heading panel rincian melanjutkan urutan halaman tanpa melompat.
+    expect(lompatanHeading(denganRincian)).toEqual([]);
 
     // Minggu sama: dialog di tengah, juga setelah tabel.
     const denganMingguSama = await buka("viewer", { bulan: "2026-06", mingguSama: pasangan });
@@ -910,9 +916,14 @@ describe("/ringkasan: kartu jumlah rata-rata per kategori hari (T80, PRD A2 ▶ 
     const kartuKartu = [...bagian.matchAll(/<div[^>]*data-slot="card"[^>]*data-kartu-kategori="([^"]+)"[^>]*>(.*?)<\/div><\/li>/g)];
     expect(kartuKartu.map(([, kategori]) => kategori)).toEqual(["Senin–Kamis", "Jumat", "Sabtu", "Minggu"]);
     for (const [, kategori, isi] of kartuKartu) {
-      expect(isi).toContain(`>${kategori}</h3>`);
+      // DESIGN §11.8 (T122): judul kartu h2 (langsung di bawah h1 halaman).
+      expect(isi).toContain(`>${kategori}</h2>`);
       expect(isi).toContain(`>${LABEL_KARTU}</p>`);
       expect(isi).toMatch(/class="[^"]*tabular-nums[^"]*"/);
+      // DESIGN §3, §11.8 (T122): angka kartu memakai Nunito tebal (font-sans font-bold), bukan Fraunces (font-heading).
+      const angka = /<span class="([^"]*tabular-nums[^"]*)"/.exec(isi)?.[1].split(" ") ?? [];
+      expect(angka).toEqual(expect.arrayContaining(["font-sans", "font-bold"]));
+      expect(angka).not.toContain("font-heading");
     }
     expect(bagian.toLocaleLowerCase("id")).not.toContain("total penjualan");
     // DESIGN §4: kartu rounded-3xl, border-border/60, shadow-soft.

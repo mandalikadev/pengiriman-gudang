@@ -81,7 +81,7 @@ export function FormPeriodeSumber({
         }}
       >
         <CardHeader>
-          <CardTitle>Periode sumber penjualan</CardTitle>
+          <CardTitle level={2}>Periode sumber penjualan</CardTitle>
           <CardDescription>
             Bulan laporan yang menjadi dasar rata-rata pengiriman setiap gudang. Semua operator gudang memakai periode
             ini dan melihatnya hanya-baca. Terpisah dari pilihan bulan di Ringkasan.

@@ -152,8 +152,8 @@ export default function HalamanContohDesain() {
             </CardHeader>
             <CardContent>Isi kartu memakai Nunito text-sm.</CardContent>
             <CardFooter>
-              <Button size="sm">Simpan</Button>
-              <Button size="sm" variant="ghost">
+              <Button>Simpan</Button>
+              <Button variant="ghost">
                 Batal
               </Button>
             </CardFooter>

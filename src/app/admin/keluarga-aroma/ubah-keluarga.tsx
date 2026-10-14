@@ -67,7 +67,7 @@ function FormUbahKeluarga({ keluarga }: { keluarga: DataKeluarga }) {
             </SelectContent>
           </Select>
         </div>
-        <Button type="submit" size="sm" variant="outline" disabled={!berubah || menunggu}>
+        <Button type="submit" variant="outline" disabled={!berubah || menunggu}>
           Simpan keluarga
         </Button>
       </div>
@@ -132,7 +132,6 @@ function BagianEntri({
                 pemicu={
                   <Button
                     type="button"
-                    size="sm"
                     variant="destructiveOutline"
                     disabled={menunggu}
                     aria-label={`Hapus ${jenis} ${e.teks}`}
@@ -170,7 +169,7 @@ function BagianEntri({
             {keterangan}
           </span>
         </label>
-        <Button type="submit" size="sm" variant="outline" disabled={menunggu}>
+        <Button type="submit" variant="outline" disabled={menunggu}>
           Tambah {jenis}
         </Button>
       </form>

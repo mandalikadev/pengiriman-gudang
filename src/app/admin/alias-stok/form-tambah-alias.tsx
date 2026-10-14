@@ -32,7 +32,7 @@ export function FormTambahAlias() {
         }}
       >
         <CardHeader>
-          <CardTitle>Tambah alias</CardTitle>
+          <CardTitle level={2}>Tambah alias</CardTitle>
           <CardDescription>
             Nama produk persis seperti di file stok kasir, dipetakan ke satu kode produk master. Disimpan dalam huruf
             besar dengan spasi dirapikan. Nama master produk sudah berlaku sebagai alias tanpa perlu ditambahkan.

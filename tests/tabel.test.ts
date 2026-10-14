@@ -63,4 +63,14 @@ describe("tabel (DESIGN §11.1)", () => {
     const [tabel] = semua.filter((t) => t.tag.includes("aria-label={`Varian ${toko.nama}`}"));
     expect(tabel.tag).toContain("kolomMenempel={2}");
   });
+
+  // DESIGN §3, §6, §11.8 (T122): kolom angka rata kanan lewat prop `angka` (text-right + tabular-nums), bukan kelas manual.
+  it("sel dan kepala kolom angka memakai prop angka, bukan text-right manual", () => {
+    const manual = berkasTsx(akarSrc).flatMap((path) =>
+      [...readFileSync(path, "utf8").matchAll(/<Table(?:Head|Cell)\b[^>]*className="[^"]*\btext-right\b[^>]*>/g)].map(
+        (m) => `${relative(akarSrc, path)}: ${m[0]}`,
+      ),
+    );
+    expect(manual).toEqual([]);
+  });
 });

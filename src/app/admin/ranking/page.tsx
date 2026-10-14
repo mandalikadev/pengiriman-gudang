@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { tautanTombolVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { WaktuSingkat } from "@/components/waktu-singkat";
@@ -32,7 +33,7 @@ export default async function HalamanRanking() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Ranking berlaku untuk semua gudang</CardTitle>
+          <CardTitle level={2}>Ranking berlaku untuk semua gudang</CardTitle>
         </CardHeader>
         <CardContent>
           {berlaku ? (
@@ -101,7 +102,7 @@ export default async function HalamanRanking() {
                   <TableCell>
                     <Link
                       href={`/admin/ranking/${r.id}`}
-                      className="inline-flex min-h-11 items-center rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      className={tautanTombolVariants()}
                     >
                       Tinjau ranking<span className="sr-only"> {formatVersiRanking(r)}</span>
                     </Link>

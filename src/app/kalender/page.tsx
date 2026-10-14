@@ -7,6 +7,7 @@ import { formatBulanImpor, formatWaktu, tanggalWib } from "@/app/admin/impor/for
 import { labelJenisLibur } from "@/app/admin/libur/format";
 import { BadgeStatus } from "@/components/badge-status";
 import { BantuanIstilah } from "@/components/bantuan-istilah";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, kisiBulan, parseTanggalBisnis, posisiLaporan, type TanggalBisnis } from "@/domain/kalender";
@@ -23,6 +24,7 @@ import {
 import { muatLiburAktif, type LiburAktif } from "@/server/libur/libur-aktif";
 
 import { PerubahanKategoriTanggal, type DataPerubahanBerlaku } from "./form-perubahan-kategori";
+import { ID_DETAIL_TANGGAL, TautanTanggal } from "./tautan-tanggal";
 
 export const metadata: Metadata = {
   title: "Kalender — Dashboard Penjualan MANDALIKA",
@@ -36,8 +38,7 @@ type CakupanToko = Toko | null;
 
 const NAMA_KOLOM = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"] as const;
 
-const kelasTautan =
-  "inline-flex min-h-11 items-center gap-2 rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+const kelasTautan = tautanTombolVariants();
 
 function teksPertama(nilai: string | string[] | undefined): string | undefined {
   return Array.isArray(nilai) ? nilai[0] : nilai;
@@ -169,7 +170,7 @@ function PemilihCakupan({
               <Link
                 href={urlKalender(bulan, nilai, tanggal)}
                 aria-current={terpilih ? "true" : undefined}
-                className={cn(kelasTautan, "break-all", terpilih && "bg-accent text-accent-foreground hover:bg-accent")}
+                className={cn(tautanTombolVariants({ nada: terpilih ? "terpilih" : "primary" }), "break-all")}
               >
                 {label}
               </Link>
@@ -214,7 +215,7 @@ function SelTanggal({
         hariIni && "ring-2 ring-primary ring-inset",
       )}
     >
-      <Link
+      <TautanTanggal
         href={urlKalender(bulan, cakupan, tanggal)}
         aria-current={hariIni ? "date" : undefined}
         className="flex h-full min-h-24 flex-col gap-1 p-2 transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
@@ -242,7 +243,7 @@ function SelTanggal({
         {hariIni ? (
           <span className={cn("text-xs font-semibold", terpilih ? "text-accent-foreground" : "text-primary")}>Hari ini</span>
         ) : null}
-      </Link>
+      </TautanTanggal>
     </TableCell>
   );
 }
@@ -272,7 +273,8 @@ function KisiBulan({
       <TableHeader>
         <TableRow>
           {NAMA_KOLOM.map((nama) => (
-            <TableHead key={nama} scope="col">
+            // DESIGN §11.8: padding kepala lebih rapat agar tujuh kolom muat di kolom kisi pada 1024 px (tanpa gulir).
+            <TableHead key={nama} scope="col" className="px-2">
               {nama}
             </TableHead>
           ))}
@@ -488,7 +490,8 @@ export default async function HalamanKalender({ searchParams }: { searchParams: 
 
       <PemilihCakupan bulan={bulan} tanggal={tanggalUrl} cakupan={cakupan} daftarToko={daftarToko} />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
+      {/* DESIGN §11.8: kolom kisi boleh menyempit (minmax(0,1fr)); tabel menggulir di dalam wadahnya, tidak melebar. */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <KisiBulan
           bulan={bulan}
           kisi={kisi}
@@ -498,7 +501,7 @@ export default async function HalamanKalender({ searchParams }: { searchParams: 
           cakupan={cakupan}
           kategori={kategori}
         />
-        <div className="flex flex-col gap-6">
+        <div id={ID_DETAIL_TANGGAL} className="flex scroll-mt-20 flex-col gap-6">
           <DetailTanggal
             tanggal={terpilih}
             libur={terpilih ? libur.get(terpilih) : undefined}

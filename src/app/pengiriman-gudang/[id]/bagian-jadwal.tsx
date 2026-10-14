@@ -5,6 +5,7 @@ import { BadgeStatusPengiriman, teksJenis, teksTanggalKirim } from "@/app/usulan
 import { BadgeStatus } from "@/components/badge-status";
 import { BantuanIstilah } from "@/components/bantuan-istilah";
 import { Badge } from "@/components/ui/badge";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { WaktuSingkat } from "@/components/waktu-singkat";
 import { formatTanggal } from "@/domain/kalender";
@@ -35,8 +36,7 @@ function BadgeStatusToko({ aktif }: { aktif: boolean }) {
   );
 }
 
-const kelasTautan =
-  "inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary underline underline-offset-4 transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+const kelasTautan = tautanTombolVariants({ garisBawah: true });
 
 /** Pengiriman di luar jadwal yang akan datang satu toko (menunggu dan berlaku), dengan statusnya. */
 function SelDiLuarJadwal({ daftar }: { daftar: EntriPengirimanDiLuarJadwal[] | undefined }) {

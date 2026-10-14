@@ -41,7 +41,7 @@ export function FormSinkronisasiLibur({ tahunAwal }: { tahunAwal: number }) {
         }}
       >
         <CardHeader>
-          <CardTitle>Sinkronisasi libur</CardTitle>
+          <CardTitle level={2}>Sinkronisasi libur</CardTitle>
           <CardDescription>
             Ambil daftar libur satu tahun dari API Hari Libur. Hasilnya menunggu persetujuan admin; daftar libur aktif
             tidak berubah.

@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { lompatanHeading } from "@/components/uji-bantu-heading";
 import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { buatTokoUji } from "@/server/gudang/uji-bantu";
 import { aktifkanImpor } from "@/server/impor/impor";
@@ -98,6 +99,8 @@ describe("/admin/impor/[id]", () => {
     expect(html).toContain('data-status-impor="siap-ditinjau"');
     expect(html).toContain(`Juni ${tahun}`);
     expect(html).toMatch(/[0-9a-f]{64}/);
+    // DESIGN §11.8 (T122): urutan heading h1 → h2 → h3 tanpa melompat.
+    expect(lompatanHeading(html)).toEqual([]);
     // Ringkasan per toko.
     expect(html).toContain(toko.nama);
     expect(html).toContain(`01-06-${tahun}`);

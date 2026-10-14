@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { formatAngka, formatWaktu } from "@/app/admin/impor/format";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { WaktuSingkat } from "@/components/waktu-singkat";
@@ -177,7 +178,7 @@ export default async function HalamanTinjauSnapshotLibur({ params }: { params: P
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
       <Link
         href="/admin/libur"
-        className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className={tautanTombolVariants()}
       >
         <ArrowLeft aria-hidden strokeWidth={2} className="size-5" />
         Daftar snapshot libur
@@ -189,7 +190,7 @@ export default async function HalamanTinjauSnapshotLibur({ params }: { params: P
 
       <Card>
         <CardHeader>
-          <CardTitle>Identitas snapshot</CardTitle>
+          <CardTitle level={2}>Identitas snapshot</CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -216,7 +217,7 @@ export default async function HalamanTinjauSnapshotLibur({ params }: { params: P
       {/* DESIGN §11.4: tombol keputusan setelah data yang ditinjau. */}
       <Card data-keputusan-tinjau>
         <CardHeader>
-          <CardTitle>Aktivasi</CardTitle>
+          <CardTitle level={2}>Aktivasi</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <p className="text-muted-foreground">

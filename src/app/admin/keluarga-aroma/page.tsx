@@ -18,6 +18,7 @@ import {
 } from "@/components/daftar-berhalaman";
 import { DialogUrl } from "@/components/dialog-url";
 import { Badge } from "@/components/ui/badge";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
 import { db } from "@/server/db";
@@ -64,11 +65,9 @@ function BadgeStatusKeluarga({ aktif }: { aktif: boolean }) {
   );
 }
 
-const kelasDasarTautan =
-  "inline-flex min-h-11 items-center rounded-full px-4 font-semibold transition-colors duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
-const kelasTautan = `${kelasDasarTautan} text-primary hover:bg-primary/10`;
+const kelasTautan = tautanTombolVariants();
 /** Baris terpilih berlatar accent: tautan memakai accent-foreground (DESIGN §2, sama dengan Ringkasan). */
-const kelasTautanBarisTerpilih = `${kelasDasarTautan} text-accent-foreground hover:bg-accent-foreground/10`;
+const kelasTautanBarisTerpilih = tautanTombolVariants({ nada: "barisTerpilih" });
 
 /** Id keluarga yang panelnya dibuka (`?ubah=<id>`); `null` bila tidak ada atau tidak valid. */
 function idUbah(nilai: string | string[] | undefined): number | null {

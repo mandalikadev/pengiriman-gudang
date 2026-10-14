@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { tanggalWib } from "@/app/admin/impor/format";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { AksesDitolakError, wajibGudangDenganHak, wajibMasuk } from "@/server/auth/kewenangan";
 import type { GudangDapatDilihat } from "@/server/gudang/akses";
 import { pilihanTokoPengiriman, riwayatPengirimanDiLuarJadwalGudang } from "@/server/gudang/pengiriman-di-luar-jadwal";
@@ -37,8 +38,7 @@ export function judulHalamanJadwal(jalur: JalurPengiriman, namaGudang: string): 
   return `${judulPengiriman[jalur]} — ${namaGudang}`;
 }
 
-const kelasTautanKembali =
-  "inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+const kelasTautanKembali = tautanTombolVariants();
 
 /**
  * Gudang tempat pengguna berhak `kelola-usulan-jadwal`. Tanpa hak di gudang mana pun → 404; hanya satu gudang →

@@ -20,6 +20,12 @@ const jam = vi.hoisted(() => ({ hariIni: "2026-05-06" }));
 vi.mock("next/headers", () => ({
   headers: async () => new Headers(kepala.cookie ? { cookie: kepala.cookie } : {}),
 }));
+// Tautan tanggal (T122) memakai router App Router untuk menggulir ke Detail tanggal di layar kecil; dirender di luar
+// app router Next di test ini.
+vi.mock("next/navigation", async (asli) => ({
+  ...(await asli<typeof import("next/navigation")>()),
+  useRouter: () => ({ refresh: () => {}, push: () => {} }),
+}));
 vi.mock("@/app/admin/impor/format", async (asli) => {
   const modul = await asli<typeof import("@/app/admin/impor/format")>();
   return { ...modul, tanggalWib: () => jam.hariIni };
@@ -150,6 +156,16 @@ describe("/kalender: kisi bulan", () => {
     const kepalaKolom = [...html.matchAll(/<th[^>]*scope="col"[^>]*>(.*?)<\/th>/g)].map((m) => m[1]);
     expect(kepalaKolom).toEqual(["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]);
     expect(html).toMatch(/<h2[^>]*>Mei 2026<\/h2>/);
+  });
+
+  it("T122 (DESIGN §11.8): kolom kisi boleh menyempit sehingga tabel tidak melebar keluar kolomnya; Detail tanggal punya tujuan gulir", async () => {
+    const html = await buka({ bulan: "2026-05", tanggal: "2026-05-08" });
+    expect(html).toContain("lg:grid-cols-[minmax(0,1fr)_20rem]");
+    expect(html).not.toContain("lg:grid-cols-[1fr_20rem]");
+    // Detail tanggal (dan placeholder-nya) berada di wadah ber-id tujuan gulir, setelah kisi.
+    const posisiDetail = html.indexOf('id="detail-tanggal"');
+    expect(posisiDetail).toBeGreaterThan(html.indexOf("</table>"));
+    expect(html.indexOf('data-detail-tanggal="2026-05-08"')).toBeGreaterThan(posisiDetail);
   });
 });
 

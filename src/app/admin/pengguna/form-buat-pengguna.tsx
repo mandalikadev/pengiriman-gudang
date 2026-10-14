@@ -33,7 +33,7 @@ export function FormBuatPengguna() {
         }}
       >
         <CardHeader>
-          <CardTitle>Buat pengguna</CardTitle>
+          <CardTitle level={2}>Buat pengguna</CardTitle>
           <CardDescription>Akun dibuat admin. Pengguna masuk dengan email dan kata sandi ini.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">

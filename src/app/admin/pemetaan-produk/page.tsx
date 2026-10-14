@@ -13,9 +13,9 @@ import {
   urlDaftar,
   type ParameterUrl,
 } from "@/components/daftar-berhalaman";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { WaktuSingkat } from "@/components/waktu-singkat";
-import { cn } from "@/lib/utils";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
 import { daftarStatusKeluargaAroma, type StatusKeluargaAroma } from "@/server/db/schema";
 import { BATAS_RIWAYAT, muatPemetaanProduk } from "@/server/keluarga-aroma/pemetaan";
@@ -29,9 +29,6 @@ export const metadata: Metadata = {
 };
 
 const PATH_HALAMAN = "/admin/pemetaan-produk";
-
-const kelasTautan =
-  "inline-flex min-h-11 items-center gap-2 rounded-full px-4 font-semibold transition-colors duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
 
 function bacaStatus(nilai: string | string[] | undefined): StatusKeluargaAroma | null {
   const teks = Array.isArray(nilai) ? nilai[0] : nilai;
@@ -67,10 +64,7 @@ function FilterStatus({
               <Link
                 href={p.href}
                 aria-current={terpilih ? "page" : undefined}
-                className={cn(
-                  kelasTautan,
-                  terpilih ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-primary/10 hover:text-primary",
-                )}
+                className={tautanTombolVariants({ nada: terpilih ? "terpilih" : "netral" })}
               >
                 {p.label}
                 <span className="tabular-nums">({formatAngka(p.jumlah)})</span>

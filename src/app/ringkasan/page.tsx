@@ -6,6 +6,7 @@ import { formatAngka, formatBulanImpor } from "@/app/admin/impor/format";
 import { BadgeStatus } from "@/components/badge-status";
 import { DialogUrl } from "@/components/dialog-url";
 import { StatusCacheLaporan } from "@/components/status-cache-laporan";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, type KategoriDasar } from "@/domain/kalender";
@@ -92,14 +93,12 @@ function adaFilter(filter: FilterAktif) {
   return filter.toko.length + filter.kategoriProduk.length + filter.produk.length > 0;
 }
 
-const kelasDasarTautan =
-  "inline-flex min-h-11 items-center rounded-full px-4 font-semibold transition-colors duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
-const kelasTautan = `${kelasDasarTautan} text-primary hover:bg-primary/10`;
+const kelasTautan = tautanTombolVariants();
 /**
  * Tautan di baris terpilih (latar accent): primary di atas accent hanya ±3,97 : 1, jadi memakai accent-foreground
  * (6,6 : 1; ±5,7 : 1 saat hover di atas accent-foreground/10) sesuai DESIGN §2.
  */
-const kelasTautanBarisTerpilih = `${kelasDasarTautan} text-accent-foreground hover:bg-accent-foreground/10`;
+const kelasTautanBarisTerpilih = tautanTombolVariants({ nada: "barisTerpilih" });
 
 /** Keadaan kosong (DESIGN §1: zona suasana). */
 function KeadaanKosong({ judul, keterangan }: { judul: string; keterangan: string }) {
@@ -179,7 +178,7 @@ function SelRataRata({
           href={tautanRincian.href}
           scroll={false}
           aria-current={tautanRincian.dibuka ? "true" : undefined}
-          className={`${terpilih ? kelasTautanBarisTerpilih : kelasTautan} underline underline-offset-4`}
+          className={tautanTombolVariants({ nada: terpilih ? "barisTerpilih" : "primary", garisBawah: true })}
           data-tautan-rincian={tautanRincian.nilai}
         >
           {formatAngka(nilai.rataRataRingkasan)}
@@ -629,7 +628,7 @@ function FilterTerapan({ bulanPilihan, filter }: { bulanPilihan: string[]; filte
 
 /**
  * Kartu jumlah per kategori hari di atas tabel (T80, PRD A2 ▶ Keputusan 2026-10-11). Angka dari server: jumlah
- * Rata-rata Ringkasan per baris dari seluruh hasil filter yang diterapkan. Zona kerja: tanpa efek hover (DESIGN §1, §4).
+ * Rata-rata Ringkasan per baris dari seluruh hasil filter yang diterapkan. Zona kerja: tanpa efek hover (DESIGN §1, §4). Angka Nunito tebal, bukan Fraunces (DESIGN §3, §11.8).
  */
 function KartuJumlahRingkasan({ jumlah }: { jumlah: Record<KategoriDasar, number> }) {
   return (
@@ -638,8 +637,8 @@ function KartuJumlahRingkasan({ jumlah }: { jumlah: Record<KategoriDasar, number
         {KATEGORI.map((kategori) => (
           <li key={kategori}>
             <Card className="h-full gap-2" data-kartu-kategori={kategori} data-jumlah={jumlah[kategori]}>
-              <CardTitle className="text-base">{kategori}</CardTitle>
-              <span className="font-heading text-4xl font-bold text-foreground tabular-nums">{formatAngka(jumlah[kategori])}</span>
+              <CardTitle level={2} className="text-base">{kategori}</CardTitle>
+              <span className="font-sans text-4xl font-bold text-foreground tabular-nums">{formatAngka(jumlah[kategori])}</span>
               <CardDescription>Jumlah rata-rata produk/toko · seluruh hasil filter</CardDescription>
             </Card>
           </li>

@@ -255,6 +255,9 @@ describe("rincian rencana final", () => {
     await masukOperator(cibubur, []);
     const html = await bukaRincian(rencana.a1v1, { rincian: kode.contoh });
     expect(html).not.toContain("blur-3xl");
+    // DESIGN §11.8 (T122): tabel rincian lebar, jadi halamannya max-w-7xl (pengecualian §9), bukan max-w-3xl.
+    expect(html).toMatch(/^<main class="[^"]*\bmax-w-7xl\b/);
+    expect(html).not.toMatch(/^<main class="[^"]*\bmax-w-3xl\b/);
     expect(html).toMatch(new RegExp(`<h1[^>]*class="[^"]*text-2xl[^"]*md:text-3xl[^"]*"[^>]*>Rencana final ${tokoA.nama}</h1>`));
     expect(html).toContain("Tanggal kirim Senin, 08-06-2026");
     // Versi lama tetap utuh dan berstatus Final (status ikon + teks); tanpa penanda menggantikan.

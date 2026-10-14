@@ -52,7 +52,7 @@ export function FormTugaskanOperator({
         }}
       >
         <CardHeader>
-          <CardTitle>Tugaskan operator</CardTitle>
+          <CardTitle level={2}>Tugaskan operator</CardTitle>
           <CardDescription>
             Pengguna menjadi operator hanya di gudang yang ditugaskan, dengan hak tindakan yang dipilih. Peran admin
             tidak memberi hak operator.

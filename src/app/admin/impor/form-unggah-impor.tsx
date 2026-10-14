@@ -114,7 +114,7 @@ export function FormUnggahImpor({ onTerkirim }: { onTerkirim: (hasil: HasilDafta
         }}
       >
         <CardHeader>
-          <CardTitle>Unggah workbook penjualan</CardTitle>
+          <CardTitle level={2}>Unggah workbook penjualan</CardTitle>
           <CardDescription>
             Pilih file Excel, centang satu atau lebih sheet penjualan, lalu periksa bulan impor setiap sheet. File
             diunggah sekali; setiap sheet menjadi impor tersendiri yang dibaca dan divalidasi di server. Anda boleh

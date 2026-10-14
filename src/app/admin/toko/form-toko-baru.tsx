@@ -30,7 +30,7 @@ export function FormTokoBaru() {
         }}
       >
         <CardHeader>
-          <CardTitle>Tambah toko</CardTitle>
+          <CardTitle level={2}>Tambah toko</CardTitle>
           <CardDescription>{KETERANGAN_NAMA_TOKO}</CardDescription>
         </CardHeader>
         <CardContent>

@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { BadgeStatus } from "@/components/badge-status";
 import { DetailTeknis } from "@/components/detail-teknis";
 import { Badge } from "@/components/ui/badge";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, parseTanggalBisnis } from "@/domain/kalender";
@@ -45,9 +46,9 @@ function RingkasanPerToko({ ringkasan }: { ringkasan: DataTinjauImpor["ringkasan
             <TableRow>
               <TableHead>Toko</TableHead>
               <TableHead>Cakupan tanggal</TableHead>
-              <TableHead className="text-right">Jumlah tanggal</TableHead>
-              <TableHead className="text-right">Sel terisi</TableHead>
-              <TableHead className="text-right">Total penjualan mentah</TableHead>
+              <TableHead angka>Jumlah tanggal</TableHead>
+              <TableHead angka>Sel terisi</TableHead>
+              <TableHead angka>Total penjualan mentah</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -68,9 +69,9 @@ function RingkasanPerToko({ ringkasan }: { ringkasan: DataTinjauImpor["ringkasan
                 <TableCell>
                   {tanggal(r.tanggalAwal)} s.d. {tanggal(r.tanggalAkhir)}
                 </TableCell>
-                <TableCell className="text-right tabular-nums">{formatAngka(r.jumlahTanggal)}</TableCell>
-                <TableCell className="text-right tabular-nums">{formatAngka(r.jumlahSel)}</TableCell>
-                <TableCell className="text-right text-muted-foreground tabular-nums">
+                <TableCell angka>{formatAngka(r.jumlahTanggal)}</TableCell>
+                <TableCell angka>{formatAngka(r.jumlahSel)}</TableCell>
+                <TableCell angka className="text-muted-foreground">
                   {formatAngka(r.totalPenjualanMentah)}
                 </TableCell>
               </TableRow>
@@ -242,7 +243,7 @@ export default async function HalamanTinjauImpor({ params }: { params: Promise<{
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
       <Link
         href="/admin/impor"
-        className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className={tautanTombolVariants()}
       >
         <ArrowLeft aria-hidden strokeWidth={2} className="size-5" />
         Daftar impor
@@ -254,7 +255,7 @@ export default async function HalamanTinjauImpor({ params }: { params: Promise<{
 
       <Card>
         <CardHeader>
-          <CardTitle>Identitas impor</CardTitle>
+          <CardTitle level={2}>Identitas impor</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -312,7 +313,7 @@ export default async function HalamanTinjauImpor({ params }: { params: Promise<{
       {/* DESIGN §11.4: tombol keputusan setelah data yang ditinjau, bersama ringkasan jumlah error dan peringatan. */}
       <Card data-keputusan-tinjau>
         <CardHeader>
-          <CardTitle>Aktifkan</CardTitle>
+          <CardTitle level={2}>Aktifkan</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {selesaiDibaca ? (

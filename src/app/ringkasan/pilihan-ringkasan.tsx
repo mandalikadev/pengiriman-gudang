@@ -5,18 +5,39 @@ import { useId, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogIsi } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
 const MAKS_BULAN = 12;
 
+/** Cincin fokus chip saat isiannya difokus keyboard (DESIGN §11.8, WCAG 2.4.7); sama dengan tombol dan tautan. */
+const kelasFokusChip = "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2";
+
 /** Chip centang (bulan, toko, kategori); juga dipakai pemilih bulan periode sumber di admin Gudang. */
-export const kelasChip =
-  "inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-input bg-card px-4 font-semibold transition-colors duration-300 ease-out hover:bg-primary/10 has-[:checked]:border-primary has-[:checked]:bg-accent has-[:checked]:text-accent-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/40 has-[:focus-visible]:ring-offset-2";
+export const kelasChip = `inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-input bg-card px-4 font-semibold transition-colors duration-300 ease-out hover:bg-primary/10 has-[:checked]:border-primary has-[:checked]:bg-accent has-[:checked]:text-accent-foreground ${kelasFokusChip}`;
+
+/** Baris centang produk (hasil cari dan produk terpilih). */
+const kelasChipProduk = `flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 transition-colors duration-300 ease-out hover:bg-primary/10 has-[:checked]:bg-accent has-[:checked]:text-accent-foreground ${kelasFokusChip}`;
 
 type OpsiProduk = { kode: string; nama: string | null };
 
 /** Pilihan yang sedang dipakai (dari URL). */
 type Terapan = { bulan: readonly string[]; toko: readonly string[]; kategoriProduk: readonly string[]; produk: readonly string[] };
+
+/** Pilihan yang sedang diedit beserta pengubahnya; dipakai bersama oleh kartu (layar lebar) dan panel (layar < 640 px). */
+type Pilihan = { terpilih: ReadonlySet<string>; setTerpilih: (baru: Set<string>) => void };
+
+function usePilihan(awal: Iterable<string>): Pilihan {
+  const [terpilih, setTerpilih] = useState<ReadonlySet<string>>(() => new Set(awal));
+  return { terpilih, setTerpilih };
+}
+
+function ubahSatu({ terpilih, setTerpilih }: Pilihan, nilai: string, centang: boolean) {
+  const baru = new Set(terpilih);
+  if (centang) baru.add(nilai);
+  else baru.delete(nilai);
+  setTerpilih(baru);
+}
 
 function Bagian({ judul, keterangan, children }: { judul: string; keterangan?: string; children: ReactNode }) {
   return (
@@ -38,32 +59,27 @@ function GrupCentang({
   namaGrup,
   name,
   opsi,
-  terapan,
+  pilihan,
 }: {
   judul: string;
   namaGrup: string;
   name: string;
   opsi: { value: string; label: string }[];
-  terapan: readonly string[];
+  pilihan: Pilihan;
 }) {
-  const [terpilih, setTerpilih] = useState(() => new Set(terapan));
-
-  function ubah(value: string, centang: boolean) {
-    setTerpilih((lama) => {
-      const baru = new Set(lama);
-      if (centang) baru.add(value);
-      else baru.delete(value);
-      return baru;
-    });
-  }
-
   return (
     <Bagian judul={judul}>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" variant="outline" aria-label={`Pilih semua ${namaGrup}`} onClick={() => setTerpilih(new Set(opsi.map((o) => o.value)))}>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          aria-label={`Pilih semua ${namaGrup}`}
+          onClick={() => pilihan.setTerpilih(new Set(opsi.map((o) => o.value)))}
+        >
           Pilih semua
         </Button>
-        <Button type="button" size="sm" variant="outline" aria-label={`Kosongkan pilihan ${namaGrup}`} onClick={() => setTerpilih(new Set())}>
+        <Button type="button" size="sm" variant="outline" aria-label={`Kosongkan pilihan ${namaGrup}`} onClick={() => pilihan.setTerpilih(new Set())}>
           Kosongkan
         </Button>
       </div>
@@ -74,8 +90,8 @@ function GrupCentang({
               type="checkbox"
               name={name}
               value={o.value}
-              checked={terpilih.has(o.value)}
-              onChange={(e) => ubah(o.value, e.target.checked)}
+              checked={pilihan.terpilih.has(o.value)}
+              onChange={(e) => ubahSatu(pilihan, o.value, e.target.checked)}
               className="size-4 accent-primary outline-none"
             />
             {o.label}
@@ -90,9 +106,18 @@ function GrupCentang({
  * Filter produk: cari kode/nama dengan kecocokan teks biasa (bukan fuzzy, PRD C3), banyak pilihan. Produk
  * terpilih selalu tampil; hasil pencarian tampil saat ada teks dicari. Kotak cari tidak ikut ke URL.
  */
-function FilterProduk({ opsi, terapan }: { opsi: OpsiProduk[]; terapan: readonly string[] }) {
-  const [cari, setCari] = useState("");
-  const [terpilih, setTerpilih] = useState(() => new Set(terapan));
+function FilterProduk({
+  opsi,
+  pilihan,
+  cari,
+  setCari,
+}: {
+  opsi: OpsiProduk[];
+  pilihan: Pilihan;
+  cari: string;
+  setCari: (cari: string) => void;
+}) {
+  const { terpilih } = pilihan;
   const teks = cari.trim().toLocaleLowerCase("id");
   const hasil =
     teks === ""
@@ -102,23 +127,14 @@ function FilterProduk({ opsi, terapan }: { opsi: OpsiProduk[]; terapan: readonly
         );
   const daftarTerpilih = opsi.filter((p) => terpilih.has(p.kode));
 
-  function ubah(kode: string, centang: boolean) {
-    setTerpilih((lama) => {
-      const baru = new Set(lama);
-      if (centang) baru.add(kode);
-      else baru.delete(kode);
-      return baru;
-    });
-  }
-
-  const pilihan = (p: OpsiProduk) => (
-    <label key={p.kode} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 transition-colors duration-300 ease-out hover:bg-primary/10 has-[:checked]:bg-accent has-[:checked]:text-accent-foreground">
+  const chip = (p: OpsiProduk) => (
+    <label key={p.kode} className={kelasChipProduk}>
       <input
         type="checkbox"
         name="produk"
         value={p.kode}
         checked={terpilih.has(p.kode)}
-        onChange={(e) => ubah(p.kode, e.target.checked)}
+        onChange={(e) => ubahSatu(pilihan, p.kode, e.target.checked)}
         className="size-4 accent-primary outline-none"
       />
       <span className="font-semibold">{p.kode}</span>
@@ -143,7 +159,7 @@ function FilterProduk({ opsi, terapan }: { opsi: OpsiProduk[]; terapan: readonly
       </div>
       {daftarTerpilih.length > 0 ? (
         <div role="group" aria-label="Produk terpilih" className="flex flex-col">
-          {daftarTerpilih.map(pilihan)}
+          {daftarTerpilih.map(chip)}
         </div>
       ) : null}
       {teks === "" ? null : hasil.length === 0 ? (
@@ -152,7 +168,7 @@ function FilterProduk({ opsi, terapan }: { opsi: OpsiProduk[]; terapan: readonly
         </p>
       ) : (
         <div role="group" aria-label="Hasil pencarian produk" className="flex max-h-64 flex-col overflow-y-auto rounded-2xl border border-border/60">
-          {hasil.map(pilihan)}
+          {hasil.map(chip)}
         </div>
       )}
     </Bagian>
@@ -163,6 +179,10 @@ function FilterProduk({ opsi, terapan }: { opsi: OpsiProduk[]; terapan: readonly
  * Pemilih bulan laporan (1–12, PRD A2) dan filter toko, kategori produk, dan produk (T35). Mengubah pilihan
  * hanya mengubah pilihan yang sedang diedit; hasil baru berubah setelah Terapkan, yang menulis pilihan ke URL
  * (`?bulan=YYYY-MM&toko=<id>&kategoriProduk=…&produk=<kode>`).
+ *
+ * DESIGN §11.8 (T122): di layar < 640 px form ini tidak tampil sebagai kartu; tombol "Filter (n)" membukanya di panel
+ * samping (layar penuh, §11.2). n = jumlah pilihan filter toko, kategori produk, dan produk yang sedang diterapkan.
+ * Kartu dan panel memakai pilihan yang sama, jadi centang di panel tetap ada setelah panel ditutup.
  */
 export function PilihanRingkasan({
   bulanTersedia,
@@ -174,36 +194,37 @@ export function PilihanRingkasan({
   terapan: Terapan;
 }) {
   const id = useId();
-  const [terpilih, setTerpilih] = useState(() => new Set(terapan.bulan.filter((b) => bulanTersedia.some((t) => t.kode === b))));
-  const jumlah = terpilih.size;
+  const bulan = usePilihan(terapan.bulan.filter((b) => bulanTersedia.some((t) => t.kode === b)));
+  const toko = usePilihan(terapan.toko);
+  const kategoriProduk = usePilihan(terapan.kategoriProduk);
+  const produk = usePilihan(terapan.produk);
+  const [cari, setCari] = useState("");
+  const [panelTerbuka, setPanelTerbuka] = useState(false);
+  const jumlah = bulan.terpilih.size;
   const sah = jumlah >= 1 && jumlah <= MAKS_BULAN;
+  const jumlahFilterTerapan = terapan.toko.length + terapan.kategoriProduk.length + terapan.produk.length;
 
-  function ubah(kode: string, centang: boolean) {
-    setTerpilih((lama) => {
-      const baru = new Set(lama);
-      if (centang) baru.add(kode);
-      else baru.delete(kode);
-      return baru;
-    });
-  }
-
-  return (
-    <Card>
+  /** Isi form; `tempat` membedakan id dan tingkat judul di kartu (di bawah h1) dan di panel (di bawah judul panel h2). */
+  const isiForm = (tempat: "kartu" | "panel") => {
+    const idJudul = `${id}-${tempat}-judul`;
+    return (
       <Form action="/ringkasan" className="flex flex-col gap-4">
         <CardHeader>
-          <CardTitle id={`${id}-judul`}>Bulan laporan</CardTitle>
+          <CardTitle id={idJudul} level={tempat === "kartu" ? 2 : 3}>
+            Bulan laporan
+          </CardTitle>
           <CardDescription>Pilih 1–12 bulan, boleh tidak berurutan, lalu tekan Terapkan.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          <fieldset aria-labelledby={`${id}-judul`} className="flex flex-wrap gap-2">
+          <fieldset aria-labelledby={idJudul} className="flex flex-wrap gap-2">
             {bulanTersedia.map((b) => (
               <label key={b.kode} className={kelasChip}>
                 <input
                   type="checkbox"
                   name="bulan"
                   value={b.kode}
-                  checked={terpilih.has(b.kode)}
-                  onChange={(e) => ubah(b.kode, e.target.checked)}
+                  checked={bulan.terpilih.has(b.kode)}
+                  onChange={(e) => ubahSatu(bulan, b.kode, e.target.checked)}
                   className="size-4 accent-primary outline-none"
                 />
                 {b.label}
@@ -215,16 +236,16 @@ export function PilihanRingkasan({
             namaGrup="toko"
             name="toko"
             opsi={opsiFilter.toko.map((t) => ({ value: String(t.id), label: t.nama }))}
-            terapan={terapan.toko}
+            pilihan={toko}
           />
           <GrupCentang
             judul="Kategori produk"
             namaGrup="kategori produk"
             name="kategoriProduk"
             opsi={opsiFilter.kategoriProduk.map((k) => ({ value: k, label: k }))}
-            terapan={terapan.kategoriProduk}
+            pilihan={kategoriProduk}
           />
-          <FilterProduk opsi={opsiFilter.produk} terapan={terapan.produk} />
+          <FilterProduk opsi={opsiFilter.produk} pilihan={produk} cari={cari} setCari={setCari} />
         </CardContent>
         <CardFooter className="flex-wrap">
           <Button type="submit" disabled={!sah}>
@@ -239,6 +260,26 @@ export function PilihanRingkasan({
           </span>
         </CardFooter>
       </Form>
-    </Card>
+    );
+  };
+
+  return (
+    <>
+      <div className="sm:hidden" data-tombol-filter-ponsel>
+        <Button type="button" variant="outline" aria-haspopup="dialog" onClick={() => setPanelTerbuka(true)}>
+          Filter ({jumlahFilterTerapan})
+        </Button>
+      </div>
+      <Card className="max-sm:hidden" data-kartu-pilihan-ringkasan>
+        {isiForm("kartu")}
+      </Card>
+      <Dialog open={panelTerbuka} onOpenChange={setPanelTerbuka}>
+        {panelTerbuka ? (
+          <DialogIsi bentuk="samping" judul="Filter Ringkasan">
+            {isiForm("panel")}
+          </DialogIsi>
+        ) : null}
+      </Dialog>
+    </>
   );
 }

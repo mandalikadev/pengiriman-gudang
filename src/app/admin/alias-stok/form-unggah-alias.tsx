@@ -28,7 +28,7 @@ export function FormUnggahAlias() {
         }}
       >
         <CardHeader>
-          <CardTitle>Unggah tabel alias</CardTitle>
+          <CardTitle level={2}>Unggah tabel alias</CardTitle>
           <CardDescription>
             File CSV berpemisah titik koma (;) atau Excel (.xlsx, sheet pertama), maksimal 1 MB. Baris pertama berisi
             judul kolom <span className="font-semibold">Nama di file stok</span> dan{" "}

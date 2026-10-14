@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { StatusCacheLaporan } from "@/components/status-cache-laporan";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { WaktuSingkat } from "@/components/waktu-singkat";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
@@ -66,7 +67,7 @@ export default async function HalamanImpor() {
               <TableCell>
                 <Link
                   href={`/admin/impor/${i.id}`}
-                  className="inline-flex min-h-11 items-center rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className={tautanTombolVariants()}
                 >
                   Tinjau impor<span className="sr-only"> {i.namaSheet} ({i.namaFile})</span>
                 </Link>

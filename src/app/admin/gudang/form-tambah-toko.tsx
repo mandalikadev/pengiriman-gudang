@@ -124,7 +124,7 @@ export function FormTambahToko({ daftarGudang, daftarToko }: { daftarGudang: Dat
         }}
       >
         <CardHeader>
-          <CardTitle>Tambah toko ke gudang</CardTitle>
+          <CardTitle level={2}>Tambah toko ke gudang</CardTitle>
           <CardDescription>
             Pilih gudang dan toko, lalu tekan satu tombol. Satu toko hanya boleh terhubung ke satu gudang.
           </CardDescription>

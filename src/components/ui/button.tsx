@@ -20,13 +20,47 @@ export const buttonVariants = cva(
       },
       size: {
         sm: "h-9 px-4 text-sm",
-        default: "h-10 px-5 text-sm",
+        // DESIGN §6 ▶ Revisi (2026-10-13 sore): 44 px (§9). `sm` hanya di dalam tabel dan baris filter.
+        default: "h-11 px-5 text-sm",
         lg: "h-12 px-8 text-base",
       },
     },
     defaultVariants: {
       variant: "default",
       size: "default",
+    },
+  },
+);
+
+/**
+ * DESIGN §11.8: satu gaya tautan-tombol (tautan `<Link>`, `<summary>`, atau tombol bergaya tautan) untuk semua halaman.
+ * - `nada`: `primary` (bawaan); `barisTerpilih` di atas latar accent (DESIGN §2: primary di atas accent < 4,5 : 1);
+ *   `terpilih` untuk chip/pilihan yang sedang dipilih; `netral` untuk pilihan filter yang belum dipilih.
+ * - `ukuran`: `default` target sentuh 44 px (§9); `ringkas` setinggi isian tabel (h-9) di baris tabel ringkas (§11.4).
+ */
+export const tautanTombolVariants = cva(
+  "inline-flex w-fit items-center gap-2 rounded-full px-4 font-semibold transition-colors duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+  {
+    variants: {
+      nada: {
+        primary: "text-primary hover:bg-primary/10",
+        barisTerpilih: "text-accent-foreground hover:bg-accent-foreground/10",
+        terpilih: "bg-accent text-accent-foreground",
+        netral: "text-foreground hover:bg-primary/10 hover:text-primary",
+      },
+      garisBawah: {
+        true: "underline underline-offset-4",
+        false: "",
+      },
+      ukuran: {
+        default: "min-h-11",
+        ringkas: "min-h-9",
+      },
+    },
+    defaultVariants: {
+      nada: "primary",
+      garisBawah: false,
+      ukuran: "default",
     },
   },
 );

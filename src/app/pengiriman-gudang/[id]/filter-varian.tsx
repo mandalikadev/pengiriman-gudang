@@ -4,9 +4,9 @@ import { Search, SearchX } from "lucide-react";
 import { createContext, useContext, useState, type ComponentProps, type ReactNode } from "react";
 
 import { formatAngka } from "@/app/admin/impor/format";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
 
 // Filter tampilan tabel varian satu toko di draft (T117; DESIGN §11.4): Semua · Tertahan · Stok kosong · Jumlah kirim > 0,
 // masing-masing dengan jumlahnya, ditambah cari kode atau nama produk. Filter hanya menyembunyikan baris di peramban:
@@ -67,9 +67,6 @@ export function FilterVarian({ baris, children }: { baris: readonly BarisFilter[
   return <Konteks.Provider value={{ baris, filter, pilihFilter, cari, ubahCari, tampil }}>{children}</Konteks.Provider>;
 }
 
-const kelasPilihan =
-  "inline-flex min-h-11 items-center gap-2 rounded-full px-4 font-semibold transition-colors duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
-
 /** Pilihan filter beserta jumlah barisnya, dan isian cari kode atau nama produk. */
 export function KontrolFilterVarian({ namaToko }: { namaToko: string }) {
   const { baris, filter, pilihFilter, cari, ubahCari } = useFilterVarian();
@@ -85,7 +82,7 @@ export function KontrolFilterVarian({ namaToko }: { namaToko: string }) {
               aria-pressed={terpilih}
               data-filter-varian={f.nilai}
               onClick={() => pilihFilter(f.nilai)}
-              className={cn(kelasPilihan, terpilih ? "bg-accent text-accent-foreground" : "text-primary hover:bg-primary/10")}
+              className={tautanTombolVariants({ nada: terpilih ? "terpilih" : "primary" })}
             >
               {f.label}
               <span data-jumlah-filter className="tabular-nums">
@@ -138,9 +135,6 @@ export function BarisFilterKosong({ jumlahKolom }: { jumlahKolom: number }) {
   );
 }
 
-const kelasTautan =
-  "inline-flex min-h-11 items-center rounded-full px-4 font-semibold text-primary underline underline-offset-4 transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
-
 /** "Tampilkan baris tertahan": memasang filter Tertahan dan mengosongkan pencarian, lalu membawa tabel ke layar. */
 export function TautanTampilkanTertahan({ idTabel }: { idTabel: string }) {
   const { pilihFilter, ubahCari } = useFilterVarian();
@@ -148,7 +142,7 @@ export function TautanTampilkanTertahan({ idTabel }: { idTabel: string }) {
     <button
       type="button"
       data-tampilkan-tertahan
-      className={kelasTautan}
+      className={tautanTombolVariants({ garisBawah: true })}
       onClick={() => {
         pilihFilter("tertahan");
         ubahCari("");

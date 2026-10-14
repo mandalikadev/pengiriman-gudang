@@ -6,6 +6,7 @@ import { TombolEkspor } from "@/app/ringkasan/tombol-ekspor";
 import { BadgeStatus } from "@/components/badge-status";
 import { cocokCari, NavigasiHalaman, nomorHalaman, potongHalaman, teksParameter, urlDaftar } from "@/components/daftar-berhalaman";
 import { KeadaanKosong } from "@/components/keadaan-kosong";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { WaktuSingkat } from "@/components/waktu-singkat";
 import { formatTanggal, parseTanggalBisnis } from "@/domain/kalender";
@@ -21,8 +22,7 @@ export const metadata: Metadata = {
   title: "Riwayat rencana final — Dashboard Penjualan MANDALIKA",
 };
 
-const kelasTautan =
-  "inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+const kelasTautan = tautanTombolVariants();
 
 const JUMLAH_KOLOM = 7;
 
@@ -72,7 +72,7 @@ function BarisRencana({ idGudang, rencana, bolehEkspor }: { idGudang: number; re
           <Link
             href={`/pengiriman-gudang/${idGudang}/rencana-final/${rencana.id}/rincian`}
             data-tautan-rincian-final={rencana.id}
-            className={`${kelasTautan} underline underline-offset-4`}
+            className={tautanTombolVariants({ garisBawah: true })}
           >
             Lihat rincian
             <span className="sr-only">{` ${keterangan}`}</span>

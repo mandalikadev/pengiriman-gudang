@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { tautanTombolVariants } from "@/components/ui/button";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
 import { jadwalTokoGudang, riwayatJadwalTetapGudang } from "@/server/gudang/jadwal";
 import { daftarGudangKelola } from "@/server/gudang/kelola-gudang";
@@ -45,7 +46,7 @@ export default async function HalamanJadwalTokoGudang({ params }: Props) {
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
       <Link
         href="/admin/jadwal-toko"
-        className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className={tautanTombolVariants()}
       >
         <ArrowLeft aria-hidden strokeWidth={2} className="size-5" />
         Daftar gudang

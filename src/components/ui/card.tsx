@@ -20,8 +20,10 @@ export function CardHeader({ className, ...props }: ComponentProps<"div">) {
   return <div data-slot="card-header" className={cn("flex flex-col gap-1", className)} {...props} />;
 }
 
-export function CardTitle({ className, ...props }: ComponentProps<"h3">) {
-  return <h3 data-slot="card-title" className={cn("text-xl font-semibold", className)} {...props} />;
+/** `level`: tingkat heading judul kartu sesuai urutan heading halaman (DESIGN §11.8); bawaan h3. */
+export function CardTitle({ className, level = 3, ...props }: ComponentProps<"h3"> & { level?: 2 | 3 | 4 }) {
+  const Heading = `h${level}` as const;
+  return <Heading data-slot="card-title" className={cn("text-xl font-semibold", className)} {...props} />;
 }
 
 export function CardDescription({ className, ...props }: ComponentProps<"p">) {

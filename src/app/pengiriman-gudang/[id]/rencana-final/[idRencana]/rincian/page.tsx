@@ -9,6 +9,7 @@ import { BadgeStatus } from "@/components/badge-status";
 import { BantuanIstilah } from "@/components/bantuan-istilah";
 import { DetailTeknis } from "@/components/detail-teknis";
 import { DialogUrl } from "@/components/dialog-url";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, parseTanggalBisnis } from "@/domain/kalender";
@@ -26,8 +27,7 @@ export const metadata: Metadata = {
   title: "Rincian rencana final — Dashboard Penjualan MANDALIKA",
 };
 
-const kelasTautan =
-  "inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+const kelasTautan = tautanTombolVariants();
 
 /** Halaman ini, dengan rincian satu baris terbuka di panel samping bila `kodeProduk` diberikan (T108). */
 function urlRincian(idGudang: number, idRencana: number, kodeProduk?: string) {
@@ -209,7 +209,7 @@ function TabelBaris({ idGudang, rencana, terbuka }: { idGudang: number; rencana:
                 scroll={false}
                 aria-current={terbuka === b.kodeProduk ? "true" : undefined}
                 data-tautan-rincian-baris={b.kodeProduk}
-                className={`${kelasTautan} underline underline-offset-4`}
+                className={tautanTombolVariants({ garisBawah: true })}
               >
                 Lihat rincian
                 <span className="sr-only"> perhitungan {b.kodeProduk}</span>
@@ -268,7 +268,7 @@ export default async function HalamanRincianRencanaFinal({
   const terbuka = typeof rincian === "string" ? rincian : null;
 
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
+    <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
       <Link href={`/pengiriman-gudang/${idGudang}/rencana-final`} className={kelasTautan}>
         <ArrowLeft aria-hidden strokeWidth={2} className="size-5" />
         Riwayat rencana final

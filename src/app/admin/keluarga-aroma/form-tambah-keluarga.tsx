@@ -25,7 +25,7 @@ export function FormTambahKeluarga() {
         }}
       >
         <CardHeader>
-          <CardTitle>Tambah keluarga aroma</CardTitle>
+          <CardTitle level={2}>Tambah keluarga aroma</CardTitle>
           <CardDescription>
             Satu keluarga aroma = satu baris file ranking pusat, termasuk kelompok yang bukan aroma seperti GIFT SET BOX.
           </CardDescription>

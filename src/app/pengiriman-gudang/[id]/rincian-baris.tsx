@@ -6,6 +6,7 @@ import { formatAngka, formatBulanLaporan } from "@/app/admin/impor/format";
 import { BadgeStatus } from "@/components/badge-status";
 import { BantuanIstilah } from "@/components/bantuan-istilah";
 import type { IstilahBantuan } from "@/components/teks-bantuan-istilah";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { formatTanggal, type KategoriDasar } from "@/domain/kalender";
 import type { BarisDraft, DraftRencana, TokoDraft } from "@/server/gudang/draft-rencana";
 import type { SumberKategoriDraft } from "@/server/gudang/rincian-draft";
@@ -44,8 +45,6 @@ export const labelSumberKategori = {
   toko: "Perubahan kategori khusus toko ini",
 } as const satisfies Record<SumberKategoriDraft, string>;
 
-const kelasTautan =
-  "inline-flex min-h-11 items-center rounded-full px-4 font-semibold text-primary underline-offset-4 transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
 
 /**
  * Penelusuran Ringkasan (T37) untuk satu Rata-rata Ringkasan toko–varian pada bulan periode sumber draft. Ringkasan
@@ -158,7 +157,7 @@ function RataRataPerKategori({
                 <Link
                   href={urlPenelusuranRingkasan(bulanSumber, tokoId, baris.kodeProduk, kategori)}
                   data-tautan-ringkasan={kategori}
-                  className={`${kelasTautan} tabular-nums underline`}
+                  className={`${tautanTombolVariants({ garisBawah: true })} tabular-nums`}
                 >
                   {formatAngka(nilai)}
                   <span className="sr-only">: penelusuran Ringkasan Rata-rata {kategori}</span>

@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { lompatanHeading } from "@/components/uji-bantu-heading";
 import { buatPenggunaUji, kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
 import { buatTokoUji } from "@/server/gudang/uji-bantu";
@@ -66,6 +67,8 @@ describe("/admin/impor", () => {
 
     const html = renderToStaticMarkup(await HalamanImpor());
     expect(html).toContain("Unggah workbook penjualan");
+    // DESIGN §11.8 (T122): urutan heading h1 → h2 → h3 tanpa melompat.
+    expect(lompatanHeading(html)).toEqual([]);
     expect(html).toContain("Unggah dan proses");
     expect(html).toContain(`Juni ${tahun}`);
     expect(html).toContain(`href="/admin/impor/${id}"`);

@@ -4,7 +4,9 @@ import Link from "next/link";
 
 import { formatAngka, formatWaktu } from "@/app/admin/impor/format";
 import { BadgeStatus } from "@/components/badge-status";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { formatTanggal } from "@/domain/kalender";
+import { cn } from "@/lib/utils";
 import { bacaRencanaFinal } from "@/server/gudang/rencana-final";
 
 import { PenandaDiLuarJadwal } from "../../penanda-di-luar-jadwal";
@@ -13,6 +15,9 @@ import { muatRencanaFinal } from "../muat";
 export const metadata: Metadata = {
   title: "Rencana final — Dashboard Penjualan MANDALIKA",
 };
+
+/** Zona suasana (DESIGN §5): tautan-tombol bersama ditambah scale saat hover/tekan. */
+const kelasTautanSuasana = cn(tautanTombolVariants(), "transition-all motion-safe:hover:scale-105 motion-safe:active:scale-95");
 
 /**
  * Layar berhasil setelah finalisasi (T62): zona suasana untuk keadaan berhasil besar (DESIGN §1), dibaca dari snapshot
@@ -77,13 +82,13 @@ export default async function HalamanRencanaFinal({ params }: { params: Promise<
         <div className="flex flex-wrap gap-2">
           <Link
             href={`/pengiriman-gudang/${idGudang}/rencana-final/${rencana.id}/rincian`}
-            className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary transition-all duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 motion-safe:hover:scale-105 motion-safe:active:scale-95"
+            className={kelasTautanSuasana}
           >
             Lihat rincian rencana final
           </Link>
           <Link
             href={`/pengiriman-gudang/${idGudang}?tanggal=${rencana.tanggalKirim}`}
-            className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary transition-all duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 motion-safe:hover:scale-105 motion-safe:active:scale-95"
+            className={kelasTautanSuasana}
           >
             <ArrowLeft aria-hidden strokeWidth={2} className="size-7" />
             Kembali ke draft rencana

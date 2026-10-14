@@ -6,6 +6,7 @@ import { BadgeStatus } from "@/components/badge-status";
 import { BantuanIstilah } from "@/components/bantuan-istilah";
 import { DialogUrl } from "@/components/dialog-url";
 import { KeadaanKosong } from "@/components/keadaan-kosong";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, type TanggalBisnis } from "@/domain/kalender";
@@ -144,13 +145,11 @@ function urlDraft(
   return `/pengiriman-gudang/${idGudang}?${parameter.toString()}`;
 }
 
-const kelasDasarTautan =
-  "inline-flex min-h-11 items-center rounded-full px-4 font-semibold underline underline-offset-4 transition-colors duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
-const kelasTautan = `${kelasDasarTautan} text-primary hover:bg-primary/10`;
+const kelasTautan = tautanTombolVariants({ garisBawah: true });
 /** Tautan di baris ringkas tabel varian (DESIGN §11.4): setinggi isian tabel (h-9) agar baris ±44 px; area sel ikut. */
-const kelasTautanBarisRingkas = kelasTautan.replace("min-h-11", "min-h-9");
+const kelasTautanBarisRingkas = tautanTombolVariants({ garisBawah: true, ukuran: "ringkas" });
 /** Tautan di baris terpilih (latar accent): primary di atas accent di bawah 4,5 : 1, jadi accent-foreground (DESIGN §2). */
-const kelasTautanBarisTerpilih = `${kelasDasarTautan} text-accent-foreground hover:bg-accent-foreground/10`;
+const kelasTautanBarisTerpilih = tautanTombolVariants({ garisBawah: true, nada: "barisTerpilih" });
 
 /** Id tabel varian satu toko; tujuan "Tampilkan baris tertahan" (T117). */
 const idTabelVarian = (tokoId: number) => `tabel-varian-${tokoId}`;
@@ -700,10 +699,7 @@ export function BagianDraft({
                       href={`/pengiriman-gudang/${idGudang}?tanggal=${tanggal}`}
                       aria-current={terpilih ? "page" : undefined}
                       data-terdekat={terdekat ? "" : undefined}
-                      className={cn(
-                        "inline-flex min-h-11 items-center gap-2 rounded-full px-4 font-semibold transition-colors duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                        terpilih ? "bg-accent text-accent-foreground" : "text-primary hover:bg-primary/10",
-                      )}
+                      className={tautanTombolVariants({ nada: terpilih ? "terpilih" : "primary" })}
                     >
                       {formatTanggal(tanggal)}
                       {terdekat ? <PenandaTerdekat /> : null}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { tanggalWib } from "@/app/admin/impor/format";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { parseTanggalBisnis, type TanggalBisnis } from "@/domain/kalender";
 import { AksesDitolakError, wajibAksesLihatGudang } from "@/server/auth/kewenangan";
 import { gudangLangsungMasuk } from "@/server/gudang/akses";
@@ -94,7 +95,7 @@ export default async function HalamanPengirimanGudang({
         {adaDaftarGudang ? (
           <Link
             href="/pengiriman-gudang"
-            className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className={tautanTombolVariants()}
           >
             <ArrowLeft aria-hidden strokeWidth={2} className="size-5" />
             Daftar gudang
@@ -107,7 +108,7 @@ export default async function HalamanPengirimanGudang({
           <Link
             href={`/pengiriman-gudang/${gudang.id}/rencana-final`}
             data-tautan-riwayat-final
-            className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary underline underline-offset-4 transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className={tautanTombolVariants({ garisBawah: true })}
           >
             Riwayat rencana final
           </Link>

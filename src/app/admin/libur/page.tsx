@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { formatAngka, formatWaktu, tanggalWib } from "@/app/admin/impor/format";
 import { BadgeStatus } from "@/components/badge-status";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { WaktuSingkat } from "@/components/waktu-singkat";
@@ -17,14 +18,13 @@ export const metadata: Metadata = {
   title: "Libur — Dashboard Penjualan MANDALIKA",
 };
 
-const kelasTautan =
-  "inline-flex min-h-11 items-center rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+const kelasTautan = tautanTombolVariants();
 
 function KegagalanTerakhir({ kegagalan }: { kegagalan: KegagalanSinkronisasi }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Kegagalan sinkronisasi terakhir</CardTitle>
+        <CardTitle level={2}>Kegagalan sinkronisasi terakhir</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         <BadgeStatus status="gagal" />
@@ -68,7 +68,7 @@ export default async function HalamanLibur() {
               <TableRow>
                 <TableHead>Tahun</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Jumlah libur</TableHead>
+                <TableHead angka>Jumlah libur</TableHead>
                 <TableHead>Sumber</TableHead>
                 <TableHead>Disinkronkan</TableHead>
                 <TableHead>Tinjau</TableHead>
@@ -81,7 +81,7 @@ export default async function HalamanLibur() {
                   <TableCell>
                     <BadgeStatusSnapshot status={s.status} />
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{formatAngka(s.jumlahLibur)}</TableCell>
+                  <TableCell angka>{formatAngka(s.jumlahLibur)}</TableCell>
                   <TableCell className="break-all whitespace-normal">{s.sumber}</TableCell>
                   <TableCell className="whitespace-normal">
                     <WaktuSingkat waktu={s.disinkronkanPada} />

@@ -92,7 +92,7 @@ export function DaftarUsulan({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Daftar usulan</CardTitle>
+        <CardTitle level={2}>Daftar usulan</CardTitle>
         <CardDescription>
           Usulan berasal dari segmen kode yang dicatat untuk keluarga aroma. Usulan belum berlaku sampai dikonfirmasi.
         </CardDescription>

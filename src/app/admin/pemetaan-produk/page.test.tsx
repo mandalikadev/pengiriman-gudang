@@ -4,6 +4,7 @@ import { eq, inArray } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { lompatanHeading } from "@/components/uji-bantu-heading";
 import { kepalaPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
 import { keluargaAroma, produk, segmenKodeKeluargaAroma } from "@/server/db/schema";
@@ -88,6 +89,8 @@ describe("/admin/pemetaan-produk", () => {
 
     expect(html).toContain("Pemetaan produk");
     expect(html).toContain("Daftar usulan");
+    // DESIGN §11.8 (T122): urutan heading h1 → h2 → h3 tanpa melompat.
+    expect(lompatanHeading(html)).toEqual([]);
     expect(html).toContain("Konfirmasi usulan terpilih");
     // Daftar usulan dan kolom keluarga: usulan dari segmen yang dicatat.
     expect(barisDengan(html, ham).some((b) => b.includes(`Usulan: ${keluargaMrf.nama}`))).toBe(true);

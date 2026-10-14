@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { BadgeStatus } from "@/components/badge-status";
 import { DetailTeknis } from "@/components/detail-teknis";
+import { tautanTombolVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
@@ -20,8 +21,7 @@ export const metadata: Metadata = {
   title: "Tinjau ranking — Dashboard Penjualan MANDALIKA",
 };
 
-const kelasTautan =
-  "inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+const kelasTautan = tautanTombolVariants();
 
 function Identitas({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -135,18 +135,18 @@ function TabelBaris({ judul, baris }: { judul: string; baris: DataTinjauRanking[
     <Table aria-label={judul}>
       <TableHeader>
         <TableRow>
-          <TableHead className="text-right">Rank</TableHead>
+          <TableHead angka>Rank</TableHead>
           <TableHead>Variant</TableHead>
-          <TableHead className="text-right">Qty sales</TableHead>
+          <TableHead angka>Qty sales</TableHead>
           <TableHead>Keluarga aroma</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {baris.map((b) => (
           <TableRow key={b.rank}>
-            <TableCell className="text-right tabular-nums">{b.rank}</TableCell>
+            <TableCell angka>{b.rank}</TableCell>
             <TableCell className="font-semibold whitespace-normal">{b.variant}</TableCell>
-            <TableCell className="text-right tabular-nums">{formatAngka(b.qtySales)}</TableCell>
+            <TableCell angka>{formatAngka(b.qtySales)}</TableCell>
             <TableCell className="whitespace-normal">
               <KolomKeluarga keluarga={b.keluarga} />
             </TableCell>
@@ -189,7 +189,7 @@ export default async function HalamanTinjauRanking({ params }: { params: Promise
 
       <Card>
         <CardHeader>
-          <CardTitle>Identitas ranking</CardTitle>
+          <CardTitle level={2}>Identitas ranking</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -235,7 +235,7 @@ export default async function HalamanTinjauRanking({ params }: { params: Promise
       {/* DESIGN §11.4: tombol keputusan setelah data yang ditinjau, bersama ringkasan jumlah error dan peringatan. */}
       <Card data-keputusan-tinjau>
         <CardHeader>
-          <CardTitle>Publikasikan</CardTitle>
+          <CardTitle level={2}>Publikasikan</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p data-ringkasan-masalah>

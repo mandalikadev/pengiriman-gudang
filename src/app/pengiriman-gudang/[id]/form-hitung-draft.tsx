@@ -5,10 +5,9 @@ import { useId, useState } from "react";
 
 import { usePenyimpanan } from "@/components/keadaan-simpan";
 import { PesanStatusSimpan } from "@/components/pesan-status-simpan";
-import { Button } from "@/components/ui/button";
+import { Button, tautanTombolVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatTanggal, type TanggalBisnis } from "@/domain/kalender";
-import { cn } from "@/lib/utils";
 
 import { hitungDraft } from "./aksi-draft";
 import { kelasLabel } from "./bidang-jadwal";
@@ -63,10 +62,7 @@ export function FormHitungDraft({ idGudang, saranTanggal }: { idGudang: number; 
                     data-saran={tanggal}
                     aria-pressed={terpilih}
                     onClick={() => pilih(tanggal)}
-                    className={cn(
-                      "inline-flex min-h-11 items-center rounded-full px-4 font-semibold transition-colors duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                      terpilih ? "bg-accent text-accent-foreground" : "text-primary hover:bg-primary/10",
-                    )}
+                    className={tautanTombolVariants({ nada: terpilih ? "terpilih" : "primary" })}
                   >
                     {formatTanggal(tanggal)}
                   </button>

@@ -1,6 +1,9 @@
 import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { tautanTombolVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
 /**
  * Bagian "Detail teknis" yang bisa dibuka-tutup dan awalnya tertutup (DESIGN §11.6, T121): identitas teknis file
  * (SHA-256, ukuran dalam byte, nomor penetapan) disembunyikan di sini tanpa dihapus. Memakai `<details>` bawaan browser,
@@ -10,7 +13,7 @@ import type { ReactNode } from "react";
 export function DetailTeknis({ children }: { children: ReactNode }) {
   return (
     <details data-detail-teknis className="group">
-      <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
+      <summary className={cn(tautanTombolVariants(), "cursor-pointer list-none [&::-webkit-details-marker]:hidden")}>
         Detail teknis
         <ChevronDown
           aria-hidden

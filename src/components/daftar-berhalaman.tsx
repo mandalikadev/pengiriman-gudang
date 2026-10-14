@@ -2,7 +2,7 @@ import { Search } from "lucide-react";
 import Link from "next/link";
 
 import { formatAngka } from "@/app/admin/impor/format";
-import { Button } from "@/components/ui/button";
+import { Button, tautanTombolVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { bagiBulatAtas } from "@/domain/angka";
 
@@ -70,8 +70,7 @@ export function urlDaftar(path: string, saatIni: ParameterUrl, perubahan: Record
   return kueri === "" ? path : `${path}?${kueri}`;
 }
 
-const kelasTautan =
-  "inline-flex min-h-11 items-center rounded-full px-4 font-semibold text-primary transition-colors duration-300 ease-out outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+const kelasTautan = tautanTombolVariants();
 
 /**
  * Kotak cari sebuah daftar: form GET ke halaman yang sama. Parameter lain di `pertahankan` (mis. filter status, keadaan
