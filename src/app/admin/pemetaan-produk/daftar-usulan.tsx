@@ -1,7 +1,7 @@
 "use client";
 
 import { CircleCheck, TriangleAlert } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 
 import { usePenyimpanan } from "@/components/keadaan-simpan";
 import { PesanStatusSimpan } from "@/components/pesan-status-simpan";
@@ -58,8 +58,20 @@ function HasilPerProduk({ hasil }: { hasil: HasilPemetaanProduk[] }) {
 /**
  * Daftar usulan (T45): produk belum dipetakan yang punya usulan keluarga dari segmen kode. Usulan baru berlaku setelah
  * admin memilih produk dan menekan konfirmasi; setiap produk ditetapkan ke keluarga usulannya sendiri.
+ * T119: `usulan` berisi satu halaman (50 baris) hasil pencarian; kotak cari (form GET) dan navigasi halaman dari server.
+ * Kotak cari diletakkan di luar form konfirmasi agar tidak menjadi form bersarang.
  */
-export function DaftarUsulan({ usulan }: { usulan: DataUsulan[] }) {
+export function DaftarUsulan({
+  usulan,
+  adaPencarian,
+  kotakCari,
+  navigasi,
+}: {
+  usulan: DataUsulan[];
+  adaPencarian: boolean;
+  kotakCari: ReactNode;
+  navigasi: ReactNode;
+}) {
   const id = useId();
   const [terpilih, setTerpilih] = useState<ReadonlySet<string>>(new Set());
   const { tampilan, hasil, menunggu, tandaiBerubah, simpan } = usePenyimpanan<HasilKonfirmasiPemetaan>(
@@ -79,6 +91,13 @@ export function DaftarUsulan({ usulan }: { usulan: DataUsulan[] }) {
 
   return (
     <Card>
+      <CardHeader>
+        <CardTitle>Daftar usulan</CardTitle>
+        <CardDescription>
+          Usulan berasal dari segmen kode yang dicatat untuk keluarga aroma. Usulan belum berlaku sampai dikonfirmasi.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>{kotakCari}</CardContent>
       <form
         className="flex flex-col gap-4"
         onSubmit={(event) => {
@@ -92,15 +111,13 @@ export function DaftarUsulan({ usulan }: { usulan: DataUsulan[] }) {
           );
         }}
       >
-        <CardHeader>
-          <CardTitle>Daftar usulan</CardTitle>
-          <CardDescription>
-            Usulan berasal dari segmen kode yang dicatat untuk keluarga aroma. Usulan belum berlaku sampai dikonfirmasi.
-          </CardDescription>
-        </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {usulan.length === 0 ? (
-            <p className="text-muted-foreground">Tidak ada usulan untuk produk yang belum dipetakan.</p>
+            <p className="text-muted-foreground">
+              {adaPencarian
+                ? "Tidak ada usulan yang cocok dengan pencarian ini."
+                : "Tidak ada usulan untuk produk yang belum dipetakan."}
+            </p>
           ) : (
             <Table aria-label="Daftar usulan" panjang>
               <TableHeader>
@@ -117,7 +134,7 @@ export function DaftarUsulan({ usulan }: { usulan: DataUsulan[] }) {
                           tandaiBerubah();
                         }}
                       />
-                      <span className="sr-only">Pilih semua usulan</span>
+                      <span className="sr-only">Pilih semua usulan di halaman ini</span>
                     </label>
                   </TableHead>
                   <TableHead>Kode produk</TableHead>
@@ -130,7 +147,7 @@ export function DaftarUsulan({ usulan }: { usulan: DataUsulan[] }) {
                   const dipilih = terpilih.has(u.kode);
                   const idKotak = `${id}-${u.kode}`;
                   return (
-                    <TableRow key={u.kode} data-state={dipilih ? "selected" : undefined}>
+                    <TableRow key={u.kode} data-usulan={u.kode} data-state={dipilih ? "selected" : undefined}>
                       <TableCell className="p-0">
                         <label htmlFor={idKotak} className="flex min-h-11 cursor-pointer items-center justify-center px-3">
                           <input
@@ -158,6 +175,7 @@ export function DaftarUsulan({ usulan }: { usulan: DataUsulan[] }) {
               </TableBody>
             </Table>
           )}
+          {navigasi}
         </CardContent>
         <CardFooter className="flex-wrap gap-4">
           <Button type="submit" disabled={menunggu || terpilih.size === 0} className="active:scale-95">

@@ -385,11 +385,18 @@ export async function bacaRincianRencanaFinal(idGudang: number, idRencana: numbe
 export type RingkasanRencanaFinal = Pick<
   RincianRencanaFinal,
   "id" | "versi" | "alasanFinalisasiUlang" | "toko" | "tanggalKirim" | "difinalisasiOleh" | "difinalisasiPada" | "diLuarJadwal"
->;
+> & {
+  /**
+   * Versi berikutnya untuk toko + tanggal kirim yang sama, yang menggantikan versi ini (T119, DESIGN §11.9); `null` untuk
+   * versi terbaru.
+   */
+  digantikanOlehVersi: number | null;
+};
 
 /**
  * Riwayat rencana final gudang `idGudang` (T63), semua versi, disaring tanggal kirim dan/atau toko bila diberikan. Urut
- * tanggal kirim terbaru, lalu nama toko (snapshot), lalu versi terbaru.
+ * tanggal kirim terbaru, lalu nama toko (snapshot), lalu versi terbaru. Filter selalu memuat semua versi satu toko +
+ * tanggal kirim, jadi versi pengganti dihitung dari hasil yang sama.
  */
 export async function daftarRencanaFinal(
   idGudang: number,
@@ -416,6 +423,15 @@ export async function daftarRencanaFinal(
       ),
     )
     .orderBy(desc(rencanaFinal.tanggalKirim), asc(rencanaFinal.namaToko), asc(rencanaFinal.tokoId), desc(rencanaFinal.versi));
+  const versiPerKelompok = new Map<string, number[]>();
+  for (const r of daftar) {
+    const kunci = `${r.tokoId}|${r.tanggalKirim}`;
+    versiPerKelompok.set(kunci, [...(versiPerKelompok.get(kunci) ?? []), r.versi]);
+  }
+  const versiPengganti = (tokoId: number, tanggalKirim: string, versi: number) => {
+    const lebihBaru = (versiPerKelompok.get(`${tokoId}|${tanggalKirim}`) ?? []).filter((v) => v > versi);
+    return lebihBaru.length === 0 ? null : Math.min(...lebihBaru);
+  };
   return daftar.map((r) => ({
     id: r.id,
     versi: r.versi,
@@ -425,6 +441,7 @@ export async function daftarRencanaFinal(
     difinalisasiOleh: r.difinalisasiOleh,
     difinalisasiPada: r.difinalisasiPada,
     diLuarJadwal: keteranganDariSnapshot(r.diLuarJadwal),
+    digantikanOlehVersi: versiPengganti(r.tokoId, r.tanggalKirim, r.versi),
   }));
 }
 

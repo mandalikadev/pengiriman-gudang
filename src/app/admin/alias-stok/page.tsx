@@ -1,6 +1,16 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import {
+  cocokCari,
+  KotakCari,
+  NavigasiHalaman,
+  nomorHalaman,
+  potongHalaman,
+  teksParameter,
+  urlDaftar,
+  type ParameterUrl,
+} from "@/components/daftar-berhalaman";
 import { daftarAliasStok } from "@/server/alias-stok/alias-stok";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
 
@@ -12,15 +22,25 @@ export const metadata: Metadata = {
   title: "Alias nama stok — Dashboard Penjualan MANDALIKA",
 };
 
-/** Zona kerja (DESIGN §1). Hanya admin; selain admin mendapat 404 agar halaman admin tidak terungkap. */
-export default async function HalamanAliasStok() {
+const PATH_HALAMAN = "/admin/alias-stok";
+
+/**
+ * Zona kerja (DESIGN §1). Hanya admin; selain admin mendapat 404 agar halaman admin tidak terungkap. Daftar alias bisa
+ * dicari (alias, kode, atau nama produk) dan dibagi per halaman 50 baris, keadaannya di URL (DESIGN §11.1, T119).
+ */
+export default async function HalamanAliasStok({ searchParams }: { searchParams: Promise<ParameterUrl> }) {
   try {
     await wajibAdmin();
   } catch (galat) {
     if (galat instanceof AksesDitolakError) notFound();
     throw galat;
   }
-  const daftar = await daftarAliasStok();
+  const parameter = await searchParams;
+  const cari = teksParameter(parameter.cari);
+  const daftar = potongHalaman(
+    (await daftarAliasStok()).filter((b) => cocokCari(cari, b.alias, b.kodeProduk, b.namaProduk)),
+    nomorHalaman(parameter.halaman),
+  );
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
@@ -37,7 +57,13 @@ export default async function HalamanAliasStok() {
 
       <section className="flex flex-col gap-4">
         <h2 className="text-xl font-semibold">Daftar alias</h2>
-        <DaftarAlias daftar={daftar} />
+        <KotakCari action={PATH_HALAMAN} name="cari" nilai={cari} label="Cari alias, kode, atau nama produk" />
+        <DaftarAlias daftar={daftar.baris} adaPencarian={cari !== ""} />
+        <NavigasiHalaman
+          potongan={daftar}
+          label="Halaman daftar alias"
+          url={(halaman) => urlDaftar(PATH_HALAMAN, { cari }, { halaman })}
+        />
       </section>
     </main>
   );

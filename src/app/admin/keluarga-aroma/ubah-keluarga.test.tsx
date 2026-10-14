@@ -20,7 +20,7 @@ import {
   tombolDialogKonfirmasi,
 } from "@/components/ui/uji-bantu-dialog-konfirmasi";
 
-import { KartuKeluarga, type DataKeluarga } from "./kartu-keluarga";
+import { IsiUbahKeluarga, type DataKeluarga } from "./ubah-keluarga";
 
 // T109 (DESIGN §11.3): hapus alias dan segmen kode keluarga aroma meminta konfirmasi lewat dialog konfirmasi aplikasi.
 
@@ -62,7 +62,7 @@ describe.each([
   },
 ])("hapus $jenis keluarga aroma", ({ pembuka, judul, akibat, aksi, argumen }) => {
   it("tombol bergaris destructive; dialog: Batal tidak menghapus", async () => {
-    const wadah = pasangUntukUji(<KartuKeluarga keluarga={KELUARGA} />);
+    const wadah = pasangUntukUji(<IsiUbahKeluarga keluarga={KELUARGA} />);
     const tombol = bukaDialogKonfirmasi(wadah, pembuka);
     expect(tombol.className.split(" ")).toContain("border-destructive");
     expect(tombol.className.split(" ")).not.toContain("bg-destructive");
@@ -76,7 +76,7 @@ describe.each([
 
   it("Hapus menjalankan aksi hapus entri itu", async () => {
     aksi().mockResolvedValue({ keadaan: "berhasil" });
-    const wadah = pasangUntukUji(<KartuKeluarga keluarga={KELUARGA} />);
+    const wadah = pasangUntukUji(<IsiUbahKeluarga keluarga={KELUARGA} />);
     bukaDialogKonfirmasi(wadah, pembuka);
     await pilihDiDialogKonfirmasi("Hapus");
     expect(aksi()).toHaveBeenCalledWith(argumen);

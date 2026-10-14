@@ -1,14 +1,10 @@
 "use client";
 
-import { Archive } from "lucide-react";
 import { useId, useState } from "react";
 
-import { BadgeStatus } from "@/components/badge-status";
 import { usePenyimpanan, type HasilSimpan } from "@/components/keadaan-simpan";
 import { PesanStatusSimpan } from "@/components/pesan-status-simpan";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DialogKonfirmasi } from "@/components/ui/dialog-konfirmasi";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -22,16 +18,6 @@ export type DataKeluarga = {
   alias: { id: number; alias: string }[];
   segmen: { id: number; segmen: string }[];
 };
-
-function BadgeStatusKeluarga({ aktif }: { aktif: boolean }) {
-  if (aktif) return <BadgeStatus status="aktif" />;
-  return (
-    <Badge variant="muted" data-status="nonaktif">
-      <Archive aria-hidden strokeWidth={2} className="size-5" />
-      Nonaktif
-    </Badge>
-  );
-}
 
 /** Ubah nama dan status keluarga. */
 function FormUbahKeluarga({ keluarga }: { keluarga: DataKeluarga }) {
@@ -127,9 +113,9 @@ function BagianEntri({
 
   return (
     <section aria-labelledby={`${id}-judul`} className="flex flex-col gap-3">
-      <h4 id={`${id}-judul`} className="font-semibold">
+      <h3 id={`${id}-judul`} className="font-semibold">
         {judul}
-      </h4>
+      </h3>
       {entri.length === 0 ? (
         <p className="text-muted-foreground">{kosong}</p>
       ) : (
@@ -193,40 +179,38 @@ function BagianEntri({
   );
 }
 
-export function KartuKeluarga({ keluarga }: { keluarga: DataKeluarga }) {
+/**
+ * Isi panel "Ubah keluarga" (T119, DESIGN §11.1–§11.2): form yang sama dengan kartu keluarga sebelumnya — nama dan
+ * status, alias, dan segmen kode. Hapus alias/segmen meminta konfirmasi (§11.3).
+ */
+export function IsiUbahKeluarga({ keluarga }: { keluarga: DataKeluarga }) {
   return (
-    <Card>
-      <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
-        <CardTitle>{keluarga.nama}</CardTitle>
-        <BadgeStatusKeluarga aktif={keluarga.aktif} />
-      </CardHeader>
-      <CardContent className="flex flex-col gap-6">
-        <FormUbahKeluarga keluarga={keluarga} />
-        <BagianEntri
-          judul="Alias"
-          jenis="alias"
-          labelBaru="Alias baru"
-          keterangan="Disimpan dalam huruf besar dengan spasi dirapikan. Satu alias hanya untuk satu keluarga."
-          kosong="Belum ada alias."
-          entri={keluarga.alias.map((a) => ({ id: a.id, teks: a.alias }))}
-          yangDiperiksa={`alias keluarga ${keluarga.nama}`}
-          akibatHapus={`Baris ranking dengan nama ini tidak lagi dicocokkan ke keluarga ${keluarga.nama}.`}
-          tambah={(alias) => tambahAlias({ idKeluarga: keluarga.id, alias })}
-          hapus={(idAlias) => hapusAlias({ idAlias })}
-        />
-        <BagianEntri
-          judul="Segmen kode"
-          jenis="segmen kode"
-          labelBaru="Segmen kode baru"
-          keterangan="Satu bagian kode produk di antara tanda hubung, mis. GOR. Produk yang kodenya memuat segmen ini mendapat usulan keluarga ini di halaman Pemetaan produk."
-          kosong="Belum ada segmen kode."
-          entri={keluarga.segmen.map((s) => ({ id: s.id, teks: s.segmen }))}
-          yangDiperiksa={`segmen kode keluarga ${keluarga.nama}`}
-          akibatHapus={`Produk yang kodenya memuat segmen ini tidak lagi mendapat usulan keluarga ${keluarga.nama} di halaman Pemetaan produk.`}
-          tambah={(segmen) => tambahSegmenKode({ idKeluarga: keluarga.id, segmen })}
-          hapus={(idSegmen) => hapusSegmenKode({ idSegmen })}
-        />
-      </CardContent>
-    </Card>
+    <div data-ubah-keluarga={keluarga.id} className="flex flex-col gap-6">
+      <FormUbahKeluarga keluarga={keluarga} />
+      <BagianEntri
+        judul="Alias"
+        jenis="alias"
+        labelBaru="Alias baru"
+        keterangan="Disimpan dalam huruf besar dengan spasi dirapikan. Satu alias hanya untuk satu keluarga."
+        kosong="Belum ada alias."
+        entri={keluarga.alias.map((a) => ({ id: a.id, teks: a.alias }))}
+        yangDiperiksa={`alias keluarga ${keluarga.nama}`}
+        akibatHapus={`Baris ranking dengan nama ini tidak lagi dicocokkan ke keluarga ${keluarga.nama}.`}
+        tambah={(alias) => tambahAlias({ idKeluarga: keluarga.id, alias })}
+        hapus={(idAlias) => hapusAlias({ idAlias })}
+      />
+      <BagianEntri
+        judul="Segmen kode"
+        jenis="segmen kode"
+        labelBaru="Segmen kode baru"
+        keterangan="Satu bagian kode produk di antara tanda hubung, mis. GOR. Produk yang kodenya memuat segmen ini mendapat usulan keluarga ini di halaman Pemetaan produk."
+        kosong="Belum ada segmen kode."
+        entri={keluarga.segmen.map((s) => ({ id: s.id, teks: s.segmen }))}
+        yangDiperiksa={`segmen kode keluarga ${keluarga.nama}`}
+        akibatHapus={`Produk yang kodenya memuat segmen ini tidak lagi mendapat usulan keluarga ${keluarga.nama} di halaman Pemetaan produk.`}
+        tambah={(segmen) => tambahSegmenKode({ idKeluarga: keluarga.id, segmen })}
+        hapus={(idSegmen) => hapusSegmenKode({ idSegmen })}
+      />
+    </div>
   );
 }

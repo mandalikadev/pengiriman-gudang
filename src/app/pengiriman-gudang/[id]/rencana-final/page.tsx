@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatWaktu } from "@/app/admin/impor/format";
 import { TombolEkspor } from "@/app/ringkasan/tombol-ekspor";
 import { BadgeStatus } from "@/components/badge-status";
+import { cocokCari, NavigasiHalaman, nomorHalaman, potongHalaman, teksParameter, urlDaftar } from "@/components/daftar-berhalaman";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTanggal, parseTanggalBisnis } from "@/domain/kalender";
 import { daftarRencanaFinal, pilihanFilterRencanaFinal, type RingkasanRencanaFinal } from "@/server/gudang/rencana-final";
@@ -52,7 +53,14 @@ function BarisRencana({ idGudang, rencana, bolehEkspor }: { idGudang: number; re
         </div>
       </TableCell>
       <TableCell className="align-top">
-        <BadgeStatus status="final" />
+        <div className="flex flex-col items-start gap-1">
+          <BadgeStatus status="final" />
+          {rencana.digantikanOlehVersi === null ? null : (
+            <span data-digantikan-oleh={rencana.digantikanOlehVersi} className="text-muted-foreground">
+              {`Digantikan oleh versi ${rencana.digantikanOlehVersi}`}
+            </span>
+          )}
+        </div>
       </TableCell>
       <TableCell className="align-top">{rencana.difinalisasiOleh}</TableCell>
       <TableCell className="align-top">{formatWaktu(rencana.difinalisasiPada)}</TableCell>
@@ -79,7 +87,8 @@ function BarisRencana({ idGudang, rencana, bolehEkspor }: { idGudang: number; re
  * Riwayat rencana final satu gudang (T63; PRD A7): zona kerja (DESIGN §1). Semua versi rencana final per tanggal kirim
  * dan toko, siapa dan kapan memfinalisasi, dibaca dari snapshot; semua versi tetap tampil dengan status Final, versi
  * baru ditandai "Versi N menggantikan versi N−1" (PRD A7 ▶ Keputusan 2026-10-11, T62). Filter `?tanggal=YYYY-MM-DD` dan
- * `?toko=<id>`. Bisa dibuka semua pengguna yang boleh melihat Pengiriman Gudang gudang itu (akses diperiksa di server).
+ * `?toko=<id>`, cari nama toko `?cari=`, dan halaman 50 baris `?halaman=` (T119, DESIGN §11.1); versi yang sudah
+ * digantikan berlabel "Digantikan oleh versi n" di samping status Final (DESIGN §11.9). Bisa dibuka semua pengguna yang boleh melihat Pengiriman Gudang gudang itu (akses diperiksa di server).
  * Tombol ekspor (.xlsx) per versi hanya tampil bagi pengguna dengan hak `ekspor` di gudang itu (T64).
  */
 export default async function HalamanRiwayatRencanaFinal({
@@ -99,11 +108,21 @@ export default async function HalamanRiwayatRencanaFinal({
       pilihan.toko.map((t) => String(t.id)),
     ),
   };
-  const daftar = await daftarRencanaFinal(gudang.id, {
+  const cari = teksParameter(parameter.cari);
+  const semua = await daftarRencanaFinal(gudang.id, {
     tanggalKirim: terapan.tanggal === SEMUA ? undefined : parseTanggalBisnis(terapan.tanggal),
     tokoId: terapan.toko === SEMUA ? undefined : Number(terapan.toko),
   });
+  const daftar = potongHalaman(
+    semua.filter((r) => cocokCari(cari, r.toko.nama)),
+    nomorHalaman(parameter.halaman),
+  );
   const urlHalaman = `/pengiriman-gudang/${gudang.id}/rencana-final`;
+  const keadaanUrl = {
+    tanggal: terapan.tanggal === SEMUA ? undefined : terapan.tanggal,
+    toko: terapan.toko === SEMUA ? undefined : terapan.toko,
+    cari,
+  };
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
@@ -127,7 +146,7 @@ export default async function HalamanRiwayatRencanaFinal({
             action={urlHalaman}
             tanggalKirim={pilihan.tanggalKirim.map((t) => ({ nilai: t, label: formatTanggal(t) }))}
             toko={pilihan.toko}
-            terapan={terapan}
+            terapan={{ ...terapan, cari }}
           />
           <Table aria-label="Riwayat rencana final" panjang>
             <TableHeader>
@@ -144,19 +163,24 @@ export default async function HalamanRiwayatRencanaFinal({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {daftar.length === 0 ? (
+              {daftar.jumlahBaris === 0 ? (
                 <TableRow>
                   <TableCell colSpan={JUMLAH_KOLOM} className="text-muted-foreground">
                     Tidak ada rencana final yang cocok dengan filter ini.
                   </TableCell>
                 </TableRow>
               ) : (
-                daftar.map((r) => (
+                daftar.baris.map((r) => (
                   <BarisRencana key={r.id} idGudang={gudang.id} rencana={r} bolehEkspor={gudang.hakTindakan.includes("ekspor")} />
                 ))
               )}
             </TableBody>
           </Table>
+          <NavigasiHalaman
+            potongan={daftar}
+            label="Halaman riwayat rencana final"
+            url={(halaman) => urlDaftar(urlHalaman, keadaanUrl, { halaman })}
+          />
         </>
       )}
     </main>

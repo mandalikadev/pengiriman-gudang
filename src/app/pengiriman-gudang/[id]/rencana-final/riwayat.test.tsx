@@ -213,14 +213,16 @@ describe("daftar rencana final", () => {
     expect(v2).toContain(await waktuFinal(rencana.a1v2));
     expect(v2).toContain(`href="/pengiriman-gudang/${cibubur}/rencana-final/${rencana.a1v2}/rincian"`);
 
+    // T119 (DESIGN §11.9): versi lama tetap Final, dengan label versi penggantinya; versi terbaru tanpa label.
+    expect(v2).not.toContain("Digantikan");
     const v1 = barisDaftar(html, rencana.a1v1);
-    expect(v1).toMatch(/data-status="final".*?lucide-circle-check.*?Final/);
-    expect(v1).not.toContain("Digantikan");
+    expect(v1).toMatch(/data-status="final".*?lucide-circle-check.*?Final.*?data-digantikan-oleh="2"[^>]*>Digantikan oleh versi 2</);
     expect(v1).toMatch(/Versi 1/);
     expect(v1).not.toContain("data-versi-menggantikan");
     expect(v1).toContain(await waktuFinal(rencana.a1v1));
 
     expect(barisDaftar(html, rencana.b1)).toMatch(/data-status="final"/);
+    expect(barisDaftar(html, rencana.b1)).not.toContain("Digantikan");
     expect(barisDaftar(html, rencana.a2)).toContain("Senin, 15-06-2026");
   });
 

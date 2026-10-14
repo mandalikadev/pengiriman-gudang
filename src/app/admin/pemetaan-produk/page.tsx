@@ -3,6 +3,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { formatAngka, formatWaktu } from "@/app/admin/impor/format";
+import {
+  cocokCari,
+  KotakCari,
+  NavigasiHalaman,
+  nomorHalaman,
+  potongHalaman,
+  teksParameter,
+  urlDaftar,
+  type ParameterUrl,
+} from "@/components/daftar-berhalaman";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { AksesDitolakError, wajibAdmin } from "@/server/auth/kewenangan";
@@ -17,8 +27,6 @@ export const metadata: Metadata = {
   title: "Pemetaan produk — Dashboard Penjualan MANDALIKA",
 };
 
-type ParameterUrl = Record<string, string | string[] | undefined>;
-
 const PATH_HALAMAN = "/admin/pemetaan-produk";
 
 const kelasTautan =
@@ -29,20 +37,23 @@ function bacaStatus(nilai: string | string[] | undefined): StatusKeluargaAroma |
   return daftarStatusKeluargaAroma.find((s) => s === teks) ?? null;
 }
 
+/** Chip filter status. Berpindah filter mempertahankan pencarian dan kembali ke halaman 1 (T119). */
 function FilterStatus({
   aktif,
   jumlahPerStatus,
+  parameter,
 }: {
   aktif: StatusKeluargaAroma | null;
   jumlahPerStatus: Record<StatusKeluargaAroma, number>;
+  parameter: ParameterUrl;
 }) {
   const total = daftarStatusKeluargaAroma.reduce((jumlah, s) => jumlah + jumlahPerStatus[s], 0);
   const pilihan = [
-    { status: null, label: "Semua", jumlah: total, href: PATH_HALAMAN },
+    { status: null, label: "Semua", jumlah: total, href: urlDaftar(PATH_HALAMAN, parameter, { status: undefined, halaman: undefined }) },
     ...daftarFilterStatus.map((f) => ({
       ...f,
       jumlah: jumlahPerStatus[f.status],
-      href: `${PATH_HALAMAN}?status=${f.status}`,
+      href: urlDaftar(PATH_HALAMAN, parameter, { status: f.status, halaman: undefined }),
     })),
   ];
   return (
@@ -57,7 +68,7 @@ function FilterStatus({
                 aria-current={terpilih ? "page" : undefined}
                 className={cn(
                   kelasTautan,
-                  terpilih ? "bg-primary/10 text-primary" : "text-foreground hover:bg-primary/10 hover:text-primary",
+                  terpilih ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-primary/10 hover:text-primary",
                 )}
               >
                 {p.label}
@@ -79,57 +90,114 @@ export default async function HalamanPemetaanProduk({ searchParams }: { searchPa
     if (galat instanceof AksesDitolakError) notFound();
     throw galat;
   }
-  const filterStatus = bacaStatus((await searchParams).status);
+  const parameter = await searchParams;
+  const filterStatus = bacaStatus(parameter.status);
   const data = await muatPemetaanProduk(filterStatus);
+  // Keadaan tiap daftar di URL (T119): `cari`/`halaman` untuk daftar produk, `cariUsulan`/`halamanUsulan` untuk usulan.
+  const keadaan = {
+    status: filterStatus ?? "",
+    cari: teksParameter(parameter.cari),
+    halaman: String(nomorHalaman(parameter.halaman)),
+    cariUsulan: teksParameter(parameter.cariUsulan),
+    halamanUsulan: String(nomorHalaman(parameter.halamanUsulan)),
+  };
+  const produkTampil = potongHalaman(
+    data.produk.filter((p) => cocokCari(keadaan.cari, p.kode, p.nama)),
+    nomorHalaman(parameter.halaman),
+  );
+  const usulanTampil = potongHalaman(
+    data.usulan.filter((u) => cocokCari(keadaan.cariUsulan, u.kode, u.nama)),
+    nomorHalaman(parameter.halamanUsulan),
+  );
+  // Kotak cari satu daftar mengirim ulang keadaan daftar lainnya; halaman daftarnya sendiri kembali ke 1.
+  const selainDaftarProduk = { status: keadaan.status, cariUsulan: keadaan.cariUsulan, halamanUsulan: keadaan.halamanUsulan };
+  const selainUsulan = { status: keadaan.status, cari: keadaan.cari, halaman: keadaan.halaman };
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 text-sm sm:px-6 md:py-8 lg:px-8">
       <h1 className="text-2xl font-bold md:text-3xl">Pemetaan produk</h1>
 
-      <DaftarUsulan usulan={data.usulan.map((u) => ({ kode: u.kode, nama: u.nama, usulan: u.usulan }))} />
+      <DaftarUsulan
+        // Pilihan centang hanya berlaku untuk halaman yang tampil; berpindah halaman atau pencarian mengosongkannya.
+        key={`${keadaan.cariUsulan}|${usulanTampil.halaman}`}
+        usulan={usulanTampil.baris.map((u) => ({ kode: u.kode, nama: u.nama, usulan: u.usulan }))}
+        adaPencarian={keadaan.cariUsulan !== ""}
+        kotakCari={
+          <KotakCari
+            action={PATH_HALAMAN}
+            name="cariUsulan"
+            nilai={keadaan.cariUsulan}
+            label="Cari kode atau nama produk di daftar usulan"
+            pertahankan={selainUsulan}
+          />
+        }
+        navigasi={
+          <NavigasiHalaman
+            potongan={usulanTampil}
+            label="Halaman daftar usulan"
+            url={(halaman) => urlDaftar(PATH_HALAMAN, keadaan, { halamanUsulan: halaman })}
+          />
+        }
+      />
 
       <section className="flex flex-col gap-4">
         <h2 className="text-xl font-semibold">Daftar produk</h2>
-        <FilterStatus aktif={filterStatus} jumlahPerStatus={data.jumlahPerStatus} />
-        {data.produk.length === 0 ? (
-          <p className="text-muted-foreground">Tidak ada produk dengan status ini.</p>
+        <FilterStatus aktif={filterStatus} jumlahPerStatus={data.jumlahPerStatus} parameter={keadaan} />
+        <KotakCari
+          action={PATH_HALAMAN}
+          name="cari"
+          nilai={keadaan.cari}
+          label="Cari kode atau nama produk"
+          pertahankan={selainDaftarProduk}
+        />
+        {produkTampil.jumlahBaris === 0 ? (
+          <p className="text-muted-foreground">
+            {keadaan.cari === "" ? "Tidak ada produk dengan status ini." : "Tidak ada produk yang cocok dengan pencarian ini."}
+          </p>
         ) : (
-          <Table aria-label="Daftar produk" panjang>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Kode produk</TableHead>
-                <TableHead>Nama produk</TableHead>
-                <TableHead>Kategori</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Keluarga aroma</TableHead>
-                <TableHead>Konfirmasi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.produk.map((p) => (
-                <TableRow key={p.kode}>
-                  <TableCell className="font-semibold">{p.kode}</TableCell>
-                  <TableCell className="whitespace-normal">{p.nama}</TableCell>
-                  <TableCell>{p.kategori}</TableCell>
-                  <TableCell>
-                    <BadgeStatusPemetaan status={p.pemetaan.status} />
-                  </TableCell>
-                  <TableCell className="whitespace-normal">
-                    {p.pemetaan.keluarga ? (
-                      p.pemetaan.keluarga.nama
-                    ) : p.usulan ? (
-                      <BadgeUsulan nama={p.usulan.nama} />
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <FormPemetaan kode={p.kode} pemetaan={p.pemetaan} keluarga={data.keluarga} />
-                  </TableCell>
+          <>
+            <Table aria-label="Daftar produk" panjang>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Kode produk</TableHead>
+                  <TableHead>Nama produk</TableHead>
+                  <TableHead>Kategori</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Keluarga aroma</TableHead>
+                  <TableHead>Konfirmasi</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {produkTampil.baris.map((p) => (
+                  <TableRow key={p.kode} data-produk={p.kode}>
+                    <TableCell className="font-semibold">{p.kode}</TableCell>
+                    <TableCell className="whitespace-normal">{p.nama}</TableCell>
+                    <TableCell>{p.kategori}</TableCell>
+                    <TableCell>
+                      <BadgeStatusPemetaan status={p.pemetaan.status} />
+                    </TableCell>
+                    <TableCell className="whitespace-normal">
+                      {p.pemetaan.keluarga ? (
+                        p.pemetaan.keluarga.nama
+                      ) : p.usulan ? (
+                        <BadgeUsulan nama={p.usulan.nama} />
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <FormPemetaan kode={p.kode} pemetaan={p.pemetaan} keluarga={data.keluarga} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <NavigasiHalaman
+              potongan={produkTampil}
+              label="Halaman daftar produk"
+              url={(halaman) => urlDaftar(PATH_HALAMAN, keadaan, { halaman })}
+            />
+          </>
         )}
       </section>
 

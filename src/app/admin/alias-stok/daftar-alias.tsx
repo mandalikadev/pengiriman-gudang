@@ -16,7 +16,7 @@ import { hapusAliasStok } from "./aksi";
 function BarisAlias({ baris }: { baris: BarisAliasStok }) {
   const { tampilan, menunggu, simpan } = usePenyimpanan("daftar alias");
   return (
-    <TableRow>
+    <TableRow data-alias={baris.alias}>
       <TableCell className="whitespace-normal font-semibold">{baris.alias}</TableCell>
       <TableCell>{baris.kodeProduk}</TableCell>
       <TableCell className="whitespace-normal">{baris.namaProduk}</TableCell>
@@ -47,8 +47,15 @@ function BarisAlias({ baris }: { baris: BarisAliasStok }) {
   );
 }
 
-export function DaftarAlias({ daftar }: { daftar: BarisAliasStok[] }) {
-  if (daftar.length === 0) return <p className="text-muted-foreground">Belum ada alias nama stok.</p>;
+/** Satu halaman daftar alias (T119: pencarian dan halaman diatur halaman server). */
+export function DaftarAlias({ daftar, adaPencarian = false }: { daftar: BarisAliasStok[]; adaPencarian?: boolean }) {
+  if (daftar.length === 0) {
+    return (
+      <p className="text-muted-foreground">
+        {adaPencarian ? "Tidak ada alias yang cocok dengan pencarian ini." : "Belum ada alias nama stok."}
+      </p>
+    );
+  }
   return (
     <Table aria-label="Daftar alias nama stok" panjang>
       <TableHeader>
