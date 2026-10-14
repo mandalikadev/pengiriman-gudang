@@ -17,6 +17,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+import { daftarRumusJumlahKirim, RUMUS_JUMLAH_KIRIM_BERLAKU, type RumusJumlahKirim } from "@/domain/angka";
 import { daftarKategoriDasar, type KategoriDasar } from "@/domain/kalender";
 import { daftarJenisLibur, type JenisLibur } from "@/domain/libur";
 import type { ErrorRanking } from "@/domain/ranking";
@@ -1180,6 +1181,12 @@ export const rencanaFinal = pgTable(
     revisiKalender: integer("revisi_kalender").notNull(),
     perubahanKategori: integer("perubahan_kategori").array().notNull(),
     cakupan: jsonb("cakupan").$type<TanggalCakupanDraft[]>().notNull(),
+    /**
+     * Rumus jumlah kirim yang dipakai baris rencana ini (PRD A6 ▶ Revisi 2026-10-14, T126): stok target untuk finalisasi
+     * baru; rencana final dari sebelum revisi itu memakai rumus lama. Rincian jumlah kirim dihitung dari snapshot dengan
+     * rumus ini.
+     */
+    rumusJumlahKirim: text("rumus_jumlah_kirim").$type<RumusJumlahKirim>().notNull().default(RUMUS_JUMLAH_KIRIM_BERLAKU),
   },
   (tabel) => [
     uniqueIndex("rencana_final_gudang_toko_tanggal_versi_unik").on(tabel.gudangId, tabel.tokoId, tabel.tanggalKirim, tabel.versi),
@@ -1194,6 +1201,7 @@ export const rencanaFinal = pgTable(
       "rencana_final_jenis_pengiriman",
       sql`${tabel.jenisPengiriman} in (${daftarSql(daftarJenisPengiriman)}) and (${tabel.jenisPengiriman} = 'rutin') = (${tabel.diLuarJadwal} is null)`,
     ),
+    check("rencana_final_rumus_jumlah_kirim", sql`${tabel.rumusJumlahKirim} in (${daftarSql(daftarRumusJumlahKirim)})`),
   ],
 );
 

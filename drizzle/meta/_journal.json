@@ -197,6 +197,13 @@
       "when": 1791928950449,
       "tag": "0027_pengiriman_di_luar_jadwal_perhitungan",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791972553327,
+      "tag": "0028_rumus_jumlah_kirim",
+      "breakpoints": true
     }
   ]
 }

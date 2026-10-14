@@ -90,8 +90,8 @@ describe('peringatan "kiriman sebelumnya belum sampai" di draft per toko', () =>
     expect(html).toMatch(
       new RegExp(`data-draft-toko="${tokoA.id}".*?data-kiriman-sebelumnya-belum-sampai="2026-10-19"[^>]*>.*?<svg[^>]*text-warning.*?${PERINGATAN_A}`),
     );
-    // Cakupan Senin–Kamis 19–22 Okt (p = 1, L = 3) × 5 = 20; (20 − 10) × 1,20 = 12.
-    expect(html).toMatch(new RegExp(`data-kode-produk="${kodeProduk}".*?data-jumlah-kirim="12"`));
+    // Cakupan Senin–Kamis 19–22 Okt (p = 1, L = 3) × 5 = 20; stok target (PRD A6 ▶ Revisi 2026-10-14): 20 × 120% − 10 = 14.
+    expect(html).toMatch(new RegExp(`data-kode-produk="${kodeProduk}".*?data-jumlah-kirim="14"`));
     expect(html).toContain(`data-finalisasi-toko="${tokoA.id}"`);
     expect(html).not.toContain("data-finalisasi-tertahan");
   });

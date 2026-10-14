@@ -119,3 +119,40 @@ export async function rencanaFinalUji({
     cakupan: [],
   });
 }
+
+/** Nilai baris tanpa kolom identitas `id`, untuk disisipkan lagi sebagai baris baru. */
+function tanpaId<T extends { id: number }>(nilai: T): Omit<T, "id"> {
+  return Object.fromEntries(Object.entries(nilai).filter(([kolom]) => kolom !== "id")) as Omit<T, "id">;
+}
+
+/**
+ * Salinan rencana final `idRencana` sebagai rencana final dari sebelum PRD A6 ▶ Revisi 2026-10-14 (T126, migrasi 0028):
+ * tanggal kirim `tanggalKirim`, rumus jumlah kirim `lama`, dan jumlah kirim baris `kodeProduk` = `jumlahKirimLama`.
+ * Mengembalikan id salinannya.
+ */
+export async function salinRencanaFinalRumusLama({
+  idRencana,
+  tanggalKirim,
+  kodeProduk,
+  jumlahKirimLama,
+}: {
+  idRencana: number;
+  tanggalKirim: string;
+  kodeProduk: string;
+  jumlahKirimLama: number;
+}) {
+  const [asal] = await db.select().from(rencanaFinal).where(eq(rencanaFinal.id, idRencana));
+  const [salinan] = await db
+    .insert(rencanaFinal)
+    .values({ ...tanpaId(asal), tanggalKirim, rumusJumlahKirim: "lama" })
+    .returning({ id: rencanaFinal.id });
+  const baris = await db.select().from(barisRencanaFinal).where(eq(barisRencanaFinal.rencanaFinalId, idRencana));
+  await db.insert(barisRencanaFinal).values(
+    baris.map((b) => ({
+      ...tanpaId(b),
+      rencanaFinalId: salinan.id,
+      jumlahKirim: b.kodeProduk === kodeProduk ? jumlahKirimLama : b.jumlahKirim,
+    })),
+  );
+  return salinan.id;
+}

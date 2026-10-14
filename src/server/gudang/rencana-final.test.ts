@@ -1,13 +1,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { parseTanggalBisnis, type KategoriDasar, type NamaHari } from "@/domain/kalender";
 import { buatPenggunaUji } from "@/server/auth/uji-bantu";
 import { db } from "@/server/db";
 import { draftRencana, hubunganTokoGudang, impor, jadwalToko, perubahanKategori, produk, rencanaFinal, toko, user } from "@/server/db/schema";
+import { pernyataanMigrasi } from "@/server/db/uji-bantu";
 import { kodeProdukUji, tahunUjiBebas } from "@/server/impor/uji-bantu";
 import { buatPerubahanKategori } from "@/server/kalender/perubahan-kategori";
 import { terapkanPemetaan } from "@/server/keluarga-aroma/pemetaan";
@@ -19,6 +20,7 @@ import { bacaDraftRencana, hitungDraftRencana } from "./draft-rencana";
 import { tetapkanPeriodeSumber } from "./periode-sumber";
 import {
   bacaRencanaFinal,
+  bacaRincianRencanaFinal,
   finalisasiRencanaToko,
   PESAN_ALASAN_FINALISASI_ULANG,
   PESAN_DRAFT_BERUBAH_FINALISASI,
@@ -27,22 +29,27 @@ import {
   pesanBarisTertahan,
 } from "./rencana-final";
 import { simpanStokToko } from "./stok-draft";
-import { buatTokoUji, idGudangUji } from "./uji-bantu";
+import { buatTokoUji, idGudangUji, salinRencanaFinalRumusLama } from "./uji-bantu";
 
 // T62: finalisasi rencana per toko per tanggal kirim (PRD A7 ▶ Keputusan perencanaan M2–M3), dalam satu transaksi, hanya
 // bila semua baris otomatis toko itu tanpa masalah dan draft tidak perlu dihitung ulang untuk toko itu (T61). Rencana
 // final menyimpan snapshot lengkap (PRD A7, B9) dan tidak berubah oleh pembaruan data berikutnya. PRD A7 ▶ Keputusan
 // 2026-10-11 (T62): finalisasi ulang membuat versi baru dengan alasan wajib, versi lama utuh; toko tanpa varian tidak
 // boleh difinalisasi, toko yang hanya berisi produk manual boleh; perlu dihitung ulang hanya menahan toko yang terdampak.
-// Contoh PRD A6 / golden `jumlah-kirim.json`: kebutuhan 56, stok 20, tujuh besar → jumlah kirim 44.
+// Contoh PRD A6 / golden `jumlah-kirim.json`: kebutuhan 56, stok 20, tujuh besar → jumlah kirim 48 (stok target, PRD A6
+// ▶ Revisi 2026-10-14). T126: rencana final menyimpan rumus jumlah kirim yang dipakai; rencana final lama tetap dengan
+// angka dan rincian rumus lama (golden `kasusJumlahKirimRumusLama`: 56, 20, tujuh besar → 44).
 
+type KasusJumlahKirim = { kebutuhan: number; stokAkhir: number; persenBuffer: number; jumlahKirim: number };
 type Golden = {
   rataRata: Record<KategoriDasar, number>;
   kasusCakupan: { tanggalKirim: string; kebutuhan: number };
-  kasusJumlahKirim: { kebutuhan: number; stokAkhir: number; persenBuffer: number; jumlahKirim: number }[];
+  kasusJumlahKirim: (KasusJumlahKirim & { stokTarget: number })[];
+  kasusJumlahKirimRumusLama: { kasus: KasusJumlahKirim[] };
 };
 const golden = JSON.parse(readFileSync(join(import.meta.dirname, "../../../tests/golden/jumlah-kirim.json"), "utf8")) as Golden;
 const [CONTOH] = golden.kasusJumlahKirim;
+const [CONTOH_RUMUS_LAMA] = golden.kasusJumlahKirimRumusLama.kasus;
 
 const TANGGAL_KIRIM = parseTanggalBisnis(golden.kasusCakupan.tanggalKirim);
 /** Cakupan contoh PRD A6: Sabtu 06-06 sampai Minggu 14-06-2026. */
@@ -191,6 +198,8 @@ describe("finalisasi rencana per toko", () => {
     if (rencana === null) return;
 
     expect(rencana).toMatchObject({ id, versi: 1, alasanFinalisasiUlang: null, toko: tokoA, tanggalKirim: TANGGAL_KIRIM, difinalisasiOleh: "Uji viewer" });
+    // T126: finalisasi baru menyimpan rumus stok target (PRD A6 ▶ Revisi 2026-10-14).
+    expect(rencana.rumusJumlahKirim).toBe("stok-target");
     expect(rencana.difinalisasiPada).toBeInstanceOf(Date);
     // Kode uji berawalan acak, jadi urutan baris (kode produk) dibandingkan lewat status.
     expect([...rencana.baris].sort((a, b) => (a.status === b.status ? 0 : a.status === "siap" ? -1 : 1))).toEqual([
@@ -426,5 +435,77 @@ describe("rencana final tidak berubah oleh pembaruan data berikutnya (PRD A5, A7
   it("rencana final gudang lain tidak terbaca lewat gudang ini", async () => {
     const [rencanaA] = await rencanaGudang();
     expect(await bacaRencanaFinal(await idGudangUji("Gudang Bali"), rencanaA.id)).toBeNull();
+  });
+});
+
+describe("rumus jumlah kirim rencana final (PRD A6 ▶ Revisi 2026-10-14, T126)", () => {
+  /** Baris contoh rencana final `id` beserta rinciannya, dibaca seperti halaman rincian riwayat. */
+  async function barisContoh(id: number) {
+    const baris = (await bacaRincianRencanaFinal(bandung, id))?.baris.find((b) => b.kodeProduk === kode.contoh);
+    if (baris === undefined) throw new Error(`Baris contoh tidak ada di rencana final ${id}.`);
+    return baris;
+  }
+
+  it("rencana final baru: rincian jumlah kirim memakai stok target, 56 × 120% − 20 = 47,2 → 48", async () => {
+    const [{ id }] = await rencanaToko(tokoA.id);
+    expect(await barisContoh(id)).toMatchObject({
+      jumlahKirim: CONTOH.jumlahKirim,
+      rincianJumlahKirim: {
+        rumus: "stok-target",
+        kebutuhan: CONTOH.kebutuhan,
+        stokAkhir: CONTOH.stokAkhir,
+        persenPengali: 120,
+        stokTarget: CONTOH.stokTarget,
+        hasilPerseratus: 4720,
+        jumlahKirim: CONTOH.jumlahKirim,
+      },
+    });
+  });
+
+  it("rencana final dengan rumus lama: jumlah kirim snapshot dan rinciannya tetap rumus lama, (56 − 20) × 120% = 43,2 → 44", async () => {
+    expect(CONTOH_RUMUS_LAMA).toMatchObject({ kebutuhan: CONTOH.kebutuhan, stokAkhir: CONTOH.stokAkhir, persenBuffer: CONTOH.persenBuffer });
+    // Rencana final dari sebelum migrasi 0028: snapshot versi 1 toko A dengan jumlah kirim rumus lama.
+    const [asal] = await rencanaToko(tokoA.id);
+    const idLama = await salinRencanaFinalRumusLama({
+      idRencana: asal.id,
+      tanggalKirim: "2026-06-01",
+      kodeProduk: kode.contoh,
+      jumlahKirimLama: CONTOH_RUMUS_LAMA.jumlahKirim,
+    });
+    try {
+      expect((await bacaRencanaFinal(bandung, idLama))?.rumusJumlahKirim).toBe("lama");
+      expect(await barisContoh(idLama)).toMatchObject({
+        jumlahKirim: CONTOH_RUMUS_LAMA.jumlahKirim,
+        rincianJumlahKirim: {
+          rumus: "lama",
+          kebutuhan: CONTOH_RUMUS_LAMA.kebutuhan,
+          stokAkhir: CONTOH_RUMUS_LAMA.stokAkhir,
+          persenPengali: 120,
+          hasilPerseratus: 4320,
+          jumlahKirim: CONTOH_RUMUS_LAMA.jumlahKirim,
+        },
+      });
+    } finally {
+      await db.delete(rencanaFinal).where(eq(rencanaFinal.id, idLama));
+    }
+  });
+
+  it("migrasi 0028: rencana final yang sudah ada memakai rumus lama; rencana final sesudahnya memakai stok target", async () => {
+    const pernyataan = pernyataanMigrasi("0028_rumus_jumlah_kirim.sql").filter((p) => p.includes('"rencana_final"'));
+    expect(pernyataan.length).toBeGreaterThan(0);
+    // Tabel sementara bernama sama menutupi tabel asli selama transaksi ini (pg_temp dicari lebih dulu), jadi pernyataan
+    // migrasi berjalan di atas rencana final "sebelum migrasi" tanpa menyentuh data test lain.
+    const hasil = await db.transaction(async (tx) => {
+      await tx.execute(sql`create temp table "rencana_final" ("id" integer primary key) on commit drop`);
+      await tx.execute(sql`insert into "rencana_final" ("id") values (1), (2)`);
+      for (const p of pernyataan) await tx.execute(sql.raw(p));
+      await tx.execute(sql`insert into "rencana_final" ("id") values (3)`);
+      return tx.execute<{ id: number; rumus: string }>(sql`select "id", "rumus_jumlah_kirim" as "rumus" from "rencana_final" order by "id"`);
+    });
+    expect([...hasil]).toEqual([
+      { id: 1, rumus: "lama" },
+      { id: 2, rumus: "lama" },
+      { id: 3, rumus: "stok-target" },
+    ]);
   });
 });

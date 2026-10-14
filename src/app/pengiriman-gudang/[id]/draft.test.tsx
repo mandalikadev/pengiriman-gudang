@@ -508,7 +508,7 @@ describe("rincian perhitungan per baris draft (T60)", () => {
     new RegExp(`<section[^>]*data-rincian-baris="${nilaiRincian(tokoId, kodeProduk).replace("|", "\\|")}".*?</section>`).exec(html)?.[0] ?? "";
   const hrefDari = (teks: string) => (/href="([^"]*)"/.exec(teks)?.[1] ?? "").replaceAll("&amp;", "&");
 
-  it("contoh PRD A6: rincian menampilkan cakupan, kategori efektif, rata-rata, 4×4, 1×4, 2×10, 2×8 = 56, buffer, dan jumlah kirim 44", async () => {
+  it("contoh PRD A6: rincian menampilkan cakupan, kategori efektif, rata-rata, 4×4, 1×4, 2×10, 2×8 = 56, buffer, dan jumlah kirim 48", async () => {
     const [contoh] = golden.kasusJumlahKirim;
     await masukOperator(cibubur, ["input-stok"]);
     await expect(
@@ -582,7 +582,8 @@ describe("rincian perhitungan per baris draft (T60)", () => {
     const [versi] = await db.select().from(versiRanking).where(eq(versiRanking.id, idVersiRanking));
     expect(versi.bulanRanking).toBe("2026-09");
     expect(rincian).toMatch(new RegExp(`data-buffer="20".*?20%.*?tujuh besar ranking pusat September 2026 versi ${versi.versi}`));
-    expect(rincian).toContain("(56 − 20) × 120% = 43,2 → dibulatkan ke atas 44");
+    // PRD A6 ▶ Revisi 2026-10-14: stok target.
+    expect(rincian).toContain("56 × 120% − 20 = 47,2 → dibulatkan ke atas 48");
     expect(rincian).toMatch(new RegExp(`data-jumlah-kirim-rincian="${contoh.jumlahKirim}"`));
   });
 

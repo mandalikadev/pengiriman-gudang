@@ -13,7 +13,10 @@ type KasusJumlahKirim = {
 
 const fixture = JSON.parse(
   readFileSync(join(import.meta.dirname, "../../tests/golden/jumlah-kirim.json"), "utf8"),
-) as { kasusJumlahKirim: KasusJumlahKirim[] };
+) as {
+  kasusJumlahKirim: (KasusJumlahKirim & { stokTarget: number })[];
+  kasusJumlahKirimRumusLama: { kasus: KasusJumlahKirim[] };
+};
 
 describe("bagiBulatAtas", () => {
   it.each([
@@ -87,34 +90,69 @@ describe("hitungJumlahKirim", () => {
   });
 });
 
-describe("rincianJumlahKirim", () => {
-  it("contoh PRD A6: (56 − 20) × 120% = 43,2 → dibulatkan ke atas 44 (golden jumlah-kirim.json)", () => {
+describe("rincianJumlahKirim — stok target (PRD A6 ▶ Revisi 2026-10-14)", () => {
+  it("contoh PRD A6: 56 × 120% − 20 = 47,2 → dibulatkan ke atas 48 (golden jumlah-kirim.json)", () => {
     const [contoh] = fixture.kasusJumlahKirim;
+    expect(contoh).toMatchObject({ kebutuhan: 56, stokAkhir: 20, persenBuffer: 20, stokTarget: 68, jumlahKirim: 48 });
+    expect(rincianJumlahKirim(contoh.kebutuhan, contoh.stokAkhir, contoh.persenBuffer, "stok-target")).toEqual({
+      rumus: "stok-target",
+      kebutuhan: 56,
+      stokAkhir: 20,
+      persenPengali: 120,
+      stokTarget: 68,
+      // 47,2 dalam perseratus.
+      hasilPerseratus: 4720,
+      jumlahKirim: 48,
+    });
+  });
+
+  it("contoh UAT 2026-10-14: 7 × 120% − 6 = 2,4 → 3", () => {
+    expect(rincianJumlahKirim(7, 6, 20, "stok-target")).toMatchObject({ stokTarget: 9, hasilPerseratus: 240, jumlahKirim: 3 });
+  });
+
+  it.each(fixture.kasusJumlahKirim)(
+    "stok target dan jumlah kirim sesuai golden: kebutuhan $kebutuhan, stok $stokAkhir, buffer $persenBuffer% → $stokTarget, $jumlahKirim",
+    ({ kebutuhan, stokAkhir, persenBuffer, stokTarget, jumlahKirim }) => {
+      expect(rincianJumlahKirim(kebutuhan, stokAkhir, persenBuffer, "stok-target")).toMatchObject({ stokTarget, jumlahKirim });
+    },
+  );
+
+  it("stok melebihi stok target: hasil negatif, jumlah kirim 0", () => {
+    expect(rincianJumlahKirim(56, 70, 20, "stok-target")).toMatchObject({ stokTarget: 68, hasilPerseratus: -280, jumlahKirim: 0 });
+  });
+});
+
+describe("rincianJumlahKirim — rumus lama (rencana final sebelum PRD A6 ▶ Revisi 2026-10-14)", () => {
+  it("contoh pemilik lama: (56 − 20) × 120% = 43,2 → dibulatkan ke atas 44", () => {
+    const [contoh] = fixture.kasusJumlahKirimRumusLama.kasus;
     expect(contoh).toMatchObject({ kebutuhan: 56, stokAkhir: 20, persenBuffer: 20, jumlahKirim: 44 });
-    expect(rincianJumlahKirim(contoh.kebutuhan, contoh.stokAkhir, contoh.persenBuffer)).toEqual({
+    expect(rincianJumlahKirim(contoh.kebutuhan, contoh.stokAkhir, contoh.persenBuffer, "lama")).toEqual({
+      rumus: "lama",
       kebutuhan: 56,
       stokAkhir: 20,
       persenPengali: 120,
       // 43,2 dalam perseratus.
-      hasilKaliPerseratus: 4320,
-      jumlahKirim: contoh.jumlahKirim,
+      hasilPerseratus: 4320,
+      jumlahKirim: 44,
     });
   });
 
-  it.each(fixture.kasusJumlahKirim)(
-    "jumlah kirim sama dengan hitungJumlahKirim: kebutuhan $kebutuhan, stok $stokAkhir, buffer $persenBuffer% → $jumlahKirim",
+  it.each(fixture.kasusJumlahKirimRumusLama.kasus)(
+    "jumlah kirim sesuai golden: kebutuhan $kebutuhan, stok $stokAkhir, buffer $persenBuffer% → $jumlahKirim",
     ({ kebutuhan, stokAkhir, persenBuffer, jumlahKirim }) => {
-      expect(rincianJumlahKirim(kebutuhan, stokAkhir, persenBuffer).jumlahKirim).toBe(jumlahKirim);
+      expect(rincianJumlahKirim(kebutuhan, stokAkhir, persenBuffer, "lama").jumlahKirim).toBe(jumlahKirim);
     },
   );
 
   it("stok melebihi kebutuhan: hasil kali negatif, jumlah kirim 0", () => {
-    expect(rincianJumlahKirim(56, 60, 20)).toEqual({
-      kebutuhan: 56,
-      stokAkhir: 60,
-      persenPengali: 120,
-      hasilKaliPerseratus: -480,
-      jumlahKirim: 0,
-    });
+    expect(rincianJumlahKirim(56, 60, 20, "lama")).toMatchObject({ hasilPerseratus: -480, jumlahKirim: 0 });
+  });
+
+  it.each([
+    ["kebutuhan pecahan", 56.5, 20, 20],
+    ["stok pecahan", 56, 20.5, 20],
+    ["buffer negatif", 56, 20, -10],
+  ])("menolak %s", (_nama, kebutuhan, stokAkhir, persenBuffer) => {
+    expect(() => rincianJumlahKirim(kebutuhan, stokAkhir, persenBuffer, "lama")).toThrow(RangeError);
   });
 });

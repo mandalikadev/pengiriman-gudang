@@ -5,7 +5,7 @@ import { and, asc, count, desc, eq, inArray, max, sql } from "drizzle-orm";
 import { kirimanSebelumnyaBelumSampai } from "@/domain/jadwal";
 import { parseTanggalBisnis, type KategoriDasar, type TanggalBisnis } from "@/domain/kalender";
 import { hitungRingkasan } from "@/domain/laporan";
-import { rincianJumlahKirim } from "@/domain/angka";
+import { rincianJumlahKirim, RUMUS_JUMLAH_KIRIM_BERLAKU, type RumusJumlahKirim } from "@/domain/angka";
 import type { PerubahanKategori } from "@/domain/kategori";
 import { cakupanPengiriman, hitungKebutuhanKirim, statusKirim, type MasukanKebutuhanKirim } from "@/domain/pengiriman";
 import { db } from "@/server/db";
@@ -382,15 +382,21 @@ export function asalBufferDari(persenBuffer: number | null): "tujuh-besar" | "la
   return persenBuffer === PERSEN_BUFFER_TUJUH_BESAR ? "tujuh-besar" : "lainnya";
 }
 
-/** Asal jumlah kirim untuk rincian (T60) lewat modul angka; `null` selama jumlah kirim kosong. Dipakai juga rencana final (T63). */
-export function asalJumlahKirim(b: {
-  jumlahKirim: number | null;
-  kebutuhan: number | null;
-  stokAkhir: number | null;
-  persenBuffer: number | null;
-}): ReturnType<typeof rincianJumlahKirim> | null {
+/**
+ * Asal jumlah kirim untuk rincian (T60) lewat modul angka, menurut `rumus` (PRD A6 ▶ Revisi 2026-10-14); `null` selama
+ * jumlah kirim kosong. Draft memakai rumus yang berlaku; rencana final memakai rumus yang tersimpan di snapshot (T63).
+ */
+export function asalJumlahKirim(
+  b: {
+    jumlahKirim: number | null;
+    kebutuhan: number | null;
+    stokAkhir: number | null;
+    persenBuffer: number | null;
+  },
+  rumus: RumusJumlahKirim,
+): ReturnType<typeof rincianJumlahKirim> | null {
   if (b.jumlahKirim === null || b.kebutuhan === null || b.stokAkhir === null || b.persenBuffer === null) return null;
-  return rincianJumlahKirim(b.kebutuhan, b.stokAkhir, b.persenBuffer);
+  return rincianJumlahKirim(b.kebutuhan, b.stokAkhir, b.persenBuffer, rumus);
 }
 
 export type BarisDraft = {
@@ -640,7 +646,7 @@ async function bacaBarisToko(idTokoDraft: readonly number[]): Promise<Map<number
         ...b,
         tanpaRataRata: tanpaRataRata?.map((t) => ({ ...t, tanggal: parseTanggalBisnis(t.tanggal) })) ?? null,
         asalBuffer: asalBufferDari(b.persenBuffer),
-        rincianJumlahKirim: asalJumlahKirim(b),
+        rincianJumlahKirim: asalJumlahKirim(b, RUMUS_JUMLAH_KIRIM_BERLAKU),
       },
     ]);
   }

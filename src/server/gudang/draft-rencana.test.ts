@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { parseTanggalBisnis, type KategoriDasar, type NamaHari } from "@/domain/kalender";
@@ -18,6 +18,7 @@ import {
   tokoDraftRencana,
   versiRanking,
 } from "@/server/db/schema";
+import { pernyataanMigrasi } from "@/server/db/uji-bantu";
 import { kodeProdukUji, tahunUjiBebas } from "@/server/impor/uji-bantu";
 import { bacaRevisiKalender, hitungUlangCacheLaporan } from "@/server/laporan/cache";
 import { aktifkanImporJuniUji, kuantitasJuniMenurutHari } from "@/server/laporan/uji-bantu";
@@ -40,7 +41,8 @@ import { buatTokoUji, idGudangUji } from "./uji-bantu";
 
 // T58: draft rencana per gudang dan tanggal kirim (PRD A6 ▶ Keputusan perencanaan M2–M3). Contoh PRD A6 / golden
 // `jumlah-kirim.json`: rata-rata Senin–Kamis 4, Jumat 4, Sabtu 10, Minggu 8; pengiriman Senin 2026-06-08 dengan
-// persiapan dua hari → kebutuhan 56; stok 20 dan keluarga aroma tujuh besar → jumlah kirim 44.
+// persiapan dua hari → kebutuhan 56; stok 20 dan keluarga aroma tujuh besar → jumlah kirim 48 (stok target, PRD A6 ▶
+// Revisi 2026-10-14).
 // T66: buffer dari ranking berlaku (20 tujuh besar, 10 produk otomatis lainnya), jumlah kirim, dan daftar masalah.
 // T60: dasar rincian perhitungan per baris (cakupan, kategori efektif dan sumbernya, rata-rata, kebutuhan per kategori).
 
@@ -53,7 +55,8 @@ type Golden = {
     tanggalCakupan: { tanggal: string; kategoriEfektif: KategoriDasar }[];
     kebutuhan: number;
   };
-  kasusJumlahKirim: { kebutuhan: number; stokAkhir: number; persenBuffer: number; jumlahKirim: number }[];
+  kasusJumlahKirim: { kebutuhan: number; stokAkhir: number; persenBuffer: number; stokTarget: number; jumlahKirim: number }[];
+  kasusJumlahKirimRumusLama: { kasus: { kebutuhan: number; stokAkhir: number; persenBuffer: number; jumlahKirim: number }[] };
 };
 const golden = JSON.parse(
   readFileSync(join(import.meta.dirname, "../../../tests/golden/jumlah-kirim.json"), "utf8"),
@@ -280,7 +283,7 @@ describe("hitungDraftRencana", () => {
     expect(Object.keys(tanpaMinggu?.rataRata ?? {}).sort()).toEqual(["Jumat", "Sabtu", "Senin–Kamis"]);
   });
 
-  it("contoh PRD A6: kebutuhan 56, stok 20, keluarga tujuh besar → jumlah kirim 44 (golden jumlah-kirim.json)", () => {
+  it("contoh PRD A6: kebutuhan 56, stok 20, keluarga tujuh besar → jumlah kirim 48 (golden jumlah-kirim.json)", () => {
     const [contoh] = golden.kasusJumlahKirim;
     expect(contoh).toMatchObject({ kebutuhan: golden.kasusCakupan.kebutuhan, stokAkhir: 20, persenBuffer: 20 });
 
@@ -318,7 +321,7 @@ describe("hitungDraftRencana", () => {
     expect(buffer(kode.tanpaAroma)).toBe(10);
     expect(buffer(kode.rework)).toBe(20);
 
-    // Golden: kebutuhan 56, stok 20, buffer 10 → 40.
+    // Golden: kebutuhan 56, stok 20, buffer 10 → 42.
     const luar = golden.kasusJumlahKirim[1];
     expect(luar).toMatchObject({ kebutuhan: golden.kasusCakupan.kebutuhan, stokAkhir: 20, persenBuffer: 10 });
     const tujuhBesar = new Set([keluargaTujuhBesar.id]);
@@ -720,7 +723,7 @@ describe("simpanStokToko", () => {
     expect(baris?.find((b) => b.kodeProduk === kode.luar)).toMatchObject({ stokAkhir: null, masalah: ["stok-belum-diisi"], jumlahKirim: null });
   });
 
-  it("contoh PRD A6 ujung-ke-ujung: kebutuhan 56, stok 20 → jumlah kirim 44 (tujuh besar) dan 40 (di luar tujuh besar)", async () => {
+  it("contoh PRD A6 ujung-ke-ujung: kebutuhan 56, stok 20 → jumlah kirim 48 (tujuh besar) dan 42 (di luar tujuh besar)", async () => {
     const [tujuhBesar, luar] = golden.kasusJumlahKirim;
     expect(tujuhBesar).toMatchObject({ kebutuhan: golden.kasusCakupan.kebutuhan, stokAkhir: 20, persenBuffer: 20 });
     expect(luar).toMatchObject({ kebutuhan: golden.kasusCakupan.kebutuhan, stokAkhir: 20, persenBuffer: 10 });
@@ -748,16 +751,64 @@ describe("simpanStokToko", () => {
       masalah: [],
       jumlahKirim: luar.jumlahKirim,
     });
-    // T60: asal jumlah kirim untuk rincian, (56 − 20) × 120% = 43,2 → dibulatkan ke atas 44.
+    // T60, PRD A6 ▶ Revisi 2026-10-14: asal jumlah kirim untuk rincian, 56 × 120% − 20 = 47,2 → dibulatkan ke atas 48.
     expect(toko?.baris.find((b) => b.kodeProduk === kode.contoh)?.rincianJumlahKirim).toEqual({
+      rumus: "stok-target",
       kebutuhan: tujuhBesar.kebutuhan,
       stokAkhir: tujuhBesar.stokAkhir,
       persenPengali: 120,
-      hasilKaliPerseratus: 4320,
+      stokTarget: tujuhBesar.stokTarget,
+      hasilPerseratus: 4720,
       jumlahKirim: tujuhBesar.jumlahKirim,
     });
     // kode.luar tidak lagi tertahan; kode.contoh sudah tidak tertahan sejak stok 0.
     expect(toko?.jumlahTertahan).toBe(sebelum - 1);
+  });
+
+  it("migrasi 0028: jumlah kirim draft yang tersimpan dengan rumus lama mengikuti stok target; stok dan masalah tetap (T126)", async () => {
+    const [tujuhBesar, luar] = golden.kasusJumlahKirim;
+    const [lama] = golden.kasusJumlahKirimRumusLama.kasus;
+    expect(lama).toMatchObject({ kebutuhan: tujuhBesar.kebutuhan, stokAkhir: tujuhBesar.stokAkhir, persenBuffer: tujuhBesar.persenBuffer });
+    const [{ id: tokoDraftId }] = await db
+      .select({ id: tokoDraftRencana.id })
+      .from(tokoDraftRencana)
+      .innerJoin(draftRencana, eq(draftRencana.id, tokoDraftRencana.draftId))
+      .where(and(eq(draftRencana.gudangId, bali), eq(draftRencana.tanggalKirim, TANGGAL_KIRIM), eq(tokoDraftRencana.tokoId, tokoContoh.id)));
+    // Keadaan sebelum migrasi: jumlah kirim tersimpan menurut rumus lama, ⌈(56 − 20) × 1,20⌉ = 44 dan ⌈(56 − 20) × 1,10⌉ = 40.
+    const jumlahLama = new Map([
+      [kode.contoh, lama.jumlahKirim],
+      [kode.luar, 40],
+    ]);
+    for (const [kodeProduk, jumlahKirim] of jumlahLama) {
+      await db
+        .update(barisDraftRencana)
+        .set({ jumlahKirim })
+        .where(and(eq(barisDraftRencana.tokoDraftId, tokoDraftId), eq(barisDraftRencana.kodeProduk, kodeProduk)));
+    }
+    const sebelum = (await barisContoh())?.baris ?? [];
+    expect(sebelum.find((b) => b.kodeProduk === kode.contoh)?.jumlahKirim).toBe(lama.jumlahKirim);
+
+    const pembaruanDraft = pernyataanMigrasi("0028_rumus_jumlah_kirim.sql").filter((p) => p.startsWith('UPDATE "baris_draft_rencana"'));
+    expect(pembaruanDraft).toHaveLength(1);
+    await db.execute(sql.raw(pembaruanDraft[0]));
+
+    const sesudah = (await barisContoh())?.baris ?? [];
+    expect(sesudah.find((b) => b.kodeProduk === kode.contoh)).toEqual({
+      ...sebelum.find((b) => b.kodeProduk === kode.contoh),
+      stokAkhir: tujuhBesar.stokAkhir,
+      masalah: [],
+      jumlahKirim: tujuhBesar.jumlahKirim,
+    });
+    expect(sesudah.find((b) => b.kodeProduk === kode.luar)).toEqual({
+      ...sebelum.find((b) => b.kodeProduk === kode.luar),
+      stokAkhir: luar.stokAkhir,
+      masalah: [],
+      jumlahKirim: luar.jumlahKirim,
+    });
+    // Baris lain tidak berubah, termasuk yang jumlah kirimnya kosong (produk manual, belum dipetakan, stok belum diisi).
+    const lainnya = (baris: typeof sesudah) => baris.filter((b) => !jumlahLama.has(b.kodeProduk));
+    expect(lainnya(sesudah)).toEqual(lainnya(sebelum));
+    expect(lainnya(sesudah).some((b) => b.jumlahKirim === null)).toBe(true);
   });
 
   it("stok negatif tersimpan dan menjadi masalah produk otomatis; produk manual tetap manual dengan stoknya", async () => {

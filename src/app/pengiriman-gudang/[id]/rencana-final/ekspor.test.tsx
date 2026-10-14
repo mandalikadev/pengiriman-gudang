@@ -39,7 +39,8 @@ import HalamanRiwayatRencanaFinal from "./page";
 
 // T64: ekspor rencana final (.xlsx). Hanya rencana final (termasuk dari riwayat) dan hanya untuk pengguna dengan hak
 // tindakan `ekspor` di gudang itu (PRD A7 ▶ Keputusan 2026-10-09). Isinya dibaca dari snapshot finalisasi, bukan data
-// terkini. Contoh PRD A6 / golden `jumlah-kirim.json`: kebutuhan 56, stok 20, tujuh besar (buffer 20%) → jumlah kirim 44.
+// terkini. Contoh PRD A6 / golden `jumlah-kirim.json`: kebutuhan 56, stok 20, tujuh besar (buffer 20%) → jumlah kirim 48
+// (stok target, PRD A6 ▶ Revisi 2026-10-14).
 
 type Golden = {
   rataRata: Record<KategoriDasar, number>;
@@ -212,7 +213,7 @@ describe("GET ekspor rencana final: isi berkas dari snapshot", () => {
 
     expect(kolom).toEqual(["Kode produk", "Nama produk", "Kebutuhan barang", "Stok akhir", "Buffer (%)", "Jumlah kirim", "Status"]);
     expect(baris.map((b) => b["Kode produk"])).toEqual([kode.contoh, kode.manual].sort());
-    // Golden: 56 − 20 → 44 dengan buffer tujuh besar 20%.
+    // Golden: 56 × 120% − 20 → 48 dengan buffer tujuh besar 20%.
     expect(baris.find((b) => b["Kode produk"] === kode.contoh)).toEqual({
       "Kode produk": kode.contoh,
       "Nama produk": NAMA_PRODUK,

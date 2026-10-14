@@ -24,7 +24,8 @@ import { EMAIL_ADMIN_E2E } from "./siapkan";
 // T73: draft tampil sebagai ringkasan per toko; baris dan isian stok tampil setelah toko dibuka.
 // T83: operator mengunggah file stok satu toko → isian terisi (belum disimpan) → simpan → jumlah kirim tampil.
 // T90: "Isi 0 untuk stok yang kosong" → isian 0 (belum disimpan) pada produk otomatis → simpan → baris tertahan berkurang.
-// Contoh PRD A6 / golden `jumlah-kirim.json`: kebutuhan 56, stok 20, keluarga tujuh besar → jumlah kirim 44.
+// Contoh PRD A6 / golden `jumlah-kirim.json`: kebutuhan 56, stok 20, keluarga tujuh besar → jumlah kirim 48 (stok target,
+// PRD A6 ▶ Revisi 2026-10-14).
 
 const golden = JSON.parse(readFileSync(join(import.meta.dirname, "../golden/jumlah-kirim.json"), "utf8")) as {
   rataRata: Record<KategoriDasar, number>;

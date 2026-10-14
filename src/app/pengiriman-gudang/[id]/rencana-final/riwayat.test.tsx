@@ -16,7 +16,7 @@ import { tugaskanOperator } from "@/server/gudang/penugasan";
 import { tetapkanPeriodeSumber } from "@/server/gudang/periode-sumber";
 import { finalisasiRencanaToko } from "@/server/gudang/rencana-final";
 import { simpanStokToko } from "@/server/gudang/stok-draft";
-import { buatTokoUji, idGudangUji } from "@/server/gudang/uji-bantu";
+import { buatTokoUji, idGudangUji, salinRencanaFinalRumusLama } from "@/server/gudang/uji-bantu";
 import { kodeProdukUji, tahunUjiBebas } from "@/server/impor/uji-bantu";
 import { buatPerubahanKategori } from "@/server/kalender/perubahan-kategori";
 import { terapkanPemetaan } from "@/server/keluarga-aroma/pemetaan";
@@ -42,15 +42,19 @@ import HalamanRiwayatRencanaFinal from "./page";
 // toko; siapa dan kapan memfinalisasi) dan rinciannya, semuanya dibaca dari snapshot (PRD A7, B9). Versi lama tetap
 // tampil; versi baru ditandai "Versi N menggantikan versi N−1" (PRD A7 ▶ Keputusan 2026-10-11, T62). Zona kerja
 // (DESIGN §1), status ikon + teks (DESIGN §7). Contoh PRD A6 / golden `jumlah-kirim.json`: kebutuhan 56, stok 20, tujuh
-// besar → jumlah kirim 44.
+// besar → jumlah kirim 48 (stok target, PRD A6 ▶ Revisi 2026-10-14). T126: rencana final lama tetap dengan angka dan
+// rincian rumus lama (golden `kasusJumlahKirimRumusLama`: → 44).
 
+type KasusJumlahKirim = { kebutuhan: number; stokAkhir: number; persenBuffer: number; jumlahKirim: number };
 type Golden = {
   rataRata: Record<KategoriDasar, number>;
   kasusCakupan: { tanggalKirim: string; kebutuhan: number; tanggalCakupan: { tanggal: string; kategoriEfektif: KategoriDasar }[] };
-  kasusJumlahKirim: { kebutuhan: number; stokAkhir: number; persenBuffer: number; jumlahKirim: number }[];
+  kasusJumlahKirim: KasusJumlahKirim[];
+  kasusJumlahKirimRumusLama: { kasus: KasusJumlahKirim[] };
 };
 const golden = JSON.parse(readFileSync(join(import.meta.dirname, "../../../../../tests/golden/jumlah-kirim.json"), "utf8")) as Golden;
 const [CONTOH] = golden.kasusJumlahKirim;
+const [CONTOH_RUMUS_LAMA] = golden.kasusJumlahKirimRumusLama.kasus;
 
 const TANGGAL_1 = parseTanggalBisnis(golden.kasusCakupan.tanggalKirim);
 /** Senin berikutnya: tanggal kirim kedua untuk filter. */
@@ -302,7 +306,7 @@ describe("rincian rencana final", () => {
       expect(kalender).toMatch(new RegExp(`data-tanggal-cakupan="${t.tanggal}"[^>]*>.*?· ${t.kategoriEfektif}<`));
     }
 
-    // Baris: golden 56 − 20 → 44 (versi 1 memakai stok 20 walaupun versi 2 memakai stok 30).
+    // Baris: golden 56, stok 20 → 48 (versi 1 memakai stok 20 walaupun versi 2 memakai stok 30).
     const baris = barisVarian(html, kode.contoh);
     expect(baris).toMatch(new RegExp(`data-kebutuhan="${CONTOH.kebutuhan}"`));
     expect(baris).toMatch(new RegExp(`data-stok-akhir="${CONTOH.stokAkhir}"`));
@@ -311,7 +315,9 @@ describe("rincian rencana final", () => {
     // Rincian perhitungan baris yang dibuka.
     const rincian = new RegExp(`<section[^>]*data-rincian-baris="${tokoA.id}\\|${kode.contoh}".*?</section>`).exec(html)?.[0] ?? "";
     expect(rincian).toContain("(4 × 4) + (1 × 4) + (2 × 10) + (2 × 8) = 56");
-    expect(rincian).toContain("(56 − 20) × 120% = 43,2 → dibulatkan ke atas 44");
+    // T126: rencana final baru memakai stok target (PRD A6 ▶ Revisi 2026-10-14).
+    expect(rincian).toContain("56 × 120% − 20 = 47,2 → dibulatkan ke atas 48");
+    expect(rincian).toMatch(new RegExp(`data-jumlah-kirim-rincian="${CONTOH.jumlahKirim}"`));
     expect(rincian).toMatch(/keluarga aroma termasuk tujuh besar ranking pusat September 2026 versi \d+/);
     // Rata-rata dari snapshot, tanpa tautan ke Ringkasan yang membaca data terkini.
     expect(rincian).toMatch(/Rata-rata Sabtu:.*?10/);
@@ -326,6 +332,28 @@ describe("rincian rencana final", () => {
     // Tautan pembuka: navigasi tanpa jangkar ke halaman yang sama.
     expect(baris).toContain(`href="/pengiriman-gudang/${cibubur}/rencana-final/${rencana.a1v1}/rincian?rincian=${encodeURIComponent(kode.contoh)}"`);
     expect(baris).toContain(`Lihat rincian<span class="sr-only"> perhitungan ${kode.contoh}</span>`);
+  });
+
+  it("rencana final dengan rumus lama (sebelum PRD A6 ▶ Revisi 2026-10-14) tetap menampilkan jumlah kirim dan rincian rumus lama", async () => {
+    expect(CONTOH_RUMUS_LAMA).toMatchObject({ kebutuhan: CONTOH.kebutuhan, stokAkhir: CONTOH.stokAkhir, persenBuffer: CONTOH.persenBuffer });
+    // Rencana final dari sebelum migrasi 0028: snapshot versi 1 toko A dengan jumlah kirim rumus lama.
+    const idLama = await salinRencanaFinalRumusLama({
+      idRencana: rencana.a1v1,
+      tanggalKirim: "2026-06-01",
+      kodeProduk: kode.contoh,
+      jumlahKirimLama: CONTOH_RUMUS_LAMA.jumlahKirim,
+    });
+    try {
+      await masukOperator(cibubur, []);
+      const html = await bukaRincian(idLama, { rincian: kode.contoh });
+      expect(barisVarian(html, kode.contoh)).toMatch(new RegExp(`data-jumlah-kirim="${CONTOH_RUMUS_LAMA.jumlahKirim}"`));
+      const rincian = new RegExp(`<section[^>]*data-rincian-baris="${tokoA.id}\\|${kode.contoh}".*?</section>`).exec(html)?.[0] ?? "";
+      expect(rincian).toContain("(56 − 20) × 120% = 43,2 → dibulatkan ke atas 44");
+      expect(rincian).toMatch(new RegExp(`data-jumlah-kirim-rincian="${CONTOH_RUMUS_LAMA.jumlahKirim}"`));
+      expect(rincian).not.toContain("56 × 120% − 20");
+    } finally {
+      await db.delete(rencanaFinal).where(eq(rencanaFinal.id, idLama));
+    }
   });
 
   it("versi baru: ditandai menggantikan versi sebelumnya beserta alasannya, dengan stok versinya sendiri", async () => {

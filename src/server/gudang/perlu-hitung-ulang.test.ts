@@ -25,7 +25,7 @@ import { buatTokoUji, idGudangUji } from "./uji-bantu";
 // pemetaan keluarga aroma. Menghitung ulang mempertahankan stok akhir yang sudah diisi; toko yang tidak lagi mengirim
 // dikeluarkan dengan keterangan; varian baru ditambahkan; stok varian atau toko yang hilang dari draft disimpan,
 // ditampilkan, dan dipakai kembali. Contoh PRD A6 / golden `jumlah-kirim.json`: kebutuhan 56, stok 20, tujuh besar →
-// jumlah kirim 44.
+// jumlah kirim 48 (stok target, PRD A6 ▶ Revisi 2026-10-14).
 
 type Golden = {
   rataRata: Record<KategoriDasar, number>;
@@ -334,7 +334,7 @@ describe("hitung ulang draft", () => {
 
     const baris = draft?.toko[0].baris ?? [];
     expect(baris.map((b) => b.kodeProduk).sort()).toEqual([kode.contoh, kode.baru].sort());
-    // Stok contoh PRD A6 dipertahankan, dan jumlah kirim dihitung dari stok itu: (56 − 20) × 120% → 44.
+    // Stok contoh PRD A6 dipertahankan, dan jumlah kirim dihitung dari stok itu: 56 × 120% − 20 → 48.
     expect(baris.find((b) => b.kodeProduk === kode.contoh)).toMatchObject({
       kebutuhan: contoh.kebutuhan,
       stokAkhir: contoh.stokAkhir,

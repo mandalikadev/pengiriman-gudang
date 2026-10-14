@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray, max } from "drizzle-orm";
 
+import { RUMUS_JUMLAH_KIRIM_BERLAKU, type RumusJumlahKirim } from "@/domain/angka";
 import { parseTanggalBisnis, tanggalDalamBulanLaporan, type KategoriDasar, type TanggalBisnis } from "@/domain/kalender";
 import { db } from "@/server/db";
 import {
@@ -255,6 +256,8 @@ export async function finalisasiRencanaToko({
         revisiKalender: draft.revisiKalender,
         perubahanKategori,
         cakupan,
+        // Jumlah kirim baris draft dihitung `hitungJumlahKirim` (PRD A6 ▶ Revisi 2026-10-14, T126).
+        rumusJumlahKirim: RUMUS_JUMLAH_KIRIM_BERLAKU,
       })
       .returning({ id: rencanaFinal.id });
     if (barisFinal.length > 0) {
@@ -299,6 +302,8 @@ export type RencanaFinal = {
   /** Pengiriman di luar jadwal yang menjadi dasar rencana ini (snapshot, T114); `null` = pengiriman rutin. */
   diLuarJadwal: KeteranganDiLuarJadwal | null;
   kalender: { revisi: number; perubahanKategori: number[]; cakupan: (Omit<TanggalCakupanDraft, "tanggal"> & { tanggal: TanggalBisnis })[] };
+  /** Rumus jumlah kirim yang dipakai saat difinalisasi (T126): `lama` untuk rencana final sebelum PRD A6 ▶ Revisi 2026-10-14. */
+  rumusJumlahKirim: RumusJumlahKirim;
   /** Urut kode produk. */
   baris: BarisRencanaFinal[];
 };
@@ -344,6 +349,7 @@ export async function bacaRencanaFinal(idGudang: number, idRencana: number): Pro
       perubahanKategori: r.perubahanKategori,
       cakupan: r.cakupan.map((c) => ({ ...c, tanggal: parseTanggalBisnis(c.tanggal) })),
     },
+    rumusJumlahKirim: r.rumusJumlahKirim,
     baris: baris.map(
       (b): BarisRencanaFinal => ({
         kodeProduk: b.kodeProduk,
@@ -366,7 +372,7 @@ export type RincianRencanaFinal = Omit<RencanaFinal, "baris"> & {
   baris: (RencanaFinal["baris"][number] & {
     /** Asal buffer, diturunkan dari persen buffer snapshot; `null` tanpa buffer. */
     asalBuffer: ReturnType<typeof asalBufferDari>;
-    /** Asal jumlah kirim dari angka snapshot (modul angka); `null` tanpa jumlah kirim. */
+    /** Asal jumlah kirim dari angka snapshot dengan rumus tersimpan (modul angka, T126); `null` tanpa jumlah kirim. */
     rincianJumlahKirim: ReturnType<typeof asalJumlahKirim>;
   })[];
 };
@@ -377,7 +383,11 @@ export async function bacaRincianRencanaFinal(idGudang: number, idRencana: numbe
   if (rencana === null) return null;
   return {
     ...rencana,
-    baris: rencana.baris.map((b) => ({ ...b, asalBuffer: asalBufferDari(b.persenBuffer), rincianJumlahKirim: asalJumlahKirim(b) })),
+    baris: rencana.baris.map((b) => ({
+      ...b,
+      asalBuffer: asalBufferDari(b.persenBuffer),
+      rincianJumlahKirim: asalJumlahKirim(b, rencana.rumusJumlahKirim),
+    })),
   };
 }
 

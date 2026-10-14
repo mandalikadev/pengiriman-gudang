@@ -40,6 +40,7 @@ const rencanaPusat: RencanaFinal = {
   jadwal: { pola: "mingguan", hariKirim: [{ hari: "Senin", persiapanHari: 0 }], tanggalJangkar: null, versi: 1, persiapanHari: 1, panjangCakupan: 6 },
   diLuarJadwal: tambahanPusat,
   kalender: { revisi: 1, perubahanKategori: [], cakupan: [] },
+  rumusJumlahKirim: "stok-target",
   baris: [],
 };
 

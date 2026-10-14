@@ -35,7 +35,7 @@ export const TEKS_BANTUAN_ISTILAH = {
   buffer: {
     judul: "Buffer",
     penjelasan:
-      "Persen tambahan di atas kekurangan stok: 20% untuk varian keluarga aroma tujuh besar ranking pusat, 10% untuk produk otomatis lainnya.",
+      "Persen tambahan di atas seluruh kebutuhan barang: 20% untuk varian keluarga aroma tujuh besar ranking pusat, 10% untuk produk otomatis lainnya.",
   },
   hanyaBaca: {
     judul: "Hanya-baca",

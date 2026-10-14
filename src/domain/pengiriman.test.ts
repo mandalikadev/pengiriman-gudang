@@ -166,11 +166,11 @@ describe("cakupanPengiriman (golden jumlah-kirim kasusCakupan)", () => {
 });
 
 describe("hitungKebutuhanKirim — jumlah kirim", () => {
-  it("contoh pemilik end-to-end: kebutuhan 56, stok 20, buffer 20 → 44", () => {
+  it("contoh pemilik end-to-end: kebutuhan 56, stok 20, buffer 20 → 48 (PRD A6 ▶ Revisi 2026-10-14: 56 × 120% − 20)", () => {
     expect(hitungKebutuhanKirim(masukan({ stokAkhir: 20, persenBuffer: 20 }))).toMatchObject({
       status: "siap",
       persenBuffer: 20,
-      jumlahKirim: 44,
+      jumlahKirim: 48,
     });
   });
 
