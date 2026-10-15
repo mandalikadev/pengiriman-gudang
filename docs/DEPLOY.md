@@ -16,7 +16,7 @@ VPS juga dipakai aplikasi lain milik pemilik (mis. HRIS). Setiap aplikasi punya 
   .env                       variabel produksi (dari deploy/.env.produksi.example), chmod 600, tidak di-commit
   repo/                      clone repo publik; deploy.sh checkout commit yang di-deploy
   backup/                    pg_dump harian drp-YYYY-MM-DD.sql.gz, 14 hari terakhir
-  rahasia/                   chmod 700; google-backup.json (kunci service account backup luar, T131)
+  rahasia/                   chmod 700; google-drive-token.json (token OAuth rclone untuk backup luar, T132)
 ```
 
 Stack aplikasi (`deploy/compose.prod.yml`, compose project `drp`):
@@ -141,78 +141,84 @@ Backup ini hanya mencakup database dan hilang jika VPS rusak. Salinan di luar VP
 
 ## Backup ke Google Drive
 
-Layanan `backup-luar` (image `rclone/rclone`, skrip `deploy/backup-luar.sh`) berjalan setiap hari, **1 jam setelah** `pg_dump` layanan `backup`:
+Layanan `backup-luar` (image `rclone/rclone`, skrip `deploy/backup-luar.sh`) menyalin backup ke **My Drive** sebuah akun Google biasa milik perusahaan, di folder **`Backup DRP`** pada root My Drive. Folder itu dibuat otomatis oleh rclone. Setiap hari, **1 jam setelah** `pg_dump` layanan `backup`:
 
-- dump terbaru disalin ke `drp/database/` di folder Shared Drive;
-- isi bucket MinIO (`S3_BUCKET`, workbook yang diunggah) disamakan (`rclone sync`) ke `drp/workbook/`;
-- dump di `drp/database/` yang lebih tua dari 30 hari dihapus (masuk sampah Shared Drive). Workbook tidak pernah dihapus karena umur.
+- dump terbaru disalin ke `Backup DRP/drp/database/`;
+- isi bucket MinIO (`S3_BUCKET`, workbook yang diunggah) disalin (`rclone copy`) ke `Backup DRP/drp/workbook/`. Workbook di Drive tidak pernah dihapus, baik karena umur maupun karena hilang dari bucket. Bucket kosong (mis. di VPS baru) tidak mengosongkan Drive;
+- dump di `Backup DRP/drp/database/` yang lebih tua dari 30 hari dihapus (masuk sampah Google Drive).
 
-Jika satu langkah gagal, log mencatat `GAGAL ...` dan container keluar dengan kode 1. Docker menyalakannya lagi, dan percobaan berikutnya pada jadwal hari berikutnya. `app` dan `worker` tidak terpengaruh. Selama `BACKUP_GDRIVE_DRIVE_ID` dan `BACKUP_GDRIVE_FOLDER_ID` kosong, `backup-luar` hanya mencatat `Backup luar belum dikonfigurasi` dan tidak menyalin apa pun.
+Autentikasinya token OAuth rclone (login Google sekali) dengan scope `drive.file`: rclone hanya bisa melihat dan mengubah berkas yang ia buat sendiri, bukan isi Drive lainnya. Token disimpan di `/opt/drp/rahasia/google-drive-token.json`, tidak di repo dan tidak di `.env`. Setiap putaran, token dibaca dari berkas itu. Access token berlaku sekitar 1 jam, jadi rclone memperbaruinya dengan refresh token di dalam token itu. Hasil pembaruan hanya ditulis ke konfigurasi sementara di dalam container; berkas token tidak diubah.
+
+Jika satu langkah gagal, log mencatat `GAGAL ...` dan container keluar dengan kode 1. Docker menyalakannya lagi, dan percobaan berikutnya pada jadwal hari berikutnya. `app` dan `worker` tidak terpengaruh. Selama berkas token belum ada, `backup-luar` hanya mencatat `Backup luar belum dikonfigurasi: /opt/drp/rahasia/google-drive-token.json belum ada ...` dan tidak menyalin apa pun.
 
 ### Persiapan sekali (pemilik)
 
-1. **Service account dan kunci JSON** di [Google Cloud Console](https://console.cloud.google.com/), dengan akun Google perusahaan:
-   1. Buat project baru (mis. `drp-backup`) atau pakai project yang ada.
-   2. *APIs & Services > Library*: aktifkan **Google Drive API**.
-   3. *IAM & Admin > Service Accounts > Create service account*: nama `drp-backup`. Tidak perlu role apa pun; klik *Done*.
-   4. Buka service account itu > *Keys > Add key > Create new key > JSON*. Berkas JSON terunduh. Catat alamat email service account (`drp-backup@<project>.iam.gserviceaccount.com`).
-   Jika pembuatan kunci ditolak kebijakan organisasi (`iam.disableServiceAccountKeyCreation`), admin Google Workspace perlu memberi pengecualian untuk project ini.
-2. **Shared Drive**: di Google Drive, buka Shared Drive perusahaan > *Manage members*, tambahkan email service account dengan peran **Content manager**. Buat folder tujuan (mis. `Backup DRP`) di dalamnya. Catat dua ID dari alamat browser (`https://drive.google.com/drive/folders/<ID>`): ID Shared Drive (saat membuka Shared Drive-nya) dan ID folder tujuan (saat membuka foldernya).
-3. **Salin kunci ke VPS** (dari laptop), lalu hapus berkas JSON dari folder unduhan laptop:
+1. **Buat token di laptop Linux** dengan Docker (image yang sama dengan VPS). Login memakai **akun Google yang dipegang perusahaan**, bukan akun pribadi:
    ```bash
-   scp google-backup.json <user-deploy>@<vps>:/opt/drp/rahasia/google-backup.json
-   ssh <user-deploy>@<vps> chmod 600 /opt/drp/rahasia/google-backup.json
+   umask 077
+   docker run --rm --network host -e RCLONE_DRIVE_SCOPE=drive.file \
+     rclone/rclone:1.75.1 authorize "drive" --auth-no-open-browser \
+     | grep '^{' > google-drive-token.json
    ```
-   Jangan menaruh berkas ini di repo atau di `.env`.
-4. **Isi `/opt/drp/.env`** (tambahkan barisnya jika `.env` dibuat sebelum T131):
+   Terminal mencetak `Please go to the following link: http://127.0.0.1:53682/auth?state=...`. Buka alamat itu di browser laptop yang sama, login, lalu pilih *Allow* (Izinkan). Browser menampilkan `Success!` dan perintah selesai. Periksa bahwa token tersimpan (tanpa menampilkan isinya):
+   ```bash
+   test -s google-drive-token.json && echo "Token tersimpan."
    ```
-   BACKUP_GDRIVE_DRIVE_ID=<ID Shared Drive>
-   BACKUP_GDRIVE_FOLDER_ID=<ID folder tujuan>
+   `--network host` diperlukan agar browser bisa menjangkau rclone di `127.0.0.1:53682`. Di Docker Desktop, aktifkan dulu *Settings > Resources > Network > Enable host networking*.
+2. **Salin token ke VPS**, lalu hapus salinan di laptop:
+   ```bash
+   scp google-drive-token.json <user-deploy>@<vps>:/opt/drp/rahasia/google-drive-token.json
+   rm google-drive-token.json
    ```
-5. **Terapkan dan periksa akses** di VPS:
+3. **Batasi aksesnya**:
+   ```bash
+   ssh <user-deploy>@<vps> chmod 600 /opt/drp/rahasia/google-drive-token.json
+   ```
+4. **Terapkan dan periksa akses** di VPS:
    ```bash
    cd /opt/drp/repo
-   drp up -d backup-luar
-   drp run --rm --no-deps --entrypoint rclone backup-luar lsd gdrive:   # tanpa galat = akses benar
-   drp logs --tail 5 backup-luar                                        # jadwal putaran berikutnya
+   drp restart backup-luar
+   drp run --rm --no-deps backup-luar rclone lsd gdrive:   # tanpa galat = akses benar
+   drp logs --tail 5 backup-luar                          # jadwal putaran berikutnya
    ```
+   Sebelum putaran pertama, `lsd` belum menampilkan apa pun karena rclone baru melihat folder yang ia buat sendiri. Jangan membuat folder `Backup DRP` secara manual: rclone tidak melihatnya dan akan membuat folder baru dengan nama yang sama.
 
 ### Memeriksa backup terakhir
 
 ```bash
 cd /opt/drp/repo
-drp logs --tail 20 backup-luar                                              # "Backup luar selesai." atau "GAGAL ..."
-drp run --rm --no-deps --entrypoint rclone backup-luar lsl gdrive:drp/database/   # dump yang tersimpan, dengan tanggal
-drp run --rm --no-deps --entrypoint rclone backup-luar size gdrive:drp/workbook/  # jumlah dan ukuran workbook
+drp logs --tail 20 backup-luar                                                   # "Backup luar selesai." atau "GAGAL ..."
+drp run --rm --no-deps backup-luar rclone lsl "gdrive:Backup DRP/drp/database/"  # dump yang tersimpan, dengan tanggal
+drp run --rm --no-deps backup-luar rclone size "gdrive:Backup DRP/drp/workbook/" # jumlah dan ukuran workbook
 ```
 
-Isi yang sama terlihat di Google Drive pada folder tujuan, subfolder `drp/database` dan `drp/workbook`.
+Isi yang sama terlihat di Google Drive akun itu, folder `Backup DRP` > `drp` > `database` dan `workbook`.
 
 ### Memulihkan dari Google Drive
 
 **Ke VPS baru** (VPS lama rusak):
 
-1. Siapkan VPS baru seperti [Persiapan sekali](#persiapan-sekali) dan deploy pertama, lalu langkah 3 dan 4 [persiapan backup](#persiapan-sekali-pemilik) (kunci JSON dan `BACKUP_GDRIVE_*` yang sama).
-2. Hentikan `backup-luar` selama pemulihan. Jika ia berjalan sebelum bucket dipulihkan, `rclone sync` akan mengosongkan `drp/workbook/` di Google Drive mengikuti bucket yang masih kosong:
+1. Siapkan VPS baru seperti [Persiapan sekali](#persiapan-sekali) dan deploy pertama, lalu buat token baru dan pasang dengan langkah 1–3 [persiapan backup](#persiapan-sekali-pemilik), memakai akun Google yang sama. Token baru tetap bisa membaca folder `Backup DRP` yang dibuat token lama.
+2. Hentikan `backup-luar` selama pemulihan. Layanan `backup` di VPS baru langsung membuat dump database yang masih kosong. Jika `backup-luar` berjalan, dump itu bisa menimpa dump bertanggal sama di Drive:
    ```bash
    cd /opt/drp/repo
    drp stop backup-luar
    ```
 3. Unduh dump yang dipilih ke `/opt/drp/backup`:
    ```bash
-   drp run --rm --no-deps --entrypoint rclone backup-luar lsl gdrive:drp/database/
-   drp run --rm --no-deps -v /opt/drp/backup:/pulih --entrypoint rclone backup-luar copy gdrive:drp/database/drp-2026-10-14.sql.gz /pulih/
+   drp run --rm --no-deps backup-luar rclone lsl "gdrive:Backup DRP/drp/database/"
+   drp run --rm --no-deps -v /opt/drp/backup:/pulih backup-luar rclone copy "gdrive:Backup DRP/drp/database/drp-2026-10-14.sql.gz" /pulih/
    ```
 4. Pulihkan database dengan perintah di [Memulihkan dari backup](#memulihkan-dari-backup) memakai berkas itu.
 5. Pulihkan workbook ke bucket, lalu nyalakan lagi `backup-luar`:
    ```bash
-   drp run --rm --entrypoint rclone backup-luar copy gdrive:drp/workbook/ "minio:$(sed -n 's/^S3_BUCKET=//p' /opt/drp/.env)"
+   drp run --rm backup-luar rclone copy "gdrive:Backup DRP/drp/workbook/" "minio:$(sed -n 's/^S3_BUCKET=//p' /opt/drp/.env)"
    drp start backup-luar
    ```
 
 **Ke laptop** (memeriksa data lama), memakai stack pengembangan (`docker compose up -d`, PostgreSQL di port 55432):
 
-1. Unduh dump dari Google Drive di browser (folder tujuan > `drp` > `database`), mis. `drp-2026-10-14.sql.gz`.
+1. Unduh dump dari Google Drive di browser (folder `Backup DRP` > `drp` > `database`), mis. `drp-2026-10-14.sql.gz`.
 2. Pulihkan ke database baru `drp_pulih`, sehingga database pengembangan `mandalika` tidak tersentuh, lalu jalankan aplikasi dengan database itu:
    ```bash
    docker compose exec -T postgres createdb -U mandalika drp_pulih
@@ -220,7 +226,7 @@ Isi yang sama terlihat di Google Drive pada folder tujuan, subfolder `drp/databa
    DATABASE_URL=postgres://mandalika:mandalika@localhost:55432/drp_pulih pnpm dev
    ```
    Masuk dengan akun produksi. Untuk mengulang, hapus dulu: `docker compose exec -T postgres dropdb -U mandalika --force drp_pulih`.
-3. Workbook (jika perlu): unduh folder `drp/workbook` dari Google Drive, ekstrak ke `./workbook`, lalu salin ke MinIO lokal:
+3. Workbook (jika perlu): unduh folder `Backup DRP` > `drp` > `workbook` dari Google Drive, ekstrak ke `./workbook`, lalu salin ke MinIO lokal:
    ```bash
    docker run --rm -v "$PWD/workbook:/workbook:ro" --add-host host.docker.internal:host-gateway \
      -e RCLONE_CONFIG_LOKAL_TYPE=s3 -e RCLONE_CONFIG_LOKAL_PROVIDER=Minio \
@@ -229,6 +235,17 @@ Isi yang sama terlihat di Google Drive pada folder tujuan, subfolder `drp/databa
      rclone/rclone:1.75.1 copy /workbook lokal:mandalika
    ```
 
+### Mencabut atau mengganti token
+
+1. Login ke [myaccount.google.com](https://myaccount.google.com/) dengan akun backup > *Security* (Keamanan) > *Third-party apps & services* (Aplikasi dan layanan pihak ketiga) > **rclone** > *Remove access* (Hapus akses). Token di VPS langsung tidak berlaku; putaran berikutnya mencatat `GAGAL`.
+2. Untuk melanjutkan backup, buat token baru dan pasang dengan langkah 1–4 [persiapan backup](#persiapan-sekali-pemilik). Berkas lama di VPS ditimpa.
+
+### Batasan
+
+- Backup terikat ke satu akun Google. Jika akun itu dihapus, aksesnya dicabut, atau kuota Drive-nya penuh, log mencatat `GAGAL` dan tidak ada salinan baru sampai token baru dipasang (atau kuota dikosongkan). Periksa log secara berkala ([Memeriksa backup terakhir](#memeriksa-backup-terakhir)); tidak ada notifikasi otomatis.
+- Dump yang dihapus masuk sampah Google Drive dan tetap memakai kuota sampai sampah dikosongkan (otomatis oleh Google setelah 30 hari).
+- Token memakai client ID bawaan rclone. rclone 1.75.1 mencatat `NOTICE` bahwa client ID bersama ini sedang dipensiunkan. Jika Google berhenti menerimanya, putaran mencatat `GAGAL`.
+
 ## Uji lokal
 
-Lihat deskripsi PR T130 untuk cara uji asap `compose.prod.yml` dan proxy di laptop (Docker-in-Docker sebagai tiruan VPS, tanpa menyentuh port 80/443 laptop), dan PR T131 untuk uji asap `backup-luar` dengan remote rclone `local` sebagai pengganti Google Drive.
+Lihat deskripsi PR T130 untuk cara uji asap `compose.prod.yml` dan proxy di laptop (Docker-in-Docker sebagai tiruan VPS, tanpa menyentuh port 80/443 laptop), dan PR T131 serta T132 untuk uji asap `backup-luar` dengan remote rclone `local` sebagai pengganti Google Drive.

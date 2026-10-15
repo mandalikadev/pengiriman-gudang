@@ -35,7 +35,7 @@ if [[ ! -f "$BERKAS_ENV" ]]; then
   exit 1
 fi
 
-# Folder kunci service account Google untuk backup-luar (T131). Dibuat di sini, bukan oleh bind mount Docker, agar
+# Folder token Google Drive untuk backup-luar (T131, T132). Dibuat di sini, bukan oleh bind mount Docker, agar
 # milik user deploy dan tertutup bagi user lain.
 [[ -d "$DIR_DRP/rahasia" ]] || install -d -m 700 "$DIR_DRP/rahasia"
 

@@ -56,19 +56,33 @@ describe("deploy/compose.prod.yml", () => {
   });
 });
 
-describe("layanan backup-luar (T131)", () => {
+describe("layanan backup-luar (T131, T132)", () => {
   const blok = blokLayanan("backup-luar");
 
   it("image resmi rclone/rclone dengan versi dipatok", () => {
     expect(blok).toMatch(/^ {4}image: rclone\/rclone:\d+\.\d+\.\d+$/m);
   });
 
-  it("membaca dump dan kunci service account hanya-baca, kunci dari /opt/drp/rahasia di luar repo", () => {
+  it("membaca dump dan folder token hanya-baca, token dari /opt/drp/rahasia di luar repo", () => {
     expect(blok).toContain("- /opt/drp/backup:/backup:ro");
     expect(blok).toContain("- /opt/drp/rahasia:/rahasia:ro");
-    expect(blok).toContain("RCLONE_CONFIG_GDRIVE_SERVICE_ACCOUNT_FILE: /rahasia/google-backup.json");
-    expect(blok).toContain("RCLONE_CONFIG_GDRIVE_TEAM_DRIVE: ${BACKUP_GDRIVE_DRIVE_ID:-}");
-    expect(blok).toContain("RCLONE_CONFIG_GDRIVE_ROOT_FOLDER_ID: ${BACKUP_GDRIVE_FOLDER_ID:-}");
+    expect(blok).toContain("init: true");
+  });
+
+  it("remote gdrive: drive dengan scope drive.file, tanpa service account, team drive, atau client sendiri", () => {
+    const gdrive = blok
+      .split("\n")
+      .filter((baris) => /^\s*RCLONE_CONFIG_GDRIVE_/.test(baris))
+      .map((baris) => baris.trim());
+    expect(gdrive).toEqual(["RCLONE_CONFIG_GDRIVE_TYPE: drive", "RCLONE_CONFIG_GDRIVE_SCOPE: drive.file"]);
+    for (const isi of [compose, backupLuar]) {
+      expect(isi).not.toMatch(/service_account|SERVICE_ACCOUNT|team_drive|TEAM_DRIVE|CLIENT_ID|CLIENT_SECRET/);
+    }
+  });
+
+  it("konfigurasi rclone sementara di tmpfs, sehingga berkas token tidak pernah ditulis", () => {
+    expect(blok).toContain("RCLONE_CONFIG: /tmp/rclone.conf");
+    expect(blok).toMatch(/^ {4}tmpfs:\n {6}- \/tmp$/m);
   });
 
   it("membaca MinIO lewat network internal, hanya network default", () => {
@@ -87,18 +101,40 @@ describe("layanan backup-luar (T131)", () => {
 describe("deploy/backup-luar.sh", () => {
   const perintah = tanpaKomentar(backupLuar);
 
-  it("tanpa BACKUP_GDRIVE_* hanya mencatat belum dikonfigurasi dan tidak menyalin apa pun", () => {
+  it("tanpa berkas token hanya mencatat belum dikonfigurasi lalu tidur, tanpa menjalankan rclone", () => {
+    expect(perintah).toContain("BERKAS_TOKEN=/rahasia/google-drive-token.json");
     expect(perintah).toMatch(
-      /if \[ -z "\$\{BACKUP_GDRIVE_DRIVE_ID:-\}" \] && \[ -z "\$\{BACKUP_GDRIVE_FOLDER_ID:-\}" \]; then\n\s*log "Backup luar belum dikonfigurasi[^\n]*\n\s*exec sleep infinity\n/,
+      /if \[ ! -f "\$BERKAS_TOKEN" \]; then\n\s*log "Backup luar belum dikonfigurasi: \/opt\/drp\/rahasia\/google-drive-token\.json belum ada[^\n]*\n[^\n]*\n\s*exec sleep infinity\n/,
     );
     expect(perintah.indexOf("exec sleep infinity")).toBeLessThan(perintah.indexOf("rclone "));
   });
 
-  it("menyalin dump terbaru, sync bucket ke workbook, menghapus hanya dump lebih tua dari 30 hari", () => {
-    expect(perintah).toContain('rclone copy "$terbaru" gdrive:drp/database/');
-    expect(perintah).toContain('rclone sync "minio:${S3_BUCKET:?}" gdrive:drp/workbook/');
-    const hapus = perintah.split("\n").filter((baris) => /rclone (delete|purge|rmdirs|deletefile)|--min-age|--max-age/.test(baris));
-    expect(hapus).toEqual([expect.stringContaining("rclone delete gdrive:drp/database/ --min-age 30d --include 'drp-*.sql.gz'")]);
+  it("token dibaca dari berkas setiap putaran sesudah menunggu jadwal, ke konfigurasi sementara", () => {
+    expect(perintah).toMatch(/tr -d '\\r\\n' < "\$BERKAS_TOKEN"/);
+    expect(perintah).toContain(`printf '[gdrive]\\ntoken = %s\\n' "$token" > "\${RCLONE_CONFIG:?}"`);
+    const tidur = perintah.indexOf("sleep $((target - sekarang))");
+    expect(tidur).toBeGreaterThan(0);
+    expect(perintah.indexOf("if ! muat_token; then", tidur)).toBeGreaterThan(tidur);
+  });
+
+  it("tujuan folder Backup DRP di root My Drive", () => {
+    expect(perintah).toContain('TUJUAN="gdrive:Backup DRP/drp"');
+    const tujuanRclone = [...perintah.matchAll(/rclone \w+ [^\n]*/g)].map(([baris]) => baris).filter((baris) => /gdrive:|TUJUAN/.test(baris));
+    expect(tujuanRclone).toHaveLength(3);
+    for (const baris of tujuanRclone) expect(baris).not.toContain("gdrive:");
+  });
+
+  it("menyalin dump terbaru, copy (bukan sync) bucket ke workbook, menghapus hanya dump lebih tua dari 30 hari", () => {
+    expect(perintah).toContain('rclone copy "$terbaru" "$TUJUAN/database/"');
+    expect(perintah).toContain('rclone copy "minio:${S3_BUCKET:?}" "$TUJUAN/workbook/"');
+    const hapus = perintah.split("\n").filter((baris) => /rclone (delete|purge|rmdirs|deletefile|move|sync)|--min-age|--max-age/.test(baris));
+    expect(hapus).toEqual([expect.stringContaining(`rclone delete "$TUJUAN/database/" --min-age 30d --include 'drp-*.sql.gz'`)]);
+  });
+
+  it("tidak ada rclone sync ke gdrive: di skrip, compose, maupun docs", () => {
+    for (const isi of [backupLuar, compose, baca("docs/DEPLOY.md")]) {
+      expect(isi).not.toMatch(/rclone sync[^\n]*gdrive:|backup-luar sync /);
+    }
   });
 
   it("gagal → kode keluar non-nol", () => {
@@ -143,18 +179,20 @@ describe("deploy/.env.produksi.example", () => {
     expect(envContoh).toMatch(/^S3_ENDPOINT=https:\/\/drp\.mandalika\.web\.id$/m);
   });
 
-  it("BACKUP_GDRIVE_* tersedia dan kosong", () => {
-    expect(envContoh).toMatch(/^BACKUP_GDRIVE_DRIVE_ID=$/m);
-    expect(envContoh).toMatch(/^BACKUP_GDRIVE_FOLDER_ID=$/m);
+  it("BACKUP_GDRIVE_* tidak ada lagi di contoh env, compose, dan skrip backup luar", () => {
+    for (const isi of [envContoh, compose, backupLuar]) {
+      expect(isi).not.toMatch(/BACKUP_GDRIVE/);
+    }
   });
 });
 
 describe("rahasia", () => {
-  it("tidak ada kunci service account Google atau private key di repo", () => {
+  it("tidak ada token OAuth Google, kunci service account, atau private key di repo", () => {
     const berkas = execFileSync("git", ["ls-files"], { cwd: akar, encoding: "utf8" }).split("\n").filter(Boolean);
-    expect(berkas.filter((nama) => /google-backup\.json$/.test(nama))).toEqual([]);
-    // git grep keluar 1 jika tidak ada yang cocok.
-    const cari = spawnSync("git", ["grep", "-lE", "-e", '"type": *"service_account"', "-e", "BEGIN (RSA )?PRIVATE KEY"], {
+    expect(berkas.filter((nama) => /google-(backup|drive-token)\.json$/.test(nama))).toEqual([]);
+    // git grep keluar 1 jika tidak ada yang cocok. Access token Google berawalan ya29., refresh token berawalan 1//.
+    const pola = ['"type": *"service_account"', "BEGIN (RSA )?PRIVATE KEY", '"(access|refresh)_token" *: *"[^"]', "ya29\\.[A-Za-z0-9_-]{20}", "1//0[A-Za-z0-9_-]{20}"];
+    const cari = spawnSync("git", ["grep", "-lE", ...pola.flatMap((p) => ["-e", p])], {
       cwd: akar,
       encoding: "utf8",
     });

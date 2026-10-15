@@ -45,7 +45,7 @@ buat_folder_milik_saya() {
 echo "==> Folder aplikasi $DIR_DRP"
 buat_folder_milik_saya "$DIR_DRP"
 mkdir -p "$DIR_DRP/backup"
-# Kunci service account Google untuk backup luar (T131) disalin pemilik ke sini.
+# Token OAuth Google Drive untuk backup luar (T132) disalin pemilik ke sini.
 [[ -d "$DIR_DRP/rahasia" ]] || install -d -m 700 "$DIR_DRP/rahasia"
 if [[ -d "$DIR_REPO/.git" ]]; then
   echo "Repo sudah ada di $DIR_REPO; tidak diubah (deploy.sh yang memperbaruinya)."

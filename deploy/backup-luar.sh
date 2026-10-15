@@ -1,27 +1,51 @@
 #!/bin/sh
-# Backup luar VPS ke Google Drive (Shared Drive) dengan rclone (T131, docs/DEPLOY.md). Dijalankan layanan
+# Backup luar VPS ke My Drive akun Google biasa dengan rclone (T131, T132, docs/DEPLOY.md). Dijalankan layanan
 # `backup-luar` di deploy/compose.prod.yml (image rclone/rclone, shell busybox).
 #
 # Satu putaran per nyala container:
 # 1. Menunggu sampai 1 jam setelah jam dump harian layanan `backup` (dari waktu ubah dump terbaru di /backup; jika
 #    belum ada dump, 1 jam dari sekarang).
-# 2. Menyalin dump terbaru ke gdrive:drp/database/.
-# 3. `rclone sync` bucket S3_BUCKET di MinIO ke gdrive:drp/workbook/ (workbook tidak dihapus berdasarkan umur).
-# 4. Menghapus dump di gdrive:drp/database/ yang lebih tua dari 30 hari.
+# 2. Menyalin token OAuth dari /rahasia/google-drive-token.json ke berkas konfigurasi rclone sementara (RCLONE_CONFIG
+#    di tmpfs). Access token yang diperbarui rclone ditulis ke berkas sementara itu, bukan ke berkas token.
+# 3. Menyalin dump terbaru ke gdrive:Backup DRP/drp/database/.
+# 4. `rclone copy` bucket S3_BUCKET di MinIO ke gdrive:Backup DRP/drp/workbook/. Workbook di Drive tidak pernah
+#    dihapus, juga jika hilang dari bucket.
+# 5. Menghapus dump di gdrive:Backup DRP/drp/database/ yang lebih tua dari 30 hari.
 # Lalu keluar: 0 jika semua langkah berhasil, 1 jika ada yang gagal. Docker (restart: unless-stopped) menyalakannya
 # lagi dan putaran berikutnya menunggu jadwal hari berikutnya. Kegagalan tidak memengaruhi layanan lain.
 #
-# Remote `gdrive` dan `minio` dikonfigurasi lewat variabel RCLONE_CONFIG_* di compose.prod.yml.
-# Tanpa BACKUP_GDRIVE_DRIVE_ID dan BACKUP_GDRIVE_FOLDER_ID, hanya mencatat bahwa backup luar belum dikonfigurasi.
+# Remote `gdrive` (tipe dan scope) dan `minio` dikonfigurasi lewat variabel RCLONE_CONFIG_* di compose.prod.yml.
+# Tanpa berkas token, hanya mencatat bahwa backup luar belum dikonfigurasi.
+#
+# Dengan argumen, skrip menjalankan perintah itu dengan token sudah dimuat (untuk docs/DEPLOY.md), mis.
+#   backup-luar.sh rclone lsd gdrive:
 set -u
+
+BERKAS_TOKEN=/rahasia/google-drive-token.json
+TUJUAN="gdrive:Backup DRP/drp"
 
 log() {
   echo "[backup-luar] $(date '+%F %T %Z') $*"
 }
 
-if [ -z "${BACKUP_GDRIVE_DRIVE_ID:-}" ] && [ -z "${BACKUP_GDRIVE_FOLDER_ID:-}" ]; then
-  log "Backup luar belum dikonfigurasi: BACKUP_GDRIVE_DRIVE_ID dan BACKUP_GDRIVE_FOLDER_ID kosong di /opt/drp/.env. Tidak ada yang disalin."
+# Token JSON hasil `rclone authorize "drive"` (satu baris; baris baru dibuang jika JSON-nya disalin terlipat).
+muat_token() {
+  token=$(tr -d '\r\n' < "$BERKAS_TOKEN") && [ -n "$token" ] || return 1
+  printf '[gdrive]\ntoken = %s\n' "$token" > "${RCLONE_CONFIG:?}"
+}
+
+if [ ! -f "$BERKAS_TOKEN" ]; then
+  log "Backup luar belum dikonfigurasi: /opt/drp/rahasia/google-drive-token.json belum ada. Tidak ada yang disalin. Lihat docs/DEPLOY.md bagian \"Backup ke Google Drive\"."
+  [ "$#" -eq 0 ] || exit 1
   exec sleep infinity
+fi
+
+if [ "$#" -gt 0 ]; then
+  muat_token || {
+    log "GAGAL membaca token /opt/drp/rahasia/google-drive-token.json (kosong atau tidak terbaca)." >&2
+    exit 1
+  }
+  exec "$@"
 fi
 
 dump_terbaru() {
@@ -42,28 +66,34 @@ fi
 log "Putaran berikutnya: $(date -d "@$target" '+%F %T %Z')."
 sleep $((target - sekarang))
 
+if ! muat_token; then
+  log "GAGAL membaca token /opt/drp/rahasia/google-drive-token.json (kosong atau tidak terbaca)." >&2
+  log "Backup luar GAGAL (kode keluar 1). Dicoba lagi pada jadwal berikutnya." >&2
+  exit 1
+fi
+
 gagal=0
 
 terbaru=$(dump_terbaru)
 if [ -z "$terbaru" ]; then
   log "GAGAL: tidak ada dump drp-*.sql.gz di /opt/drp/backup. Periksa layanan backup." >&2
   gagal=1
-elif rclone copy "$terbaru" gdrive:drp/database/; then
-  log "Dump disalin: $(basename "$terbaru") -> drp/database/"
+elif rclone copy "$terbaru" "$TUJUAN/database/"; then
+  log "Dump disalin: $(basename "$terbaru") -> Backup DRP/drp/database/"
 else
   log "GAGAL menyalin dump $(basename "$terbaru") ke Google Drive." >&2
   gagal=1
 fi
 
-if rclone sync "minio:${S3_BUCKET:?}" gdrive:drp/workbook/; then
-  log "Bucket ${S3_BUCKET} disinkronkan -> drp/workbook/"
+if rclone copy "minio:${S3_BUCKET:?}" "$TUJUAN/workbook/"; then
+  log "Bucket ${S3_BUCKET} disalin -> Backup DRP/drp/workbook/"
 else
-  log "GAGAL menyinkronkan bucket ${S3_BUCKET} ke Google Drive." >&2
+  log "GAGAL menyalin bucket ${S3_BUCKET} ke Google Drive." >&2
   gagal=1
 fi
 
-if rclone delete gdrive:drp/database/ --min-age 30d --include 'drp-*.sql.gz'; then
-  log "Dump di drp/database/ yang lebih tua dari 30 hari dihapus."
+if rclone delete "$TUJUAN/database/" --min-age 30d --include 'drp-*.sql.gz'; then
+  log "Dump di Backup DRP/drp/database/ yang lebih tua dari 30 hari dihapus."
 else
   log "GAGAL menghapus dump lama di Google Drive." >&2
   gagal=1
